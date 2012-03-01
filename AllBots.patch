@@ -1,6 +1,6 @@
-From 305630dfc7a88c6d188978b5ed097a902f44f3a6 Mon Sep 17 00:00:00 2001
+From 3b733019b86d375621ddb615415991bca4cd3db4 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Wed, 29 Feb 2012 20:20:38 +0700
+Date: Thu, 1 Mar 2012 13:45:30 +0700
 Subject: [PATCH] AllBots
 
 ---
@@ -29,7 +29,7 @@ Subject: [PATCH] AllBots
  src/server/game/AI/NpcBots/bot_warlock_ai.h        |   36 +
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  991 ++
  src/server/game/AI/NpcBots/bot_warrior_ai.h        |  109 +
- src/server/game/AI/PlayerBots/PlayerbotAI.cpp      |10483 ++++++++++++++++++++
+ src/server/game/AI/PlayerBots/PlayerbotAI.cpp      |10544 ++++++++++++++++++++
  src/server/game/AI/PlayerBots/PlayerbotAI.h        | 2075 ++++
  .../game/AI/PlayerBots/PlayerbotDeathKnightAI.cpp  |  500 +
  .../game/AI/PlayerBots/PlayerbotDeathKnightAI.h    |  100 +
@@ -45,7 +45,7 @@ Subject: [PATCH] AllBots
  src/server/game/AI/PlayerBots/PlayerbotPriestAI.h  |  157 +
  src/server/game/AI/PlayerBots/PlayerbotRogueAI.cpp |  346 +
  src/server/game/AI/PlayerBots/PlayerbotRogueAI.h   |  102 +
- .../game/AI/PlayerBots/PlayerbotShamanAI.cpp       |  553 ++
+ .../game/AI/PlayerBots/PlayerbotShamanAI.cpp       |  553 +
  src/server/game/AI/PlayerBots/PlayerbotShamanAI.h  |  119 +
  .../game/AI/PlayerBots/PlayerbotWarlockAI.cpp      |  569 ++
  src/server/game/AI/PlayerBots/PlayerbotWarlockAI.h |  250 +
@@ -54,7 +54,7 @@ Subject: [PATCH] AllBots
  src/server/game/CMakeLists.txt                     |    2 +
  src/server/game/Chat/Chat.cpp                      |   13 +
  src/server/game/Chat/Chat.h                        |    7 +
- src/server/game/Chat/Commands/Level0.cpp           |  872 ++
+ src/server/game/Chat/Commands/Level0.cpp           |  885 ++
  src/server/game/Chat/Commands/Level3.cpp           |  201 +
  src/server/game/Entities/Creature/Creature.cpp     |   99 +
  src/server/game/Entities/Creature/Creature.h       |   25 +
@@ -63,15 +63,15 @@ Subject: [PATCH] AllBots
  src/server/game/Entities/Player/Player.h           |   70 +
  src/server/game/Entities/Unit/Unit.cpp             |  182 +
  src/server/game/Groups/Group.cpp                   |   19 +
- src/server/game/Handlers/CharacterHandler.cpp      |  189 +
+ src/server/game/Handlers/CharacterHandler.cpp      |  141 +
  src/server/game/Handlers/ChatHandler.cpp           |   30 +
  src/server/game/Handlers/GroupHandler.cpp          |   18 +
  src/server/game/Handlers/QuestHandler.cpp          |    8 +
  src/server/game/Scripting/ScriptLoader.cpp         |   24 +
- src/server/game/Server/WorldSession.cpp            |  110 +-
+ src/server/game/Server/WorldSession.cpp            |  108 +-
  src/server/game/Server/WorldSession.h              |   28 +
  src/server/worldserver/worldserver.conf.dist       |  147 +
- 67 files changed, 31634 insertions(+), 2 deletions(-)
+ 67 files changed, 31658 insertions(+), 2 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -9667,10 +9667,10 @@ index 0000000..5fdda4a
 \ No newline at end of file
 diff --git a/src/server/game/AI/PlayerBots/PlayerbotAI.cpp b/src/server/game/AI/PlayerBots/PlayerbotAI.cpp
 new file mode 100644
-index 0000000..c019ea5
+index 0000000..0765dfd
 --- /dev/null
 +++ b/src/server/game/AI/PlayerBots/PlayerbotAI.cpp
-@@ -0,0 +1,10483 @@
+@@ -0,0 +1,10544 @@
 +/*
 +Name:       PlayerBot AI Core by Graff (onlysuffering@mail.ru)
 +Converted:  from original blueboy's Playerbots: https://github.com/blueboy/portal/
@@ -9694,6 +9694,7 @@ index 0000000..c019ea5
 +#include "PlayerbotWarlockAI.h"
 +#include "PlayerbotWarriorAI.h"
 +#include "Group.h"
++#include "GroupMgr.h"
 +#include "Spell.h"
 +#include "SpellAuraEffects.h"
 +#include "GossipDef.h"
@@ -9742,7 +9743,8 @@ index 0000000..c019ea5
 +public:
 +    PlayerbotChatHandler(Player* pMasterPlayer) : ChatHandler(pMasterPlayer) {}
 +    bool revive(Player& botPlayer) { return HandleReviveCommand(botPlayer.GetName()); }
-+    bool teleport(Player& botPlayer, WorldObject &obj) { return botPlayer.TeleportTo(obj, TELE_TO_GM_MODE); }
++    bool teleport(const Player &botPlayer){ return HandleSummonCommand(botPlayer.GetName()); }
++    bool teleport(Player& botPlayer, WorldObject &obj) { botPlayer.Relocate(obj); return true; }
 +    void sysmessage(const char *str) { SendSysMessage(str); }
 +    bool dropQuest(char *str) { return HandleQuestRemove(str); }
 +};
@@ -9813,6 +9815,59 @@ index 0000000..c019ea5
 +
 +    // start following master (will also teleport bot to master)
 +    SetMovementOrder(MOVEMENT_FOLLOW, GetMaster());
++
++    //add bot to group
++    ChatHandler ch(master);
++    if (Group *group = master->GetGroup())
++    {
++        if (!group->IsMember(m_bot->GetGUID()))
++        {
++            if (!group->IsFull())
++            {
++                if (!group->AddMember(m_bot))
++                {
++                    ch.PSendSysMessage("Playerbot %u is not added cuz group is full! #1", m_bot->GetGUID());
++                    master->GetSession()->LogoutPlayerBot(m_bot->GetGUID());
++                    return;
++                }
++            }
++            else if (!group->isRaidGroup())
++            {
++                group->ConvertToRaid();
++                if (!group->AddMember(m_bot))
++                {
++                    ch.PSendSysMessage("Playerbot %u is not added! #2", m_bot->GetGUID());
++                    master->GetSession()->LogoutPlayerBot(m_bot->GetGUID());
++                    return;
++                }
++            }
++            else//raid group is full
++            {
++                ch.PSendSysMessage("Playerbot %u is not added cuz group is full! #2", m_bot->GetGUID());
++                master->GetSession()->LogoutPlayerBot(m_bot->GetGUID());
++                return;
++            }
++        }
++    }
++    else
++    {
++        group = new Group;
++        if (!group->Create(master))
++        {
++            delete group;
++            return;
++        }
++
++        //critical part
++        sGroupMgr->AddGroup(group);
++
++        if (!group->AddMember(m_bot))
++        {
++            ch.PSendSysMessage("Playerbot %u is not added! #2", m_bot->GetGUID());
++            master->GetSession()->LogoutPlayerBot(m_bot->GetGUID());
++            return;
++        }
++    }
 +
 +    // get class specific ai
 +    switch (m_bot->getClass())
@@ -10533,6 +10588,10 @@ index 0000000..c019ea5
 +{
 +    switch (packet.GetOpcode())
 +    {
++        case MSG_MOVE_TELEPORT_ACK:
++            HandleTeleportAck();
++            return;
++
 +        case SMSG_DUEL_WINNER:
 +        {
 +            m_bot->HandleEmoteCommand(EMOTE_ONESHOT_APPLAUD);
@@ -11041,12 +11100,8 @@ index 0000000..c019ea5
 +        // Handle Group invites (auto accept if master is in group, otherwise decline & send message
 +        case SMSG_GROUP_INVITE:
 +        {
-+            if (m_bot->GetGroupInvite())
++            if (const Group* const grp = m_bot->GetGroupInvite())
 +            {
-+                const Group* const grp = m_bot->GetGroupInvite();
-+                if (!grp)
-+                    return;
-+
 +                Player* inviter = sObjectAccessor->FindPlayer(grp->GetLeaderGUID());
 +                if (!inviter)
 +                    return;
@@ -12263,7 +12318,7 @@ index 0000000..c019ea5
 +            else if (c->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE))
 +                // not all creature skins are leather, some are ore or herb
 +                if (m_bot->HasSkill(skillId) && ((skillId != SKILL_SKINNING) ||
-+                                                 (HasCollectFlag(COLLECT_FLAG_SKIN) && skillId == SKILL_SKINNING)))
++                    (HasCollectFlag(COLLECT_FLAG_SKIN) && skillId == SKILL_SKINNING)))
 +                {
 +                    // calculate skinning skill requirement
 +                    uint32 targetLevel = c->getLevel();
@@ -12433,8 +12488,8 @@ index 0000000..c019ea5
 +        if (go) // only go's can be forced
 +        {
 +            // if pickable, check if a forcible item is available for the bot
-+            if (skillId == SKILL_LOCKPICKING && (m_bot->HasSkill(SKILL_BLACKSMITHING) ||
-+                                                 m_bot->HasSkill(SKILL_ENGINEERING)))
++            if (skillId == SKILL_LOCKPICKING && 
++                (m_bot->HasSkill(SKILL_BLACKSMITHING) || m_bot->HasSkill(SKILL_ENGINEERING)))
 +            {
 +                // check for skeleton keys appropriate for lock value
 +                if (m_bot->HasSkill(SKILL_BLACKSMITHING))
@@ -12941,6 +12996,9 @@ index 0000000..c019ea5
 +        // don't follow while in combat
 +        if (m_bot->isInCombat())
 +            return;
++        // new check bot
++        if (m_bot->IsBeingTeleported() || m_bot->isInFlight())
++            return;
 +
 +        Player* pTarget;                            // target is player
 +        if (m_followTarget->GetTypeId() == TYPEID_PLAYER)
@@ -13117,8 +13175,9 @@ index 0000000..c019ea5
 +{
 +    if (m_bot->IsBeingTeleported() || m_bot->GetTrader())
 +        return;
++    //new
++    m_bot->UpdateZone(m_bot->GetZoneId(), m_bot->GetAreaId());
 +
-+    Player *m_master = GetMaster();
 +    if (!m_master->GetGroup() || !m_master->GetGroup()->IsMember(m_bot->GetGUID()))
 +    {
 +        m_master->GetSession()->LogoutPlayerBot(m_bot->GetGUID());
@@ -13177,8 +13236,10 @@ index 0000000..c019ea5
 +            // relocate ghost
 +            //Position loc;
 +            if (Corpse *corpse = m_bot->GetCorpse())
-+                //m_bot->TeleportTo(corpse->GetMapId()loc.mapid, loc.coord_x, loc.coord_y, loc.coord_z, m_bot->GetOrientation());
-+                m_bot->TeleportTo(*corpse);
++            {
++                m_bot->TeleportTo(corpse->GetMapId(), corpse->GetPositionX(), corpse->GetPositionY(), corpse->GetPositionZ(), m_bot->GetOrientation());
++                //m_bot->TeleportTo(*corpse);
++            }
 +            // set state to released
 +            SetState(BOTSTATE_DEADRELEASED);
 +        }
@@ -15824,7 +15885,7 @@ index 0000000..c019ea5
 +
 +void PlayerbotAI::HandleTeleportAck()
 +{
-+    m_ignoreAIUpdatesUntilTime = time(NULL) + 6;
++    m_ignoreAIUpdatesUntilTime = time(NULL) + 3;
 +    m_bot->GetMotionMaster()->Clear(true);
 +    if (m_bot->IsBeingTeleportedNear())
 +    {
@@ -15832,7 +15893,7 @@ index 0000000..c019ea5
 +        p.appendPackGUID(m_bot->GetGUID());
 +        p << (uint32) 0; // supposed to be flags? not used currently
 +        p << (uint32) time(NULL); // time - not currently used
-+        m_bot->GetSession()->HandleMoveWorldportAckOpcode(p);
++        m_bot->GetSession()->HandleMoveTeleportAck(p);
 +    }
 +    else if (m_bot->IsBeingTeleportedFar())
 +        m_bot->GetSession()->HandleMoveWorldportAckOpcode();
@@ -28869,7 +28930,7 @@ index 2311f4b..66e8473 100755
          bool HandleResetAllCommand(const char * args);
          bool HandleResetHonorCommand(const char * args);
 diff --git a/src/server/game/Chat/Commands/Level0.cpp b/src/server/game/Chat/Commands/Level0.cpp
-index 6d33a57..1b17a77 100755
+index 6d33a57..6c45ff5 100755
 --- a/src/server/game/Chat/Commands/Level0.cpp
 +++ b/src/server/game/Chat/Commands/Level0.cpp
 @@ -28,6 +28,7 @@
@@ -28880,7 +28941,7 @@ index 6d33a57..1b17a77 100755
  
  bool ChatHandler::HandleHelpCommand(const char* args)
  {
-@@ -157,3 +158,874 @@ bool ChatHandler::HandleServerMotdCommand(const char* /*args*/)
+@@ -157,3 +158,887 @@ bool ChatHandler::HandleServerMotdCommand(const char* /*args*/)
      return true;
  }
  
@@ -28904,26 +28965,39 @@ index 6d33a57..1b17a77 100755
 +    Player *player = m_session->GetPlayer();
 +
 +    char *cmd = strtok ((char*)args, " ");
-+    char *charname = strtok (NULL, " ");
-+    std::string cmdStr = cmd;
-+    std::string charnameStr = charname;
-+    if (cmdStr == "reca" || cmdStr == "recall" || cmdStr == "tele" || cmdStr == "teleport" || cmdStr == "summ" || cmdStr == "summon")
-+    {
-+        for(PlayerBotMap::const_iterator itr = m_session->GetPlayerBotsBegin(); itr != m_session->GetPlayerBotsEnd(); ++itr)
-+        {
-+            Player *botPlayer = itr->second;
-+            if (!botPlayer)
-+                continue;
-+            HandleSummonCommand(botPlayer->GetName());
-+        }
-+        return true;
-+    }
-+    if (!cmd || !charname)
++    if (!cmd)
 +    {
 +        PSendSysMessage("usage: add PLAYERNAME  or  remove PLAYERNAME");
 +        SetSentErrorMessage(true);
 +        return false;
 +    }
++    std::string cmdStr = cmd;
++    
++    if (cmdStr.compare("tele") == 0 || cmdStr.compare("teleport") == 0 || cmdStr.compare("summ") == 0 || cmdStr.compare("summon") == 0)
++    {
++        if (m_session->m_playerBots.empty())
++        {
++            PSendSysMessage("You Have No Playerbots!");
++            SetSentErrorMessage(true);
++            return false;
++        }
++        for(PlayerBotMap::const_iterator itr = m_session->GetPlayerBotsBegin(); itr != m_session->GetPlayerBotsEnd(); ++itr)
++        {
++            Player *botPlayer = itr->second;
++            if (!botPlayer)
++                continue;
++            botPlayer->TeleportTo(*player);
++        }
++        return true;
++    }
++    char *charname = strtok (NULL, " ");
++    if (!charname)
++    {
++        PSendSysMessage("usage: add PLAYERNAME  or  remove PLAYERNAME");
++        SetSentErrorMessage(true);
++        return false;
++    }
++    std::string charnameStr = charname;
 +
 +    uint64 guid;
 +
@@ -31797,7 +31871,7 @@ index b24b5be..a8e2754 100755
  
          return true;
 diff --git a/src/server/game/Handlers/CharacterHandler.cpp b/src/server/game/Handlers/CharacterHandler.cpp
-index a48cf70..c5c2d24 100644
+index a48cf70..9cbff4c 100644
 --- a/src/server/game/Handlers/CharacterHandler.cpp
 +++ b/src/server/game/Handlers/CharacterHandler.cpp
 @@ -45,6 +45,10 @@
@@ -31811,7 +31885,7 @@ index a48cf70..c5c2d24 100644
  class LoginQueryHolder : public SQLQueryHolder
  {
      private:
-@@ -1010,10 +1014,144 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder)
+@@ -1010,10 +1014,96 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder)
  
      m_playerLoading = false;
  
@@ -31902,61 +31976,13 @@ index a48cf70..c5c2d24 100644
 +    //tell the world session that they now manage this new bot
 +    (masterSession->m_playerBots)[guid] = botPlayer;
 +
-+    //add bot to group
-+    Player *master = masterSession->GetPlayer();
-+    ChatHandler ch(master);
-+    if (Group *group = master->GetGroup())
-+    {
-+        if (!group->IsMember(botPlayer->GetGUID()))
-+        {
-+            if (!group->IsFull())
-+            {
-+                if (!group->AddMember(botPlayer))
-+                {
-+                    ch.PSendSysMessage("Playerbot %u is not added cuz group is full! #1", botPlayer->GetGUID());
-+                    return;
-+                }
-+            }
-+            else if (!group->isRaidGroup())
-+            {
-+                group->ConvertToRaid();
-+                if (!group->AddMember(botPlayer))
-+                {
-+                    ch.PSendSysMessage("Playerbot %u is not added! #2", botPlayer->GetGUID());
-+                    return;
-+                }
-+            }
-+            else//raid group is full
-+            {
-+                ch.PSendSysMessage("Playerbot %u is not added cuz group is full! #2", botPlayer->GetGUID());
-+                return;
-+            }
-+        }
-+    }
-+    else
-+    {
-+        group = new Group;
-+        if (!group->Create(master))
-+        {
-+            delete group;
-+            return;
-+        }
-+
-+        if (!group->AddMember(botPlayer))
-+        {
-+            ch.PSendSysMessage("Playerbot %u is not added! #2", botPlayer->GetGUID());
-+            return;
-+        }
-+    }
-+    botSession->m_master = master;
-+    //new
-+    botPlayer->SetCharmerGUID(master->GetGUID());
++    botSession->m_master = masterSession->GetPlayer();
 +}
 +
  void WorldSession::HandleSetFactionAtWar(WorldPacket & recv_data)
  {
      sLog->outStaticDebug("WORLD: Received CMSG_SET_FACTION_ATWAR");
-@@ -1188,6 +1326,57 @@ void WorldSession::HandleChangePlayerNameOpcodeCallBack(PreparedQueryResult resu
+@@ -1188,6 +1278,57 @@ void WorldSession::HandleChangePlayerNameOpcodeCallBack(PreparedQueryResult resu
      sWorld->UpdateCharacterNameData(guidLow, newName);
  }
  
@@ -32182,7 +32208,7 @@ index cdec6bb..45ffcbf 100755
  #endif
  }
 diff --git a/src/server/game/Server/WorldSession.cpp b/src/server/game/Server/WorldSession.cpp
-index 211ca42..dc4537f 100755
+index 211ca42..051ee3b 100755
 --- a/src/server/game/Server/WorldSession.cpp
 +++ b/src/server/game/Server/WorldSession.cpp
 @@ -45,6 +45,9 @@
@@ -32315,7 +32341,7 @@ index 211ca42..dc4537f 100755
          PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_ACCOUNT_ONLINE);
  
          stmt->setUInt32(0, GetAccountId());
-@@ -656,6 +726,35 @@ void WorldSession::LoadGlobalAccountData()
+@@ -656,6 +726,33 @@ void WorldSession::LoadGlobalAccountData()
      LoadAccountData(CharacterDatabase.Query(stmt), GLOBAL_CACHE_MASK);
  }
  
@@ -32327,8 +32353,6 @@ index 211ca42..dc4537f 100755
 +    if (pPlayerBot) //log out any playbots I have
 +    {
 +        pPlayerBot->CombatStop();
-+        //new
-+        pPlayerBot->SetCharmerGUID(0);
 +        // remove from group
 +        Player::RemoveFromGroup(pPlayerBot->GetGroup(), pPlayerBot->GetGUID());
 +
@@ -32351,7 +32375,7 @@ index 211ca42..dc4537f 100755
  void WorldSession::LoadAccountData(PreparedQueryResult result, uint32 mask)
  {
      for (uint32 i = 0; i < NUM_ACCOUNT_DATA_TYPES; ++i)
-@@ -1059,6 +1158,15 @@ void WorldSession::ProcessQueryCallbacks()
+@@ -1059,6 +1156,15 @@ void WorldSession::ProcessQueryCallbacks()
          _charLoginCallback.cancel();
      }
  
