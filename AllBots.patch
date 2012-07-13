@@ -1,22 +1,22 @@
-From 30b7f201e652e639f31bbccef4924c16ebb68ae1 Mon Sep 17 00:00:00 2001
+From 06de28497a58723019b117a8d30654dab9095b09 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Thu, 12 Jul 2012 08:32:03 +0700
+Date: Fri, 13 Jul 2012 23:32:47 +0700
 Subject: [PATCH] AllBots
 
 ---
  sql/Bots/character_NPC_bots.sql                    |    8 +
  sql/Bots/world.bots.sql                            |  283 +
  sql/Bots/world.script_bot_giver.sql                |    7 +
- src/server/game/AI/NpcBots/bot_ai.cpp              | 1784 ++++
- src/server/game/AI/NpcBots/bot_ai.h                |  814 ++
- src/server/game/AI/NpcBots/bot_druid_ai.cpp        |  924 ++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 1810 ++++
+ src/server/game/AI/NpcBots/bot_ai.h                |  803 ++
+ src/server/game/AI/NpcBots/bot_druid_ai.cpp        |  922 ++
  src/server/game/AI/NpcBots/bot_druid_ai.h          |  115 +
  src/server/game/AI/NpcBots/bot_giver.cpp           |  294 +
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  344 +
  src/server/game/AI/NpcBots/bot_hunter_ai.h         |   26 +
- src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  589 ++
+ src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  674 ++
  src/server/game/AI/NpcBots/bot_mage_ai.h           |  143 +
- src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  932 ++
+ src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  927 ++
  src/server/game/AI/NpcBots/bot_paladin_ai.h        |  115 +
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  679 ++
  src/server/game/AI/NpcBots/bot_priest_ai.h         |  103 +
@@ -28,8 +28,8 @@ Subject: [PATCH] AllBots
  src/server/game/AI/NpcBots/bot_warlock_ai.h        |   36 +
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  997 ++
  src/server/game/AI/NpcBots/bot_warrior_ai.h        |  109 +
- src/server/game/AI/PlayerBots/PlayerbotAI.cpp      |10662 ++++++++++++++++++++
- src/server/game/AI/PlayerBots/PlayerbotAI.h        | 2085 ++++
+ src/server/game/AI/PlayerBots/PlayerbotAI.cpp      |10677 ++++++++++++++++++++
+ src/server/game/AI/PlayerBots/PlayerbotAI.h        | 2086 ++++
  .../game/AI/PlayerBots/PlayerbotDeathKnightAI.cpp  |  499 +
  .../game/AI/PlayerBots/PlayerbotDeathKnightAI.h    |  100 +
  src/server/game/AI/PlayerBots/PlayerbotDruidAI.cpp |  712 ++
@@ -72,7 +72,7 @@ Subject: [PATCH] AllBots
  src/server/game/Server/WorldSession.cpp            |  107 +
  src/server/game/Server/WorldSession.h              |   32 +
  src/server/worldserver/worldserver.conf.dist       |  147 +
- 68 files changed, 31945 insertions(+), 11 deletions(-)
+ 68 files changed, 32054 insertions(+), 11 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -439,10 +439,10 @@ index 0000000..5b00cdc
 +
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..ad2e6eb
+index 0000000..a58b33f
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,1784 @@
+@@ -0,0 +1,1810 @@
 +#include "bot_ai.h"
 +#include "Config.h"
 +#include "GridNotifiers.h"
@@ -495,10 +495,10 @@ index 0000000..ad2e6eb
 +}
 +
 +bot_ai::~bot_ai(){}
-+// Determines our current orders
++// Movement set
 +void bot_ai::SetBotCommandState(CommandStates st)
 +{
-+    if (st == COMMAND_FOLLOW && 
++    if (st == COMMAND_FOLLOW && master->isAlive() && 
 +        !m_creature->HasUnitMovementFlag(MOVEMENTFLAG_MASK_MOVING) && 
 +        !IsCasting())
 +    {
@@ -561,20 +561,24 @@ index 0000000..ad2e6eb
 +    m_botCommandState = st;
 +    //sLog->outBasic("BotCommandState: %s", m_botCommandState == COMMAND_FOLLOW ? "Follow" : m_botCommandState == COMMAND_ATTACK ? "Attack" : m_botCommandState == COMMAND_STAY ? "Stay" : "none");
 +}
-+// Get Maintank of our BotParty pointed by master
++// Get Maintank
 +void bot_ai::FindTank()
 +{
++    //check if master set it and it is near
 +    tank = master->GetBotTankGuid() != 0 ? sObjectAccessor->GetObjectInWorld(master->GetBotTankGuid(), (Unit*)NULL) : NULL;
++    //check if we have tank mark on us
 +    if (!tank)
 +        tank = master->GetBotTank(m_creature->GetEntry());
 +    if (tank)
 +    {
++        //it happens to every bot so they all will know who the tank is
 +        m_creature->SetBotTank(tank);
++        //if tank set by entry let master get right guid
 +        if (tank == m_creature && master->GetBotTankGuid() != m_creature->GetGUID())
 +            master->SetBotTank(m_creature->GetGUID());
 +    }
 +}
-+
++// Buffs And Heal(really)
 +void bot_ai::BuffAndHealGroup(Player *gPlayer)
 +{
 +    if (IsCasting()) return; // if I'm already casting
@@ -620,12 +624,16 @@ index 0000000..ad2e6eb
 +        }
 +    }
 +}
-+
++// Attempt to resurrect dead players using class spells or defibrillate
++// Targets either player or its corpse
++// some problems here
 +void bot_ai::RezGroup(uint32 REZZ, Player *gPlayer)
 +{
 +    if (!REZZ || !gPlayer || m_creature->isInCombat()) return;
 +    if (IsCasting()) return; // if I'm already casting
++    if (Rand() > 10) return; //randomize
 +
++    //sLog->outBasic("RezGroup by %s", m_creature->GetName());
 +    Group *pGroup = gPlayer->GetGroup();
 +    if (!pGroup)
 +    {
@@ -634,12 +642,15 @@ index 0000000..ad2e6eb
 +        if (master->isRessurectRequested()) return; //ressurected
 +        if (master->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST))
 +            target = (Unit*)master->GetCorpse();
-+        if (m_creature->GetDistance(target) > 40) return;
-+        
-+        if (!target->IsWithinLOSInMap(m_creature))
-+            m_creature->Relocate(target);
++        if (m_creature->GetDistance(target) > 30)
++        {
++            m_creature->GetMotionMaster()->MovePoint(master->GetMapId(), *target);
++            return;
++        }
++        else if (!target->IsWithinLOSInMap(m_creature))
++                m_creature->Relocate(*target);
 +
-+        if (Rand() < 8 && doCast(target, REZZ))//rezzing it
++        if (doCast(target, REZZ))//rezzing it
 +        {
 +            m_creature->MonsterWhisper("Rezzing You", master->GetGUID());
 +            rezz_cd = 60;//~ 2-3 minutes
@@ -652,21 +663,22 @@ index 0000000..ad2e6eb
 +    }
 +    for (GroupReference *itr = pGroup->GetFirstMember(); itr != NULL; itr = itr->next())
 +    {
-+        Unit *target = NULL;
 +        Player *tPlayer = itr->getSource();
++        Unit *target = tPlayer;
 +        if (tPlayer == NULL) continue;
 +        if (tPlayer->isAlive()) continue;
 +        if (tPlayer->isRessurectRequested()) continue; //ressurected
 +        if (tPlayer->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST))
 +            target = (Unit*)tPlayer->GetCorpse();
-+        else
-+            target = tPlayer;
-+        if (m_creature->GetDistance(target) > 40) continue;
-+        
-+        if (!target->IsWithinLOSInMap(m_creature))
-+            m_creature->Relocate(target);
++        if (m_creature->GetDistance(target) > 30)
++        {
++            m_creature->GetMotionMaster()->MovePoint(master->GetMapId(), *target);
++            return;
++        }
++        else if (!target->IsWithinLOSInMap(m_creature))
++                m_creature->Relocate(*target);
 +
-+        if (Rand() < 8 && doCast(target, REZZ))//rezzing it
++        if (doCast(target, REZZ))//rezzing it
 +        {
 +            m_creature->MonsterWhisper("Rezzing You", tPlayer->GetGUID());
 +            rezz_cd = 60;//~ 2-3 minutes
@@ -678,11 +690,11 @@ index 0000000..ad2e6eb
 +        }
 +    }
 +}
-+
++//cycle through the group sending members for cure
 +void bot_ai::CureGroup(Player *pTarget)
 +{
-+    if (Rand() > 75) return;
 +    if (IsCasting()) return;
++    if (Rand() > 75) return;
 +    Group *pGroup = pTarget->GetGroup();
 +    if (!pGroup)
 +    {
@@ -720,10 +732,9 @@ index 0000000..ad2e6eb
 +        }
 +    }
 +}
-+
++// determines if unit has something to cure
 +bool bot_ai::CureTarget(Unit *dTarget)
 +{
-+    if (Rand() > 70) return false;
 +    if (m_creature->getLevel() < 20) return false;
 +    if (IsCasting()) return false;
 +    if (!dTarget || dTarget->isDead()) return false;
@@ -735,6 +746,7 @@ index 0000000..ad2e6eb
 +        Aura *aura = itr->second;
 +        if (aura->IsPassive()) continue;
 +        if (aura->GetSpellInfo()->AttributesEx & SPELL_ATTR0_HIDDEN_CLIENTSIDE) continue;
++        //exclude glitchy auras
 +        if (aura->GetId() == 64844 || //Divine Hymn
 +            aura->GetId() == 6346) // Fear Ward
 +            continue;
@@ -748,7 +760,7 @@ index 0000000..ad2e6eb
 +        if (!aurApp)
 +            continue;
 +        if (!aurApp->IsPositive() && (dTarget->IsFriendlyTo(master) || IsInBotParty(dTarget)))
-+            if (isTimerReady(GC_Timer) && HandleCure(dispel, dTarget))//additional check for cd
++            if (HandleCure(dispel, dTarget)) //send it to certain bot 
 +                return true;
 +    }
 +    return false;
@@ -757,11 +769,10 @@ index 0000000..ad2e6eb
 +bool bot_ai::HasAuraName (Unit *unit, uint32 spellId, uint64 casterGuid)
 +{
 +    SpellInfo const *pSpellInfo = sSpellMgr->GetSpellInfo(spellId);
-+
 +    if (!pSpellInfo) return false;
 +
 +    int loc = master->GetSession()->GetSessionDbcLocale();
-+    const std::string  name = pSpellInfo->SpellName[loc];
++    const std::string name = pSpellInfo->SpellName[loc];
 +    if (name.length() == 0) return false;
 +
 +    return HasAuraName(unit, name, casterGuid);
@@ -792,18 +803,13 @@ index 0000000..ad2e6eb
 +        if (!spell.compare(name))
 +        {
 +            if (casterGuid == 0) //don't care who casted it
-+            {
 +                return true;
-+            }
 +            else if (casterGuid == itr->second->GetCasterGUID()) //only if correct caster casted it
-+            {
 +                return true;
-+            }
 +        }
 +    }
 +    return false;
 +}
-+
 +//LIST AURAS
 +// Debug: Returns bot's info to called player
 +// Can be used on your own or your playerbots' npcbot
@@ -813,7 +819,7 @@ index 0000000..ad2e6eb
 +    if (!IsInBotParty(unit)) return false;
 +    ChatHandler ch(player);
 +    ch.PSendSysMessage("ListAuras for %s", unit->GetName());
-+    Unit::AuraMap &vAuras = (Unit::AuraMap&)unit->GetOwnedAuras();
++    Unit::AuraMap &vAuras = unit->GetOwnedAuras();
 +    for(Unit::AuraMap::const_iterator itr = vAuras.begin(); itr!=vAuras.end(); ++itr)
 +    {
 +        SpellInfo const *spellInfo = itr->second->GetSpellInfo();
@@ -901,11 +907,17 @@ index 0000000..ad2e6eb
 +
 +    //FACTION
 +    //restore charmer (prevent  <(someone else)'s Minion> after master has been charmed)
-+    if (!master->GetCharmer() && m_creature->GetCharmerGUID() != master->GetGUID())
-+        m_creature->SetCharmerGUID(master->GetGUID());//master
++    if (!master->GetCharmer())
++    {
++        if (m_creature->GetCharmerGUID() != master->GetGUID())
++            m_creature->SetCharmerGUID(master->GetGUID());//master
++        Player *owner = master->GetPlayerbotAI() ? master->GetSession()->m_master : master;
++        if (!owner->GetCharmer() && m_creature->getFaction() != owner->getFaction())
++            m_creature->setFaction(owner->getFaction());
++    }
 +    //debug remove charmerguid from master if charmer is gone
-+    if (!master->GetCharmer() && master->GetCharmerGUID())
-+        master->SetCharmerGUID(0);
++    //if (!master->GetCharmer() && master->GetCharmerGUID())
++    //    master->SetCharmerGUID(0);
 +    //PHASE
 +    if (!m_creature->InSamePhase(master))
 +        m_creature->SetPhaseMask(master->GetPhaseMask(), true);
@@ -920,18 +932,19 @@ index 0000000..ad2e6eb
 +    //        m_creature->SetFloatValue(OBJECT_FIELD_SCALE_X, tempscale);
 +    //}
 +    //INIT STATS
++    //partially receive master's stats and get base class stats, we'll need all this later
 +    tempclass = myclass == BEAR || myclass == CAT ? CLASS_DRUID : myclass;
 +    sObjectMgr->GetPlayerClassLevelInfo(tempclass, mylevel, &classinfo);
 +    classstats = sObjectMgr->GetCreatureBaseStats(mylevel, m_creature->getClass());//use creature class
 +    for (uint8 i = STAT_STAMINA; i < MAX_STATS; i++)
-+        m_creature->SetCreateStat(Stats(i), master->GetTotalStatValue(Stats(i))/10.0f*8.0f);//80% goes to bot
++        m_creature->SetCreateStat(Stats(i), master->GetTotalStatValue(Stats(i))/10.0f*6.6f);// 2/3 goes to bot
 +
 +    //MAXSTAT
 +    for (uint8 i = 0; i < MAX_STATS; ++i)
 +    {
 +        int32 newstat = int32(master->GetTotalStatValue(Stats(i)));
-+        if (newstat > stat)
-+            stat = newstat;//Get Hightest stat
++        if (i == 0 || newstat > stat)
++            stat = newstat;//Get Hightest stat (on first cycle just set base value)
 +    }
 +
 +    ap_mod = 1.0f; armor_mod = 1.0f; crit_mod = 1.0f; haste_mod = 1.0f; dodge_mod = 1.0f; parry_mod = 1.0f;
@@ -958,48 +971,51 @@ index 0000000..ad2e6eb
 +    _OnMeleeDamageUpdate(myclass, myrace, mylevel, force);
 +    
 +    //ARMOR
++    //Somehow unbalanced
 +    //sLog->outBasic ("%s's ARMOR:", m_creature->GetName());
-+    float value = float(classstats->BaseArmor);//leveled armor
++    float value = float(classstats->BaseArmor);//creature class-leveled armor
 +    //sLog->outBasic ("leveled value: %f", value);
-+    value *= master->GetModifierValue(UNIT_MOD_ARMOR, TOTAL_PCT);
++    value *= master->GetModifierValue(UNIT_MOD_ARMOR, TOTAL_PCT);//use only total pct
 +    //sLog->outBasic ("with master's coeff: %f", value);
-+    value += master->GetArmor()/2;//20% of master's armor + pct
++    value += master->GetArmor()/2;//50% of master's armor
 +    //sLog->outBasic ("Plus 1/2 of master's armor: %f", value);
 +    value += float(master->GetNpcBotSlot(m_creature->GetGUID())) * float(mylevel)/2.0f;//randomize
 +    //sLog->outBasic ("Randomized to: %f", value);
-+    value *= armor_mod;//define coeff by class
++    value *= armor_mod;//use our class-defined mod
 +    //sLog->outBasic ("applied class mod: %f", value);
-+    m_creature->SetModifierValue(UNIT_MOD_ARMOR, BASE_VALUE, value);//bot includes buffs
-+    m_creature->UpdateArmor();
++    m_creature->SetModifierValue(UNIT_MOD_ARMOR, BASE_VALUE, value);//base value will allow to benefit from buffs
 +    //sLog->outBasic("Armor: %u", uint32(value));
++    m_creature->UpdateArmor();//buffs will be took in consideration here
 +    //sLog->outBasic("Armor to set: %u", uint32(m_creature->GetArmor()));
 +
 +    //RESISTANCES
++    //not allow bots die instantly (ignore resistance decrease spells on bot)
 +    for (uint8 i = SPELL_SCHOOL_HOLY; i != MAX_SPELL_SCHOOL; ++i)
 +    {
 +        uint32 val = master->GetResistance(SpellSchools(i));
-+        m_creature->SetResistance(SpellSchools(i), val*2 + m_creature->GetTotalAuraModifier(SPELL_AURA_MOD_RESISTANCE)/2);//do not allow bots die instantly (ignore resistance decrease spells on bot)
++        m_creature->SetResistance(SpellSchools(i), val*3/2 + m_creature->GetTotalAuraModifier(SPELL_AURA_MOD_RESISTANCE)/2);
 +    }
 +    //DAMAGE TAKEN
-+    value  = master->GetTotalAuraMultiplierByMiscMask(SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN, SPELL_SCHOOL_MASK_MAGIC);
-+    value *= master->GetTotalAuraMultiplierByMiscMask(SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN, SPELL_SCHOOL_MASK_NORMAL);
++    //here we will get 2 modifiers multiplied (ex. if both = 0.9 we will get 0.81, if 1.10 we get 1.21)
++    value = master->GetTotalAuraMultiplierByMiscMask(SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN, SPELL_SCHOOL_MASK_MAGIC);
++    value*= master->GetTotalAuraMultiplierByMiscMask(SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN, SPELL_SCHOOL_MASK_NORMAL);
 +    value = abs(1.0f - value);//get count even if master got +damage_taken (value here is around 1.00 +- 0.xx)
-+    value = value > 0.60f ? 0.60f : value; /*max count - 10*/
-+    value /= 0.01f; /*get percent*/
-+    RefreshAura(DMG_TAKEN, int8(value/6.0f));
++    value = value > 0.60f ? 0.60f : value;
++    value/= 0.01f; //here we get percent like 0.6/0.01 = 60
++    RefreshAura(DMG_TAKEN, int8(value/6.0f));//so max aura count = 10
 +    //SPEEDS
 +    //TODO: NEED TO REMOVE THIS SOMEHOW
 +    if (!m_creature->HasAuraWithMechanic(1<<MECHANIC_SNARE))
 +    {
 +        float speed = 0.0f;
 +        float speedbonus = 0.0f;
-+        if      (m_creature->GetDistance(master) > 50.0f) speedbonus = 1.0f;
-+        else if (m_creature->GetDistance(master) > 30.0f) speedbonus = 0.5f;
-+        else if (m_creature->GetDistance(master) > 10.0f) speedbonus = 0.3f;
++        if      (m_creature->GetDistance(master) > 50.0f) speedbonus = 0.50f;
++        else if (m_creature->GetDistance(master) > 30.0f) speedbonus = 0.25f;
++        else if (m_creature->GetDistance(master) > 10.0f) speedbonus = 0.10f;
 +        if (master->IsInWater())
-+            speed = master->GetSpeedRate(MOVE_SWIM) + 0.15f;
++            speed = master->GetSpeedRate(MOVE_SWIM) + 0.05f;
 +        else
-+            speed = master->GetSpeedRate(MOVE_WALK) + 0.15f;
++            speed = master->GetSpeedRate(MOVE_WALK) + 0.05f;
 +        if (speed > 1.2f) speed = 1.2f;
 +        if (speed_walk != speed + speedbonus) m_creature->SetSpeed(MOVE_WALK, speed + speedbonus);
 +        speed = master->GetSpeedRate(MOVE_RUN) + 0.15f;
@@ -1036,33 +1052,31 @@ index 0000000..ad2e6eb
 +        }
 +        value *= haste_mod;
 +        if (isMeleeClass(myclass))
-+            value *= 0.6f;//nerf melee haste
-+        value = value/10.0f + float(mylevel/39);
++            value *= 0.67f;//nerf melee haste by 1/3
++        value = value/10.0f + float(mylevel/39);//get bonus at 78
 +        if (myclass == CAT)//give cat lots of haste
-+            value += float(mylevel/16);//20;
++            value += float(mylevel/16);//or 20 (+ 4-5 stacks);
 +
-+        RefreshAura(HASTE,  uint8(value));
-+        RefreshAura(HASTE2, uint8(value));
-+        haste = uint8(value);
++        RefreshAura(HASTE,  uint8(value));//spell
++        RefreshAura(HASTE2, uint8(value));//melee
++        haste = uint8(value);//for show only
 +    }
 +
 +    //HIT
 +    int32 melee_hit = master->GetTotalAuraModifier(SPELL_AURA_MOD_HIT_CHANCE) + master->GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_INCREASES_SPELL_PCT_TO_HIT, SPELL_SCHOOL_MASK_NORMAL);
 +    int32 spell_hit = master->GetTotalAuraModifier(SPELL_AURA_MOD_SPELL_HIT_CHANCE) + master->GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_INCREASES_SPELL_PCT_TO_HIT, SPELL_SCHOOL_MASK_SPELL);
-+    value = float(melee_hit > spell_hit ? melee_hit : spell_hit);
-+    value *= 1.5f;//buff hit chance for bots
-+    RefreshAura(PRECISION,  (value >= 3.0f ? int8(value/3.0f) : 0) + (mylevel >= 78));
-+    RefreshAura(PRECISION2, (value >= 3.0f ? int8(value/3.0f) : 0) + (mylevel >= 78));
++    value = float((melee_hit > spell_hit ? melee_hit : spell_hit)*2);//hightest, buff hit chance for bots
++    RefreshAura(PRECISION,  (value >= 3.0f ? int8(value/3.0f) : 0) + (mylevel >= 78));//melee
++    RefreshAura(PRECISION2, (value >= 3.0f ? int8(value/3.0f) : 0) + (mylevel >= 78));//spell
 +
 +    //CRIT
++    //chose melee or ranged cuz crit rating increases melee/spell, and hunter benefits from agility
 +    value = master->GetUnitCriticalChance((master->getClass() == CLASS_HUNTER ? RANGED_ATTACK : BASE_ATTACK), m_creature);
 +    value = value > 5.0f ? value - 5.0f : 0.0f;//remove base chance if can
 +    value *= crit_mod;
 +    RefreshAura(CRITS, (value >= 5.0f ? int8(value/5.0f) : 0) + mylevel/39);
 +    if (myclass == CLASS_PRIEST || myclass == CLASS_PALADIN)
-+        RefreshAura(HOLYCRIT, int8(value/7.0f));
-+
-+    float parryAndDodge = 0.0f;
++        RefreshAura(HOLYCRIT, int8(value/7.0f));//add holy crit to healers
 +
 +    //PARRY
 +    value = master->GetUnitParryChance();
@@ -1070,9 +1084,9 @@ index 0000000..ad2e6eb
 +    value *= parry_mod;
 +    if (master->GetBotTankGuid() == m_creature->GetGUID() && myclass != CAT && myclass != BEAR)//feral cannot parry so let it be base 5%
 +        value += 10.0f;
-+    if (value > 60.0f)
-+        value = 60.0f;
-+    parryAndDodge = value;//set temp value
++    if (value > 55.0f)
++        value = 55.0f;
++    float parryAndDodge = value;//set temp value, this is needed to keep total avoidance within 65%
 +    RefreshAura(PARRY, value >= 5.0f ? int8(value/5.0f) : 0);
 +
 +    //DODGE
@@ -1081,10 +1095,10 @@ index 0000000..ad2e6eb
 +    value *= dodge_mod;
 +    if (master->GetBotTankGuid() == m_creature->GetGUID())
 +        value += 10.0f;
-+    if (value > 60.0f)
-+        value = 60.0f;
-+    if (parryAndDodge + value > 60.0f)
-+        value = 60.0f - parryAndDodge;//do not allow avoidance to be more than 70% (base 5+5)
++    if (value > 55.0f)
++        value = 55.0f;
++    if (parryAndDodge + value > 55.0f)
++        value = 55.0f - parryAndDodge;//do not allow avoidance to be more than 65% (base 5+5)
 +    RefreshAura(DODGE, value >= 5.0f ? int8(value/5.0f) : 0);
 +
 +    //MANA
@@ -1093,7 +1107,7 @@ index 0000000..ad2e6eb
 +    if (myclass != CLASS_WARRIOR && myclass != CLASS_ROGUE && myclass != CLASS_DEATH_KNIGHT)
 +    {
 +        //MANA REGEN
-+        //get master's regen and apply to bot
++        //get master's regen and apply to bot (needs to be reworked)
 +        regen_mp5 = (master->GetTotalAuraModifierByMiscValue(SPELL_AURA_MOD_POWER_REGEN, POWER_MANA) + sqrt(master->GetStat(STAT_INTELLECT)) * master->OCTRegenMPPerSpirit()) / 5.0f;
 +        //sLog->outBasic("Master's base regen: %f", regen_mp5);
 +        Unit::AuraEffectList const& regenAura = master->GetAuraEffectsByType(SPELL_AURA_MOD_MANA_REGEN_FROM_STAT);
@@ -1117,7 +1131,7 @@ index 0000000..ad2e6eb
 +    if (mylevel >= 40 && myclass != CLASS_WARRIOR && myclass != CLASS_ROGUE && myclass != CLASS_HUNTER)
 +    {
 +        //sLog->outBasic("Applying Passives for %s:", m_creature->GetName());
-+        sppower = master->SpellBaseDamageBonusDone(SPELL_SCHOOL_MASK_MAGIC);
++        sppower = master->SpellBaseDamageBonusDone(SPELL_SCHOOL_MASK_MAGIC);//"Spell Power" stat
 +        //sLog->outBasic("Master's spell power: %i", sppower);
 +        atpower = master->GetTotalAttackPowerValue(master->getClass() == CLASS_HUNTER ? RANGED_ATTACK : BASE_ATTACK);
 +        //sLog->outBasic("Master's attack power: %i", atpower);
@@ -1128,14 +1142,13 @@ index 0000000..ad2e6eb
 +            float basepower = float(m_spellpower);
 +            float spdmult = 1.0f - ((basepower - 3500.0f) / (master->GetMap()->IsRaid() ? 10000.0f : master->GetMap()->Instanceable() ? 7000.0f : 3500.0f));
 +            //sLog->outBasic("Spell power is more than 3500: %f, getting bonus multiplier: %f", basepower, spdmult);
-+            if (spdmult < 0.2f)
-+                spdmult = 0.2f;//minimum multiplier is 20%
++            if (spdmult < 0.5f)
++                spdmult = 0.5f;//minimum multiplier is 50%
 +            //sLog->outBasic("Set to: %f", spdmult);
 +            m_spellpower = int32(3500.0f + ((basepower - 3500.0f) * spdmult));
 +            //sLog->outBasic("Total SpellPower: %u", m_spellpower);
 +        }
-+        if (mylevel >= 40)
-+            m_spellpower = m_spellpower - master->GetNpcBotSlot(m_creature->GetGUID())*3 + m_creature->getGender() * mylevel;
++        //m_spellpower = m_spellpower - master->GetNpcBotSlot(m_creature->GetGUID())*3 + m_creature->getGender() * mylevel;
 +        //sLog->outBasic("Chosen value: %i", sppower);
 +        switch(myclass)
 +        {
@@ -1144,9 +1157,9 @@ index 0000000..ad2e6eb
 +            m_spellpower = m_spellpower/10*13; break;
 +        case CLASS_MAGE://mage case: we give only 40% spd and bonus fire damage (cuz of massive damage they do)
 +            RefreshAura(FIREDAM_86, m_spellpower/5/86 + (mylevel >= 78)); //(86,172,258,344,430,516,602,688...) // do not touch this
-+            m_spellpower = m_spellpower/5*2; break;
++            m_spellpower = m_spellpower/5*2;   break;
 +        case CLASS_PRIEST://priest gains 140%
-+            m_spellpower = m_spellpower/5*7; break;
++            m_spellpower = m_spellpower/5*7;   break;
 +        default://all others: 100%
 +            break;
 +        }
@@ -1164,7 +1177,7 @@ index 0000000..ad2e6eb
 +        m_creature->SetPower(POWER_MANA, m_creature->GetMaxPower(POWER_MANA));
 +    }
 +}
-+
++//Emotion-based action 
 +void bot_ai::ReceiveEmote(Player *player, uint32 emote)
 +{
 +    // debug to see what auras are on bot
@@ -1197,28 +1210,27 @@ index 0000000..ad2e6eb
 +        DoSay("Following!",LANG_UNIVERSAL,player->GetGUID());
 +    }
 +
-+    // buff the requester
 +    if (emote == TEXT_EMOTE_BOW)
-+    {
 +        ReceiveBowEmote(player);
-+    }
-+}// end ReceiveEmote
-+
++}
++//Blank func used to buff requester
 +void bot_ai::ReceiveBowEmote(Player *player)
 +{
-+    if (!CCed(me) && player != master)
++    if (player != master)
 +    {
 +       me->HandleEmoteCommand(EMOTE_ONESHOT_SHOUT);
 +       me->MonsterYell("I have no buffs for you!", LANG_UNIVERSAL, player->GetGUID());
 +    }
 +}
 +
-+void bot_ai::DoSay(const char* text, const uint32 language,uint64 receiver) const
++void bot_ai::DoSay(const char* text, const uint32 language, uint64 receiver) const
 +{
 +    me->MonsterWhisper(text, receiver);
 +}
 +
 +//ISINBOTPARTY
++//Returns group members and your playerbots (and their npcbots too)
++//For now all your puppets are in your group automatically
 +bool bot_ai::IsInBotParty(Unit *unit) const
 +{
 +    if (!unit) return false;
@@ -1234,14 +1246,15 @@ index 0000000..ad2e6eb
 +                if (owner->GetSession()->GetAccountId() == master->GetSession()->GetAccountId())//npcbot or npcbot's pet
 +                    return true;
 +
-+    //if (Player *plr = unit->ToPlayer())
-+    //    if (plr->GetSession()->GetAccountId() == master->GetSession()->GetAccountId())//playerbot
-+    //        return true;
++    if (Player *plr = unit->ToPlayer())
++        if (plr->GetSession()->GetAccountId() == master->GetSession()->GetAccountId())//playerbot
++            return true;
 +
 +    return false;
 +}
 +
 +//REFRESHAURA
++//Applies/reapplies aura stacks
 +bool bot_ai::RefreshAura(uint32 spell, int16 count, Unit *target) const
 +{
 +    if (!target) target = m_creature;
@@ -1254,6 +1267,7 @@ index 0000000..ad2e6eb
 +    return true;
 +}
 +//CHECKAURAS
++//Updates bot's condition once a while
 +void bot_ai::CheckAuras(bool force)
 +{
 +    if (checkAurasTimer > 0 && !force) return;
@@ -1373,6 +1387,7 @@ index 0000000..ad2e6eb
 +    }
 +}
 +//GETTARGET
++//Returns attack target or 'no target'
 +Unit *bot_ai::getTarget(bool byspell, bool ranged)
 +{
 +    Unit *u = master->getVictim();
@@ -1462,13 +1477,16 @@ index 0000000..ad2e6eb
 +        m_botCommandState = COMMAND_FOLLOW;//reset StartAttack()
 +    return t;
 +}
++//POSITION
 +// Forces bot to chase opponent (if ranged then distance depends on follow distance)
-+// (OBSOLETE)Since MoveChase() is useless for ranged, try to use MovePoint()
++// Since MoveChase() is useless for ranged, try to use MovePoint()
 +void bot_ai::GetInPosition(bool force, bool ranged) const
 +{
 +    if (!opponent || !opponentValidate())
 +        return;
 +    if (!opponent->isInCombat() && !force)
++        return;
++    if (IsCasting())
 +        return;
 +    uint8 dist = ranged ? 8 + urand(followdist/4, followdist/3) : 0;
 +    if (ranged && opponent->ToPlayer() && m_creature->GetDistance(opponent) < dist) return;//do not allow constant runaway from player
@@ -1485,14 +1503,15 @@ index 0000000..ad2e6eb
 +    else
 +        m_creature->GetMotionMaster()->MoveChase(opponent, dist);
 +}
-+// Used to apply common passives (only once)
++//PASSIVES
++// Used to apply common passives (run once)
 +void bot_ai::ApplyPassives(Classes m_class) const
 +{
-+    m_creature->ApplySpellImmune(0, IMMUNITY_STATE, SPELL_AURA_MOD_TAUNT, true);
-+    m_creature->ApplySpellImmune(0, IMMUNITY_EFFECT, SPELL_EFFECT_ATTACK_ME, true);
++    //m_creature->ApplySpellImmune(0, IMMUNITY_STATE, SPELL_AURA_MOD_TAUNT, true);
++    //m_creature->ApplySpellImmune(0, IMMUNITY_EFFECT, SPELL_EFFECT_ATTACK_ME, true);
 +
 +    //apply +healing taken
-+    if (master->getLevel() >= 60) RefreshAura(BOR);
++    if (master->getLevel() >= 60) RefreshAura(BOR);//+40%
 +    //apply -threat mod
 +    switch(m_class)
 +    {
@@ -1520,7 +1539,7 @@ index 0000000..ad2e6eb
 +
 +    return false;
 +}
-+// Find wounded friends out of party and help them (heal only)
++// Find wounded friends out of party and heal them
 +// This func also used in raid encounters (Shade of Akama, DreamWalker etc...)
 +void bot_ai::healOthers()
 +{
@@ -1650,7 +1669,7 @@ index 0000000..ad2e6eb
 +
 +    return false;
 +}
-+//This is used to find target for priest's dispels and mage's spellsteal (also shaman's purge in future)
++//Used to find target for priest's dispels and mage's spellsteal (also shaman's purge in future)
 +//Returns dispellable/stealable 'Any Hostile Unit Attacking BotParty'
 +Unit *bot_ai::FindHostileDispelTarget(float dist, bool stealable) const
 +{
@@ -1700,7 +1719,7 @@ index 0000000..ad2e6eb
 +
 +    return unit;
 +}
-+//Finds target for mage's polymorph
++//Finds target for mage's polymorph (maybe for Hex in future)
 +Unit *bot_ai::FindPolyTarget(float dist) const
 +{
 +    CellCoord p(Trinity::ComputeCellCoord(m_creature->GetPositionX(), m_creature->GetPositionY()));
@@ -1720,7 +1739,7 @@ index 0000000..ad2e6eb
 +
 +    return unit;
 +}
-+//Finds target for warlock's fear
++//Finds target for direct fear (warlock)
 +Unit *bot_ai::FindFearTarget(float dist) const
 +{
 +    CellCoord p(Trinity::ComputeCellCoord(m_creature->GetPositionX(), m_creature->GetPositionY()));
@@ -2007,7 +2026,7 @@ index 0000000..ad2e6eb
 +    }//end for
 +    return unit;
 +}
-+// Finds second target for spells like Cleave, Swipe, Maul(with glyph), Sweeping Strikes...
++// Finds second target for spells like Cleave, Swipe etc.
 +Unit *bot_ai::FindSplashTarget(float dist, Unit *To) const
 +{
 +    Unit *unit2 = To ? To : opponent && opponentValidate() ? opponent : m_creature->SelectNearbyTarget(NULL, dist);
@@ -2037,17 +2056,17 @@ index 0000000..ad2e6eb
 +    else
 +        return NULL;
 +}
-+/////////
++//////////
 +//Internal
-+/////////
++//////////
 +void bot_ai::_OnHealthUpdate(uint8 myclass, uint8 myrace, uint8 mylevel, bool force /*= false*/)
 +{
 +    //sLog->outBasic("_OnHealthUpdate(): updating bot %s", m_creature->GetName());
 +    //Since bots' max hp/mana is not constant it is better to just restore it's percentage
-+    pct = GetHealthPCT(m_creature) + 1;// almost always -= 1 (uint8)
++    pct = GetHealthPCT(m_creature) + 1;// almost always -= 1 (uint8), needs for regeneration
 +    pct = pct > 100 ? 100 : pct;
 +    m_basehp = classinfo.basehealth;
-+    //here we set rate from stamina (pretty sensitive)
++    //here we set rate from stamina (pretty sensitive), trying to get bot/master class combinations
 +    float stammod = 10.0f;
 +    switch (myclass)
 +    {
@@ -2084,6 +2103,7 @@ index 0000000..ad2e6eb
 +        }
 +        break;
 +    }
++    stammod += -0.8f;//custom
 +    //insert some randomness(making hp unique for each bot of each player)
 +    //modifying this can change bot's hp down to 1
 +    int32 hp_add = 0;
@@ -2091,12 +2111,12 @@ index 0000000..ad2e6eb
 +    {
 +        //use modifier for stamina
 +        hp_add += uint32(m_creature->GetTotalStatValue(STAT_STAMINA)*stammod);
-+        hp_add -= m_creature->getGender()*mylevel;//less hp for females
-+        hp_add += myrace*mylevel;//Draenei Tanks possible
++        hp_add -= m_creature->getGender()*mylevel*3;//less hp for females lol
++        hp_add += myrace*mylevel;
 +        if (mylevel >= 20)
 +            hp_add -= master->GetNpcBotSlot(m_creature->GetGUID())*(mylevel/20);//randomize hp
 +        if (mylevel >= 40)
-+            hp_add += uint32(master->GetAverageItemLevel())*(mylevel/8);
++            hp_add += uint32(master->GetAverageItemLevel())*(mylevel/8);//may be stupid
 +    }
 +   //get modifier for health
 +    stammod = m_creature->GetModifierValue(UNIT_MOD_STAT_STAMINA, TOTAL_PCT) - ((m_creature->GetModifierValue(UNIT_MOD_STAT_STAMINA, TOTAL_PCT) - 1.0f)/2.0f) - 0.01f * float(master->GetNpcBotSlot(m_creature->GetGUID())/2);
@@ -2105,8 +2125,8 @@ index 0000000..ad2e6eb
 +    //m_totalhp = m_totalhp*9/10;//custom hp modifier
 +    if (master->GetBotTankGuid() == m_creature->GetGUID())
 +        m_totalhp = m_totalhp * 12 / 10;//20% hp bonus for tanks
-+    m_creature->SetModifierValue(UNIT_MOD_HEALTH, BASE_VALUE, float(m_totalhp));//bot includes buffs, replaces base 18900 hp at 80 lvl
-+    m_creature->UpdateMaxHealth();
++    m_creature->SetModifierValue(UNIT_MOD_HEALTH, BASE_VALUE, float(m_totalhp));//allow bot to benefit from buffs, replaces base 18900 hp at 80 lvl
++    m_creature->UpdateMaxHealth();//will use our values we just set (update base health and buffs)
 +    //sLog->outBasic("total hp: %u", m_totalhp);
 +    //sLog->outBasic("total hp to set: %u", m_creature->GetMaxHealth());
 +    m_creature->SetHealth(m_creature->GetMaxHealth() * pct / 100);//restore pct
@@ -2125,23 +2145,25 @@ index 0000000..ad2e6eb
 +        uint8 manamod = 13;//here we set mana multiplier from intellect as we gain mana from MASTER's intellect mostly
 +        switch (myclass)
 +        {
-+        case CLASS_PALADIN: case CLASS_HUNTER: manamod = 10;  break;
-+        case CLASS_SHAMAN:                     manamod = 13;  break;
-+        case CLASS_DRUID:                      manamod = 16;  break;
-+        case CLASS_PRIEST:                     manamod = 18;  break;
-+        case CLASS_MAGE: case CLASS_WARLOCK:   manamod = 14;  break;
++        case CLASS_PALADIN: case CLASS_HUNTER: manamod = 10; break;
++        case CLASS_SHAMAN:                     manamod = 13; break;
++        case CLASS_DRUID:                      manamod = 16; break;
++        case CLASS_PRIEST:                     manamod = 18; break;
++        case CLASS_MAGE: case CLASS_WARLOCK:   manamod = 14; break;
 +        }
-+        if (mylevel < 20) manamod /= (20 - mylevel);
++        manamod -= 2;//custom
++        if (mylevel < 20)
++            manamod /= (20 - mylevel);//don't allow to get much mana at low lvl
 +        //sLog->outBasic("Manamod: %u", manamod);
 +        //sLog->outBasic("Set base mana: %u", m_basemana);
-+        if (m_creature->GetTotalStatValue(STAT_INTELLECT) + m_creature->GetTotalAuraModValue(UNIT_MOD_STAT_INTELLECT) > stat/3*2)
++        if (m_creature->GetTotalStatValue(STAT_INTELLECT) + m_creature->GetTotalAuraModValue(UNIT_MOD_STAT_INTELLECT) > stat*2/3)
 +            m_basemana += uint32(m_creature->GetTotalStatValue(STAT_INTELLECT))/4*3*manamod;
 +        else
-+            m_basemana += stat/2*manamod/4*3;
++            m_basemana += stat*2/3*manamod;
 +        //sLog->outBasic("base mana + mana from intellect or stat: %u", m_basemana);
-+        m_basemana += uint32(m_creature->GetTotalAuraModValue(UNIT_MOD_STAT_INTELLECT))*3*manamod;
++        m_basemana += uint32(m_creature->GetTotalAuraModValue(UNIT_MOD_STAT_INTELLECT))*5*manamod;//x5 from buffs
 +        //sLog->outBasic("base mana + mana from intellect + buffs: %u", m_basemana);
-+        m_basemana += m_creature->getGender()*2*mylevel;
++        m_basemana += m_creature->getGender()*3*mylevel;//more mana for females lol
 +        m_basemana -= master->GetNpcBotSlot(m_creature->GetGUID())*(mylevel/10);
 +        //m_basemana += m_creature->GetMaxHealth()/50;//2% of hp goes to mana
 +        m_totalmana = m_basemana;
@@ -2151,7 +2173,7 @@ index 0000000..ad2e6eb
 +        //sLog->outBasic("total mana: %u", m_totalmana);
 +        //sLog->outBasic("total mana to set: %u", m_creature->GetMaxPower(POWER_MANA));
 +        m_creature->SetPower(POWER_MANA, m_creature->GetMaxPower(POWER_MANA) * pct / 100);//restore pct
-+        m_creature->SetPower(POWER_MANA, m_creature->GetPower(POWER_MANA) + m_creature->GetCreateMana()*(7 - m_creature->getLevel()/20)/100);//regenerate
++        //m_creature->SetPower(POWER_MANA, m_creature->GetPower(POWER_MANA) + m_creature->GetCreateMana()/100);//regenerate NOT NEEDED
 +        //sLog->outBasic("Got base mana level for my class: %u", m_basemana);
 +        //sLog->outBasic("Calculated total mana for level %u: %f", mylevel, leveledmana/divider);
 +        //sLog->outBasic("Stat: %u", stat);
@@ -2168,8 +2190,8 @@ index 0000000..ad2e6eb
 +        1.000f * master->GetModifierValue(UNIT_MOD_DAMAGE_MAINHAND, BASE_PCT) * master->GetModifierValue(UNIT_MOD_DAMAGE_MAINHAND, TOTAL_PCT);
 +    if (!master->GetCharmerOrOwnerGUID())//prevent gaining damage from controlled (100 - 500% or so)
 +    {
-+        mod = mod > 1.0f ? mod : 1.0f;
-+        ap_mod += (mod - 1.0f)/2;//add reduced master's multiplier
++        mod = mod > 1.0f ? mod : 1.0f; // 1.0f+
++        ap_mod += (mod - 1.0f)/4; //add reduced master's multiplier (may be zero)
 +        m_creature->SetModifierValue(UNIT_MOD_DAMAGE_MAINHAND, BASE_PCT, mod);
 +    }
 +    m_creature->SetModifierValue(UNIT_MOD_ATTACK_POWER, BASE_PCT, ap_mod);
@@ -2177,18 +2199,22 @@ index 0000000..ad2e6eb
 +
 +    sppower = master->SpellBaseDamageBonusDone(SPELL_SCHOOL_MASK_MAGIC);//Spell Power stat
 +    atpower = master->GetTotalAttackPowerValue(master->getClass() == CLASS_HUNTER ? RANGED_ATTACK : BASE_ATTACK);
-+    atpower = sppower > atpower ? sppower : atpower;
-+    atpower *= 1.0f;//custom multiplier
-+    if (atpower > 3000.0f)//add diminishing
++    atpower = sppower > atpower ? sppower : atpower;//highest stat is used
++    //atpower *= 1.0f;//custom multiplier
++    if (atpower > 3000.0f)//add diminishing (the higher attack power is, the lower is 'atbonusmult')
 +    {
++        //In instances atpower is shrinked less, and even less in raid
 +        float atbonusmult = (1.0f - ((atpower - 3000.0f) / (master->GetMap()->IsRaid() ? 9000 : master->GetMap()->Instanceable() ? 6000.0f : 3000.0f)));
-+        //sLog->outBasic("Attack power is more than 2500: %f, getting bonus multiplier: %f", atpower, atbonusmult);
++        //example: atpower = 4000 in raid: 1000/9000 ~ 0.11, mult is 0.89, in instance: 1.0 - 0.17 = 0.83, in world: 0.67
++        //sLog->outBasic("Attack power is more than 3000: %f, getting bonus multiplier: %f", atpower, atbonusmult);
 +        if (atbonusmult < 0.25f)
 +            atbonusmult = 0.25f;//minimum multiplier is 25%
 +        //sLog->outBasic("Set to: %f", atbonusmult);
++        //finally get the value
 +        atpower = 3000.0f + ((atpower - 3000.0f) * atbonusmult);
 +        //sLog->outBasic("Total AttackPower: %f", atpower);
 +    }
++    //now to set it and update damage (classes that have ranged threated also)
 +    if (myclass == CLASS_HUNTER)
 +    {
 +        m_creature->SetModifierValue(UNIT_MOD_ATTACK_POWER, BASE_VALUE, atpower/3*2);
@@ -2230,10 +2256,10 @@ index 0000000..ad2e6eb
 \ No newline at end of file
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..f7787fc
+index 0000000..0beb478
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,814 @@
+@@ -0,0 +1,803 @@
 +#include "Chat.h"
 +#include "ScriptedCreature.h"
 +#include "Group.h"
@@ -2305,8 +2331,8 @@ index 0000000..f7787fc
 +{
 +    BEAR        = 15,
 +    CAT         = 25,
-+    TRAVEL      = 35,                   //NUY
-+    FLY         = 45                    //NUY
++    //TRAVEL      = 35,                   //NUY
++    //FLY         = 45,                   //NUY
 +};
 +
 +typedef std::set<Unit *> AttackerSet;
@@ -2321,19 +2347,12 @@ index 0000000..f7787fc
 +
 +        virtual ~bot_ai();
 +
-+        // Heal the target
-+        virtual bool HealTarget (Unit* /*target*/, uint8 /*hp*/) { return true; }
-+        // Buff target
++        virtual bool HealTarget (Unit* /*target*/, uint8 /*pct*/) { return true; }
 +        virtual bool BuffTarget(Unit* /*target*/) { return true; }
-+        // Custom action
 +        virtual void ReceiveBowEmote(Player *player);
 +
-+        // Cycles through the group to heal/buff
 +        void BuffAndHealGroup(Player *gPlayer);
-+        // Cycles through the group to rezz
 +        void RezGroup(uint32 REZZ, Player *gPlayer);
-+
-+        //Debug method to list the auras (passives too)
 +        bool listAuras(Player *player, Unit *unit);
 +
 +        //More generalized method than HasAura().  It looks for
@@ -2356,7 +2375,7 @@ index 0000000..f7787fc
 +        // Used to determine would we cure or not
 +        bool CureTarget(Unit *target);
 +        // Cure engine
-+        virtual bool HandleCure(DispelType dispel, Unit* /*target*/) { return true; }
++        virtual bool HandleCure(DispelType /*dispel*/, Unit* /*target*/) { return true; }
 +
 +        // Real combat check
 +        bool IsEvent() const { return (Battle() || BossFight()); }
@@ -2373,7 +2392,6 @@ index 0000000..f7787fc
 +        Unit *FindAOETarget(float dist = 30, bool checkbots = false, bool targetfriend = true) const;
 +        Unit *FindSplashTarget(float dist = 7, Unit *To = NULL) const;
 +
-+        // Checks if friendly to master
 +        bool IsInBotParty(Unit *unit) const;
 +        // Checks if opponent still exists (avoid crashes with despawning creatures)
 +        inline bool opponentValidate() const { return (opponentGuid && sObjectAccessor->FindUnit(opponentGuid)); }
@@ -2399,12 +2417,10 @@ index 0000000..f7787fc
 +                    ((target->HasAuraType(SPELL_AURA_MOD_ROOT) || target->HasAuraType(SPELL_AURA_MOD_CONFUSE) || target->HasAuraType(SPELL_AURA_MOD_STUN) || target->HasAuraType(SPELL_AURA_MOD_FEAR) || target->HasAuraType(SPELL_AURA_MOD_CHARM)));
 +            }
 +        }
-+        //  Got we some grub?
 +        inline bool Feasting() const { return (m_creature->HasAura(EAT) || m_creature->HasAura(DRINK)); }
 +        inline uint32 GetLostHP(Unit *unit) const { return unit->GetMaxHealth() - unit->GetHealth(); }
 +        inline uint8 GetHealthPCT(Unit *hTarget) const { if (!hTarget || hTarget->isDead()) return 100; return (hTarget->GetHealth()*100/hTarget->GetMaxHealth()); }
 +        inline uint8 GetManaPCT(Unit *hTarget) const { if (!hTarget || hTarget->isDead() || hTarget->getPowerType() != POWER_MANA) return 100; return (hTarget->GetPower(POWER_MANA)*100/hTarget->GetMaxPower(POWER_MANA)); }
-+        // Refreshes aura (used to apply/reapply any kind of passives)
 +        bool RefreshAura(uint32 spell, int16 count = 1, Unit *target = NULL) const;
 +        void CheckAuras(bool force = false);
 +        inline bool IsChanneling() const { return m_creature->GetCurrentSpell(CURRENT_CHANNELED_SPELL); }
@@ -2418,7 +2434,6 @@ index 0000000..f7787fc
 +                m_botCommandState != COMMAND_STAY))
 +                SetBotCommandState(COMMAND_FOLLOW);
 +        }
-+        // Acquire opponent
 +        Unit *getTarget(bool byspell = false, bool ranged = false);
 +        inline Creature *GetPet() { pet = petGuid != 0 ? sObjectAccessor->GetObjectInWorld(petGuid, (Creature*)NULL) : NULL; return pet; }
 +        inline void SetPet(Creature *newpet) { petGuid = newpet ? newpet->GetGUID() : 0; pet = newpet; }
@@ -3050,10 +3065,10 @@ index 0000000..f7787fc
 +
 diff --git a/src/server/game/AI/NpcBots/bot_druid_ai.cpp b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 new file mode 100644
-index 0000000..27365a1
+index 0000000..66b305a
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
-@@ -0,0 +1,924 @@
+@@ -0,0 +1,922 @@
 +#include "bot_druid_ai.h"
 +/*
 +Druid NpcBot (reworked by Graff onlysuffering@mail.ru)
@@ -3469,9 +3484,7 @@ index 0000000..27365a1
 +
 +        bool HandleCure(DispelType dispel, Unit *target)
 +        {
-+            if (dispel == DISPEL_POISON && doCast(target, CURE_POISON))
-+                return true;
-+            return false;
++            return (dispel == DISPEL_POISON && doCast(target, CURE_POISON));
 +        }
 +
 +        bool MassGroupHeal(Player *gPlayer)
@@ -4783,10 +4796,10 @@ index 0000000..2979957
 +
 diff --git a/src/server/game/AI/NpcBots/bot_mage_ai.cpp b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 new file mode 100644
-index 0000000..4824884
+index 0000000..faa2506
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
-@@ -0,0 +1,589 @@
+@@ -0,0 +1,674 @@
 +#include "bot_mage_ai.h"
 +/*
 +Mage NpcBot (reworked by Graff onlysuffering@mail.ru)
@@ -4813,13 +4826,13 @@ index 0000000..4824884
 +        uint8 Ice_Barrier_cd, ConeofCold_cd, Blizzard_cd;
 +        uint16 Iceblock_cd;
 +        //arcane
-+        uint8 CounterSpell_cd;
++        uint8 CounterSpell_cd, Blink_cd;
 +        uint16 Evocation_cd/*, Haste_cd*/;
 +        //universal
 +        uint8 Bolt_cd, Nova_cd;
 +        uint32 BOLT, NOVA;
 +
-+        uint8 polyCheckTimer;
++        uint8 polyCheckTimer, fmCheckTimer;
 +        bool Polymorph, clearcast;
 +
 +        void Reset()
@@ -4837,6 +4850,7 @@ index 0000000..4824884
 +            CounterSpell_cd = 0;
 +            Evocation_cd = 0;
 +            //Haste_cd = 300;
++            Blink_cd = 0;
 +
 +            Bolt_cd = 0;
 +            Nova_cd = 0;
@@ -5019,9 +5033,7 @@ index 0000000..4824884
 +
 +        bool HandleCure(DispelType dispel, Unit *target)//BROKEN
 +        {
-+            if (dispel == DISPEL_CURSE && doCast(target, REMOVE_CURSE))
-+                return true;
-+            return false;
++            return (dispel == DISPEL_CURSE && doCast(target, REMOVE_CURSE));
 +        }
 +
 +        void CheckSpellSteal(const uint32 diff)
@@ -5029,7 +5041,8 @@ index 0000000..4824884
 +            if (!SPELLSTEAL || Rand() > 20 || !isTimerReady(GC_Timer)) return;
 +            if (IsCasting()) return;
 +            Unit *target = FindHostileDispelTarget(30, true);
-+            if (target && doCast(target, SPELLSTEAL)) {}
++            if (target && doCast(target, SPELLSTEAL))
++                GC_Timer = 8;
 +        }
 +
 +        void DoNonCombatActions()
@@ -5047,6 +5060,7 @@ index 0000000..4824884
 +                GC_Timer = 8;
 +
 +            RezGroup(DEFIBRILLATE, master);
++            FocusMagic();
 +            BuffAndHealGroup(master);
 +        }
 +
@@ -5081,59 +5095,24 @@ index 0000000..4824884
 +            if (checkAurasTimer <= 0)
 +                CheckAuras();
 +            if (CCed()) return;
-+            if (polyCheckTimer <= 0 && !IsCasting())
-+            {
-+                if (FindAffectedTarget(POLYMORPH, m_creature->GetGUID()))
-+                    Polymorph = true;
-+                else
-+                    Polymorph = false;
-+                polyCheckTimer = 30;
-+            }
-+            else
-+                Polymorph = true;
 +
-+            if (GetHealthPCT(m_creature) < 70 && Potion_cd <= 0)
-+            {
-+                temptimer = GC_Timer;
-+                if (doCast(m_creature, HEALINGPOTION)) Potion_cd = 200; //20 secs
-+                GC_Timer = temptimer;
-+            }
-+            if (GetManaPCT(m_creature) < 35 && isTimerReady(Evocation_cd) && doCast(m_creature, EVOCATION))
-+                Evocation_cd = EVOCATION_CD;
-+            if (GetManaPCT(m_creature) < 45 && Potion_cd <= 0)
-+            {
-+                temptimer = GC_Timer;
-+                if (doCast(m_creature, MANAPOTION)) Potion_cd = MANA_CD;
-+                GC_Timer = temptimer;
-+            }
++            CheckBlink();
++            CheckPoly();
++            CheckPots();
 +            CureGroup(master);
 +            CureTarget(m_creature);
++
 +            if (!m_creature->isInCombat())
 +                DoNonCombatActions();
-+            //PolyCheck
-+            if (master->isInCombat() || m_creature->isInCombat())
-+            {
-+                if (Polymorph == false && opponent && !opponent->isDead() && isTimerReady(GC_Timer) && !IsCasting())
-+                {
-+                    if(Unit *target = FindPolyTarget())
-+                    {
-+                        if (target->GetDistance(opponent) > 7 && doCast(target, POLYMORPH))
-+                        {
-+                            Polymorph = true;
-+                            polyCheckTimer = 20;
-+                        }
-+                    }
-+                    else
-+                        Polymorph = false;
-+                }
-+            }
-+            //endPolyCheck
++            
 +            if (!(opponent = getTarget(true, true)))
 +            {
 +                opponentGuid = 0;
 +                return;
 +            }
 +            else opponentGuid = opponent->GetGUID();
++
++            CheckPoly2();//this should go After getting opponent
 +
 +            Counter(diff);
 +            CheckSpellSteal(diff);
@@ -5300,11 +5279,14 @@ index 0000000..4824884
 +                return;
 +            }
 +            //flamestrike
-+            if (GC_Timer <= 0 && !IsCasting() && m_creature->HasAura(FIRESTARTERBUFF))
++            if (GC_Timer <= 0 && m_creature->HasAura(FIRESTARTERBUFF))
 +            {
 +                Unit *FStarget = FindAOETarget(30, true, false);
 +                if (FStarget && doCast(FStarget, FLAMESTRIKE, true))
++                {
 +                    m_creature->RemoveAurasDueToSpell(FIRESTARTERBUFF);
++                    GC_Timer = 0;
++                }
 +            }
 +            //blizzard
 +            if (BLIZZARD && isTimerReady(Blizzard_cd) && !IsCasting())
@@ -5319,13 +5301,128 @@ index 0000000..4824884
 +            //Frost of Fire Bolt
 +            if (Rand() < 45 && 
 +                isTimerReady(Bolt_cd) && 
-+                !HasAuraName(opponent, POLYMORPH) && 
 +                m_creature->GetDistance(opponent) < 30 && 
 +                doCast(opponent, BOLT))
 +            {
 +                Bolt_cd = uint8(sSpellMgr->GetSpellInfo(BOLT)->CalcCastTime()/100 * m_creature->GetFloatValue(UNIT_MOD_CAST_SPEED) + 1);
 +                return;
 +            }
++            //Arcane Missiles
++            if (Rand() < 30 && !m_creature->isMoving() &&
++                m_creature->GetDistance(opponent) < 30 && 
++                doCast(opponent, ARCANEMISSILES))
++                return;
++        }
++
++        void CheckPoly()
++        {
++            if (polyCheckTimer <= 0 && !IsCasting())
++            {
++                if (FindAffectedTarget(POLYMORPH, m_creature->GetGUID()))
++                    Polymorph = true;
++                else
++                    Polymorph = false;
++                polyCheckTimer = 30;
++            }
++            else
++                Polymorph = true;
++        }
++
++        void CheckPoly2()
++        {
++            if (master->isInCombat() || m_creature->isInCombat())
++            {
++                if (Polymorph == false && !opponent->isDead() && isTimerReady(GC_Timer) && !IsCasting())
++                {
++                    if(Unit *target = FindPolyTarget())
++                    {
++                        if (target->GetDistance(opponent) > 7 && doCast(target, POLYMORPH))
++                        {
++                            Polymorph = true;
++                            polyCheckTimer = 20;
++                        }
++                    }
++                    else
++                        Polymorph = false;
++                }
++            }
++        }
++
++        void CheckPots()
++        {
++            if (GetHealthPCT(m_creature) < 70 && Potion_cd <= 0)
++            {
++                temptimer = GC_Timer;
++                if (doCast(m_creature, HEALINGPOTION)) Potion_cd = 200; //20 secs
++                GC_Timer = temptimer;
++            }
++            if (GetManaPCT(m_creature) < 35 && isTimerReady(Evocation_cd) && doCast(m_creature, EVOCATION))
++                Evocation_cd = EVOCATION_CD;
++            if (GetManaPCT(m_creature) < 45 && Potion_cd <= 0)
++            {
++                temptimer = GC_Timer;
++                if (doCast(m_creature, MANAPOTION)) Potion_cd = MANA_CD;
++                GC_Timer = temptimer;
++            }
++        }
++
++        void CheckBlink()
++        {
++            if (m_creature->GetBotAI()->GetBotCommandState() == COMMAND_STAY) return;
++            if (Blink_cd > 0 || m_creature->getLevel() < 20 || IsCasting()) return;
++            if (m_creature->GetDistance(master) > master->GetBotFollowDist()/* && master->isMoving()*/)
++            {
++                m_creature->SetFacingTo(m_creature->GetAngle(master));
++                if (doCast(m_creature, BLINK))
++                {
++                    Blink_cd = BLINK_CD - m_creature->getLevel()/4; //130 with improved
++                    GC_Timer = 5;
++                }
++                return;
++            }
++            if (!m_creature->getAttackers().empty() && m_creature->GetDistance(master) > 10)
++            {
++                if (Unit *op = m_creature->SelectNearestTarget(10))
++                    if (op->getVictim() == m_creature)
++                    {
++                        m_creature->SetFacingTo(m_creature->GetAngle(master));
++                        if (doCast(m_creature, BLINK))
++                        {
++                            Blink_cd = BLINK_CD - m_creature->getLevel()/4; //130 with improved
++                            GC_Timer = 5;
++                        }
++                    }
++            }
++        }
++
++        void FocusMagic()
++        {
++            if (m_creature->getLevel() < 20 || fmCheckTimer > 0 || Rand() < 50 || IsCasting())
++                return;
++            Unit *target = FindAffectedTarget(FOCUSMAGIC, m_creature->GetGUID(), 70, 1);
++            if (!target)
++            {
++                Group *pGroup = master->GetGroup();
++                if (!pGroup)
++                {
++                    if (master->getPowerType() == POWER_MANA && !master->HasAura(FOCUSMAGIC) && m_creature->GetDistance(master) < 30)
++                    target = master;
++                }
++                else
++                {
++                    for (GroupReference *itr = pGroup->GetFirstMember(); itr != NULL; itr = itr->next())
++                    {
++                        Player *pPlayer = itr->getSource();
++                        if (!pPlayer || pPlayer->isDead()) continue;
++                        if (pPlayer->getPowerType() == POWER_MANA && !pPlayer->HasAura(FOCUSMAGIC) && m_creature->GetDistance(pPlayer) < 30)
++                            target = pPlayer;
++                    }
++                }
++                if (target && doCast(target, FOCUSMAGIC))
++                    GC_Timer = 5;
++            }
++
++            fmCheckTimer = 50;
 +        }
 +
 +        void SpellHit(Unit* caster, SpellInfo const* spell)
@@ -5336,24 +5433,25 @@ index 0000000..4824884
 +        void ReduceCD(const uint32 diff)
 +        {
 +            CommonTimers();
-+            if (Pyroblast_cd > 0)    --Pyroblast_cd;
-+            if (Ice_Barrier_cd > 0)  --Ice_Barrier_cd;
-+            if (Iceblock_cd > 0)     --Iceblock_cd;
-+            //if (Haste_cd > 0)        --Haste_cd;
-+            if (ConeofCold_cd > 0)   --ConeofCold_cd;
-+            if (Living_Bomb_cd > 0)  --Living_Bomb_cd;
-+            if (FireBlast_cd > 0)    --FireBlast_cd;
-+            if (Bolt_cd > 0)         --Bolt_cd;
-+            if (Blizzard_cd > 0)     --Blizzard_cd;
-+            if (CounterSpell_cd > 0) --CounterSpell_cd;
-+            if (Nova_cd > 0)         --Nova_cd;
-+            //if (Ward_cd > 0)         --Ward_cd;
-+            if (DragonBreath_cd > 0) --DragonBreath_cd;
-+            //if (Blink_cd > 0)        --Blink_cd;
-+            if (Combustion_cd > 0)   --Combustion_cd;
-+            if (Evocation_cd > 0)    --Evocation_cd;
-+            //if (FirstAid_cd > 0)     --FirstAid_cd;
-+            if (polyCheckTimer > 0)  --polyCheckTimer;
++            if (Pyroblast_cd > 0)       --Pyroblast_cd;
++            if (Ice_Barrier_cd > 0)     --Ice_Barrier_cd;
++            if (Iceblock_cd > 0)        --Iceblock_cd;
++            //if (Haste_cd > 0)           --Haste_cd;
++            if (ConeofCold_cd > 0)      --ConeofCold_cd;
++            if (Living_Bomb_cd > 0)     --Living_Bomb_cd;
++            if (FireBlast_cd > 0)       --FireBlast_cd;
++            if (Bolt_cd > 0)            --Bolt_cd;
++            if (Blizzard_cd > 0)        --Blizzard_cd;
++            if (CounterSpell_cd > 0)    --CounterSpell_cd;
++            if (Nova_cd > 0)            --Nova_cd;
++            //if (Ward_cd > 0)            --Ward_cd;
++            if (DragonBreath_cd > 0)    --DragonBreath_cd;
++            if (Blink_cd > 0)           --Blink_cd;
++            if (Combustion_cd > 0)      --Combustion_cd;
++            if (Evocation_cd > 0)       --Evocation_cd;
++            //if (FirstAid_cd > 0)        --FirstAid_cd;
++            if (polyCheckTimer > 0)     --polyCheckTimer;
++            if (fmCheckTimer > 0)       --fmCheckTimer;
 +        }
 +
 +        void ReceiveBowEmote(Player *player)
@@ -5378,7 +5476,7 @@ index 0000000..4824884
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_mage_ai.h b/src/server/game/AI/NpcBots/bot_mage_ai.h
 new file mode 100644
-index 0000000..682e30d
+index 0000000..0bd1a3f
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_mage_ai.h
 @@ -0,0 +1,143 @@
@@ -5390,7 +5488,7 @@ index 0000000..682e30d
 +    EVOCATION_CD    = 600,
 +    COUNTERSPELL_CD = 150,
 +//    POM_CD          = 200,//nUY
-+//    BLINK_CD        = 150,
++    BLINK_CD        = 150,
 +
 +//fire spells cooldown
 +    DRAGONBREATH_CD = 250,
@@ -5411,15 +5509,16 @@ index 0000000..682e30d
 +#define DAMPENMAGIC     SPELL_DAMPENMAGIC_A[SPELL_LEVEL]
 +#define SPELLSTEAL      SPELL_SPELLSTEAL_A[SPELL_LEVEL]
 +#define ARCANEINTELLECT SPELL_ARCANEINTELLECT_A[SPELL_LEVEL]
-+//#define ARCANEEXPLOSION SPELL_ARCANEEXPLOSION_A[SPELL_LEVEL]
++#define ARCANEMISSILES  SPELL_ARCANEMISSILES_A[SPELL_LEVEL]
 +#define POLYMORPH       SPELL_POLYMORPH_A[SPELL_LEVEL]
 +
 +enum ArcaneConsts
 +{
 +    COUNTERSPELL    = 2139,
 +    EVOCATION       = 12051,
-+//    BLINK           = 1953,
-+//    ARCANETORRENT   = 28730,
++    BLINK           = 1953,
++    FOCUSMAGIC      = 54646,
++//    ARCANETORRENT   = 28730, //NUY
 +};
 +
 +//fire spells
@@ -5452,9 +5551,8 @@ index 0000000..682e30d
 +//uint32 SPELL_MANASHIELD_A[] = { 0, 0, 1463, 8495, 10191, 10192, 27131, 43019, 38151, 38151 };
 +//uint32 SPELL_MAGEARMOR_A[] = { 0, 0, 0, 6117, 22782, 22783, 27125, 43023, 43024 };
 +uint32 SPELL_SPELLSTEAL_A[] = { 0, 0, 0, 0, 0, 30449, 30449, 30449, 30449, 30449 };
-+//uint32 SPELL_ARCANEMISSILES_A[] = { 5143, 5144, 5145, 8416, 8417, 10212, 27075, 42843, 42846 };//NUY
++uint32 SPELL_ARCANEMISSILES_A[] = { 0, 5143, 5144, 8416, 8417, 25345, 27075, 38704, 42846, 42846 };
 +uint32 SPELL_ARCANEINTELLECT_A[] = { 1459, 1460, 1461, 1461, 10156, 10157, 10157, 27126, 42995, 42995 };
-+//uint32 SPELL_ARCANEEXPLOSION_A[] = { 0, 1449, 8437, 8439, 10201, 10202, 27080, 42990, 59245, 59245 };
 +uint32 SPELL_POLYMORPH_A[] = { 0, 0, 118, 12824, 12825, 12825, 12826, 12826, 12826, 12826 };
 +//fire spells
 +uint32 SPELL_FIREBALL_A[] = { 133, 145, 3140, 8401, 8402, 10149, 10151, 38692, 42833, 42833 };
@@ -5528,10 +5626,10 @@ index 0000000..682e30d
 \ No newline at end of file
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 new file mode 100644
-index 0000000..cb7c028
+index 0000000..f148a0c
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
-@@ -0,0 +1,932 @@
+@@ -0,0 +1,927 @@
 +#include "bot_paladin_ai.h"
 +#include "SpellAuraEffects.h"
 +/*
@@ -5716,10 +5814,8 @@ index 0000000..cb7c028
 +
 +        bool HandleCure(DispelType dispel, Unit *target)
 +        {
-+            if (dispel == DISPEL_MAGIC || dispel == DISPEL_DISEASE || dispel == DISPEL_POISON)
-+                if (doCast(target, CLEANSE))
-+                    return true;
-+            return false;
++            return ((dispel == DISPEL_MAGIC || dispel == DISPEL_DISEASE || dispel == DISPEL_POISON) && 
++                doCast(target, CLEANSE));
 +        }
 +
 +        void HOFGroup(Player *pTarget)
@@ -6033,16 +6129,13 @@ index 0000000..cb7c028
 +                GC_Timer = temptimer;
 +            }
 +            if (GetManaPCT(m_creature) < 40 && m_creature->getLevel() >= 70 && isTimerReady(Divine_Plea_Timer))
-+            {
-+                if (doCast(m_creature, DIVINE_PLEA)) Divine_Plea_Timer = MANA_CD;
-+            }
++                if (doCast(m_creature, DIVINE_PLEA))
++                    Divine_Plea_Timer = MANA_CD;
 +
 +            CureTarget(me);//maybe unnecessary but this goes FIRST
 +            HOFTarget(master);//maybe unnecessary
 +            CureTarget(master);//maybe unnecessary
 +            HOSTarget(master);
-+            //buff and heal master's group
-+            BuffAndHealGroup(master);
 +            CureGroup(master);
 +            HOFGroup(master);
 +            HOSGroup(master);
@@ -6053,9 +6146,12 @@ index 0000000..cb7c028
 +                if (doCast(m_creature, HEALINGPOTION)) Potion_cd = 200;
 +                GC_Timer = temptimer;
 +            }
++            if (!m_creature->isInCombat())
++                DoNonCombatActions();
 +            //buff
-+            if (master->getLevel() >= 10 && !m_creature->HasAura(SEAL_OF_COMMAND) && isTimerReady(GC_Timer))
-+                doCast(m_creature, SEAL_OF_COMMAND);
++            if (m_creature->getLevel() >= 10 && !m_creature->HasAura(SEAL_OF_COMMAND) && isTimerReady(GC_Timer) && 
++                doCast(m_creature, SEAL_OF_COMMAND))
++                GC_Timer = 8;
 +
 +            // Heal myself
 +            if (GetHealthPCT(m_creature) < 80)
@@ -6115,9 +6211,6 @@ index 0000000..cb7c028
 +                    GC_Timer <= 0)
 +                    doCast(m_creature, RESISTANCE_AURA);
 +            }//end if IsAlive
-+            //buff
-+            if (master->getLevel() >= 10 && !m_creature->HasAura(SEAL_OF_COMMAND) && GC_Timer <= 0)
-+                doCast(m_creature, SEAL_OF_COMMAND);
 +
 +            //buff and heal master's group
 +            RezGroup(REDEMPTION, master);
@@ -9713,10 +9806,10 @@ index 0000000..5fdda4a
 \ No newline at end of file
 diff --git a/src/server/game/AI/PlayerBots/PlayerbotAI.cpp b/src/server/game/AI/PlayerBots/PlayerbotAI.cpp
 new file mode 100644
-index 0000000..8ef0c5d
+index 0000000..b847d3f
 --- /dev/null
 +++ b/src/server/game/AI/PlayerBots/PlayerbotAI.cpp
-@@ -0,0 +1,10662 @@
+@@ -0,0 +1,10677 @@
 +/*
 +Name:       PlayerBot AI Core by Graff (onlysuffering@mail.ru)
 +Converted:  from original blueboy's Playerbots: https://github.com/blueboy/portal/
@@ -10144,21 +10237,23 @@ index 0000000..8ef0c5d
 +    uint32 next = 0;
 +    SpellChainNode const *Node = sSpellMgr->GetSpellChainNode(spellId);
 +    next = Node && Node->next ? Node->next->Id : 0;
-+    if (next == 0)
++    const SpellInfo *const spellInfo = sSpellMgr->GetSpellInfo(spellId);
++    if (next == 0 || !m_bot->HasSpell(next))
 +    {
-+        const SpellInfo * SpellInfo = sSpellMgr->GetSpellInfo(spellId);
-+        // sLog->outDebug(LOG_FILTER_NONE, "[PlayerbotAI]: initSpell - Playerbot spell init: %s is %u", pSpellInfo->SpellName[0], spellId);
-+
 +        // Add spell to spellrange map
-+        Spell *spell = new Spell(m_bot, SpellInfo, TRIGGERED_NONE);
-+        float range = SpellInfo->GetMaxRange(SpellInfo->IsPositive());
-+        m_bot->ApplySpellMod(spellId, SPELLMOD_RANGE, range, spell);
++        //Spell *spell = new Spell(m_bot, spellInfo, TRIGGERED_NONE);
++        //float range = spellInfo->GetMaxRange(spellInfo->IsPositive());
++        //m_bot->ApplySpellMod(spellId, SPELLMOD_RANGE, range, spell);
 +        //m_spellRangeMap.insert(std::pair<uint32, float>(spellId, range));
-+        delete spell;
++        //delete spell;
++        //sLog->outBasic("Pbot::InitSpell() proceed spell %u (%s): returned %u (%s)", spellId, spellInfo->SpellName[0], spellId, spellInfo->SpellName[0]);
 +        return spellId;
 +    }
 +    else
++    {
++        //sLog->outBasic("Pbot::InitSpell() proceed spell %u (%s): forwarding to %u (%s)", spellId, spellInfo->SpellName[0], next, sSpellMgr->GetSpellInfo(next)->SpellName[0]);
 +        return initSpell(next);
++    }
 +    //return (next == 0) ? spellId : next;
 +}
 +
@@ -11084,36 +11179,36 @@ index 0000000..8ef0c5d
 +        }
 +
 +        // handle flying acknowledgement
-+        case SMSG_MOVE_SET_CAN_FLY:
-+        {
-+            WorldPacket p(packet);
-+            uint64 guid;
-+            //packetfix
-+            //guid = extractGuid(p);
++        //case SMSG_MOVE_SET_CAN_FLY:
++        //{
++        //    WorldPacket p(packet);
++        //    uint64 guid;
++        //    //packetfix
++        //    //guid = extractGuid(p);
 +
-+            p >> guid;
-+            if (guid != m_bot->GetGUID())
-+                return;
-+            m_bot->m_movementInfo.AddMovementFlag(MOVEMENTFLAG_FLYING);
-+            //m_bot->SetSpeed(MOVE_RUN, GetMaster()->GetSpeed(MOVE_FLIGHT) +0.1f, true);
-+            return;
-+        }
++        //    p >> guid;
++        //    if (guid != m_bot->GetGUID())
++        //        return;
++        //    m_bot->m_movementInfo.AddMovementFlag(MOVEMENTFLAG_FLYING);
++        //    //m_bot->SetSpeed(MOVE_RUN, GetMaster()->GetSpeed(MOVE_FLIGHT) +0.1f, true);
++        //    return;
++        //}
 +
 +        // handle dismount flying acknowledgement
-+        case SMSG_MOVE_UNSET_CAN_FLY:
-+        {
-+            WorldPacket p(packet);
-+            uint64 guid;
-+            //packetfix
-+            //guid = extractGuid(p);
++        //case SMSG_MOVE_UNSET_CAN_FLY:
++        //{
++        //    WorldPacket p(packet);
++        //    uint64 guid;
++        //    //packetfix
++        //    //guid = extractGuid(p);
 +
-+            p >> guid;
-+            if (guid != m_bot->GetGUID())
-+                return;
-+            m_bot->m_movementInfo.RemoveMovementFlag(MOVEMENTFLAG_FLYING);
-+            //m_bot->SetSpeed(MOVE_RUN,GetMaster()->GetSpeedRate(MOVE_RUN),true);
-+            return;
-+        }
++        //    p >> guid;
++        //    if (guid != m_bot->GetGUID())
++        //        return;
++        //    m_bot->m_movementInfo.RemoveMovementFlag(MOVEMENTFLAG_FLYING);
++        //    //m_bot->SetSpeed(MOVE_RUN,GetMaster()->GetSpeedRate(MOVE_RUN),true);
++        //    return;
++        //}
 +
 +        // If the leader role was given to the bot automatically give it to the master
 +        // if the master is in the group, otherwise leave group
@@ -12036,9 +12131,18 @@ index 0000000..8ef0c5d
 +        m_bot->SetStandState(UNIT_STAND_STATE_STAND);
 +
 +    m_bot->Attack(m_targetCombat, true);
++    //temp
++    if (m_targetCombat->GetMapId() == m_bot->GetMapId())
++    {
++        m_bot->GetMotionMaster()->MoveChase(m_targetCombat);
++        GetClassAI()->DoNextCombatManeuver(m_targetCombat);
++    }
++    m_targetCombatGUID = m_targetCombat->GetGUID();
 +
 +    // add thingToAttack to loot list
-+    m_lootTargets.push_back(m_targetCombat->GetGUID());
++    if (Creature *cre = m_targetCombat->ToCreature())
++        if (cre->GetCreatureTemplate()->lootid != 0)
++            m_lootTargets.push_back(m_targetCombat->GetGUID());
 +
 +    return;
 +}
@@ -12065,11 +12169,15 @@ index 0000000..8ef0c5d
 +    // check for new targets
 +    if (m_ScenarioType == SCENARIO_DUEL)
 +        GetDuelTarget(GetMaster());
++    else if (Unit *u = m_master->getVictim())
++        GetCombatTarget(u);
 +    else
 +        GetCombatTarget();
++
 +    // check if we have a target - fixes crash reported by rrtn (kill hunter's pet bug)
 +    // if current target for attacks doesn't make sense anymore
 +    // clear our orders so we can get orders in next update
++    m_targetCombat = sObjectAccessor->FindUnit(m_targetCombatGUID);
 +    if (!m_targetCombat || m_targetCombat->isDead() || !m_targetCombat->IsInWorld() || !m_bot->IsHostileTo(m_targetCombat) || !m_bot->IsInMap(m_targetCombat))
 +    {
 +        m_bot->AttackStop();
@@ -20382,10 +20490,10 @@ index 0000000..8ef0c5d
 \ No newline at end of file
 diff --git a/src/server/game/AI/PlayerBots/PlayerbotAI.h b/src/server/game/AI/PlayerBots/PlayerbotAI.h
 new file mode 100644
-index 0000000..2629ca4
+index 0000000..578d116
 --- /dev/null
 +++ b/src/server/game/AI/PlayerBots/PlayerbotAI.h
-@@ -0,0 +1,2085 @@
+@@ -0,0 +1,2086 @@
 +#ifndef _PLAYERBOTAI_H
 +#define _PLAYERBOTAI_H
 +
@@ -22414,6 +22522,7 @@ index 0000000..2629ca4
 +    bool m_targetChanged;
 +    CombatTargetType m_targetType;
 +
++    uint64 m_targetCombatGUID;
 +    Unit *m_targetCombat;       // current combat target
 +    Unit *m_targetAssist;       // get new target by checking attacker list of assisted player
 +    Unit *m_targetProtect;      // check
