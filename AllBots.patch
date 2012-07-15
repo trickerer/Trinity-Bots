@@ -1,13 +1,13 @@
-From 06de28497a58723019b117a8d30654dab9095b09 Mon Sep 17 00:00:00 2001
+From 2e01c8b5613f291f19f3ef69720306b28ac63da4 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Fri, 13 Jul 2012 23:32:47 +0700
+Date: Mon, 16 Jul 2012 02:32:57 +0700
 Subject: [PATCH] AllBots
 
 ---
  sql/Bots/character_NPC_bots.sql                    |    8 +
  sql/Bots/world.bots.sql                            |  283 +
  sql/Bots/world.script_bot_giver.sql                |    7 +
- src/server/game/AI/NpcBots/bot_ai.cpp              | 1810 ++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 1805 ++++
  src/server/game/AI/NpcBots/bot_ai.h                |  803 ++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        |  922 ++
  src/server/game/AI/NpcBots/bot_druid_ai.h          |  115 +
@@ -26,8 +26,8 @@ Subject: [PATCH] AllBots
  src/server/game/AI/NpcBots/bot_shaman_ai.h         |   48 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  278 +
  src/server/game/AI/NpcBots/bot_warlock_ai.h        |   36 +
- src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  997 ++
- src/server/game/AI/NpcBots/bot_warrior_ai.h        |  109 +
+ src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1046 ++
+ src/server/game/AI/NpcBots/bot_warrior_ai.h        |  114 +
  src/server/game/AI/PlayerBots/PlayerbotAI.cpp      |10677 ++++++++++++++++++++
  src/server/game/AI/PlayerBots/PlayerbotAI.h        | 2086 ++++
  .../game/AI/PlayerBots/PlayerbotDeathKnightAI.cpp  |  499 +
@@ -58,7 +58,7 @@ Subject: [PATCH] AllBots
  src/server/game/Entities/Creature/Creature.cpp     |  112 +
  src/server/game/Entities/Creature/Creature.h       |   32 +
  .../game/Entities/Creature/TemporarySummon.cpp     |    3 +
- src/server/game/Entities/Player/Player.cpp         | 1204 +++
+ src/server/game/Entities/Player/Player.cpp         | 1193 +++
  src/server/game/Entities/Player/Player.h           |   72 +
  src/server/game/Entities/Unit/Unit.cpp             |  182 +
  src/server/game/Groups/Group.cpp                   |   19 +
@@ -66,13 +66,11 @@ Subject: [PATCH] AllBots
  src/server/game/Handlers/ChatHandler.cpp           |   30 +
  src/server/game/Handlers/GroupHandler.cpp          |   18 +
  src/server/game/Handlers/QuestHandler.cpp          |    8 +
- src/server/game/Maps/Map.cpp                       |   40 +-
- src/server/game/Maps/Map.h                         |    2 +-
  src/server/game/Scripting/ScriptLoader.cpp         |   23 +
  src/server/game/Server/WorldSession.cpp            |  107 +
  src/server/game/Server/WorldSession.h              |   32 +
- src/server/worldserver/worldserver.conf.dist       |  147 +
- 68 files changed, 32054 insertions(+), 11 deletions(-)
+ src/server/worldserver/worldserver.conf.dist       |  153 +
+ 66 files changed, 32067 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -439,10 +437,10 @@ index 0000000..5b00cdc
 +
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..a58b33f
+index 0000000..7a8f155
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,1810 @@
+@@ -0,0 +1,1805 @@
 +#include "bot_ai.h"
 +#include "Config.h"
 +#include "GridNotifiers.h"
@@ -451,11 +449,12 @@ index 0000000..a58b33f
 +#include "SpellAuraEffects.h"
 +/*
 +NpcBot System by Graff (onlysuffering@mail.ru)
-+Original Patch leeched from: LordPsyan http://207.223.240.182/lordpsyan/trinitycore-patches/
++Original Patch leeched from: LordPsyan http://bitbucket.org/lordpsyan/trinitycore-patches/
 +TODO:
 +Incombat movement needs more research
 +Implement heal/tank/DD modes
 +Implement Equipment Change (maybe)
++Replace Rations from Player
 +I NEED MORE
 +*/
 +bot_ai::bot_ai(Creature *creature): ScriptedAI(creature)
@@ -464,10 +463,7 @@ index 0000000..a58b33f
 +    master = m_creature->GetBotOwner();
 +    opponent = NULL;
 +    opponentGuid = 0;
-+    m_basemana = 0;
 +    m_totalmana = 0;
-+    m_basehp = 0;
-+    m_totalhp = 0;
 +    m_spellpower = 0;
 +    haste = 0;
 +    regen_mp5 = 0.0f;
@@ -485,22 +481,15 @@ index 0000000..a58b33f
 +    petGuid = 0;
 +    info = NULL;
 +    cost = 0;
-+    m_amount = 0.0f;
-+    followdist = 30;
-+    m_botCommandState = COMMAND_FOLLOW;
 +    doHealth = false;
-+    stat = 0;
-+    sppower = 0;
-+    atpower = 0.0f;
 +}
 +
 +bot_ai::~bot_ai(){}
 +// Movement set
-+void bot_ai::SetBotCommandState(CommandStates st)
++void bot_ai::SetBotCommandState(CommandStates st, bool force)
 +{
 +    if (st == COMMAND_FOLLOW && master->isAlive() && 
-+        !m_creature->HasUnitMovementFlag(MOVEMENTFLAG_MASK_MOVING) && 
-+        !IsCasting())
++        ((!m_creature->HasUnitMovementFlag(MOVEMENTFLAG_MASK_MOVING) && !IsCasting()) || force))
 +    {
 +        followdist = master->GetBotFollowDist();
 +        if (master->GetBotTankGuid() == m_creature->GetGUID())
@@ -901,7 +890,10 @@ index 0000000..a58b33f
 +
 +    //LEVEL
 +    if (force || m_creature->getLevel() != master->getLevel())
++    {
 +        m_creature->SetLevel(mylevel);
++        force = true; //restore powers on lvl update
++    }
 +    if (pet != NULL && pet->getLevel() != master->getLevel())
 +        pet->SetLevel(mylevel);
 +
@@ -1005,7 +997,7 @@ index 0000000..a58b33f
 +    RefreshAura(DMG_TAKEN, int8(value/6.0f));//so max aura count = 10
 +    //SPEEDS
 +    //TODO: NEED TO REMOVE THIS SOMEHOW
-+    if (!m_creature->HasAuraWithMechanic(1<<MECHANIC_SNARE))
++    if (!m_creature->HasAuraWithMechanic(1<<MECHANIC_SNARE) && !master->HasAuraWithMechanic(1<<MECHANIC_SNARE))
 +    {
 +        float speed = 0.0f;
 +        float speedbonus = 0.0f;
@@ -1934,11 +1926,12 @@ index 0000000..a58b33f
 +    for (GroupReference *itr = pGroup->GetFirstMember(); itr != NULL; itr = itr->next())
 +    {
 +        Player *tPlayer = itr->getSource();
-+        if (!tPlayer || tPlayer->isDead()) continue;
-+        if (tPlayer->isDead() && checkbots && !tPlayer->HaveBot()) continue;
-+        if (m_creature->GetDistance(tPlayer) > 30) continue;
++        if (!tPlayer) continue;
 +        if (checkbots && tPlayer->HaveBot())
 +            Bots++;
++        if (tPlayer->isDead()) continue;
++        if (m_creature->GetDistance(tPlayer) > 30) continue;
++        
 +
 +        AttackerSet m_attackers = tPlayer->getAttackers();
 +        if (m_attackers.size() > 1)
@@ -2256,7 +2249,7 @@ index 0000000..a58b33f
 \ No newline at end of file
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..0beb478
+index 0000000..9912f1b
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
 @@ -0,0 +1,803 @@
@@ -2452,7 +2445,7 @@ index 0000000..0beb478
 +        uint8 temptimer, checkAurasTimer, wait;
 +        Unit *tank;
 +        SpellInfo const *info;
-+        void SetBotCommandState(CommandStates st);
++        void SetBotCommandState(CommandStates st, bool force = false);
 +        CommandStates GetBotCommandState() const { return m_botCommandState; }
 +        uint8 GetWait()
 +        {
@@ -2465,7 +2458,7 @@ index 0000000..0beb478
 +            return (2 + master->GetNpcBotsCount()/4);
 +        }
 +        inline uint8 GetHaste() const { return haste; }
-+        inline uint32 Rand() const { return urand(0, 100 + (master->GetNpcBotsCount() - 1) * 10); }
++        inline uint16 Rand() const { return urand(0, 100 + (master->GetNpcBotsCount() - 1) * 10); }
 +        inline void CommonTimers()
 +        {
 +            if (Potion_cd > 0)           --Potion_cd;
@@ -2507,7 +2500,7 @@ index 0000000..0beb478
 +        int32 sppower, stat, m_spellpower;
 +        uint8 rezz_cd, clear_cd, haste, pct, tempclass;
 +        uint32 m_basemana, m_totalmana, m_basehp, m_totalhp;
-+        float atpower, mydist, angle, maxdist, m_amount, speed_walk, speed_run, regen_mp5, ap_mod, armor_mod, crit_mod, haste_mod, dodge_mod, parry_mod;
++        float atpower, mydist, angle, maxdist, speed_walk, speed_run, regen_mp5, ap_mod, armor_mod, crit_mod, haste_mod, dodge_mod, parry_mod;
 +        uint64 petGuid;
 +        Creature *pet;
 +
@@ -6681,7 +6674,7 @@ index 0000000..c2dc0f1
 \ No newline at end of file
 diff --git a/src/server/game/AI/NpcBots/bot_priest_ai.cpp b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 new file mode 100644
-index 0000000..64533c0
+index 0000000..838f1ae
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 @@ -0,0 +1,679 @@
@@ -7020,7 +7013,7 @@ index 0000000..64533c0
 +                        Mind_Blast_Timer = 80 - m_creature->getLevel()/4;//6 sec on 80 (as improved)
 +                        return;
 +                    }
-+                    if (MIND_FLAY && Rand() < 50 && isTimerReady(Mind_Flay_Timer) && m_creature->GetDistance(opponent) < 30 && 
++                    if (MIND_FLAY && !m_creature->isMoving() && Rand() < 50 && isTimerReady(Mind_Flay_Timer) && m_creature->GetDistance(opponent) < 30 && 
 +                        !opponent->HasAura(MIND_FLAY, m_creature->GetGUID()) && 
 +                        (opponent->isMoving() || 
 +                        (opponent->HasAura(SW_PAIN, m_creature->GetGUID()) && 
@@ -8687,17 +8680,17 @@ index 0000000..1df2c52
 +
 diff --git a/src/server/game/AI/NpcBots/bot_warrior_ai.cpp b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 new file mode 100644
-index 0000000..53e5076
+index 0000000..21b5bd8
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
-@@ -0,0 +1,997 @@
+@@ -0,0 +1,1046 @@
 +#include "bot_warrior_ai.h"
 +#include "SpellAuraEffects.h"
 +bool battleStance; bool defensiveStance; bool berserkerStance;
 +/*
 +Warrior NpcBot (reworked by Graff onlysuffering@mail.ru)
 +Complete - Around 50-55%
-+TODO: Solve 'DeathWish + Enrage', Thunder Clap, Piercing Howl, Challenging Shout, Intervene, Tanking stuff
++TODO: Solve 'DeathWish + Enrage', Thunder Clap, Piercing Howl, Challenging Shout, Tanking stuff
 +*/
 +class warrior_bot : public CreatureScript
 +{
@@ -8721,16 +8714,15 @@ index 0000000..53e5076
 +        //charge
 +        uint32 charge_cd, intercept_cd;
 +        //damage
-+        uint32 mortalStrike_cd, overpower_cd, slam_cd, whirlwind_cd, cleave_cd;
++        uint32 mortalStrike_cd, overpower_cd, slam_cd, whirlwind_cd, cleave_cd, bladestorm_cd;
 +        //uint32 disarm_cd;
-+        //uint32 intervene_cd;
++        uint32 intervene_cd;
 +        //uint32 shieldBash_cd;
 +        //uint32 spellReflection_cd;
 +        //uint32 firstAid_cd;
 +        //timers
 +        uint32 GCD, temptimer, stancetimer, ragetimer, ragetimer2;
 +        //misc
-+        bool SChange;
 +        uint32 rage;
 +        float rageIncomeMult, rageLossMult;
 +
@@ -8750,11 +8742,12 @@ index 0000000..53e5076
 +            intercept_cd = 0;
 +            intimidatingShout_cd = 0;
 +            pummel_cd = 0;
-+            whirlwind_cd = 10000;
++            whirlwind_cd = 5000;
 +            cleave_cd = 0;
++            bladestorm_cd = 10000;
 +            bloodrage_cd = 0;
 +            //disarm_cd = 0;
-+            //intervene_cd = 0;
++            intervene_cd = 5000;
 +            //shieldBash_cd = 0;
 +            //spellReflection_cd = 0;
 +            potion_cd = 0;
@@ -8770,7 +8763,6 @@ index 0000000..53e5076
 +            battleStance = true;
 +            defensiveStance = false;
 +            berserkerStance = false;
-+            SChange = true;
 +
 +            rageIncomeMult = sWorld->getRate(RATE_POWER_RAGE_INCOME);
 +            rageLossMult = sWorld->getRate(RATE_POWER_RAGE_LOSS);
@@ -8781,10 +8773,6 @@ index 0000000..53e5076
 +            if (master)
 +            {
 +                setStats(CLASS_WARRIOR, m_creature->getRace(), master->getLevel(), true);
-+
-+                //Crit
-+                if (master->getLevel() >= 60)
-+                    RefreshAura(RAMPAGE);
 +
 +                //Enrage
 +                if (master->getLevel() >= 70)
@@ -8802,6 +8790,13 @@ index 0000000..53e5076
 +                    RefreshAura(SWORD_SPEC,2);//twice
 +                else if (master->getLevel() >= 30)
 +                    RefreshAura(SWORD_SPEC);//once
++
++                //Crit
++                if (master->getLevel() >= 60)
++                    RefreshAura(RAMPAGE);
++                //BloodRage Absorb
++                if (master->getLevel() >= 60)
++                    RefreshAura(WARRIOR_T10_4P);
 +
 +                if (master->getLevel() >= 55)
 +                    RefreshAura(TRAUMA2);//30%
@@ -8846,7 +8841,7 @@ index 0000000..53e5076
 +        {
 +            if (spellId < 1) return false;
 +            if (!CheckImmunities(spellId, victim)) return false;
-+            if (m_creature->HasAura(67541)) return false;//SlapStorm
++            if (m_creature->HasAura(BLADESTORM)) return false;
 +            if (InDuel(victim)) return false;
 +            if ((spellId == INTERCEPT || spellId == CHARGE) && !m_creature->HasInArc(M_PI, victim))
 +                return false;
@@ -8869,10 +8864,7 @@ index 0000000..53e5076
 +            ReduceCD(diff);
 +            if (IAmDead()) return;
 +            if (checkAurasTimer <= 0)
-+            {
 +                CheckAuras();
-+                SChange = (!m_creature->HasAura(12328));//SS
-+            }
 +
 +            rage = m_creature->GetPower(POWER_RAGE);
 +            if (ragetimer2 < diff)
@@ -8902,9 +8894,7 @@ index 0000000..53e5076
 +            }
 +
 +            if (wait == 0)
-+            {
 +                wait = GetWait();
-+            }
 +            else
 +                return;
 +            BreakCC(diff);
@@ -8917,8 +8907,7 @@ index 0000000..53e5076
 +                    potion_cd = 20000;
 +                GCD = temptimer;
 +            }
-+            if (!m_creature->isInCombat())
-+                DoNonCombatActions();
++            CheckIntervene(diff);
 +
 +            if (!(opponent = getTarget()))
 +            {
@@ -8951,7 +8940,7 @@ index 0000000..53e5076
 +                GCD = temptimer;
 +            }
 +
-+            if (!m_creature->isInCombat() && battleStance != true && master->getAttackers().empty() && SChange == true && stancetimer < diff)
++            if (!m_creature->isInCombat() && battleStance != true && master->getAttackers().empty() && stancetimer < diff)
 +                stanceChange(diff, 1);
 +            Attack(diff);
 +            ScriptedAI::UpdateAI(diff);
@@ -9067,7 +9056,7 @@ index 0000000..53e5076
 +
 +            AttackerSet m_attackers = master->getAttackers();
 +            AttackerSet b_attackers = m_creature->getAttackers();
-+
++            //intercept
 +            if (m_creature->GetDistance(opponent) > 13 && 
 +                m_creature->GetDistance(opponent) < 25 && 
 +                !CCed(opponent)                        &&
@@ -9100,16 +9089,27 @@ index 0000000..53e5076
 +                        charge_cd = CHARGE_CD;
 +                    GCD = temptimer;
 +                }
-+                else if (SChange == true && stancetimer < diff && stanceChange(diff, 3))
++                else if (stancetimer < diff && stanceChange(diff, 3))
 +                    return;
 +            }
 +
 +            //FEAR
-+            if (Rand() < 20 && master->getLevel() >= 20 && rage > 150 && intimidatingShout_cd < diff && GCD < diff)
++            if (Rand() < 70 && master->getLevel() >= 20 && rage > 150 && intimidatingShout_cd < diff && GCD < diff)
 +            {
-+                uint8 tCount = 0;
++                if (opponent->IsNonMeleeSpellCasted(false, false, true) && m_creature->GetDistance(opponent) <= 8 && 
++                    (!opponent->ToCreature() || opponent->ToCreature()->GetCreatureType() != CREATURE_TYPE_UNDEAD))
++                {
++                    if (doCast(opponent, INTIMIDATING_SHOUT))
++                    {
++                        intimidatingShout_cd = INTIMIDATINGSHOUT_CD;
++                        m_creature->SetPower(POWER_RAGE, rage -150);
++                        //rage -= 150;
++                        return;
++                    }
++                }
 +                Unit *fearTarget = NULL;
 +                bool triggered = false;
++                uint8 tCount = 0;
 +                //fear master's attackers
 +                if (!m_attackers.empty() && 
 +                    ((master->getClass() != CLASS_DEATH_KNIGHT && 
@@ -9121,7 +9121,6 @@ index 0000000..53e5076
 +                    {
 +                        if (!(*iter)) continue;
 +                        if ((*iter)->GetCreatureType() == CREATURE_TYPE_UNDEAD) continue;
-+                        if (m_creature->GetDistance((*iter)) > 8) continue;
 +                        if (CCed(*iter) && m_creature->GetDistance((*iter)) > 5) continue;
 +                        if (m_creature->GetDistance((*iter)) <= 8 && (*iter)->isTargetableForAttack())
 +                        {
@@ -9130,9 +9129,10 @@ index 0000000..53e5076
 +                        }
 +                    }
 +                    if (tCount > 0 && !fearTarget)
++                    {
 +                        fearTarget = opponent;
-+                    if (fearTarget == opponent)
 +                        triggered = true;
++                    }
 +                    if (tCount > 1 && doCast(fearTarget, INTIMIDATING_SHOUT, triggered))
 +                    {
 +                        intimidatingShout_cd = INTIMIDATINGSHOUT_CD;
@@ -9151,7 +9151,6 @@ index 0000000..53e5076
 +                    {
 +                        if (!(*iter)) continue;
 +                        if ((*iter)->GetCreatureType() == CREATURE_TYPE_UNDEAD) continue;
-+                        if (m_creature->GetDistance((*iter)) > 8) continue;
 +                        if (CCed(*iter) && m_creature->GetDistance((*iter)) > 5) continue;
 +                        if (m_creature->GetDistance((*iter)) <= 8 && (*iter)->isTargetableForAttack())
 +                        {
@@ -9160,9 +9159,10 @@ index 0000000..53e5076
 +                        }
 +                    }
 +                    if (tCount > 0 && !fearTarget)
++                    {
 +                        fearTarget = opponent;
-+                    if (fearTarget == opponent)
 +                        triggered = true;
++                    }
 +                    if (tCount > 0 && doCast(fearTarget, INTIMIDATING_SHOUT, triggered))
 +                    {
 +                        intimidatingShout_cd = INTIMIDATINGSHOUT_CD;
@@ -9172,7 +9172,7 @@ index 0000000..53e5076
 +                    }
 +                }
 +            }//end FEAR
-+
++            //OVERPOWER
 +            if ((((opponent->GetTypeId() == TYPEID_PLAYER && UNRELENTING_ASSAULT && m_creature->HasAura(TASTE_FOR_BLOOD_BUFF) && opponent->IsNonMeleeSpellCasted(false) && overpower_cd <= 3000) || 
 +                (opponent->IsNonMeleeSpellCasted(false) && m_creature->HasAura(TASTE_FOR_BLOOD_BUFF)) || 
 +                (overpower_cd < diff && m_creature->HasAura(TASTE_FOR_BLOOD_BUFF)))) && 
@@ -9189,10 +9189,10 @@ index 0000000..53e5076
 +                        //rage -= 50;
 +                    }
 +                }
-+                else if (SChange == true && stancetimer < diff && stanceChange(diff, 1)) 
++                else if (stancetimer < diff && stanceChange(diff, 1)) 
 +                    return;
 +            }
-+
++            //POSITION
 +            if (checkAurasTimer < 4 && //prevent cycle
 +                opponent->getVictim() != m_creature   && 
 +                tank != m_creature                    && 
@@ -9234,11 +9234,8 @@ index 0000000..53e5076
 +                        }
 +                    }
 +                }
-+                else if (SChange == true && stancetimer < diff && stanceChange(diff, 5))
-+                {
-+                    stancetimer = 1000;
++                else if (stancetimer < diff && stanceChange(diff, 5))
 +                    return;
-+                }
 +            }
 +            //UBERS
 +            //Dont use RETA unless capable circumstances
@@ -9296,22 +9293,16 @@ index 0000000..53e5076
 +
 +            //opponent is not attacking me so try to taunt it
 +            u = opponent->getVictim();
-+            if (m_creature->getLevel() >= 10 && u && 
-+                u != m_creature && u != tank &&
++            if (m_creature->getLevel() >= 10 && 
++                taunt_cd < diff && u && 
++                u != m_creature && u != tank && 
 +                (IsInBotParty(u) || tank == m_creature) && 
 +                !CCed(opponent) && 
-+                taunt_cd < diff)//No GCD
++                (defensiveStance == true || (stancetimer < diff && stanceChange(diff, 2))))//No GCD
 +            {
 +                temptimer = GCD;
-+                if (defensiveStance != true && SChange == true)
-+                {
-+                    if (doCast(m_creature, DEFENSIVESTANCE))
-+                    {
-+                        defensiveStance = true;
-+                        if (doCast(opponent, TAUNT, true))
-+                            taunt_cd = TAUNT_CD;
-+                    }
-+                }
++                if (doCast(opponent, TAUNT, true))
++                    taunt_cd = TAUNT_CD;
 +                GCD = temptimer;
 +            }
 +
@@ -9355,53 +9346,41 @@ index 0000000..53e5076
 +            }
 +
 +            //SS
-+            if (Rand() < 20 && (m_attackers.size() > 1 || b_attackers.size() > 1 || FindSplashTarget(10)) && 
-+                sweeping_strikes_cd < diff)//noGCD for SS
++            if (Rand() < 20/* && (defensiveStance == false || (stancetimer < diff && stanceChange(diff, 5)))*/ && (m_attackers.size() > 1 || b_attackers.size() > 1 || FindSplashTarget(10)) && 
++                sweeping_strikes_cd < diff/* && GCD < diff*/)//no GCD for SS
 +            {
 +                temptimer = GCD;
 +                if (doCast(m_creature, SWEEPING_STRIKES, true))
 +                    sweeping_strikes_cd = SWEEPING_STRIKES_CD;
 +                GCD = temptimer;
 +            }
-+            //WhirlWIND
-+            if (Rand() < 20 && WHIRLWIND && whirlwind_cd < diff && 
-+               rage > 250 && 
-+               GCD < diff && 
-+               (FindSplashTarget(8) || rage > 750))
++            //WHIRLWIND
++            if (Rand() < 70 && m_creature->getLevel() >= 35 && whirlwind_cd < diff && 
++               rage > 250 && GCD < diff && 
++               (FindSplashTarget(7, opponent) || (rage > 500 && m_creature->GetDistance(opponent) <= 7)) && 
++               (berserkerStance == true || (stancetimer < diff && stanceChange(diff, 3))))
 +            {
-+                if (WHIRLWIND == 1680)//Warrior WhirlWind
++                if (doCast(m_creature, WHIRLWIND))
 +                {
-+                    if (/*berserkerStance == true && */m_creature->GetDistance(opponent) < 8)
-+                    {
-+                        if (doCast(opponent, WHIRLWIND, true))
-+                        {
-+                            m_creature->SetPower(POWER_RAGE, rage -250);
-+                            //rage -= 250;
-+                            whirlwind_cd = WHIRLWIND_CD;
-+                        }
-+                    }
-+                    /*else if (SChange == true && stancetimer < diff && stanceChange(diff, 3))
-+                    {
-+                        stancetimer = 1500;
-+                        return;
-+                    }*/
-+                }
-+                else //BladeStorm
-+                if (u = m_creature->SelectNearestTarget(13))
-+                {
-+                    if (u && doCast(opponent, WHIRLWIND, true))
-+                    {
-+                        m_creature->SetPower(POWER_RAGE, rage -250);
-+                        //rage -= 250;
-+                        whirlwind_cd = 45000;
-+                    }
++                    m_creature->SetPower(POWER_RAGE, rage -250);
++                    whirlwind_cd = WHIRLWIND_CD;
 +                }
 +            }
-+            //end WhirlWIND
++            //BLADESTORM
++            if (m_creature->getLevel() >= 60 && bladestorm_cd < diff && 
++               rage > 150 && GCD < diff && (Rand() < 20 || m_creature->HasAura(RECKLESSNESS)) && 
++               (b_attackers.size() > 1 || opponent->GetHealth() > m_creature->GetMaxHealth() *3/4))
++            {
++                if (doCast(m_creature, BLADESTORM))
++                {
++                    m_creature->SetPower(POWER_RAGE, rage -150);
++                    bladestorm_cd = BLADESTORM_CD;
++                }
++            }
 +
 +            if (Rand() < 80 && MORTALSTRIKE && 
 +                mortalStrike_cd < diff && 
-+                rage > 300             && 
++                rage > 300 && 
 +                GCD < diff)
 +            {
 +                if (doCast(opponent, MORTALSTRIKE, true))
@@ -9425,32 +9404,24 @@ index 0000000..53e5076
 +                }
 +            }
 +
-+            if (Rand() < 50 && opponent->IsNonMeleeSpellCasted(false) && 
++            if (Rand() < 80 && opponent->IsNonMeleeSpellCasted(false) && 
 +                pummel_cd < diff && 
-+                rage > 100)
++                rage > 100 && 
++                (berserkerStance == true || (stancetimer < diff && stanceChange(diff, 3))))
 +            {
 +                temptimer = GCD;
-+                if (berserkerStance == true || (SChange == true && doCast(m_creature, BERSERKERSTANCE, true)))
++                if (doCast(opponent, PUMMEL, true))
 +                {
-+                    
-+                    if (doCast(opponent, PUMMEL, true))
-+                    {
-+                        pummel_cd = PUMMEL_CD;
-+                        m_creature->SetPower(POWER_RAGE, rage -100);
-+                        //rage -= 100;
-+                    }
-+                    GCD = temptimer;
++                    pummel_cd = PUMMEL_CD;
++                    m_creature->SetPower(POWER_RAGE, rage -100);
++                    //rage -= 100;
 +                }
-+                else if (stancetimer < diff && stanceChange(diff, 3))
-+                {
-+                    stancetimer = 1000;
-+                    return;
-+                }
++                GCD = temptimer;
 +            }
 +
-+            if (Rand() < 20 && !opponent->HasAura(REND, m_creature->GetGUID()) && 
++            if (Rand() < 30 && !opponent->HasAura(REND, m_creature->GetGUID()) && 
 +                GetHealthPCT(opponent) > 20 && 
-+                rage > 100                  && 
++                rage > 100 && 
 +                GCD < diff)
 +            {
 +                if (battleStance == true || defensiveStance == true)
@@ -9477,7 +9448,7 @@ index 0000000..53e5076
 +            }
 +            //Execute
 +            if (EXECUTE     && 
-+                Rand() < 20 && 
++                Rand() < 30 && 
 +                GCD < diff  && 
 +                rage > 150  && 
 +                GetHealthPCT(opponent) < 20 && 
@@ -9511,11 +9482,8 @@ index 0000000..53e5076
 +                        rage = 0;
 +                    }
 +                }
-+                else if (SChange == true && stancetimer < diff && stanceChange(diff, 5))
-+                {
-+                    stancetimer = 1500;
++                else if (stancetimer < diff && stanceChange(diff, 5))
 +                    return;
-+                }
 +            }//end Execute
 +            //DISARM DEPRECATED
 +            /*if (disarm_cd < diff    && m_creature->GetDistance(opponent) < 8 &&
@@ -9540,6 +9508,71 @@ index 0000000..53e5076
 +                }
 +            }*/
 +        }//end Attack
++
++        void CheckIntervene(const uint32 diff)
++        {
++            if (m_creature->getLevel() >= 60 && 
++                intervene_cd < diff && rage > 100 && Rand() < ((tank == m_creature) ? 80 : 30) && 
++                (defensiveStance == true || stancetimer < diff))
++            {
++                //sLog->outBasic("%s: Intervene check.", m_creature->GetName());
++                Group *gr = master->GetGroup();
++                if (!gr)
++                {
++                    if (GetHealthPCT(master) < 95 && !master->getAttackers().empty() && m_creature->getAttackers().size() <= master->getAttackers().size() && 
++                    m_creature->GetDistance(master) < 25 && m_creature->GetDistance(master) > 10 && 
++                    (defensiveStance == true || stanceChange(diff, 2)) &&
++                    doCast(master, INTERVENE))
++                    intervene_cd = INTERVENE_CD;
++                    return;
++                }
++                bool Bots = false;
++                for (GroupReference *itr = gr->GetFirstMember(); itr != NULL; itr = itr->next())
++                {
++                    Player *tPlayer = itr->getSource();
++                    if (!tPlayer) continue;
++                    //sLog->outBasic("checking player %s", tPlayer->GetName());
++                    if (tPlayer->HaveBot())
++                        Bots = true;
++                    if (tPlayer->isDead() || GetHealthPCT(tPlayer) > 90) continue;
++                    //sLog->outBasic("alive and health < 80%");
++                    if (m_creature->GetDistance(tPlayer) > 25 || m_creature->GetDistance(tPlayer) < 10) continue;
++                    //sLog->outBasic("and whithin reach");
++                    if (tPlayer->getAttackers().empty()) continue;
++                    if (tPlayer->getAttackers().size() < m_creature->getAttackers().size()) continue;
++                    //sLog->outBasic("attackers checked");
++                    if ((defensiveStance == true || stanceChange(diff, 2)))
++                    {
++                        //sLog->outBasic("defensive stance acuired, attempt cast");
++                        if (doCast(tPlayer, INTERVENE))
++                        {
++                            //sLog->outBasic("cast succeed");
++                            intervene_cd = INTERVENE_CD;
++                            return;
++                        }
++                    }
++                }
++                for (GroupReference *itr = gr->GetFirstMember(); itr != NULL; itr = itr->next())
++                {
++                    Player *tPlayer = itr->getSource();
++                    if (!tPlayer || !tPlayer->HaveBot()) continue;
++                    if (m_creature->GetDistance(tPlayer) > 50) continue;
++                    for (uint8 i = 0; i != tPlayer->GetMaxNpcBots(); ++i)
++                    {
++                        Creature *bot = tPlayer->GetBotMap()[i].m_creature;
++                        if (!bot || bot == m_creature || bot->isDead() || !bot->IsInWorld()) continue;
++                        if (GetHealthPCT(bot) > 90 || tank == bot) continue;
++                        if (m_creature->GetDistance(bot) > 25  || m_creature->GetDistance(bot) < 10) continue;
++                        if (bot->getAttackers().size() <= m_creature->getAttackers().size()) continue;
++                        if (doCast(bot, INTERVENE))
++                        {
++                            intervene_cd = INTERVENE_CD;
++                            return;
++                        }
++                    }
++                }
++            }
++        }
 +
 +        void SpellHitTarget(Unit* target, SpellInfo const* spell)
 +        {
@@ -9587,52 +9620,60 @@ index 0000000..53e5076
 +            if (stance == 3 && m_creature->getLevel() < 30) return false;
 +
 +            temptimer = GCD;
-+            uint32 temprage = rage > 100 ? 100 : rage;
++            uint32 temprage = 0;
++            uint32 myrage = m_creature->GetPower(POWER_RAGE);
++            if (m_creature->getLevel() >= 15)
++                temprage = myrage > 250 ? 250 : myrage;
++            else if (m_creature->getLevel() >= 10)
++                temprage = myrage > 100 ? 100 : myrage;
 +            switch(stance)
 +            {
 +            case 1:
 +                if (doCast(m_creature, BATTLESTANCE))
 +                {
-+                    battleStance = true;
-+                    defensiveStance = false;
-+                    berserkerStance = false;
-+                    if (m_creature->getLevel() < 10) m_creature->SetPower(POWER_RAGE, 0);
-+                    else m_creature->SetPower(POWER_RAGE, temprage);
-+                    stancetimer = 2100 - m_creature->getLevel()*20;//2100-1600 on 80
++                    if (m_creature->HasAura(BATTLESTANCE)) 
++                    {
++                        battleStance = true;
++                        defensiveStance = false;
++                        berserkerStance = false;
++                        m_creature->SetPower(POWER_RAGE, temprage);
++                        stancetimer = 2100 - m_creature->getLevel()*20;//2100-1600 on 80
++                        return true;
++                    }
 +                }
 +                break;
 +            case 2:
 +                if (doCast(m_creature, DEFENSIVESTANCE))
 +                {
-+                    defensiveStance = true;
-+                    battleStance = false;
-+                    berserkerStance = false;
-+                    if (m_creature->getLevel() < 10) m_creature->SetPower(POWER_RAGE, 0);
-+                    else m_creature->SetPower(POWER_RAGE, temprage);
-+                    stancetimer = 2100 - m_creature->getLevel()*20;//2100-1600 on 80
++                    if (m_creature->HasAura(DEFENSIVESTANCE))
++                    {
++                        defensiveStance = true;
++                        battleStance = false;
++                        berserkerStance = false;
++                        m_creature->SetPower(POWER_RAGE, temprage);
++                        stancetimer = 2100 - m_creature->getLevel()*20;//2100-1600 on 80
++                        return true;
++                    }
 +                }
 +                break;
 +            case 3:
 +                if (doCast(m_creature, BERSERKERSTANCE))
 +                {
-+                    berserkerStance = true;
-+                    battleStance = false;
-+                    defensiveStance = false;
-+                    if (m_creature->getLevel() < 10) m_creature->SetPower(POWER_RAGE, 0);
-+                    else m_creature->SetPower(POWER_RAGE, temprage);
-+                    stancetimer = 2100 - m_creature->getLevel()*20;//2100-1600 on 80
++                    if (m_creature->HasAura(BERSERKERSTANCE))
++                    {
++                        berserkerStance = true;
++                        battleStance = false;
++                        defensiveStance = false;
++                        m_creature->SetPower(POWER_RAGE, temprage);
++                        stancetimer = 2100 - m_creature->getLevel()*20;//2100-1600 on 80
++                        return true;
++                    }
 +                }
 +                break;
 +            default:
 +                break;
 +            }
 +            GCD = temptimer;
-+            switch (stance)
-+            {
-+            case 1: if (m_creature->HasAura(BATTLESTANCE))    return true;
-+            case 2: if (m_creature->HasAura(DEFENSIVESTANCE)) return true;
-+            case 3: if (m_creature->HasAura(BERSERKERSTANCE)) return true;
-+            }
 +            return false;
 +        }
 +
@@ -9657,16 +9698,17 @@ index 0000000..53e5076
 +            if (!(intimidatingShout_cd < diff))          intimidatingShout_cd -= diff;
 +            if (!(pummel_cd < diff))                     pummel_cd -= diff;
 +            if (!(whirlwind_cd < diff))                  whirlwind_cd -= diff;
++            if (!(bladestorm_cd < diff))                 bladestorm_cd -= diff;
 +            if (!(cleave_cd < diff))                     cleave_cd -= diff;
 +            if (!(bloodrage_cd < diff))                  bloodrage_cd -= diff;
 +            //if (!(disarm_cd < diff))                     disarm_cd -= diff;
-+            //if (!(intervene_cd < diff))                  intervene_cd -= diff;
++            if (!(intervene_cd < diff))                  intervene_cd -= diff;
 +            //if (!(shieldBash_cd < diff))                 shieldBash_cd -= diff;
 +            //if (!(spellReflection_cd < diff))            spellReflection_cd -= diff;
 +            if (!(potion_cd < diff))                     potion_cd -= diff;
 +            if (!(taunt_cd < diff))                      taunt_cd -= diff;
 +            if (!(sunder_cd < diff))                     sunder_cd -= diff;
-+            
++
 +            if (!(GCD < diff))                           GCD -= diff;
 +            else                                         GCD = 0;
 +            if (!(temptimer < diff))                     temptimer -= diff;
@@ -9690,10 +9732,10 @@ index 0000000..53e5076
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warrior_ai.h b/src/server/game/AI/NpcBots/bot_warrior_ai.h
 new file mode 100644
-index 0000000..5fdda4a
+index 0000000..0be0d85
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warrior_ai.h
-@@ -0,0 +1,109 @@
+@@ -0,0 +1,114 @@
 +#include "bot_ai.h"
 +
 +//Cooldown/Timers
@@ -9710,10 +9752,10 @@ index 0000000..5fdda4a
 +    INTIMIDATINGSHOUT_CD    = 45000,
 +    PUMMEL_CD               = 10000,
 +    WHIRLWIND_CD            = 8000,
-+//    CLEAVE_CD               = 2500,
++    BLADESTORM_CD           = 60000,
 +    BLOODRAGE_CD            = 40000,
 +//    DISARM_CD               = 40000,
-+//    INTERVENE_CD            = 25000,
++    INTERVENE_CD            = 25000,
 +    BATTLESHOUT_CD          = 25000,
 +//    SPELLREFLECTION_CD      = 8000,
 +    PVPTRINKET_CD           = 45000,
@@ -9738,11 +9780,14 @@ index 0000000..5fdda4a
 +    INTERCEPT               = 20252, //20252 original warrior one
 +    CLEAVE                  = 59992,
 +    HAMSTRING               = 1715,
++    INTERVENE               = 3411,
++    WHIRLWIND               = 1680,
++    BLADESTORM              = 67541,
 +
 +//Battle Stance
 +    BATTLESTANCE            = 2457,//7165, //2457, original warrior one
 +//Defensive Stance
-+    DEFENSIVESTANCE         = 41101,//71, original warrior one
++    DEFENSIVESTANCE         = 71,//71, original warrior one
 +//Berserker Stance
 +    BERSERKERSTANCE         = 2458,//7366, //2458, original warrior spell
 +
@@ -9755,7 +9800,6 @@ index 0000000..5fdda4a
 +#define BATTLESHOUT         BATTLESHOUT_A[SPELL_LEVEL]
 +#define REND                REND_A[SPELL_LEVEL]
 +#define EXECUTE             EXECUTE_A[SPELL_LEVEL]
-+#define WHIRLWIND           WHIRLWIND_A[SPELL_LEVEL]
 +#define PUMMEL              PUMMEL_A[SPELL_LEVEL]
 +#define MORTALSTRIKE        MORTALSTRIKE_A[SPELL_LEVEL]
 +#define SLAM                SLAM_A[SPELL_LEVEL]
@@ -9765,7 +9809,6 @@ index 0000000..5fdda4a
 +uint32 BATTLESHOUT_A[] = { 6673, 5242, 6192, 11550, 11551, 25289, 2048, 47436, 47436, 59614 };
 +uint32 REND_A[] = { 772, 772, 6546, 6547, 6548, 11572, 11573, 11574, 11574 };//rank 7
 +uint32 EXECUTE_A[] = { 0, 0, 5308, 20660, 20662, 25234, 25236, 47471, 38959 };
-+uint32 WHIRLWIND_A[] = { 0, 0, 0, 1680, 1680, 1680, 1680, 1680, 67541 };
 +uint32 PUMMEL_A[] = { 0, 0, 15615, 15615, 15615, 15615, 15615, 15615, 15615 };
 +uint32 MORTALSTRIKE_A[] = { 0, 0, 0, 0, 12294, 21553, 30330, 47485, 47486 };
 +uint32 SLAM_A[] = { 0, 0, 1464, 8820, 11604, 11605, 25241, 25242, 47475 };
@@ -9787,6 +9830,7 @@ index 0000000..5fdda4a
 +
 +enum WarriorPassives
 +{
++//Talents
 +    WC1  /*WRECKING CREW1*/ = 46867,
 +    WC2  /*WRECKING CREW2*/ = 56611,
 +    WC3  /*WRECKING CREW3*/ = 56612,
@@ -9801,6 +9845,9 @@ index 0000000..5fdda4a
 +    TASTE_FOR_BLOOD2        = 56637,
 +    TASTE_FOR_BLOOD3        = 56638,
 +//other
++//Class passives
++    WARRIOR_T10_4P          = 70844,
++//buffs
 +    TASTE_FOR_BLOOD_BUFF    = 60503,
 +};
 \ No newline at end of file
@@ -30356,7 +30403,7 @@ index 7f02c7a..f1a9958 100755
  {
      return HandleBanHelper(BAN_ACCOUNT, args);
 diff --git a/src/server/game/Entities/Creature/Creature.cpp b/src/server/game/Entities/Creature/Creature.cpp
-index 4d54d15..b7f1643 100755
+index 4d54d15..3b0a565 100755
 --- a/src/server/game/Entities/Creature/Creature.cpp
 +++ b/src/server/game/Entities/Creature/Creature.cpp
 @@ -52,6 +52,9 @@
@@ -30484,14 +30531,14 @@ index 4d54d15..b7f1643 100755
 +    m_TankGuid = newtank->GetGUID();
 +}
 +
-+void Creature::SetBotCommandState(CommandStates st)
++void Creature::SetBotCommandState(CommandStates st, bool force)
 +{
 +    if (bot_AI)
 +        bot_AI->SetBotCommandState(st);
 +}
 \ No newline at end of file
 diff --git a/src/server/game/Entities/Creature/Creature.h b/src/server/game/Entities/Creature/Creature.h
-index c8ebf1a..3b3001c 100755
+index c8ebf1a..cdfc963 100755
 --- a/src/server/game/Entities/Creature/Creature.h
 +++ b/src/server/game/Entities/Creature/Creature.h
 @@ -37,6 +37,9 @@ class Player;
@@ -30524,7 +30571,7 @@ index c8ebf1a..3b3001c 100755
 +        uint64 GetBotTankGuid() const { return m_TankGuid; }
 +        bot_ai *GetBotAI() const { return bot_AI; }
 +        void SetBotAI(CreatureAI *ai) { bot_AI = (bot_ai*)ai; }
-+        void SetBotCommandState(CommandStates st);
++        void SetBotCommandState(CommandStates st, bool force = false);
 +        //Bot commands
 +
      protected:
@@ -30562,7 +30609,7 @@ index 2af6b4c..a2e6c6c 100755
  }
  
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index c38ceb6..3b27e5b 100755
+index c38ceb6..b7210f9 100755
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -75,6 +75,10 @@
@@ -30609,7 +30656,7 @@ index c38ceb6..3b27e5b 100755
 +    m_botTimer = 0;
 +    m_bot = NULL;
 +    m_botTankGuid = 0;
-+    m_followdist = 30;
++    m_followdist = ConfigMgr::GetIntDefault("Bot.BaseFollowDistance", 30);
 +    m_MaxClassNpcBots = ConfigMgr::GetIntDefault("Bot.MaxNpcBotsPerClass", 1) > 0 ? ConfigMgr::GetIntDefault("Bot.MaxNpcBotsPerClass", 1) : MAX_NPCBOTS;
 +
      for (uint8 i = 0; i < MAX_POWERS; ++i)
@@ -30687,7 +30734,7 @@ index c38ceb6..3b27e5b 100755
      // preparing unsummon pet if lost (we must get pet before teleportation or will not find it later)
      Pet* pet = GetPet();
  
-@@ -2434,6 +2500,1099 @@ void Player::RemoveFromWorld()
+@@ -2434,6 +2500,1088 @@ void Player::RemoveFromWorld()
      }
  }
  
@@ -30725,14 +30772,14 @@ index c38ceb6..3b27e5b 100755
 +        if (m_bot->isAlive())
 +        {
 +            //TELEPORT/OUTRUN SUPPORT
-+            if (!isInFlight())
++            if (!isInFlight() && isAlive()/* && !HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST)*/)
 +            {
 +                float maxdist = sWorld->GetMaxVisibleDistanceOnContinents();
 +                if (GetMap()->IsDungeon())
 +                    maxdist = sWorld->GetMaxVisibleDistanceInInstances();
 +                else if (GetMap()->IsBattlegroundOrArena())
 +                    maxdist = sWorld->GetMaxVisibleDistanceInBGArenas();
-+                maxdist += 20.0f; //allow player to recall it by moving back
++                //maxdist += 20.0f; //allow player to recall it by moving back
 +                if (abs(m_bot->GetPositionX() - GetPositionX()) > maxdist || 
 +                    abs(m_bot->GetPositionY() - GetPositionY()) > maxdist || 
 +                    m_bot->GetMapId() != GetMapId())
@@ -30802,7 +30849,7 @@ index c38ceb6..3b27e5b 100755
 +                int m_rand = rand()%100;
 +                if (m_rand < 33)      m_mount = 1;
 +                else if (m_rand > 64) m_mount = 2;
-+                else                 m_mount = 3;
++                else                  m_mount = 3;
 +
 +                //if ((m_botmap[i].m_class == CLASS_DRUID) && (m_bot->getLevel() < 60)) m_mount = 0;
 +                //if ((m_botmap[i].m_class == CLASS_DRUID) && (m_bot->getLevel() < 60)) m_mount = 0;
@@ -30811,7 +30858,7 @@ index c38ceb6..3b27e5b 100755
 +                {
 +                    case RACE_HUMAN:
 +                    {
-+                        if (getLevel() < 60)
++                        if (getLevel() < 40)
 +                        {
 +                            switch(m_mount)
 +                            {
@@ -30835,7 +30882,7 @@ index c38ceb6..3b27e5b 100755
 +                    }
 +                    case RACE_ORC:
 +                    {
-+                        if (getLevel() < 60)
++                        if (getLevel() < 40)
 +                        {
 +                            switch(m_mount)
 +                            {
@@ -30859,7 +30906,7 @@ index c38ceb6..3b27e5b 100755
 +                    }
 +                    case RACE_DWARF:
 +                    {
-+                        if (getLevel() < 60)
++                        if (getLevel() < 40)
 +                        {
 +                            switch(m_mount)
 +                            {
@@ -30883,7 +30930,7 @@ index c38ceb6..3b27e5b 100755
 +                    }
 +                    case RACE_NIGHTELF:
 +                    {
-+                        if (getLevel() < 60)
++                        if (getLevel() < 40)
 +                        {
 +                            switch(m_mount)
 +                            {
@@ -30907,7 +30954,7 @@ index c38ceb6..3b27e5b 100755
 +                    }
 +                    case RACE_UNDEAD_PLAYER:
 +                    {
-+                        if (getLevel() < 60)
++                        if (getLevel() < 40)
 +                        {
 +                            switch(m_mount)
 +                            {
@@ -30931,7 +30978,7 @@ index c38ceb6..3b27e5b 100755
 +                    }
 +                    case RACE_TAUREN:
 +                    {
-+                        if (getLevel() < 60)
++                        if (getLevel() < 40)
 +                        {
 +                            switch(m_mount)
 +                            {
@@ -30955,7 +31002,7 @@ index c38ceb6..3b27e5b 100755
 +                    }
 +                    case RACE_GNOME:
 +                    {
-+                        if (getLevel() < 60)
++                        if (getLevel() < 40)
 +                        {
 +                            switch(m_mount)
 +                            {
@@ -30979,7 +31026,7 @@ index c38ceb6..3b27e5b 100755
 +                    }
 +                    case RACE_TROLL:
 +                    {
-+                        if (getLevel() < 60)
++                        if (getLevel() < 40)
 +                        {
 +                            switch(m_mount)
 +                            {
@@ -31003,7 +31050,7 @@ index c38ceb6..3b27e5b 100755
 +                    }
 +                    case RACE_BLOODELF:
 +                    {
-+                        if (getLevel() < 60)
++                        if (getLevel() < 40)
 +                        {
 +                            switch(m_mount)
 +                            {
@@ -31027,7 +31074,7 @@ index c38ceb6..3b27e5b 100755
 +                    }
 +                    case RACE_DRAENEI:
 +                    {
-+                        if (getLevel() < 60)
++                        if (getLevel() < 40)
 +                        {
 +                            switch(m_mount)
 +                            {
@@ -31050,45 +31097,44 @@ index c38ceb6..3b27e5b 100755
 +                        break;
 +                    }
 +                }
-+                m_bot->SetSpeed(MOVE_RUN, GetSpeed(MOVE_WALK) - 0.1f, true);
++                //m_bot->SetSpeed(MOVE_RUN, GetSpeed(MOVE_WALK) - 0.1f, true);
 +            }
 +            else if (!IsMounted() && m_bot->IsMounted())
 +            {
 +                m_bot->Dismount();
-+                CreatureTemplate const *cinfo = sObjectMgr->GetCreatureTemplate(m_bot->GetEntry());
-+                m_bot->SetSpeed(MOVE_RUN, cinfo->speed_run, true);
++                m_bot->SetSpeed(MOVE_RUN, m_bot->GetCreatureTemplate()->speed_run, true);
 +                m_bot->SetUnitMovementFlags(MOVEMENTFLAG_NONE);
 +            }
 +
 +            //NON-COMBAT RATIONS SUPPORT
 +            //TODO: replace into bot_ai::CheckAuras()...SetStats()
 +            //if low on mana, take a drink
-+            if (m_bot->getPowerType() == POWER_MANA && !m_bot->IsNonMeleeSpellCasted(true))
++            if (m_bot->getPowerType() == POWER_MANA && 
++                !m_bot->isInCombat() && 
++                !m_bot->IsNonMeleeSpellCasted(true) && 
++                rand()%100 < 30 && 
++                m_bot->GetPower(POWER_MANA)*100/m_bot->GetMaxPower(POWER_MANA) < 80 &&
++                !m_bot->HasAura(DRINK))
 +            {
-+                if (m_bot->GetPower(POWER_MANA)*100/m_bot->GetMaxPower(POWER_MANA) < 80 &&
-+                  !m_bot->HasAura(DRINK) &&
-+                  !m_bot->isInCombat())
-+                {
-+                    m_bot->CastSpell(m_bot, DRINK, true);
-+                    m_bot->SetStandState(1);
-+                    continue;
-+                }
-+                //if drinking, have to add additional regen
-+                if (m_bot->HasAura(DRINK))
-+                {
-+                    uint32 addvalue = 0;
-+                    uint32 maxValue = m_bot->GetCreateMana();
-+                    uint32 curValue = m_bot->GetPower(POWER_MANA);
++                m_bot->CastSpell(m_bot, DRINK, true);
++                m_bot->SetStandState(1);
++                continue;
++            }
++            //if drinking, have to add additional regen
++            if (m_bot->HasAura(DRINK))
++            {
++                uint32 addvalue = 0;
++                uint32 maxValue = m_bot->GetCreateMana();
++                uint32 curValue = m_bot->GetPower(POWER_MANA);
 +
-+                    if (curValue < m_bot->GetMaxPower(POWER_MANA))
-+                    {
-+                        addvalue = maxValue/urand(20,30);
-+                        m_bot->ModifyPower(POWER_MANA, addvalue);
-+                        //continue;
-+                    }
-+                    else
-+                        m_bot->RemoveAurasDueToSpell(DRINK);
++                if (curValue < m_bot->GetMaxPower(POWER_MANA))
++                {
++                    addvalue = maxValue/urand(20,30);
++                    m_bot->ModifyPower(POWER_MANA, addvalue);
++                    //continue;
 +                }
++                else
++                    m_bot->RemoveAurasDueToSpell(DRINK);
 +            }
 +
 +            if (m_bot->HasAura(DRINK) && m_bot->GetPower(POWER_MANA) >= m_bot->GetMaxPower(POWER_MANA))
@@ -31097,7 +31143,9 @@ index c38ceb6..3b27e5b 100755
 +            //eat
 +            if (m_bot->GetHealth()*100 / m_bot->GetMaxHealth() < 80 &&
 +               !m_bot->HasAura(EAT) &&
-+               !m_bot->isInCombat())
++               !m_bot->isInCombat() && 
++               !m_bot->IsNonMeleeSpellCasted(true) && 
++                rand()%100 < 30)
 +            {
 +                m_bot->CastSpell(m_bot, EAT, true);
 +                m_bot->SetStandState(1);
@@ -31214,7 +31262,7 @@ index c38ceb6..3b27e5b 100755
 +
 +void Player::RemoveBot(uint64 guid, bool final, bool eraseFromDB)
 +{
-+    if (!guid) return;
++    if (guid == 0) return;
 +    for (uint8 i = 0; i != GetMaxNpcBots(); ++i)
 +        if (m_botmap[i].m_guid == guid)
 +            m_bot = m_botmap[i].m_creature;
@@ -31228,7 +31276,7 @@ index c38ceb6..3b27e5b 100755
 +        uint32 guidlow = m_bot->GetGUIDLow();
 +        Group *gr = GetGroup();
 +        if (gr && gr->IsMember(guid))
-+            if (gr->GetMembersCount() > 2 || !GetMap()->Instanceable() || (final && eraseFromDB))//do not disband group if instance unless forced by command .npcbot remove
++            if (gr->GetMembersCount() > 2/* || !GetMap()->Instanceable()*/ || (final && eraseFromDB))//do not disband group if instance unless forced by command .npcbot remove
 +                gr->RemoveMember(guid);
 +        m_bot->SetCharmerGUID(0);
 +        m_bot->SetBotAI(NULL);
@@ -31238,10 +31286,10 @@ index c38ceb6..3b27e5b 100755
 +        m_bot->SetIAmABot(false); //this HAS to come after CleanupsBeforeDelete
 +        m_bot->AddObjectToRemoveList();
 +
-+        if (final)
++        if (final)//on logout or by command
 +        {
 +            ClearBotMustBeCreated(guid);
-+            if (eraseFromDB)
++            if (eraseFromDB)//by command
 +                CharacterDatabase.PExecute("DELETE FROM character_npcbot WHERE owner = '%u' AND guid = '%u'", GetGUIDLow(), guidlow);
 +        }
 +        else
@@ -31306,7 +31354,7 @@ index c38ceb6..3b27e5b 100755
 +    SetMinion((Minion*)m_bot, true);
 +    m_bot->CombatStop();
 +    m_bot->DeleteThreatList();
-+    m_bot->SetReactState(REACT_DEFENSIVE);
++    //m_bot->SetReactState(REACT_DEFENSIVE);
 +
 +    //check if we have free slot
 +    bool _set = false;
@@ -31322,7 +31370,9 @@ index c38ceb6..3b27e5b 100755
 +    }
 +    if (!_set)
 +    {
-+        sLog->outError("character %u is failed to create npcbot! Removing all bots", GetGUIDLow());
++        std::string str;
++        sObjectMgr->GetPlayerNameByGUID(GetGUID(), str);
++        sLog->outError("character %s (%u) is failed to create npcbot! Removing all bots", str.c_str(), GetGUIDLow());
 +        m_bot->SetCharmerGUID(0);
 +        SetMinion((Minion*)m_bot, false);
 +        m_bot->RemoveFromWorld();
@@ -31331,9 +31381,7 @@ index c38ceb6..3b27e5b 100755
 +        m_bot->SetIAmABot(false); //this HAS to come after CleanupsBeforeDelete
 +        m_bot->AddObjectToRemoveList();
 +        for (uint8 pos = 0; pos != GetMaxNpcBots(); ++pos)
-+        {
 +            RemoveBot(m_botmap[pos].m_guid, true);
-+        }
 +        ClearBotMustBeCreated(0, false, true);
 +        return;
 +    }
@@ -31422,7 +31470,7 @@ index c38ceb6..3b27e5b 100755
 +    if (!cre) return;
 +    for (uint8 i = 0; i != GetMaxNpcBots(); ++i)
 +        if (m_botmap[i].m_creature == cre)
-+            cre->SetBotCommandState(COMMAND_FOLLOW);
++            cre->SetBotCommandState(COMMAND_FOLLOW, true);
 +}
 +void Player::SendBotStop(Creature *cre)
 +{
@@ -31458,20 +31506,17 @@ index c38ceb6..3b27e5b 100755
 +    if (!entry) return NULL;
 +
 +    for (uint8 i = 0; i != GetMaxNpcBots(); ++i)
-+    {
 +        if (m_botmap[i].m_entry == entry && m_botmap[i].tank == true)
 +            return m_botmap[i].m_guid ? sObjectAccessor->FindUnit(m_botmap[i].m_guid) : NULL;
-+    }
++
 +    Player *owner = GetPlayerbotAI() ? GetSession()->m_master : this;
 +    for (PlayerBotMap::const_iterator itr = owner->GetSession()->GetPlayerBotsBegin(); itr != owner->GetSession()->GetPlayerBotsEnd(); ++itr)
 +    {
 +        Player *player = itr->second;
 +        if (!player || !player->IsInWorld()) continue;
 +        for (uint8 i = 0; i != player->GetMaxNpcBots(); ++i)
-+        {
 +            if (player->GetBotMap()[i].m_entry == entry && player->GetBotMap()[i].tank == true)
 +                return player->GetBotMap()[i].m_guid ? sObjectAccessor->FindUnit(player->GetBotMap()[i].m_guid) : NULL;
-+        }
 +    }
 +    return NULL;
 +}
@@ -31490,9 +31535,7 @@ index c38ceb6..3b27e5b 100755
 +    QueryResult results = CharacterDatabase.PQuery("SELECT name FROM characters WHERE account = '%u' AND guid != '%u'", m_session->GetAccountId(), GetGUIDLow());
 +
 +    if (!results) return NULL;
-+
 +    std::string plName;
-+
 +    std::list<std::string> *names = new std::list<std::string>;
 +    do
 +    {
@@ -31508,14 +31551,8 @@ index c38ceb6..3b27e5b 100755
 +void Player::skill(std::list<uint32>& m_spellsToLearn)
 +{
 +    for (SkillStatusMap::const_iterator itr = mSkillStatus.begin(); itr != mSkillStatus.end(); ++itr)
-+    {
-+        if (itr->second.uState == SKILL_DELETED)
-+            continue;
-+
-+        uint32 pskill = itr->first;
-+
-+        m_spellsToLearn.push_back(pskill);
-+    }
++        if (itr->second.uState != SKILL_DELETED)
++            m_spellsToLearn.push_back(itr->first);
 +}
 +
 +void Player::MakeTalentGlyphLink(std::ostringstream &out)
@@ -31650,7 +31687,6 @@ index c38ceb6..3b27e5b 100755
 +    _SaveMail(trans);
 +    CharacterDatabase.CommitTransaction(trans);
 +}
-+
 +//See MainSpec enum in PlayerbotAI.h for details on class return values
 +uint32 Player::GetSpec()
 +{
@@ -31676,7 +31712,6 @@ index c38ceb6..3b27e5b 100755
 +    //Return the tree with the deepest talent
 +    return spec;
 +}
-+
 +//NPCbot base setup
 +void Player::CreateNPCBot(uint8 bot_class)
 +{
@@ -31716,7 +31751,7 @@ index c38ceb6..3b27e5b 100755
 +        default: bclass = "Unknown Class"; break;
 +        }
 +        sLog->outBasic("Player::CreateNPCBot(): Character %u tried to create npcbot of class %s, which is not allowed on your server!", GetGUIDLow(), bclass);
-+        ch.PSendSysMessage("You've tried to create npcbot of class %s, which is not allowed on your server!", bclass);
++        ch.PSendSysMessage("You've tried to create npcbot of class %s, which is not allowed on this server!", bclass);
 +        ch.SetSentErrorMessage(true);
 +        return;
 +    }
@@ -31726,7 +31761,7 @@ index c38ceb6..3b27e5b 100755
 +
 +    QueryResult result;
 +
-+    //may be we should remove this check? ;Ü
++    //maybe we should remove this check? ;Ü
 +    switch (getRace())
 +    {
 +    case RACE_NONE: case RACE_HUMAN: case RACE_DWARF: case RACE_NIGHTELF: case RACE_GNOME: case RACE_DRAENEI:
@@ -31778,6 +31813,7 @@ index c38ceb6..3b27e5b 100755
 +        {
 +            ChatHandler ch(this);
 +            ch.PSendSysMessage("OOPs! You've rolled a duplicate bot! maybe you should try again?");
++            ch.SetSentErrorMessage(true);
 +            return;
 +        }
 +    }
@@ -31787,7 +31823,7 @@ index c38ceb6..3b27e5b 100755
  void Player::RegenerateAll()
  {
      //if (m_regenTimer <= 500)
-@@ -2909,6 +4068,48 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
+@@ -2909,6 +4057,48 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
  {
      if (group)
      {
@@ -31836,7 +31872,7 @@ index c38ceb6..3b27e5b 100755
          group->RemoveMember(guid, method, kicker, reason);
          group = NULL;
      }
-@@ -3088,6 +4289,9 @@ void Player::GiveLevel(uint8 level)
+@@ -3088,6 +4278,9 @@ void Player::GiveLevel(uint8 level)
              }
  
      sScriptMgr->OnPlayerLevelChanged(this, oldLevel);
@@ -32512,91 +32548,6 @@ index d13c2fb..0b51801 100755
              }
          }
      }
-diff --git a/src/server/game/Maps/Map.cpp b/src/server/game/Maps/Map.cpp
-index 270c4c7..6f8a716 100755
---- a/src/server/game/Maps/Map.cpp
-+++ b/src/server/game/Maps/Map.cpp
-@@ -1621,28 +1621,41 @@ float Map::GetWaterOrGroundLevel(float x, float y, float z, float* ground /*= NU
-     return VMAP_INVALID_HEIGHT_VALUE;
- }
- 
--float Map::GetHeight(float x, float y, float z, bool checkVMap /*= true*/, float maxSearchDist /*= DEFAULT_HEIGHT_SEARCH*/) const
-+float Map::GetHeight(float x, float y, float z, bool pUseVmaps, float maxSearchDist) const
- {
-     // find raw .map surface under Z coordinates
--    float mapHeight = VMAP_INVALID_HEIGHT_VALUE;
-+    float mapHeight;
-     if (GridMap* gmap = const_cast<Map*>(this)->GetGrid(x, y))
-     {
--        float gridHeight = gmap->getHeight(x, y);
-+        float _mapheight = gmap->getHeight(x, y);
-+
-         // look from a bit higher pos to find the floor, ignore under surface case
--        if (z + 2.0f > gridHeight)
--            mapHeight = gridHeight;
-+        if (z + 2.0f > _mapheight)
-+            mapHeight = _mapheight;
-+        else
-+            mapHeight = VMAP_INVALID_HEIGHT_VALUE;
-     }
-+    else
-+        mapHeight = VMAP_INVALID_HEIGHT_VALUE;
- 
--    float vmapHeight = VMAP_INVALID_HEIGHT_VALUE;
--    if (checkVMap)
-+    float vmapHeight;
-+    if (pUseVmaps)
-     {
-         VMAP::IVMapManager* vmgr = VMAP::VMapFactory::createOrGetVMapManager();
-         if (vmgr->isHeightCalcEnabled())
--            vmapHeight = vmgr->getHeight(GetId(), x, y, z + 2.0f, maxSearchDist);   // look from a bit higher pos to find the floor
-+        {
-+            // look from a bit higher pos to find the floor
-+            vmapHeight = vmgr->getHeight(GetId(), x, y, z + 2.0f, maxSearchDist);
-+        }
-+        else
-+            vmapHeight = VMAP_INVALID_HEIGHT_VALUE;
-     }
-+    else
-+        vmapHeight = VMAP_INVALID_HEIGHT_VALUE;
- 
-     // mapHeight set for any above raw ground Z or <= INVALID_HEIGHT
-     // vmapheight set for any under Z value or <= INVALID_HEIGHT
-+
-     if (vmapHeight > INVALID_HEIGHT)
-     {
-         if (mapHeight > INVALID_HEIGHT)
-@@ -1659,8 +1672,15 @@ float Map::GetHeight(float x, float y, float z, bool checkVMap /*= true*/, float
-         else
-             return vmapHeight;                              // we have only vmapHeight (if have)
-     }
--
--    return mapHeight;                               // explicitly use map data
-+    else
-+    {
-+        if (!pUseVmaps)
-+            return mapHeight;                               // explicitly use map data (if have)
-+        else if (mapHeight > INVALID_HEIGHT && (z < mapHeight + 2 || z == MAX_HEIGHT))
-+            return mapHeight;                               // explicitly use map data if original z < mapHeight but map found (z+2 > mapHeight)
-+        else
-+            return VMAP_INVALID_HEIGHT_VALUE;               // we not have any height
-+    }
- }
- 
- inline bool IsOutdoorWMO(uint32 mogpFlags, int32 /*adtId*/, int32 /*rootId*/, int32 /*groupId*/, WMOAreaTableEntry const* wmoEntry, AreaTableEntry const* atEntry)
-diff --git a/src/server/game/Maps/Map.h b/src/server/game/Maps/Map.h
-index 6d526f2..a1ea1c9 100755
---- a/src/server/game/Maps/Map.h
-+++ b/src/server/game/Maps/Map.h
-@@ -307,7 +307,7 @@ class Map : public GridRefManager<NGridType>
- 
-         // some calls like isInWater should not use vmaps due to processor power
-         // can return INVALID_HEIGHT if under z+2 z coord not found height
--        float GetHeight(float x, float y, float z, bool checkVMap = true, float maxSearchDist = DEFAULT_HEIGHT_SEARCH) const;
-+        float GetHeight(float x, float y, float z, bool pCheckVMap=true, float maxSearchDist=DEFAULT_HEIGHT_SEARCH) const;
- 
-         ZLiquidStatus getLiquidStatus(float x, float y, float z, uint8 ReqLiquidType, LiquidData* data = 0) const;
- 
 diff --git a/src/server/game/Scripting/ScriptLoader.cpp b/src/server/game/Scripting/ScriptLoader.cpp
 index 2b99de9..d69057b 100755
 --- a/src/server/game/Scripting/ScriptLoader.cpp
@@ -32878,10 +32829,10 @@ index b8b0953..5f00e58 100755
          // private trade methods
          void moveItems(Item* myItems[], Item* hisItems[]);
 diff --git a/src/server/worldserver/worldserver.conf.dist b/src/server/worldserver/worldserver.conf.dist
-index cc4c4a5..c477d97 100644
+index cc4c4a5..5ef8f99 100644
 --- a/src/server/worldserver/worldserver.conf.dist
 +++ b/src/server/worldserver/worldserver.conf.dist
-@@ -2888,3 +2888,150 @@ PlayerDump.DisallowOverwrite = 1
+@@ -2888,3 +2888,156 @@ PlayerDump.DisallowOverwrite = 1
  
  #
  ###################################################################################################
@@ -33010,6 +32961,12 @@ index cc4c4a5..c477d97 100644
 +
 +Bot.MaxNpcBotsPerClass = 1
 +
++#    Bot.BaseFollowDistance
++#        Default follow distance set at login
++#        Default: 30
++
++Bot.BaseFollowDistance = 30
++
 +#    Bot.XpReductionPercent
 +#        Since bot party can be pretty large, it can become an exploit to farm xp so you can reduce xp gain here
 +#        PERCENT of  'XP.KILL'  reward reduction from each Npc Bots used (Starting with second)
@@ -33017,7 +32974,7 @@ index cc4c4a5..c477d97 100644
 +#            You have 3 bots, xp reduction is 20 then reduction will be ((3-1)*20) = 40%; 60% exp gained only
 +#        Note: Minimum xp rate will be 10%
 +#        Min: 0
-+#        Max: 100
++#        Max: 90
 +#        Default: 0
 +
 +Bot.XpReductionPercent = 0
