@@ -1,6 +1,6 @@
-From 890389e5c56deb38c36d9fd5f2684d550249c20c Mon Sep 17 00:00:00 2001
+From 996bb5bd722449cd284866ad71f5a4fb57b0d6ab Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Mon, 16 Jul 2012 13:15:59 +0700
+Date: Mon, 16 Jul 2012 14:58:14 +0700
 Subject: [PATCH] AllBots
 
 ---
@@ -69,9 +69,9 @@ Subject: [PATCH] AllBots
  src/server/game/Scripting/ScriptLoader.cpp         |   23 +
  src/server/game/Server/WorldSession.cpp            |  107 +
  src/server/game/Server/WorldSession.h              |   32 +
- src/server/scripts/Spells/spell_priest.cpp         |    7 +-
+ src/server/scripts/Spells/spell_priest.cpp         |    4 +
  src/server/worldserver/worldserver.conf.dist       |  153 +
- 67 files changed, 32102 insertions(+), 3 deletions(-)
+ 67 files changed, 32102 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -30644,7 +30644,7 @@ index 2af6b4c..a2e6c6c 100755
  }
  
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index c38ceb6..b290e35 100755
+index c38ceb6..7e5cc32 100755
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -75,6 +75,10 @@
@@ -31436,13 +31436,13 @@ index c38ceb6..b290e35 100755
 +    {
 +        if (!m_group->IsFull())
 +        {
-+            if (!m_group->AddMember(reinterpret_cast<Player*>(m_bot)))
++            if (!m_group->AddMember((Player*)m_bot))
 +                m_bot->SetBotMustDie();
 +        }
 +        else if (!m_group->isRaidGroup())
 +        {
 +            m_group->ConvertToRaid();
-+            if (!m_group->AddMember(reinterpret_cast<Player*>(m_bot)))
++            if (!m_group->AddMember((Player*)m_bot))
 +                m_bot->SetBotMustDie();
 +        }
 +        else//raid group is full
@@ -32861,37 +32861,34 @@ index b8b0953..5f00e58 100755
          // private trade methods
          void moveItems(Item* myItems[], Item* hisItems[]);
 diff --git a/src/server/scripts/Spells/spell_priest.cpp b/src/server/scripts/Spells/spell_priest.cpp
-index aab1e97..84c3b70 100644
+index aab1e97..59067ae 100644
 --- a/src/server/scripts/Spells/spell_priest.cpp
 +++ b/src/server/scripts/Spells/spell_priest.cpp
-@@ -190,7 +190,7 @@ class spell_pri_penance : public SpellScriptLoader
+@@ -190,6 +190,7 @@ class spell_pri_penance : public SpellScriptLoader
  
              bool Load()
              {
--                return GetCaster()->GetTypeId() == TYPEID_PLAYER;
-+                return GetCaster()/*->GetTypeId() == TYPEID_PLAYER*/;
++                if (GetCaster() && GetCaster()->ToCreature()) return true;
+                 return GetCaster()->GetTypeId() == TYPEID_PLAYER;
              }
  
-             bool Validate(SpellInfo const* spellEntry)
-@@ -229,7 +229,8 @@ class spell_pri_penance : public SpellScriptLoader
- 
+@@ -230,6 +231,8 @@ class spell_pri_penance : public SpellScriptLoader
              SpellCastResult CheckCast()
              {
--                Player* caster = GetCaster()->ToPlayer();
-+                //Player* caster = GetCaster()->ToPlayer();
-+                Unit* caster = GetCaster();
+                 Player* caster = GetCaster()->ToPlayer();
++                if (!caster)
++                    caster = (Player*)GetCaster();
                  if (Unit* target = GetExplTargetUnit())
                      if (!caster->IsFriendlyTo(target) && !caster->IsValidAttackTarget(target))
                          return SPELL_FAILED_BAD_TARGETS;
-@@ -384,7 +385,7 @@ class spell_priest_renew : public SpellScriptLoader
+@@ -384,6 +387,7 @@ class spell_priest_renew : public SpellScriptLoader
  
              bool Load()
              {
--                return GetCaster() && GetCaster()->GetTypeId() == TYPEID_PLAYER;
-+                return GetCaster()/* && GetCaster()->GetTypeId() == TYPEID_PLAYER*/;
++                if (GetCaster() && GetCaster()->ToCreature()) return true;
+                 return GetCaster() && GetCaster()->GetTypeId() == TYPEID_PLAYER;
              }
  
-             void HandleApplyEffect(AuraEffect const* aurEff, AuraEffectHandleModes /*mode*/)
 diff --git a/src/server/worldserver/worldserver.conf.dist b/src/server/worldserver/worldserver.conf.dist
 index cc4c4a5..5ef8f99 100644
 --- a/src/server/worldserver/worldserver.conf.dist
