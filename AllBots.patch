@@ -1,14 +1,14 @@
-From 2e01c8b5613f291f19f3ef69720306b28ac63da4 Mon Sep 17 00:00:00 2001
+From 890389e5c56deb38c36d9fd5f2684d550249c20c Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Mon, 16 Jul 2012 02:32:57 +0700
+Date: Mon, 16 Jul 2012 13:15:59 +0700
 Subject: [PATCH] AllBots
 
 ---
  sql/Bots/character_NPC_bots.sql                    |    8 +
  sql/Bots/world.bots.sql                            |  283 +
  sql/Bots/world.script_bot_giver.sql                |    7 +
- src/server/game/AI/NpcBots/bot_ai.cpp              | 1805 ++++
- src/server/game/AI/NpcBots/bot_ai.h                |  803 ++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 1800 ++++
+ src/server/game/AI/NpcBots/bot_ai.h                |  807 ++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        |  922 ++
  src/server/game/AI/NpcBots/bot_druid_ai.h          |  115 +
  src/server/game/AI/NpcBots/bot_giver.cpp           |  294 +
@@ -16,17 +16,17 @@ Subject: [PATCH] AllBots
  src/server/game/AI/NpcBots/bot_hunter_ai.h         |   26 +
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  674 ++
  src/server/game/AI/NpcBots/bot_mage_ai.h           |  143 +
- src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  927 ++
+ src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  924 ++
  src/server/game/AI/NpcBots/bot_paladin_ai.h        |  115 +
- src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  679 ++
- src/server/game/AI/NpcBots/bot_priest_ai.h         |  103 +
+ src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  719 ++
+ src/server/game/AI/NpcBots/bot_priest_ai.h         |  100 +
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  363 +
  src/server/game/AI/NpcBots/bot_rogue_ai.h          |   32 +
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  418 +
  src/server/game/AI/NpcBots/bot_shaman_ai.h         |   48 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  278 +
  src/server/game/AI/NpcBots/bot_warlock_ai.h        |   36 +
- src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1046 ++
+ src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1047 ++
  src/server/game/AI/NpcBots/bot_warrior_ai.h        |  114 +
  src/server/game/AI/PlayerBots/PlayerbotAI.cpp      |10677 ++++++++++++++++++++
  src/server/game/AI/PlayerBots/PlayerbotAI.h        | 2086 ++++
@@ -58,7 +58,7 @@ Subject: [PATCH] AllBots
  src/server/game/Entities/Creature/Creature.cpp     |  112 +
  src/server/game/Entities/Creature/Creature.h       |   32 +
  .../game/Entities/Creature/TemporarySummon.cpp     |    3 +
- src/server/game/Entities/Player/Player.cpp         | 1193 +++
+ src/server/game/Entities/Player/Player.cpp         | 1190 +++
  src/server/game/Entities/Player/Player.h           |   72 +
  src/server/game/Entities/Unit/Unit.cpp             |  182 +
  src/server/game/Groups/Group.cpp                   |   19 +
@@ -69,8 +69,9 @@ Subject: [PATCH] AllBots
  src/server/game/Scripting/ScriptLoader.cpp         |   23 +
  src/server/game/Server/WorldSession.cpp            |  107 +
  src/server/game/Server/WorldSession.h              |   32 +
+ src/server/scripts/Spells/spell_priest.cpp         |    7 +-
  src/server/worldserver/worldserver.conf.dist       |  153 +
- 66 files changed, 32067 insertions(+), 0 deletions(-)
+ 67 files changed, 32102 insertions(+), 3 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -437,10 +438,10 @@ index 0000000..5b00cdc
 +
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..7a8f155
+index 0000000..b1c1cc1
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,1805 @@
+@@ -0,0 +1,1800 @@
 +#include "bot_ai.h"
 +#include "Config.h"
 +#include "GridNotifiers.h"
@@ -2019,15 +2020,13 @@ index 0000000..7a8f155
 +    }//end for
 +    return unit;
 +}
-+// Finds second target for spells like Cleave, Swipe etc.
++// Finds second target for spells like Cleave, Swipe, (maybe Mind Sear) etc.
 +Unit *bot_ai::FindSplashTarget(float dist, Unit *To) const
 +{
-+    Unit *unit2 = To ? To : opponent && opponentValidate() ? opponent : m_creature->SelectNearbyTarget(NULL, dist);
-+    if (!unit2)
++    To = To ? To : opponent && opponentValidate() ? opponent : NULL;
++    if (!To)
 +        return NULL;
-+    dist = dist < 5.0f ? 5.0f : dist;
-+    Unit *u = m_creature->getVictim();
-+    if (u && m_creature->GetDistance(u) > dist)
++    if (m_creature->GetDistance(To) > dist)
 +        return NULL;
 +    CellCoord p(Trinity::ComputeCellCoord(m_creature->GetPositionX(), m_creature->GetPositionY()));
 +    Cell cell(p);
@@ -2035,7 +2034,7 @@ index 0000000..7a8f155
 +
 +    Unit *unit = NULL;
 +
-+    SecondEnemyCheck check(m_creature, dist, unit2, this);
++    SecondEnemyCheck check(m_creature, dist, To, this);
 +    Trinity::UnitLastSearcher <SecondEnemyCheck> searcher(m_creature, unit, check);
 +
 +    TypeContainerVisitor<Trinity::UnitLastSearcher <SecondEnemyCheck>, WorldTypeMapContainer > world_unit_searcher(searcher);
@@ -2044,10 +2043,7 @@ index 0000000..7a8f155
 +    cell.Visit(p, world_unit_searcher, *m_creature->GetMap(), *m_creature, dist);
 +    cell.Visit(p, grid_unit_searcher, *m_creature->GetMap(), *m_creature, dist);
 +
-+    if (unit && unit != unit2 && unit->GetDistance(unit2) <= dist)//additional check(maybe unneccessary)
-+        return unit;//now we have 2 separate targets close to each other
-+    else
-+        return NULL;
++    return unit;
 +}
 +//////////
 +//Internal
@@ -2249,10 +2245,10 @@ index 0000000..7a8f155
 \ No newline at end of file
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..9912f1b
+index 0000000..04ae2c8
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,803 @@
+@@ -0,0 +1,807 @@
 +#include "Chat.h"
 +#include "ScriptedCreature.h"
 +#include "Group.h"
@@ -2383,7 +2379,7 @@ index 0000000..9912f1b
 +        Unit *FindRootTarget(float dist = 30, uint32 spellId = 0) const;
 +        Unit *FindCastingTarget(float dist = 10, bool isFriend = false, uint32 spellId = 0) const;
 +        Unit *FindAOETarget(float dist = 30, bool checkbots = false, bool targetfriend = true) const;
-+        Unit *FindSplashTarget(float dist = 7, Unit *To = NULL) const;
++        Unit *FindSplashTarget(float dist = 5, Unit *To = NULL) const;
 +
 +        bool IsInBotParty(Unit *unit) const;
 +        // Checks if opponent still exists (avoid crashes with despawning creatures)
@@ -2998,14 +2994,18 @@ index 0000000..9912f1b
 +            explicit SecondEnemyCheck(Unit const* unit, float dist, Unit const* currtarget, bot_ai const *m_ai) : me(unit), m_range(dist), mytar(currtarget), ai(m_ai) {}
 +            bool operator()(Unit* u)
 +            {
-+                if (!me->IsWithinDistInMap(u, m_range))
-+                    return false;
-+                if (me->GetDistance(u) > 4)
-+                    return false;
 +                if (u == mytar)
 +                    return false;//We need to find SECONDARY target
++                if (!u->isInCombat())
++                    return false;
++                if (u->isMoving() != mytar->isMoving())//only when both targets idle or both moving
++                    return false;
++                if (!me->IsWithinDistInMap(u, m_range + 1.0f))//distance check
++                    return false;
++                if (mytar->GetDistance(u) > 4)//not close enough to each other
++                    return false;
 +
-+                if (u->isInCombat() && ai->CanBotAttack(u))
++                if (ai->CanBotAttack(u))
 +                    return true;
 +
 +                return false;
@@ -5619,10 +5619,10 @@ index 0000000..0bd1a3f
 \ No newline at end of file
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 new file mode 100644
-index 0000000..f148a0c
+index 0000000..f048ed3
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
-@@ -0,0 +1,927 @@
+@@ -0,0 +1,924 @@
 +#include "bot_paladin_ai.h"
 +#include "SpellAuraEffects.h"
 +/*
@@ -6017,12 +6017,9 @@ index 0000000..f148a0c
 +            { // 30% to BOP
 +                if (doCast(target, HAND_OF_PROTECTION))
 +                {
-+                    std::string bop = "BOP on ";
-+                    bop += target->GetName();
-+                    bop += "!";
-+                    m_creature->MonsterSay(bop.c_str(), LANG_UNIVERSAL, NULL);
++                    if (target->ToPlayer())
++                        DoSay("BOP on you", LANG_UNIVERSAL, target->GetGUID());
 +                    BOP_Timer = 600; //1 min
-+                    bop.clear();
 +                    if (!HasAuraName(target, "Forbearance"))
 +                        m_creature->AddAura(25771, target);//Forbearance
 +                    if (HasAuraName(target, "Forbearance") && !target->HasAura(HAND_OF_PROTECTION))
@@ -6674,15 +6671,15 @@ index 0000000..c2dc0f1
 \ No newline at end of file
 diff --git a/src/server/game/AI/NpcBots/bot_priest_ai.cpp b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 new file mode 100644
-index 0000000..838f1ae
+index 0000000..f25ff95
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
-@@ -0,0 +1,679 @@
+@@ -0,0 +1,719 @@
 +#include "bot_priest_ai.h"
 +/*
 +Priest NpcBot (reworked by Graff onlysuffering@mail.ru)
 +Complete - Around 50%
-+TODO: Mind Sear, maybe remove Divine Spirit or so, too much buffs
++TODO: maybe remove Divine Spirit or so, too much buffs
 +*/
 +class priest_bot : public CreatureScript
 +{
@@ -6699,9 +6696,9 @@ index 0000000..838f1ae
 +        priest_botAI(Creature *c) : bot_ai(c) { }
 +
 +        //disc/holy
-+        uint32 PENANCE;
++        uint32 PENANCE, MIND_SEAR;
 +        uint8 Heal_Timer, Penance_Timer, PWS_Timer;
-+        uint16 Divine_Hymn_Timer, Prayer_of_Healing_Timer, Pain_Suppression_Timer, Fear_Ward_Timer;
++        uint16 Divine_Hymn_Timer, Prayer_of_Healing_Timer, Pain_Suppression_Timer, Fear_Ward_Timer, Guardian_Spirit_Timer;
 +        //shadow
 +        uint8 Fade_Timer, Fear_Timer, Mind_Blast_Timer, SW_Death_Timer, Mind_Flay_Timer;
 +        uint16 Psychic_Horror_Timer, Silence_Timer, Dispersion_Timer;
@@ -6740,6 +6737,12 @@ index 0000000..838f1ae
 +                    RefreshAura(BORROWED_TIME); //25%haste/40%bonus
 +                if (master->getLevel() >= 55)
 +                    RefreshAura(DIVINE_AEGIS); //30%
++                if (master->getLevel() >= 55)
++                    RefreshAura(EMPOWERED_RENEW3); //15%
++                else if (master->getLevel() >= 50)
++                    RefreshAura(EMPOWERED_RENEW2); //10%
++                else if (master->getLevel() >= 45)
++                    RefreshAura(EMPOWERED_RENEW1); //5%
 +                if (master->getLevel() >= 50)
 +                    RefreshAura(PAINANDSUFFERING3); //100%
 +                else if (master->getLevel() >= 48)
@@ -6753,10 +6756,7 @@ index 0000000..838f1ae
 +                else if (master->getLevel() >= 45)
 +                    RefreshAura(MISERY1); //1%
 +                if (master->getLevel() >= 45)
-+                {
 +                    RefreshAura(GRACE); //100%
-+                    RefreshAura(EMPOWERED_RENEW); //5%
-+                }
 +                if (master->getLevel() >= 35)
 +                    RefreshAura(IMP_DEV_PLAG); //30%
 +
@@ -6795,7 +6795,14 @@ index 0000000..838f1ae
 +                else if (master->getLevel() >= 60)
 +                    PENANCE = PENANCE1;
 +                else
-+                    PENANCE = NULL;
++                    PENANCE = 0;
++
++                if (master->getLevel() >= 78)
++                    MIND_SEAR = MIND_SEAR2;
++                else if (master->getLevel() >= 75)
++                    MIND_SEAR = MIND_SEAR1;
++                else
++                    MIND_SEAR = 0;
 +            }
 +        }
 +
@@ -6882,7 +6889,7 @@ index 0000000..838f1ae
 +            if (!isTimerReady(PWS_Timer)) return false;
 +            if (target->HasAura(WEAKENED_SOUL)) return false;
 +            if (HasAuraName(target, SPELL_PW_SHIELD)) return false;
-+            if (m_creature->GetDistance(target) > 40) return false;
++            //if (m_creature->GetDistance(target) > 40) return false;//checked already in HealTarget()
 +
 +            if (!target->getAttackers().empty() || GetHealthPCT(target) < 33 || target->HasAuraType(SPELL_AURA_PERIODIC_DAMAGE))
 +            {
@@ -6988,7 +6995,8 @@ index 0000000..838f1ae
 +                (m_attackers.size() < 4 || b_attackers.size() + m_attackers.size() < 3))
 +                //general rule
 +            {
-+                if (!opponent || !opponentValidate() || opponent->isDead()) return;
++                //commented cuz same func, unneded check
++                //if (!opponent || !opponentValidate() || opponent->isDead()) return;
 +                if (!IsCasting())
 +                    StartAttack(opponent);
 +                if (m_creature->GetDistance(opponent) < 30)
@@ -7013,8 +7021,8 @@ index 0000000..838f1ae
 +                        Mind_Blast_Timer = 80 - m_creature->getLevel()/4;//6 sec on 80 (as improved)
 +                        return;
 +                    }
-+                    if (MIND_FLAY && !m_creature->isMoving() && Rand() < 50 && isTimerReady(Mind_Flay_Timer) && m_creature->GetDistance(opponent) < 30 && 
-+                        !opponent->HasAura(MIND_FLAY, m_creature->GetGUID()) && 
++                    if (MIND_FLAY && !m_creature->isMoving() && Rand() < 40 && m_creature->GetDistance(opponent) < 30 && 
++                        isTimerReady(Mind_Flay_Timer) && 
 +                        (opponent->isMoving() || 
 +                        (opponent->HasAura(SW_PAIN, m_creature->GetGUID()) && 
 +                        opponent->HasAura(DEVOURING_PLAGUE, m_creature->GetGUID()))) && 
@@ -7023,6 +7031,12 @@ index 0000000..838f1ae
 +                        Mind_Flay_Timer = 30;
 +                        return;
 +                    }
++                    if (MIND_SEAR && !opponent->isMoving() && Rand() < 50 && 
++                        opponent->HasAura(SW_PAIN, m_creature->GetGUID()) && 
++                        opponent->HasAura(DEVOURING_PLAGUE, m_creature->GetGUID()))
++                        if (Unit *u = FindSplashTarget(30, opponent))
++                            if (doCast(u, MIND_SEAR))
++                                return;
 +                }//endif opponent
 +            }//endif damage
 +            //check horror after dots/damage
@@ -7043,67 +7057,89 @@ index 0000000..838f1ae
 +        bool HealTarget(Unit *target, uint8 hp)
 +        {
 +            if (Rand() > 50) return false;
-+            if (IsCasting()) return false;
-+            if (!target || target->isDead() || target->IsHostileTo(master)) return false;
++            if (!target || target->isDead() || target->IsHostileTo(master) || m_creature->GetDistance(target) > 40)
++                return false;
++            //GUARDIAN SPIRIT
++            if (m_creature->getLevel() >= 60 && Guardian_Spirit_Timer == 0 && 
++                target->isInCombat() && !target->getAttackers().empty() && 
++                hp < (5 + std::min(20, uint8(target->getAttackers().size())*5)) && 
++                (target->ToPlayer() || 
++                (target->ToCreature() && target->ToCreature()->GetBotOwner() && target->ToCreature()->GetBotOwner()->GetNpcBotsCount() <= 3)) && 
++                !target->HasAura(GUARDIAN_SPIRIT))
++            {
++                temptimer = GC_Timer;
++                if (m_creature->IsNonMeleeSpellCasted(true))
++                    m_creature->InterruptNonMeleeSpells(true);
++                if (doCast(target, GUARDIAN_SPIRIT))
++                {
++                    if (target->ToPlayer())
++                    {
++                        if (target->HasAura(GUARDIAN_SPIRIT, m_creature->GetGUID()))
++                            DoSay("Guardin Spirit on you!", LANG_UNIVERSAL, target->GetGUID());
++                        Guardian_Spirit_Timer = 900;//1.5 min
++                    }
++                    else
++                        Guardian_Spirit_Timer = 300;//30 sec for creatures
++                    GC_Timer = temptimer;
++                    return true;// well healed
++                }
++            }
 +
++            if (IsCasting()) return false;
 +            //PAIN SUPPRESSION
 +            if (hp < 35 && 
 +                m_creature->getLevel() >= 40 && 
-+                Pain_Suppression_Timer <= 0 && 
++                Pain_Suppression_Timer == 0 && 
 +                (target->isInCombat() || !target->getAttackers().empty()) && 
-+                !target->HasAura(PAIN_SUPPRESSION) && 
-+                m_creature->GetDistance(target) < 40)
++                !target->HasAura(PAIN_SUPPRESSION))
 +            {
 +                temptimer = GC_Timer;
 +                if (doCast(target, PAIN_SUPPRESSION))
 +                {
 +                    if (target->ToPlayer())
++                    {
++                        if (target->HasAura(PAIN_SUPPRESSION, m_creature->GetGUID()))
++                            DoSay("Pain Suppression on you!", LANG_UNIVERSAL, target->GetGUID());
 +                        Pain_Suppression_Timer = 450;//45 sec
++                    }
 +                    else
 +                        Pain_Suppression_Timer = 150;//15 sec for creatures
++                    GC_Timer = temptimer;
++                    return false;//did not heal
 +                }
-+                GC_Timer = temptimer;
 +            }
 +
 +            //Now Heals Requires GCD
 +            if ((hp < 80 || !target->getAttackers().empty()) && 
 +                isTimerReady(PWS_Timer) && 
 +                !HasAuraName(target, SPELL_PW_SHIELD) && 
-+                !target->HasAura(WEAKENED_SOUL) && 
-+                m_creature->GetDistance(target) < 40)
-+            {
++                !target->HasAura(WEAKENED_SOUL))
 +                ShieldTarget(target);
-+            }
 +
-+            if ((hp < 75 || GetLostHP(target) > 4000) && 
-+                m_creature->GetDistance(target) < 40)
++            //PENANCE/Greater Heal
++            if (hp < 75 || GetLostHP(target) > 4000)
 +            {
-+                if (PENANCE != 0 && isTimerReady(Penance_Timer) && 
-+                    !(target->ToPlayer() && (target->ToPlayer()->isCharmed() || target->ToPlayer()->isPossessed())) && 
++                if (PENANCE && isTimerReady(Penance_Timer) && 
++                    (!target->ToPlayer() || !(target->ToPlayer()->isCharmed() || target->ToPlayer()->isPossessed())) && 
 +                    doCast(target, PENANCE))
 +                { Penance_Timer = 80; return true; }
 +                else if (isTimerReady(Heal_Timer) && doCast(target, SPELL_HEAL))
 +                { Heal_Timer = 25; return true; }
 +            }
-+
++            //Flash Heal
 +            if (((hp > 75 && hp < 90) || hp < 55 || GetLostHP(target) > 1500) && 
-+                isTimerReady(GC_Timer) && SPELL_FLASH != 0 && 
-+                m_creature->GetDistance(target) < 40)
++                isTimerReady(GC_Timer) && SPELL_FLASH && 
++                doCast(target, SPELL_FLASH))
 +            {
-+                if (doCast(target, SPELL_FLASH))
-+                {
-+                    if (GetHealthPCT(target) > 80)
-+                        return true;
-+                }
++                if (GetHealthPCT(target) > 80)
++                    return true;
 +            }
-+
++            //Renew
 +            if (((hp < 98 && 
 +                hp > 70) || GetLostHP(target) > 500) && 
 +                !target->HasAura(SPELL_RENEW, m_creature->GetGUID()) && 
-+                m_creature->GetDistance(target) < 40 && GC_Timer <= 0)
-+            {
-+                if (doCast(target, SPELL_RENEW)) {GC_Timer = 8;}
-+            }
++                GC_Timer <= 0 && doCast(target, SPELL_RENEW))
++            { GC_Timer = 8; }
 +
 +            return false;
 +        }
@@ -7318,23 +7354,24 @@ index 0000000..838f1ae
 +        void decrementTimers()
 +        {
 +            CommonTimers();
-+            if (Heal_Timer > 0)              --Heal_Timer;
-+            if (Fade_Timer > 0)              --Fade_Timer;
-+            if (Divine_Hymn_Timer > 0)       --Divine_Hymn_Timer;
-+            if (Prayer_of_Healing_Timer > 0) --Prayer_of_Healing_Timer;
-+            if (Pain_Suppression_Timer > 0)  --Pain_Suppression_Timer;
-+            if (PWS_Timer > 0)               --PWS_Timer;
-+            if (Fear_Timer > 0)              --Fear_Timer;
-+            if (Mind_Blast_Timer > 0)        --Mind_Blast_Timer;
-+            if (SW_Death_Timer > 0)          --SW_Death_Timer;
-+            if (Fear_Ward_Timer > 0)         --Fear_Ward_Timer;
-+            if (Psychic_Horror_Timer > 0)    --Psychic_Horror_Timer;
-+            if (Silence_Timer > 0)           --Silence_Timer;
-+            if (Dispersion_Timer > 0)        --Dispersion_Timer;
-+            if (Mind_Flay_Timer > 0)         --Mind_Flay_Timer;
-+            if (Penance_Timer > 0)           --Penance_Timer;
-+            if (CheckDispelTimer > 0)        --CheckDispelTimer;
-+            if (DevcheckTimer > 0)           --DevcheckTimer;
++            if (Heal_Timer > 0)                 --Heal_Timer;
++            if (Fade_Timer > 0)                 --Fade_Timer;
++            if (Divine_Hymn_Timer > 0)          --Divine_Hymn_Timer;
++            if (Prayer_of_Healing_Timer > 0)    --Prayer_of_Healing_Timer;
++            if (Pain_Suppression_Timer > 0)     --Pain_Suppression_Timer;
++            if (Guardian_Spirit_Timer > 0)      --Guardian_Spirit_Timer;
++            if (PWS_Timer > 0)                  --PWS_Timer;
++            if (Fear_Timer > 0)                 --Fear_Timer;
++            if (Mind_Blast_Timer > 0)           --Mind_Blast_Timer;
++            if (SW_Death_Timer > 0)             --SW_Death_Timer;
++            if (Fear_Ward_Timer > 0)            --Fear_Ward_Timer;
++            if (Psychic_Horror_Timer > 0)       --Psychic_Horror_Timer;
++            if (Silence_Timer > 0)              --Silence_Timer;
++            if (Dispersion_Timer > 0)           --Dispersion_Timer;
++            if (Mind_Flay_Timer > 0)            --Mind_Flay_Timer;
++            if (Penance_Timer > 0)              --Penance_Timer;
++            if (CheckDispelTimer > 0)           --CheckDispelTimer;
++            if (DevcheckTimer > 0)              --DevcheckTimer;
 +        }//end decrementTImers
 +
 +        void ReceiveBowEmote(Player *player)
@@ -7359,10 +7396,10 @@ index 0000000..838f1ae
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_priest_ai.h b/src/server/game/AI/NpcBots/bot_priest_ai.h
 new file mode 100644
-index 0000000..50f9f9c
+index 0000000..537736b
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_priest_ai.h
-@@ -0,0 +1,103 @@
+@@ -0,0 +1,100 @@
 +#include "bot_ai.h"
 +
 +enum PriestCommonSpells
@@ -7374,6 +7411,15 @@ index 0000000..50f9f9c
 +    SPELL_FADE                      = 586,
 +    SPELL_PSYCHIC_HORROR            = 64044,
 +    SPELL_SILENCE                   = 15487,
++    PENANCE1                        = 47540,
++    PENANCE2                        = 53005,
++    PENANCE3                        = 53006,
++    PENANCE4                        = 53007,
++    VAMPIRIC_EMBRACE                = 15286,
++    DISPERSION                      = 47585,
++    MIND_SEAR1                      = 48045,
++    MIND_SEAR2                      = 53023,
++    GUARDIAN_SPIRIT                 = 47788,
 +};
 +
 +#define SPELL_SHACKLE_UNDEAD        SPELL_SHACKLE_UNDEAD_A[SPELL_LEVEL]
@@ -7386,14 +7432,6 @@ index 0000000..50f9f9c
 +#define SPELL_FLASH                 SPELL_FLASH_A[SPELL_LEVEL]
 +#define PRAYER_OF_HEALING           PRAYER_OF_HEALING_A[SPELL_LEVEL]
 +#define DIVINE_HYMN                 DIVINE_HYMN_A[SPELL_LEVEL]
-+
-+enum Penance
-+{
-+    PENANCE1                        = 47540,
-+    PENANCE2                        = 53005,
-+    PENANCE3                        = 53006,
-+    PENANCE4                        = 53007,
-+};
 +
 +uint32 PRAYER_OF_HEALING_A[] = { 0, 0, 0, 0, 0, 0, 0, 0, 33152, 33152 };
 +uint32 DIVINE_HYMN_A[] = { 0, 0, 0, 0, 0, 0, 0, 0, 64843, 64843 };
@@ -7416,12 +7454,6 @@ index 0000000..50f9f9c
 +uint32 SPELL_FLASH_A[] = { 0, 2061, 9472, 9473, 10915, 10916, 10917, 25235, 48071, 48071 };
 +
 +//damage
-+enum ShadowConsts
-+{
-+    VAMPIRIC_EMBRACE                = 15286,
-+    DISPERSION                      = 47585,
-+};
-+
 +#define SW_PAIN                     SW_PAIN_A[SPELL_LEVEL]
 +#define MIND_BLAST                  MIND_BLAST_A[SPELL_LEVEL]
 +#define SW_DEATH                    SW_DEATH_A[SPELL_LEVEL]
@@ -7456,7 +7488,9 @@ index 0000000..50f9f9c
 +    BORROWED_TIME                   = 52800,//rank 5
 +    GRACE                           = 47517,//rank 2
 +//holy
-+    EMPOWERED_RENEW                 = 63534,//rank 1
++    EMPOWERED_RENEW1                = 63534,
++    EMPOWERED_RENEW2                = 63542,
++    EMPOWERED_RENEW3                = 63543,
 +    INSPIRATION1                    = 14892,
 +    INSPIRATION2                    = 15362,
 +    INSPIRATION3                    = 15363,
@@ -8680,10 +8714,10 @@ index 0000000..1df2c52
 +
 diff --git a/src/server/game/AI/NpcBots/bot_warrior_ai.cpp b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 new file mode 100644
-index 0000000..21b5bd8
+index 0000000..f8a8453
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
-@@ -0,0 +1,1046 @@
+@@ -0,0 +1,1047 @@
 +#include "bot_warrior_ai.h"
 +#include "SpellAuraEffects.h"
 +bool battleStance; bool defensiveStance; bool berserkerStance;
@@ -9346,7 +9380,8 @@ index 0000000..21b5bd8
 +            }
 +
 +            //SS
-+            if (Rand() < 20/* && (defensiveStance == false || (stancetimer < diff && stanceChange(diff, 5)))*/ && (m_attackers.size() > 1 || b_attackers.size() > 1 || FindSplashTarget(10)) && 
++            if (Rand() < 20/* && (defensiveStance == false || (stancetimer < diff && stanceChange(diff, 5)))*/ && 
++                (m_attackers.size() > 1 || b_attackers.size() > 1 || FindSplashTarget(10)) && 
 +                sweeping_strikes_cd < diff/* && GCD < diff*/)//no GCD for SS
 +            {
 +                temptimer = GCD;
@@ -30609,7 +30644,7 @@ index 2af6b4c..a2e6c6c 100755
  }
  
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index c38ceb6..b7210f9 100755
+index c38ceb6..b290e35 100755
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -75,6 +75,10 @@
@@ -30713,17 +30748,15 @@ index c38ceb6..b7210f9 100755
      Relocate(&oldPos);
      SendMessageToSet(&data2, false);
  }
-@@ -2080,6 +2132,20 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
+@@ -2080,6 +2132,18 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
          return false;
      }
  
 +    // Playerbot mod: if this user has bots, tell them to stop following master
 +    // so they don't try to follow the master after the master teleports
-+    for(PlayerBotMap::const_iterator itr = GetSession()->GetPlayerBotsBegin(); itr != GetSession()->GetPlayerBotsEnd(); ++itr)
-+    {
-+        Player *botPlayer = itr->second;
-+        botPlayer->GetMotionMaster()->Clear();
-+    }
++    for (PlayerBotMap::const_iterator itr = GetSession()->GetPlayerBotsBegin(); itr != GetSession()->GetPlayerBotsEnd(); ++itr)
++        if (Player *botPlayer = itr->second)
++            botPlayer->GetMotionMaster()->Clear();
 +    //Npcbot mod: prevent crash on InstanceMap::DestroyInstance()... Unit::RemoveFromWorld()
 +    //if last player being kicked out of instance while having npcbots
 +    //we must remove creature Before it will be removed in Map::UnloadAll()
@@ -30734,7 +30767,7 @@ index c38ceb6..b7210f9 100755
      // preparing unsummon pet if lost (we must get pet before teleportation or will not find it later)
      Pet* pet = GetPet();
  
-@@ -2434,6 +2500,1088 @@ void Player::RemoveFromWorld()
+@@ -2434,6 +2498,1088 @@ void Player::RemoveFromWorld()
      }
  }
  
@@ -30779,7 +30812,7 @@ index c38ceb6..b7210f9 100755
 +                    maxdist = sWorld->GetMaxVisibleDistanceInInstances();
 +                else if (GetMap()->IsBattlegroundOrArena())
 +                    maxdist = sWorld->GetMaxVisibleDistanceInBGArenas();
-+                //maxdist += 20.0f; //allow player to recall it by moving back
++                maxdist += 20.0f; //allow player to recall it by moving back
 +                if (abs(m_bot->GetPositionX() - GetPositionX()) > maxdist || 
 +                    abs(m_bot->GetPositionY() - GetPositionY()) > maxdist || 
 +                    m_bot->GetMapId() != GetMapId())
@@ -31823,7 +31856,7 @@ index c38ceb6..b7210f9 100755
  void Player::RegenerateAll()
  {
      //if (m_regenTimer <= 500)
-@@ -2909,6 +4057,48 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
+@@ -2909,6 +4055,47 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
  {
      if (group)
      {
@@ -31835,8 +31868,7 @@ index c38ceb6..b7210f9 100755
 +                if (!pl->GetPlayerbotAI())
 +                    ++players;
 +        }
-+        Player *player = sObjectAccessor->FindPlayer(guid);
-+        if (player)
++        if (Player *player = sObjectAccessor->FindPlayer(guid))
 +        {
 +            if (player->GetPlayerbotAI())
 +            {
@@ -31846,7 +31878,7 @@ index c38ceb6..b7210f9 100755
 +            }
 +            else
 +            {
-+                //first remove npcbots so group will be disbanded is only 1 player
++                //first remove npcbots so group will be disbanded if only 1 player
 +                if (player->HaveBot())
 +                {
 +                    for (uint8 i = 0; i != player->GetMaxNpcBots(); ++i)
@@ -31872,7 +31904,7 @@ index c38ceb6..b7210f9 100755
          group->RemoveMember(guid, method, kicker, reason);
          group = NULL;
      }
-@@ -3088,6 +4278,9 @@ void Player::GiveLevel(uint8 level)
+@@ -3088,6 +4275,9 @@ void Player::GiveLevel(uint8 level)
              }
  
      sScriptMgr->OnPlayerLevelChanged(this, oldLevel);
@@ -32828,6 +32860,38 @@ index b8b0953..5f00e58 100755
      private:
          // private trade methods
          void moveItems(Item* myItems[], Item* hisItems[]);
+diff --git a/src/server/scripts/Spells/spell_priest.cpp b/src/server/scripts/Spells/spell_priest.cpp
+index aab1e97..84c3b70 100644
+--- a/src/server/scripts/Spells/spell_priest.cpp
++++ b/src/server/scripts/Spells/spell_priest.cpp
+@@ -190,7 +190,7 @@ class spell_pri_penance : public SpellScriptLoader
+ 
+             bool Load()
+             {
+-                return GetCaster()->GetTypeId() == TYPEID_PLAYER;
++                return GetCaster()/*->GetTypeId() == TYPEID_PLAYER*/;
+             }
+ 
+             bool Validate(SpellInfo const* spellEntry)
+@@ -229,7 +229,8 @@ class spell_pri_penance : public SpellScriptLoader
+ 
+             SpellCastResult CheckCast()
+             {
+-                Player* caster = GetCaster()->ToPlayer();
++                //Player* caster = GetCaster()->ToPlayer();
++                Unit* caster = GetCaster();
+                 if (Unit* target = GetExplTargetUnit())
+                     if (!caster->IsFriendlyTo(target) && !caster->IsValidAttackTarget(target))
+                         return SPELL_FAILED_BAD_TARGETS;
+@@ -384,7 +385,7 @@ class spell_priest_renew : public SpellScriptLoader
+ 
+             bool Load()
+             {
+-                return GetCaster() && GetCaster()->GetTypeId() == TYPEID_PLAYER;
++                return GetCaster()/* && GetCaster()->GetTypeId() == TYPEID_PLAYER*/;
+             }
+ 
+             void HandleApplyEffect(AuraEffect const* aurEff, AuraEffectHandleModes /*mode*/)
 diff --git a/src/server/worldserver/worldserver.conf.dist b/src/server/worldserver/worldserver.conf.dist
 index cc4c4a5..5ef8f99 100644
 --- a/src/server/worldserver/worldserver.conf.dist
