@@ -1,6 +1,6 @@
-From e57c954f54a4f153d788b468a9f72861979ef591 Mon Sep 17 00:00:00 2001
+From c1cebad4821f1eb810302e96256df940b0c13794 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Mon, 6 Aug 2012 16:56:49 +0700
+Date: Tue, 7 Aug 2012 01:24:16 +0700
 Subject: [PATCH] AllBots
 
 ---
@@ -8,19 +8,19 @@ Subject: [PATCH] AllBots
  sql/Bots/world.bots.sql                            |  283 +
  sql/Bots/world.script_bot_giver.sql                |    7 +
  src/server/game/AI/NpcBots/bot_ai.cpp              | 2043 ++++
- src/server/game/AI/NpcBots/bot_ai.h                |  690 ++
- src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1087 ++
+ src/server/game/AI/NpcBots/bot_ai.h                |  687 ++
+ src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1086 ++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  348 +
  src/server/game/AI/NpcBots/bot_hunter_ai.h         |   26 +
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  805 ++
- src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  952 ++
+ src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  957 ++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  870 ++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  334 +
  src/server/game/AI/NpcBots/bot_rogue_ai.h          |   32 +
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  412 +
  src/server/game/AI/NpcBots/bot_shaman_ai.h         |   48 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  323 +
- src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1153 +++
+ src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1154 +++
  src/server/game/AI/NpcBots/botcommands.cpp         | 1266 +++
  src/server/game/AI/NpcBots/botgiver.cpp            |  270 +
  src/server/game/AI/PlayerBots/PlayerbotAI.cpp      |10660 ++++++++++++++++++++
@@ -63,7 +63,7 @@ Subject: [PATCH] AllBots
  src/server/game/Server/WorldSession.h              |   36 +
  src/server/scripts/Spells/spell_priest.cpp         |    4 +
  src/server/worldserver/worldserver.conf.dist       |  172 +
- 59 files changed, 31966 insertions(+), 0 deletions(-)
+ 59 files changed, 31968 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -427,7 +427,7 @@ index 0000000..5b00cdc
 +
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..d65ddb7
+index 0000000..4edc221
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
 @@ -0,0 +1,2043 @@
@@ -574,9 +574,9 @@ index 0000000..d65ddb7
 +// Movement set
 +void bot_ai::SetBotCommandState(CommandStates st, bool force, Position *newpos)
 +{
-+    if (st == COMMAND_FOLLOW && master->isAlive() && ((!me->isMoving() && !IsCasting()) || force))
++    if (st == COMMAND_FOLLOW && ((!me->isMoving() && !IsCasting() && master->isAlive()) || force))
 +    {
-+        if (me->HasUnitState(UNIT_STATE_ROOT)) return;
++        if (me->HasUnitState(UNIT_STATE_ROOT) || master->HasUnitState(UNIT_STATE_FLEEING)) return;
 +        if (!newpos)
 +            CalculatePos(pos);
 +        else
@@ -1018,8 +1018,8 @@ index 0000000..d65ddb7
 +// Health, Armor, Powers, Combat Ratings, and global update setup
 +void bot_ai::setStats(uint8 myclass, uint8 myrace, uint8 mylevel, bool force)
 +{
-+    if (myrace == 0 || myclass == 0 || master->isDead())
-+        return;
++    if (myrace == 0 || myclass == 0) return;
++    if (myclass != BEAR && myclass != CAT && master->isDead()) return;
 +    /*sLog->outBasic("setStats(): Updating bot %s, class: %u, race: %u, level %u, master: %s",
 +        me->GetName(), myclass, myrace, mylevel, master->GetName());*/
 +
@@ -1068,7 +1068,7 @@ index 0000000..d65ddb7
 +    }
 +
 +    //INIT CLASS MODIFIERS
-+    switch(myclass)
++    switch (myclass)
 +    {
 +    case CLASS_WARRIOR:      ap_mod = 1.3f;  spp_mod = 0.0f; armor_mod = 1.4f;  crit_mod = 1.0f; haste_mod = 0.75f; dodge_mod = 0.75f; parry_mod = 1.75f; break;
 +    case CLASS_DEATH_KNIGHT: ap_mod = 1.2f;  spp_mod = 1.0f; armor_mod = 1.15f; crit_mod = 0.9f; haste_mod = 0.65f; dodge_mod = 0.8f;  parry_mod = 2.0f;  break;//NYI
@@ -1419,7 +1419,7 @@ index 0000000..d65ddb7
 +    //Follow if...
 +    maxdist = range > 0.f ? range : float(followdist/* + (ranged ? (followdist/2) : 0)*/);
 +    float foldist = maxdist > 10 ? maxdist/2 : 5;
-+    if (!u && (me->GetDistance(master) > foldist || (opponent && opponentValidate() && master->GetDistance(opponent) > maxdist && me->GetDistance(master) > foldist)))
++    if (!u && master->isAlive() && (me->GetDistance(master) > foldist || (opponent && opponentValidate() && master->GetDistance(opponent) > maxdist && me->GetDistance(master) > foldist)))
 +    {
 +        if (m_botCommandState != COMMAND_FOLLOW && m_botCommandState != COMMAND_STAY)
 +            Follow(true);
@@ -1430,7 +1430,7 @@ index 0000000..d65ddb7
 +    if (u && (me->isInCombat() || u->isInCombat()) && !InDuel(u) && !IsInBotParty(u))
 +        return u;
 +
-+    if (Rand() > 90) return opponent; //random drop
++    if (Rand() > 90 && opponent && opponentValidate()) return opponent; //random drop
 +    bool canAttack = CanBotAttack(opponent, byspell);
 +    if (canAttack == true && !InDuel(opponent))
 +    {
@@ -1443,7 +1443,7 @@ index 0000000..d65ddb7
 +        me->AttackStop();
 +        opponent = NULL;
 +    }
-+    if (followdist == 0) return NULL; //do not bother
++    if (followdist == 0 && master->isAlive()) return NULL; //do not bother
 +
 +    //check group to prevent
 +    Group *gr = master->GetGroup();
@@ -1452,7 +1452,7 @@ index 0000000..d65ddb7
 +        for (uint8 i = 0; i != master->GetMaxNpcBots(); ++i)
 +        {
 +            Creature *bot = master->GetBotMap()[i]._Cre();
-+            if (!bot || !bot->isInCombat()) continue;
++            if (!bot || !bot->isInCombat() || !bot->InSamePhase(me)) continue;
 +            u = bot->getVictim();
 +            if (u && u->isTargetableForAttack())
 +                return u;
@@ -1463,7 +1463,7 @@ index 0000000..d65ddb7
 +        for (GroupReference *ref = gr->GetFirstMember(); ref != NULL; ref = ref->next())
 +        {
 +            Player *pl = ref->getSource();
-+            if (!pl || pl == master || me->GetMap() != pl->GetMap()) continue;
++            if (!pl || pl == master || me->GetMap() != pl->GetMap() || !pl->InSamePhase(me)) continue;
 +            u = pl->getVictim();
 +            if (u && (pl->isInCombat() || u->isInCombat()) && master->GetDistance(u) < maxdist && u->isTargetableForAttack())
 +                return u;
@@ -1471,7 +1471,7 @@ index 0000000..d65ddb7
 +            for (uint8 i = 0; i != pl->GetMaxNpcBots(); ++i)
 +            {
 +                Creature *bot = pl->GetBotMap()[i]._Cre();
-+                if (!bot) continue;
++                if (!bot || !bot->InSamePhase(me)) continue;
 +                u = bot->getVictim();
 +                if (u && (bot->isInCombat() || u->isInCombat()) && master->GetDistance(u) < maxdist && u->isTargetableForAttack())
 +                    return u;
@@ -1481,7 +1481,7 @@ index 0000000..d65ddb7
 +
 +    //check targets around
 +    Unit *t = NULL;
-+    //maxdist -= me->GetDistance(master);//set max dist
++    maxdist += master->isDead() ? sWorld->GetMaxVisibleDistanceOnContinents() * 0.5f : 0;//set max dist
 +    //first cycle we search non-cced target, then, if not found, check all
 +    for (uint8 i = 0; i != 2; ++i)
 +    {
@@ -2477,10 +2477,10 @@ index 0000000..d65ddb7
 \ No newline at end of file
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..3a5dea6
+index 0000000..52baf5e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,690 @@
+@@ -0,0 +1,687 @@
 +#include "ScriptedCreature.h"
 +#include "ScriptedGossip.h"
 +#include "Group.h"
@@ -2629,10 +2629,7 @@ index 0000000..3a5dea6
 +        bool IsCasting(Unit *u = NULL) const { if (!u) u = me; return (u->HasUnitState(UNIT_STATE_CASTING) || IsChanneling(u) || u->IsNonMeleeSpellCasted(false)); }
 +        void Follow(bool force = false, Position *newpos = NULL)
 +        {
-+            if (force || 
-+                (me->isAlive() && (!me->isInCombat() || !opponent) && 
-+                me->GetDistance(master) > mydist*1.25f && m_botCommandState != COMMAND_STAY))
-+                SetBotCommandState(COMMAND_FOLLOW, newpos);
++            SetBotCommandState(COMMAND_FOLLOW, force, newpos);
 +        }
 +        Unit *getTarget(bool byspell = false, bool ranged = false, float range = 0);
 +        //inline Creature *GetPet() { pet = petGuid != 0 ? sObjectAccessor->GetObjectInWorld(petGuid, (Creature*)NULL) : NULL; return pet; }
@@ -3174,10 +3171,10 @@ index 0000000..3a5dea6
 \ No newline at end of file
 diff --git a/src/server/game/AI/NpcBots/bot_druid_ai.cpp b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 new file mode 100644
-index 0000000..e736839
+index 0000000..d3ac89b
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
-@@ -0,0 +1,1087 @@
+@@ -0,0 +1,1086 @@
 +#include "bot_ai.h"
 +/*
 +Druid NpcBot (reworked by Graff onlysuffering@mail.ru)
@@ -3297,8 +3294,7 @@ index 0000000..e736839
 +            {
 +                if (!(*iter) || (*iter)->isDead()) continue;
 +                if (!(*iter)->isTargetableForAttack()) continue;
-+                //if (me->GetExactDist((*iter)) > 5) continue;
-+                if (me->GetExactDist((*iter)) <= 5)
++                if (me->GetDistance((*iter)) <= 5)
 +                {
 +                    if (doCast(me, WARSTOMP))
 +                        Warstomp_Timer = 300; //30sec
@@ -3397,7 +3393,7 @@ index 0000000..e736839
 +                StartAttack(opponent, true);
 +
 +            //range check (melee) to prevent fake casts
-+            if (me->GetExactDist(opponent) > 7) return;
++            if (me->GetDistance(opponent) > 5) return;
 +
 +            if (isTimerReady(MangleB_Timer) && rage >= 200 && doCast(opponent, MANGLE_BEAR))
 +            {
@@ -3419,11 +3415,11 @@ index 0000000..e736839
 +                StartAttack(opponent, true);
 +            uint16 energy = me->GetPower(POWER_ENERGY);
 +
-+            //range check (melee) to prevent fake casts
-+            if (me->GetExactDist(opponent) > 6) return;
-+
 +            if (MoveBehind(*opponent))
 +            { wait = 10; return; }
++
++            //range check (melee) to prevent fake casts
++            if (me->GetDistance(opponent) > 5) return;
 +
 +            if (isTimerReady(Mangle_Cat_Timer) && energy > 45 && doCast(opponent, MANGLE_CAT))
 +                Mangle_Cat_Timer = 60;
@@ -3554,7 +3550,7 @@ index 0000000..e736839
 +            if (me->GetShapeshiftForm() == FORM_NONE && me->getPowerType() != POWER_MANA)
 +                me->setPowerType(POWER_MANA);
 +            if (IAmDead()) return;
-+            if (!opponent || opponent->isDead()) Evade();
++            if (!opponent || !opponentValidate() || opponent->isDead()) Evade();
 +            if (me->GetShapeshiftForm() == FORM_DIREBEAR || me->GetShapeshiftForm() == FORM_BEAR)
 +            {
 +                rage = me->GetPower(POWER_RAGE);
@@ -3909,7 +3905,7 @@ index 0000000..e736839
 +
 +        void CheckBattleRez()
 +        {
-+            if (!REBIRTH || Rebirth_Timer > 0 || IsCasting() || me->IsMounted()) return;
++            if (!REBIRTH || Rebirth_Timer > 0 || Rand() > 10 || IsCasting() || me->IsMounted()) return;
 +            Group *gr = master->GetGroup();
 +            if (!gr)
 +            {
@@ -3945,7 +3941,7 @@ index 0000000..e736839
 +                if (master->GetMap() != target->GetMap()) continue;
 +                if (me->GetExactDist(target) > 30)
 +                {
-+                    me->GetMotionMaster()->MovePoint(master->GetMapId(), *target);
++                    me->GetMotionMaster()->MovePoint(target->GetMapId(), *target);
 +                    Rebirth_Timer = 15;
 +                    return;
 +                }
@@ -4653,7 +4649,7 @@ index 0000000..2979957
 +
 diff --git a/src/server/game/AI/NpcBots/bot_mage_ai.cpp b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 new file mode 100644
-index 0000000..f8ca3bf
+index 0000000..58d6684
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 @@ -0,0 +1,805 @@
@@ -4819,7 +4815,7 @@ index 0000000..f8ca3bf
 +        {
 +            ReduceCD(diff);
 +            if (IAmDead()) return;
-+            if (!opponent || opponent->isDead()) Evade();
++            if (!opponent || !opponentValidate() || opponent->isDead()) Evade();
 +            if (clearcast && me->HasAura(CLEARCASTBUFF) && !me->IsNonMeleeSpellCasted(false))
 +            {
 +                me->ModifyPower(POWER_MANA, cost);
@@ -5464,10 +5460,10 @@ index 0000000..f8ca3bf
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 new file mode 100644
-index 0000000..5d0680c
+index 0000000..0471c82
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
-@@ -0,0 +1,952 @@
+@@ -0,0 +1,957 @@
 +#include "bot_ai.h"
 +#include "SpellAuraEffects.h"
 +/*
@@ -5623,6 +5619,7 @@ index 0000000..5d0680c
 +            if (Group *pGroup = hTarget->GetGroup())
 +            {
 +                bool bots = false;
++                float threat;
 +                for (GroupReference *itr = pGroup->GetFirstMember(); itr != NULL; itr = itr->next())
 +                {
 +                    Player *HOSPlayer = itr->getSource();
@@ -5639,9 +5636,10 @@ index 0000000..5d0680c
 +                        if (!(*iter)) continue;
 +                        if ((*iter)->isDead()) continue;
 +                        if (!(*iter)->CanHaveThreatList()) continue;
-+                        if ((*iter)->getThreatManager().getThreat(HOSPlayer) < 25.0f) continue;//too small threat
-+                        if ((*iter)->getThreatManager().getThreat(tank) == 0.0f) continue;
-+                        if (HOSPlayer->GetExactDist((*iter)) > 10) continue;
++                        threat = (*iter)->getThreatManager().getThreat(HOSPlayer);
++                        if (threat < 25.0f) continue;//too small threat
++                        if ((*iter)->getThreatManager().getThreat(tank) < threat * 0.33f) continue;//would be useless
++                        if (HOSPlayer->GetDistance((*iter)) > 10) continue;
 +                        if (HOSTarget(HOSPlayer)) return;
 +                    }//end for
 +                }//end for
@@ -5666,9 +5664,10 @@ index 0000000..5d0680c
 +                            if (!(*iter)) continue;
 +                            if ((*iter)->isDead()) continue;
 +                            if (!(*iter)->CanHaveThreatList()) continue;
-+                            if ((*iter)->getThreatManager().getThreat(cre) < 25.0f) continue;//too small threat
-+                            if ((*iter)->getThreatManager().getThreat(tank) == 0.0f) continue;
-+                            if (cre->GetExactDist((*iter)) > 10) continue;
++                            threat = (*iter)->getThreatManager().getThreat(cre);
++                            if (threat < 25.0f) continue;//too small threat
++                            if ((*iter)->getThreatManager().getThreat(tank) < threat * 0.33f) continue;//would be useless
++                            if (cre->GetDistance((*iter)) > 10) continue;
 +                            if (HOSTarget(cre)) return;
 +                        }//end for
 +                    }//end for
@@ -5689,15 +5688,17 @@ index 0000000..5d0680c
 +
 +            AttackerSet h_attackers = target->getAttackers();
 +            if (h_attackers.empty()) return false; //no aggro
++            float threat;
 +            uint8 Tattackers = 0;
 +            for (AttackerSet::iterator iter = h_attackers.begin(); iter != h_attackers.end(); ++iter)
 +            {
 +                if (!(*iter)) continue;
 +                if ((*iter)->isDead()) continue;
 +                if (!(*iter)->CanHaveThreatList()) continue;
-+                if ((*iter)->getThreatManager().getThreat(target) < 25.0f) continue;//too small threat
-+                if ((*iter)->getThreatManager().getThreat(tank) == 0.0f) continue;
-+                if (target->GetExactDist((*iter)) <= 10)
++                threat = (*iter)->getThreatManager().getThreat(target);
++                if (threat < 25.0f) continue;//too small threat
++                if ((*iter)->getThreatManager().getThreat(tank) < threat * 0.33f) continue;//would be useless
++                if (target->GetDistance((*iter)) <= 10)
 +                    Tattackers++;
 +            }
 +            if (Tattackers > 0 && doCast(target, HOS))
@@ -5827,7 +5828,7 @@ index 0000000..5d0680c
 +        {
 +            ReduceCD(diff);
 +            if (IAmDead()) return;
-+            if (!opponent || opponent->isDead()) Evade();
++            if (!opponent || !opponentValidate() || opponent->isDead()) Evade();
 +            if (me->getVictim())
 +                DoMeleeAttackIfReady();
 +            if (wait == 0)
@@ -6125,12 +6126,12 @@ index 0000000..5d0680c
 +            if (Rand() < 50 && 
 +                JUDGEMENT_OF_LIGHT && 
 +                isTimerReady(JOL_Timer) && 
-+                me->GetExactDist(opponent) < 10 && 
++                me->GetExactDist(opponent) < 15 && 
 +                me->HasAura(SEAL_OF_COMMAND))
 +                if (doCast(opponent, JUDGEMENT_OF_LIGHT))
 +                    JOL_Timer = 80;
 +
-+            if (Rand() < 50 && CONSECRATION && isTimerReady(Consecration_cd) && me->GetExactDist(opponent) < 7 && 
++            if (Rand() < 50 && CONSECRATION && isTimerReady(Consecration_cd) && me->GetDistance(opponent) < 7 && 
 +                !opponent->isMoving() && doCast(me, CONSECRATION))
 +                    Consecration_cd = 90;
 +
@@ -6143,7 +6144,7 @@ index 0000000..5d0680c
 +                GC_Timer = temptimer;
 +            }
 +
-+            if (CRUSADER_STRIKE && isTimerReady(Crusader_cd) && me->GetExactDist(opponent) < 7)
++            if (CRUSADER_STRIKE && isTimerReady(Crusader_cd) && me->GetDistance(opponent) < 5)
 +                if (doCast(opponent, CRUSADER_STRIKE))
 +                    Crusader_cd = 120 - me->getLevel();//4 sec on 80
 +
@@ -6153,7 +6154,7 @@ index 0000000..5d0680c
 +
 +            Wrath(diff);
 +
-+            if (DIVINE_STORM && isTimerReady(DS_Timer) && me->GetExactDist(opponent) < 7)
++            if (DIVINE_STORM && isTimerReady(DS_Timer) && me->GetExactDist(opponent) < 8)
 +                if (doCast(opponent, DIVINE_STORM))
 +                    DS_Timer = 100 - me->getLevel()/4; //10 - 2 sec
 +        }
@@ -6422,7 +6423,7 @@ index 0000000..5d0680c
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_priest_ai.cpp b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 new file mode 100644
-index 0000000..0fe386d
+index 0000000..7f518db
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 @@ -0,0 +1,870 @@
@@ -6623,7 +6624,7 @@ index 0000000..0fe386d
 +        {
 +            decrementTimers();
 +            if (IAmDead()) return;
-+            if (!opponent || opponent->isDead()) Evade();
++            if (!opponent || !opponentValidate() || opponent->isDead()) Evade();
 +            if (wait == 0)
 +                wait = GetWait();
 +            else
@@ -8148,7 +8149,7 @@ index 0000000..f4e85eb
 +uint32 SPELL_WINDFURY_TOTEM_A[] = { 0, 0, 0, 0, 8512, 8512, 8512, 8512, 8512, 8512 };
 diff --git a/src/server/game/AI/NpcBots/bot_warlock_ai.cpp b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 new file mode 100644
-index 0000000..2f92da3
+index 0000000..5105faf
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 @@ -0,0 +1,323 @@
@@ -8235,7 +8236,7 @@ index 0000000..2f92da3
 +        {
 +            ReduceCD();
 +            if (IAmDead()) return;
-+            if (!opponent || opponent->isDead()) Evade();
++            if (!opponent || !opponentValidate() || opponent->isDead()) Evade();
 +            //if pet is dead or no permission
 +            //if (Creature *pet = GetPet())
 +            //    if (pet->isDead() || 
@@ -8477,10 +8478,10 @@ index 0000000..2f92da3
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warrior_ai.cpp b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 new file mode 100644
-index 0000000..7353f04
+index 0000000..2410bde
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
-@@ -0,0 +1,1153 @@
+@@ -0,0 +1,1154 @@
 +#include "bot_ai.h"
 +#include "SpellAuraEffects.h"
 +/*
@@ -8533,7 +8534,7 @@ index 0000000..7353f04
 +        {
 +            ReduceCD(diff);
 +            if (IAmDead()) return;
-+            if (!opponent || opponent->isDead()) Evade();
++            if (!opponent || !opponentValidate() || opponent->isDead()) Evade();
 +            if (me->getVictim())
 +                DoMeleeAttackIfReady();
 +            if (checkAurasTimer <= 0)
@@ -8739,6 +8740,7 @@ index 0000000..7353f04
 +            AttackerSet m_attackers = master->getAttackers();
 +            AttackerSet b_attackers = me->getAttackers();
 +            float dist = me->GetExactDist(opponent);
++            float meleedist = me->GetDistance(opponent);
 +            //charge + warbringer
 +            if (CHARGE && charge_cd < diff && dist > 11 && dist < 25 && me->HasInArc(M_PI, opponent) && 
 +                (me->getLevel() >= 50 || 
@@ -8850,7 +8852,7 @@ index 0000000..7353f04
 +            }//end FEAR
 +            //OVERPOWER
 +            bool blood = false;
-+            if (OVERPOWER && getrage() > 50 && dist <= 5 && GCD < diff && (battleStance == true || stancetimer < diff) &&
++            if (OVERPOWER && getrage() > 50 && meleedist <= 5 && GCD < diff && (battleStance == true || stancetimer < diff) &&
 +                (((opponent->GetTypeId() == TYPEID_PLAYER && UNRELENTING_ASSAULT && me->HasAura(TASTE_FOR_BLOOD_BUFF) && opponent->IsNonMeleeSpellCasted(false) && overpower_cd <= 3000) || 
 +                (opponent->IsNonMeleeSpellCasted(false) && (blood = me->HasAura(TASTE_FOR_BLOOD_BUFF))) || 
 +                (overpower_cd < diff && me->HasAura(TASTE_FOR_BLOOD_BUFF)))))
@@ -8871,7 +8873,7 @@ index 0000000..7353f04
 +            if (MoveBehind(*opponent))
 +            { wait = 10; return; }
 +            //HAMSTRING
-+            if (HAMSTRING && Rand() < 50 && getrage() > 100 && GCD < diff && dist <= 5 && opponent->isMoving() && 
++            if (HAMSTRING && Rand() < 50 && getrage() > 100 && GCD < diff && meleedist <= 5 && opponent->isMoving() && 
 +                (battleStance == true || berserkerStance == true || stancetimer < diff) && 
 +                !opponent->HasAuraWithMechanic((1<<MECHANIC_SNARE)|(1<<MECHANIC_ROOT)))
 +            {
@@ -8930,11 +8932,11 @@ index 0000000..7353f04
 +                    return;
 +                }
 +            }
-+            //Execute
-+            if (EXECUTE && tank != me && Rand() < 70 && GCD < diff && getrage() > 150 && dist <= 5 && GetHealthPCT(opponent) < 20 && 
++            //EXECUTE
++            if (EXECUTE && tank != me && Rand() < 70 && GCD < diff && getrage() > 150 && meleedist <= 5 && GetHealthPCT(opponent) < 19.8f && 
 +                (battleStance == true || berserkerStance == true || stancetimer < diff))
 +            {
-+                if (battleStance == true || berserkerStance == true || stanceChange(diff, 5) && 
++                if ((battleStance == true || berserkerStance == true || stanceChange(diff, 5)) && 
 +                    doCast(opponent, EXECUTE))
 +                {
 +                    //sudden death
@@ -8948,7 +8950,7 @@ index 0000000..7353f04
 +                }
 +            }
 +            //SUNDER
-+            if (SUNDER && Rand() < 35 && dist <= 5 && tank == me && 
++            if (SUNDER && Rand() < 35 && meleedist <= 5 && tank == me && 
 +                opponent->GetHealth() > me->GetMaxHealth() && 
 +                GCD < diff && getrage() > 150 && (sunder_cd < diff || getrage() > 500))
 +            {
@@ -9003,7 +9005,7 @@ index 0000000..7353f04
 +                }
 +            }
 +            //Mortal Strike
-+            if (MORTALSTRIKE && getrage() > 300 && dist <= 5 && mortalStrike_cd < diff && GCD < diff)
++            if (MORTALSTRIKE && getrage() > 300 && meleedist <= 5 && mortalStrike_cd < diff && GCD < diff)
 +            {
 +                if (doCast(opponent, MORTALSTRIKE/*, true*/))
 +                {
@@ -9014,7 +9016,7 @@ index 0000000..7353f04
 +            }
 +            //Slam
 +            bool triggered = mortalStrike_cd >= 6900;
-+            if (SLAM && Rand() < (30 + triggered*60) && slam_cd < diff && getrage() > 150 && dist <= 5)
++            if (SLAM && Rand() < (30 + triggered*60) && slam_cd < diff && getrage() > 150 && meleedist <= 5)
 +            {
 +                if (doCast(opponent, SLAM, triggered))
 +                {
@@ -9025,7 +9027,7 @@ index 0000000..7353f04
 +                }
 +            }
 +            //PUMMEL
-+            if (PUMMEL && Rand() < 80 && pummel_cd < diff && getrage() > 100 && dist <= 5 && 
++            if (PUMMEL && Rand() < 80 && pummel_cd < diff && getrage() > 100 && meleedist <= 5 && 
 +                opponent->IsNonMeleeSpellCasted(false) && 
 +                (berserkerStance == true || stancetimer < diff))
 +            {
@@ -9040,7 +9042,7 @@ index 0000000..7353f04
 +                }
 +            }
 +            //REND
-+            if (REND && Rand() < 30 && getrage() > 100 && GCD < diff && dist <= 5 && 
++            if (REND && Rand() < 30 && getrage() > 100 && GCD < diff && meleedist <= 5 && 
 +                opponent->GetHealth() > me->GetHealth()/2 && 
 +                (battleStance == true || defensiveStance == true || stancetimer < diff) && 
 +                !opponent->HasAura(REND, me->GetGUID()))
@@ -9053,7 +9055,7 @@ index 0000000..7353f04
 +                }
 +            }
 +            //Cleave
-+            if (Rand() < 30 && CLEAVE && cleave_cd < diff && me->getLevel() >= 20 && getrage() > 200 && dist <= 5)//noGCD
++            if (Rand() < 30 && CLEAVE && cleave_cd < diff && me->getLevel() >= 20 && getrage() > 200 && meleedist <= 5)//noGCD
 +            {
 +                temptimer = GCD;
 +                u = FindSplashTarget(5);
@@ -9067,11 +9069,11 @@ index 0000000..7353f04
 +            }
 +            else {}//HEROIC STRIKE placeholder
 +            //DISARM DEPRECATED
-+            /*if (disarm_cd < diff    && m_creature->GetExactDist(opponent) < 8 &&
-+                (opponent->getVictim()->GetGUID() == master->GetGUID()        || 
-+                opponent->getVictim()->GetGUID() == m_creature->GetGUID())  &&
-+                getrage() > 15                                                    &&
-+                !HasAuraName(opponent, GetSpellName(DISARM))                &&
++            /*if (disarm_cd < diff && meleedist < 5 &&
++                (opponent->getVictim()->GetGUID() == master->GetGUID() || 
++                opponent->getVictim()->GetGUID() == m_creature->GetGUID()) &&
++                getrage() > 15 &&
++                !HasAuraName(opponent, GetSpellName(DISARM)) &&
 +                GCD < diff)
 +            {
 +                if (opponent->getClass() == CLASS_ROGUE  ||
@@ -9636,7 +9638,7 @@ index 0000000..7353f04
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 0000000..85d1dd4
+index 0000000..f14eff0
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
 @@ -0,0 +1,1266 @@
@@ -9795,55 +9797,55 @@ index 0000000..85d1dd4
 +        return true;
 +    }
 +
-+    static bool HandleQuestAdd(ChatHandler* handler, const char* args)
-+    {
-+        Player* player = handler->getSelectedPlayer();
-+        if (!player)
-+        {
-+            handler->SendSysMessage(LANG_NO_CHAR_SELECTED);
-+            handler->SetSentErrorMessage(true);
-+            return false;
-+        }
++    //static bool HandleQuestAdd(ChatHandler* handler, const char* args)
++    //{
++    //    Player* player = handler->getSelectedPlayer();
++    //    if (!player)
++    //    {
++    //        handler->SendSysMessage(LANG_NO_CHAR_SELECTED);
++    //        handler->SetSentErrorMessage(true);
++    //        return false;
++    //    }
 +
-+        // .addquest #entry'
-+        // number or [name] Shift-click form |color|Hquest:quest_id:quest_level|h[name]|h|r
-+        char* cId = handler->extractKeyFromLink((char*)args, "Hquest");
-+        if (!cId)
-+            return false;
++    //    // .addquest #entry'
++    //    // number or [name] Shift-click form |color|Hquest:quest_id:quest_level|h[name]|h|r
++    //    char* cId = handler->extractKeyFromLink((char*)args, "Hquest");
++    //    if (!cId)
++    //        return false;
 +
-+        uint32 entry = atol(cId);
++    //    uint32 entry = atol(cId);
 +
-+        Quest const* quest = sObjectMgr->GetQuestTemplate(entry);
++    //    Quest const* quest = sObjectMgr->GetQuestTemplate(entry);
 +
-+        if (!quest)
-+        {
-+            handler->PSendSysMessage(LANG_COMMAND_QUEST_NOTFOUND, entry);
-+            handler->SetSentErrorMessage(true);
-+            return false;
-+        }
++    //    if (!quest)
++    //    {
++    //        handler->PSendSysMessage(LANG_COMMAND_QUEST_NOTFOUND, entry);
++    //        handler->SetSentErrorMessage(true);
++    //        return false;
++    //    }
 +
-+        // check item starting quest (it can work incorrectly if added without item in inventory)
-+        ItemTemplateContainer const* itc = sObjectMgr->GetItemTemplateStore();
-+        ItemTemplateContainer::const_iterator result = find_if (itc->begin(), itc->end(), Finder<uint32, ItemTemplate>(entry, &ItemTemplate::StartQuest));
++    //    // check item starting quest (it can work incorrectly if added without item in inventory)
++    //    ItemTemplateContainer const* itc = sObjectMgr->GetItemTemplateStore();
++    //    ItemTemplateContainer::const_iterator result = find_if (itc->begin(), itc->end(), Finder<uint32, ItemTemplate>(entry, &ItemTemplate::StartQuest));
 +
-+        if (result != itc->end())
-+        {
-+            handler->PSendSysMessage(LANG_COMMAND_QUEST_STARTFROMITEM, entry, result->second.ItemId);
-+            handler->SetSentErrorMessage(true);
-+            return false;
-+        }
++    //    if (result != itc->end())
++    //    {
++    //        handler->PSendSysMessage(LANG_COMMAND_QUEST_STARTFROMITEM, entry, result->second.ItemId);
++    //        handler->SetSentErrorMessage(true);
++    //        return false;
++    //    }
 +
-+        // ok, normal (creature/GO starting) quest
-+        if (player->CanAddQuest(quest, true))
-+        {
-+            player->AddQuest(quest, NULL);
++    //    // ok, normal (creature/GO starting) quest
++    //    if (player->CanAddQuest(quest, true))
++    //    {
++    //        player->AddQuest(quest, NULL);
 +
-+            if (player->CanCompleteQuest(entry))
-+                player->CompleteQuest(entry);
-+        }
++    //        if (player->CanCompleteQuest(entry))
++    //            player->CompleteQuest(entry);
++    //    }
 +
-+        return true;
-+    }
++    //    return true;
++    //}
 +
 +    static bool HandleQuestRemove(ChatHandler* handler, const char* args)
 +    {
@@ -9892,105 +9894,105 @@ index 0000000..85d1dd4
 +        return true;
 +    }
 +
-+    static bool HandleQuestComplete(ChatHandler* handler, const char* args)
-+    {
-+        Player* player = handler->getSelectedPlayer();
-+        if (!player)
-+        {
-+            handler->SendSysMessage(LANG_NO_CHAR_SELECTED);
-+            handler->SetSentErrorMessage(true);
-+            return false;
-+        }
++    //static bool HandleQuestComplete(ChatHandler* handler, const char* args)
++    //{
++    //    Player* player = handler->getSelectedPlayer();
++    //    if (!player)
++    //    {
++    //        handler->SendSysMessage(LANG_NO_CHAR_SELECTED);
++    //        handler->SetSentErrorMessage(true);
++    //        return false;
++    //    }
 +
-+        // .quest complete #entry
-+        // number or [name] Shift-click form |color|Hquest:quest_id:quest_level|h[name]|h|r
-+        char* cId = handler->extractKeyFromLink((char*)args, "Hquest");
-+        if (!cId)
-+            return false;
++    //    // .quest complete #entry
++    //    // number or [name] Shift-click form |color|Hquest:quest_id:quest_level|h[name]|h|r
++    //    char* cId = handler->extractKeyFromLink((char*)args, "Hquest");
++    //    if (!cId)
++    //        return false;
 +
-+        uint32 entry = atol(cId);
++    //    uint32 entry = atol(cId);
 +
-+        Quest const* quest = sObjectMgr->GetQuestTemplate(entry);
++    //    Quest const* quest = sObjectMgr->GetQuestTemplate(entry);
 +
-+        // If player doesn't have the quest
-+        if (!quest || player->GetQuestStatus(entry) == QUEST_STATUS_NONE)
-+        {
-+            handler->PSendSysMessage(LANG_COMMAND_QUEST_NOTFOUND, entry);
-+            handler->SetSentErrorMessage(true);
-+            return false;
-+        }
++    //    // If player doesn't have the quest
++    //    if (!quest || player->GetQuestStatus(entry) == QUEST_STATUS_NONE)
++    //    {
++    //        handler->PSendSysMessage(LANG_COMMAND_QUEST_NOTFOUND, entry);
++    //        handler->SetSentErrorMessage(true);
++    //        return false;
++    //    }
 +
-+        // Add quest items for quests that require items
-+        for (uint8 x = 0; x < QUEST_ITEM_OBJECTIVES_COUNT; ++x)
-+        {
-+            uint32 id = quest->RequiredItemId[x];
-+            uint32 count = quest->RequiredItemCount[x];
-+            if (!id || !count)
-+                continue;
++    //    // Add quest items for quests that require items
++    //    for (uint8 x = 0; x < QUEST_ITEM_OBJECTIVES_COUNT; ++x)
++    //    {
++    //        uint32 id = quest->RequiredItemId[x];
++    //        uint32 count = quest->RequiredItemCount[x];
++    //        if (!id || !count)
++    //            continue;
 +
-+            uint32 curItemCount = player->GetItemCount(id, true);
++    //        uint32 curItemCount = player->GetItemCount(id, true);
 +
-+            ItemPosCountVec dest;
-+            uint8 msg = player->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, id, count-curItemCount);
-+            if (msg == EQUIP_ERR_OK)
-+            {
-+                Item* item = player->StoreNewItem(dest, id, true);
-+                player->SendNewItem(item, count-curItemCount, true, false);
-+            }
-+        }
++    //        ItemPosCountVec dest;
++    //        uint8 msg = player->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, id, count-curItemCount);
++    //        if (msg == EQUIP_ERR_OK)
++    //        {
++    //            Item* item = player->StoreNewItem(dest, id, true);
++    //            player->SendNewItem(item, count-curItemCount, true, false);
++    //        }
++    //    }
 +
-+        // All creature/GO slain/casted (not required, but otherwise it will display "Creature slain 0/10")
-+        for (uint8 i = 0; i < QUEST_OBJECTIVES_COUNT; ++i)
-+        {
-+            int32 creature = quest->RequiredNpcOrGo[i];
-+            uint32 creaturecount = quest->RequiredNpcOrGoCount[i];
++    //    // All creature/GO slain/casted (not required, but otherwise it will display "Creature slain 0/10")
++    //    for (uint8 i = 0; i < QUEST_OBJECTIVES_COUNT; ++i)
++    //    {
++    //        int32 creature = quest->RequiredNpcOrGo[i];
++    //        uint32 creaturecount = quest->RequiredNpcOrGoCount[i];
 +
-+            if (uint32 spell_id = quest->RequiredSpellCast[i])
-+            {
-+                for (uint16 z = 0; z < creaturecount; ++z)
-+                    player->CastedCreatureOrGO(creature, 0, spell_id);
-+            }
-+            else if (creature > 0)
-+            {
-+                if (CreatureTemplate const* cInfo = sObjectMgr->GetCreatureTemplate(creature))
-+                    for (uint16 z = 0; z < creaturecount; ++z)
-+                        player->KilledMonster(cInfo, 0);
-+            }
-+            else if (creature < 0)
-+            {
-+                for (uint16 z = 0; z < creaturecount; ++z)
-+                    player->CastedCreatureOrGO(creature, 0, 0);
-+            }
-+        }
++    //        if (uint32 spell_id = quest->RequiredSpellCast[i])
++    //        {
++    //            for (uint16 z = 0; z < creaturecount; ++z)
++    //                player->CastedCreatureOrGO(creature, 0, spell_id);
++    //        }
++    //        else if (creature > 0)
++    //        {
++    //            if (CreatureTemplate const* cInfo = sObjectMgr->GetCreatureTemplate(creature))
++    //                for (uint16 z = 0; z < creaturecount; ++z)
++    //                    player->KilledMonster(cInfo, 0);
++    //        }
++    //        else if (creature < 0)
++    //        {
++    //            for (uint16 z = 0; z < creaturecount; ++z)
++    //                player->CastedCreatureOrGO(creature, 0, 0);
++    //        }
++    //    }
 +
-+        // If the quest requires reputation to complete
-+        if (uint32 repFaction = quest->GetRepObjectiveFaction())
-+        {
-+            uint32 repValue = quest->GetRepObjectiveValue();
-+            uint32 curRep = player->GetReputationMgr().GetReputation(repFaction);
-+            if (curRep < repValue)
-+                if (FactionEntry const* factionEntry = sFactionStore.LookupEntry(repFaction))
-+                    player->GetReputationMgr().SetReputation(factionEntry, repValue);
-+        }
++    //    // If the quest requires reputation to complete
++    //    if (uint32 repFaction = quest->GetRepObjectiveFaction())
++    //    {
++    //        uint32 repValue = quest->GetRepObjectiveValue();
++    //        uint32 curRep = player->GetReputationMgr().GetReputation(repFaction);
++    //        if (curRep < repValue)
++    //            if (FactionEntry const* factionEntry = sFactionStore.LookupEntry(repFaction))
++    //                player->GetReputationMgr().SetReputation(factionEntry, repValue);
++    //    }
 +
-+        // If the quest requires a SECOND reputation to complete
-+        if (uint32 repFaction = quest->GetRepObjectiveFaction2())
-+        {
-+            uint32 repValue2 = quest->GetRepObjectiveValue2();
-+            uint32 curRep = player->GetReputationMgr().GetReputation(repFaction);
-+            if (curRep < repValue2)
-+                if (FactionEntry const* factionEntry = sFactionStore.LookupEntry(repFaction))
-+                    player->GetReputationMgr().SetReputation(factionEntry, repValue2);
-+        }
++    //    // If the quest requires a SECOND reputation to complete
++    //    if (uint32 repFaction = quest->GetRepObjectiveFaction2())
++    //    {
++    //        uint32 repValue2 = quest->GetRepObjectiveValue2();
++    //        uint32 curRep = player->GetReputationMgr().GetReputation(repFaction);
++    //        if (curRep < repValue2)
++    //            if (FactionEntry const* factionEntry = sFactionStore.LookupEntry(repFaction))
++    //                player->GetReputationMgr().SetReputation(factionEntry, repValue2);
++    //    }
 +
-+        // If the quest requires money
-+        int32 ReqOrRewMoney = quest->GetRewOrReqMoney();
-+        if (ReqOrRewMoney < 0)
-+            player->ModifyMoney(-ReqOrRewMoney);
++    //    // If the quest requires money
++    //    int32 ReqOrRewMoney = quest->GetRewOrReqMoney();
++    //    if (ReqOrRewMoney < 0)
++    //        player->ModifyMoney(-ReqOrRewMoney);
 +
-+        player->CompleteQuest(entry);
-+        return true;
-+    }
++    //    player->CompleteQuest(entry);
++    //    return true;
++    //}
 +
 +    static bool HandlePlayerbotCommand(ChatHandler* handler, const char *args)
 +    {
