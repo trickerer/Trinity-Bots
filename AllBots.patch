@@ -1,13 +1,13 @@
-From 1c3b63d996fa9f4248a698f76522a361ba9e3162 Mon Sep 17 00:00:00 2001
+From 91b6afb5efabf9a8eee53dd0c5480a3c6922d4a5 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Fri, 10 Aug 2012 18:45:46 +0700
+Date: Fri, 10 Aug 2012 20:02:10 +0700
 Subject: [PATCH] AllBots
 
 ---
  sql/Bots/character_NPC_bots.sql                    |   10 +
  sql/Bots/world.bots.sql                            |  283 +
  sql/Bots/world.script_bot_giver.sql                |    7 +
- src/server/game/AI/NpcBots/bot_ai.cpp              | 2060 ++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 2065 ++++
  src/server/game/AI/NpcBots/bot_ai.h                |  679 ++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1086 ++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  342 +
@@ -18,7 +18,7 @@ Subject: [PATCH] AllBots
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  288 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  322 +
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1125 ++
- src/server/game/AI/NpcBots/botcommands.cpp         |  750 ++
+ src/server/game/AI/NpcBots/botcommands.cpp         |  752 ++
  src/server/game/AI/NpcBots/botgiver.cpp            |  270 +
  src/server/game/AI/PlayerBots/PlayerbotAI.cpp      |11927 ++++++++++++++++++++
  src/server/game/AI/PlayerBots/PlayerbotAI.h        | 2110 ++++
@@ -52,7 +52,7 @@ Subject: [PATCH] AllBots
  src/server/game/Groups/Group.cpp                   |   19 +
  src/server/game/Groups/Group.h                     |    3 +
  src/server/game/Handlers/CharacterHandler.cpp      |  143 +
- src/server/game/Handlers/ChatHandler.cpp           |   30 +
+ src/server/game/Handlers/ChatHandler.cpp           |   31 +
  src/server/game/Handlers/GroupHandler.cpp          |   18 +
  src/server/game/Handlers/QuestHandler.cpp          |    8 +
  src/server/game/Scripting/ScriptLoader.cpp         |   24 +
@@ -60,7 +60,7 @@ Subject: [PATCH] AllBots
  src/server/game/Server/WorldSession.h              |   36 +
  src/server/scripts/Spells/spell_priest.cpp         |    4 +
  src/server/worldserver/worldserver.conf.dist       |  179 +
- 56 files changed, 32338 insertions(+), 0 deletions(-)
+ 56 files changed, 32346 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -421,10 +421,10 @@ index 0000000..5b00cdc
 +
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..e3e8600
+index 0000000..38f92a4
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,2060 @@
+@@ -0,0 +1,2065 @@
 +#include "bot_ai.h"
 +#include "Config.h"
 +#include "Chat.h"
@@ -635,25 +635,28 @@ index 0000000..e3e8600
 +            master->SetBotTank(me->GetGUID());
 +    }
 +}
-+// Buffs And Heal(really)
++// Buffs And Heal (really)
 +void bot_ai::BuffAndHealGroup(Player *gPlayer, const uint32 diff)
 +{
++    if (GC_Timer > diff) return;
 +    if (me->IsMounted()) return;
 +    if (IsCasting()) return; // if I'm already casting
-+    if (GC_Timer > diff) return;
 +
 +    Group *pGroup = gPlayer->GetGroup();
 +    if (!pGroup)
 +    {
 +        HealTarget(master, GetHealthPCT(master), diff);
 +        BuffTarget(master, diff);
-+        for (uint8 i = 0; i != master->GetMaxNpcBots(); ++i)
++        for (Unit::ControlList::const_iterator itr = master->m_Controlled.begin(); itr != master->m_Controlled.end(); ++itr)
 +        {
-+            Creature *bot = master->GetBotMap()[i]._Cre();
-+            if (!bot || bot->isDead()) continue;
-+            if (me->GetMap() != bot->GetMap()) continue;
-+            HealTarget(bot, GetHealthPCT(bot), diff);
-+            BuffTarget(bot, diff);
++            Unit *u = *itr;
++            if (!u || u->isDead()) continue;
++            if (HealTarget(u, GetHealthPCT(u), diff))
++                return;
++            if (Creature *cre = u->ToCreature())
++                if (cre->GetIAmABot())
++                    if (BuffTarget(u, diff))
++                        return;
 +        }
 +        return;
 +    }
@@ -661,43 +664,45 @@ index 0000000..e3e8600
 +    for (GroupReference *itr = pGroup->GetFirstMember(); itr != NULL; itr = itr->next())
 +    {
 +        Player *tPlayer = itr->getSource();
-+        if (tPlayer == NULL || (tPlayer->isDead() && !tPlayer->HaveBot())) continue;
++        if (tPlayer == NULL) continue;
 +        if (me->GetMap() != tPlayer->GetMap()) continue;
-+        if (tPlayer->HaveBot())
++        if (!tPlayer->m_Controlled.empty())
 +            Bots = true;
-+        HealTarget(tPlayer, GetHealthPCT(tPlayer), diff);
-+        BuffTarget(tPlayer, diff);
++        if (tPlayer->isDead()) continue;
++        if (HealTarget(tPlayer, GetHealthPCT(tPlayer), diff))
++            return;
++        if (BuffTarget(tPlayer, diff))
++            return;
 +    }
 +    if (Bots)
 +    {
 +        for (GroupReference *itr = pGroup->GetFirstMember(); itr != NULL; itr = itr->next())
 +        {
 +            Player *tPlayer = itr->getSource();
-+            if (tPlayer == NULL || !tPlayer->HaveBot()) continue;
-+            for (uint8 i = 0; i != tPlayer->GetMaxNpcBots(); ++i)
++            if (tPlayer == NULL || tPlayer->m_Controlled.empty()) continue;
++            if (me->GetMap() != tPlayer->GetMap()) continue;
++            for (Unit::ControlList::const_iterator itr = tPlayer->m_Controlled.begin(); itr != tPlayer->m_Controlled.end(); ++itr)
 +            {
-+                Creature *bot = tPlayer->GetBotMap()[i]._Cre();
-+                if (!bot || bot->isDead()) continue;
-+                if (me->GetMap() != bot->GetMap()) continue;
-+                HealTarget(bot, GetHealthPCT(bot), diff);
-+                BuffTarget(bot, diff);
++                Unit *u = *itr;
++                if (!u || u->isDead()) continue;
++                if (HealTarget(u, GetHealthPCT(u), diff))
++                    return;
++                if (Creature *cre = u->ToCreature())
++                    if (cre->GetIAmABot())
++                        if (BuffTarget(u, diff))
++                            return;
 +            }
 +        }
 +    }
 +    //check if we have pointed heal target
-+    //sLog->outBasic("%s: BuffAndHealGroup() on %s (healTargetIconFlags = %u)", me->GetName(), gPlayer->GetName(), healTargetIconFlags);
 +    for (uint8 i = 0; i != TARGETICONCOUNT; ++i)
 +    {
-+        //sLog->outBasic("checking GroupIconsFlags(%u)(%u)", i, GroupIconsFlags[i]);
 +        if (healTargetIconFlags & GroupIconsFlags[i])
 +        {
-+            //sLog->outBasic("found flag %u", GroupIconsFlags[i]);
 +            if (uint64 guid = pGroup->GetTargetIcons()[i])//check this one
 +            {
-+                //sLog->outBasic("guid matched %u in slot %u", guid, i);
 +                if (Unit *unit = sObjectAccessor->FindUnit(guid))
 +                {
-+                    //sLog->outBasic("found %s (distance: %f)", unit->GetName(), unit->GetDistance(me));
 +                    if (unit->isAlive() && me->GetMap() == unit->GetMap() && 
 +                        master->getVictim() != unit && unit->getVictim() != master && 
 +                        unit->GetReactionTo(master) >= REP_NEUTRAL)
@@ -9359,10 +9364,10 @@ index 0000000..09eecf0
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 0000000..f3f9380
+index 0000000..28deb54
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
-@@ -0,0 +1,750 @@
+@@ -0,0 +1,752 @@
 +/*
 +Name: script_bot_commands
 +%Complete: ???
@@ -9826,14 +9831,16 @@ index 0000000..f3f9380
 +            handler->PSendSysMessage("bot follow distance set to %u", dist);
 +            return true;
 +        }
-+        handler->PSendSysMessage(".npcbot distance");
-+        handler->PSendSysMessage("Sets 'distance to target' at which bots will follow you (value is bigger for ranged bots)");
-+        handler->PSendSysMessage("must be between 0 and 50");
 +        if (owner->HaveBot())
 +        {
 +            handler->PSendSysMessage("bot follow distance is %u", owner->GetBotFollowDist());
 +            handler->SetSentErrorMessage(true);
++            return false;
 +        }
++        handler->PSendSysMessage(".npcbot distance");
++        handler->PSendSysMessage("Sets 'distance to target' at which bots will follow you (value is bigger for ranged bots)");
++        handler->PSendSysMessage("must be between 0 and 50");
++        handler->SetSentErrorMessage(true);
 +        return false;
 +    }
 +
@@ -10060,28 +10067,28 @@ index 0000000..f3f9380
 +            return false;
 +        }
 +
-+        char* bclass = strtok((char*)args, " ");
++        char *bclass = strtok((char*)args, " ");
 +        uint8 botclass = CLASS_NONE;
 +
-+        if (bclass == "deathknight" || bclass == "death" || bclass == "dk" || bclass == "de")
++        if (!strncmp(bclass, "deathknight", 12) || !strncmp(bclass, "dk", 3) || !strncmp(bclass, "de", 3))
 +            botclass = CLASS_DEATH_KNIGHT;
-+        else if (bclass == "druid" || bclass == "dru" || bclass == "dr")
++        else if (!strncmp(bclass, "druid", 6) || !strncmp(bclass, "dru", 4) || !strncmp(bclass, "dr", 3))
 +            botclass = CLASS_DRUID;
-+        else if (bclass == "hunter" || bclass == "hunt" || bclass == "hu")
++        else if (!strncmp(bclass, "hunter", 7) || !strncmp(bclass, "hunt", 5) || !strncmp(bclass, "hu", 3))
 +            botclass = CLASS_HUNTER;
-+        else if (bclass == "mage" || bclass == "ma")
++        else if (!strncmp(bclass, "mage", 5) || !strncmp(bclass, "ma", 3))
 +            botclass = CLASS_MAGE;
-+        else if (bclass == "paladin" || bclass == "pal" || bclass == "pa")
++        else if (!strncmp(bclass, "paladin", 8) || !strncmp(bclass, "pal", 4) || !strncmp(bclass, "pa", 3))
 +            botclass = CLASS_PALADIN;
-+        else if (bclass == "priest" || bclass == "pri" || bclass == "pr")
++        else if (!strncmp(bclass, "priest", 7) || !strncmp(bclass, "pri", 4) || !strncmp(bclass, "pr", 3))
 +            botclass = CLASS_PRIEST;
-+        else if (bclass == "rogue" || bclass == "rog" || bclass == "ro")
++        else if (!strncmp(bclass, "rogue", 6) || !strncmp(bclass, "rog", 4) || !strncmp(bclass, "ro", 3))
 +            botclass = CLASS_ROGUE;
-+        else if (bclass == "shaman" || bclass == "sha" || bclass == "sh")
++        else if (!strncmp(bclass, "shaman", 7) || !strncmp(bclass, "sha", 4) || !strncmp(bclass, "sh", 3))
 +            botclass = CLASS_SHAMAN;
-+        else if (bclass == "warlock" || bclass == "warl" || bclass == "lock" || bclass == "loc" || bclass == "lok")
++        else if (!strncmp(bclass, "warlock", 8) || !strncmp(bclass, "warl", 5) || !strncmp(bclass, "lock", 5))
 +            botclass = CLASS_WARLOCK;
-+        else if (bclass == "warrior" || bclass == "warr" || bclass == "war")
++        else if (!strncmp(bclass, "warrior", 8) || !strncmp(bclass, "warr", 5))
 +            botclass = CLASS_WARRIOR;
 +
 +        if (botclass == CLASS_NONE)
@@ -32537,7 +32544,7 @@ index e4926bf..15d1899 100644
  {
      uint64 guid;
 diff --git a/src/server/game/Handlers/ChatHandler.cpp b/src/server/game/Handlers/ChatHandler.cpp
-index 880f2df..c0328e6 100755
+index 880f2df..ad0d7a5 100755
 --- a/src/server/game/Handlers/ChatHandler.cpp
 +++ b/src/server/game/Handlers/ChatHandler.cpp
 @@ -41,6 +41,9 @@
@@ -32550,14 +32557,15 @@ index 880f2df..c0328e6 100755
  bool WorldSession::processChatmessageFurtherAfterSecurityChecks(std::string& msg, uint32 lang)
  {
      if (lang != LANG_ADDON)
-@@ -295,6 +298,15 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket & recv_data)
+@@ -295,6 +298,16 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket & recv_data)
              if (!senderIsPlayer && !sender->isAcceptWhispers() && !sender->IsInWhisperWhiteList(receiver->GetGUID()))
                  sender->AddWhisperWhiteList(receiver->GetGUID());
  
 +            //Playerbot mod: handle whispered command to bot
 +            if (receiver->GetPlayerbotAI())
 +            {
-+                receiver->GetPlayerbotAI()->HandleCommand(msg, *GetPlayer());
++                if (lang != LANG_ADDON)
++                    receiver->GetPlayerbotAI()->HandleCommand(msg, *GetPlayer());
 +                GetPlayer()->m_speakTime = 0;
 +                GetPlayer()->m_speakCount = 0;
 +            }
@@ -32566,7 +32574,7 @@ index 880f2df..c0328e6 100755
              GetPlayer()->Whisper(msg, lang, receiver->GetGUID());
          } break;
          case CHAT_MSG_PARTY:
-@@ -314,6 +326,24 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket & recv_data)
+@@ -314,6 +327,24 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket & recv_data)
  
              sScriptMgr->OnPlayerChat(GetPlayer(), type, lang, msg, group);
  
