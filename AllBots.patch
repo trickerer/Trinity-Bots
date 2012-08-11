@@ -1,24 +1,24 @@
-From 91b6afb5efabf9a8eee53dd0c5480a3c6922d4a5 Mon Sep 17 00:00:00 2001
+From 6f964efac9f64b3abb143b56c42df04f56519963 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Fri, 10 Aug 2012 20:02:10 +0700
+Date: Sun, 12 Aug 2012 00:30:29 +0700
 Subject: [PATCH] AllBots
 
 ---
  sql/Bots/character_NPC_bots.sql                    |   10 +
  sql/Bots/world.bots.sql                            |  283 +
  sql/Bots/world.script_bot_giver.sql                |    7 +
- src/server/game/AI/NpcBots/bot_ai.cpp              | 2065 ++++
- src/server/game/AI/NpcBots/bot_ai.h                |  679 ++
- src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1086 ++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 2064 ++++
+ src/server/game/AI/NpcBots/bot_ai.h                |  677 ++
+ src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1083 ++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  342 +
- src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  802 ++
- src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  944 ++
- src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  865 ++
- src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  357 +
+ src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  795 ++
+ src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  935 ++
+ src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  841 ++
+ src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  356 +
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  288 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  322 +
- src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1125 ++
- src/server/game/AI/NpcBots/botcommands.cpp         |  752 ++
+ src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1126 ++
+ src/server/game/AI/NpcBots/botcommands.cpp         |  760 ++
  src/server/game/AI/NpcBots/botgiver.cpp            |  270 +
  src/server/game/AI/PlayerBots/PlayerbotAI.cpp      |11927 ++++++++++++++++++++
  src/server/game/AI/PlayerBots/PlayerbotAI.h        | 2110 ++++
@@ -46,10 +46,10 @@ Subject: [PATCH] AllBots
  src/server/game/Entities/Creature/Creature.cpp     |  113 +
  src/server/game/Entities/Creature/Creature.h       |   30 +
  .../game/Entities/Creature/TemporarySummon.cpp     |    7 +
- src/server/game/Entities/Player/Player.cpp         |  643 ++
+ src/server/game/Entities/Player/Player.cpp         |  641 ++
  src/server/game/Entities/Player/Player.h           |   66 +
  src/server/game/Entities/Unit/Unit.cpp             |  180 +
- src/server/game/Groups/Group.cpp                   |   19 +
+ src/server/game/Groups/Group.cpp                   |   13 +
  src/server/game/Groups/Group.h                     |    3 +
  src/server/game/Handlers/CharacterHandler.cpp      |  143 +
  src/server/game/Handlers/ChatHandler.cpp           |   31 +
@@ -60,7 +60,7 @@ Subject: [PATCH] AllBots
  src/server/game/Server/WorldSession.h              |   36 +
  src/server/scripts/Spells/spell_priest.cpp         |    4 +
  src/server/worldserver/worldserver.conf.dist       |  179 +
- 56 files changed, 32346 insertions(+), 0 deletions(-)
+ 56 files changed, 32300 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -421,10 +421,10 @@ index 0000000..5b00cdc
 +
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..38f92a4
+index 0000000..3e87b6a
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,2065 @@
+@@ -0,0 +1,2064 @@
 +#include "bot_ai.h"
 +#include "Config.h"
 +#include "Chat.h"
@@ -496,7 +496,7 @@ index 0000000..38f92a4
 +    {
 +        if (master->GetPlayerbotAI())
 +            followTarget = master->GetSession()->m_master; 
-+        mydist = frand(1.5f, 3.5f);
++        mydist = frand(3.5f, 6.5f);
 +        angle = (M_PI/2.f) / 16.f * frand(-3.f, 3.f);
 +    }
 +    else
@@ -640,7 +640,7 @@ index 0000000..38f92a4
 +{
 +    if (GC_Timer > diff) return;
 +    if (me->IsMounted()) return;
-+    if (IsCasting()) return; // if I'm already casting
++    if (IsCasting() || Feasting()) return; // if I'm already casting
 +
 +    Group *pGroup = gPlayer->GetGroup();
 +    if (!pGroup)
@@ -708,7 +708,7 @@ index 0000000..38f92a4
 +                        unit->GetReactionTo(master) >= REP_NEUTRAL)
 +                    {
 +                        HealTarget(unit, GetHealthPCT(unit), diff);
-+                        CureTarget(unit, diff);
++                        //CureTarget(unit, getCureSpell(), diff);
 +                    }
 +                }
 +            }
@@ -776,38 +776,40 @@ index 0000000..38f92a4
 +    }
 +}
 +//cycle through the group sending members for cure
-+void bot_ai::CureGroup(Player *pTarget, const uint32 diff)
++void bot_ai::CureGroup(Player *pTarget, uint32 cureSpell, const uint32 diff)
 +{
++    if (!cureSpell || GC_Timer > diff) return;
 +    if (me->getLevel() < 10 || pTarget->getLevel() < 10) return;
 +    if (me->IsMounted()) return;
-+    if (IsCasting()) return;
-+    if (GC_Timer > diff) return;
++    if (IsCasting() || Feasting()) return;
 +    if (!master->GetMap()->IsRaid() && Rand() > 75) return;
 +    //sLog->outBasic("%s: CureGroup() on %s", me->GetName(), pTarget->GetName());
 +    Group *pGroup = pTarget->GetGroup();
 +    if (!pGroup)
 +    {
-+        CureTarget(master, diff);
++        CureTarget(master, cureSpell, diff);
 +        for (uint8 i = 0; i != master->GetMaxNpcBots(); ++i)
 +        {
 +            Creature *cre = master->GetBotMap()[i]._Cre();
 +            if (!cre || !cre->IsInWorld() || me->GetDistance(cre) > 30) continue;
-+            CureTarget(cre, diff);
++            if (CureTarget(cre, cureSpell, diff))
++                return;
 +        }
 +    }
 +    else
 +    {
-+        uint8 Bots = 0;
++        bool Bots = false;
 +        for (GroupReference *itr = pGroup->GetFirstMember(); itr != NULL; itr = itr->next())
 +        {
 +            Player *tPlayer = itr->getSource();
 +            if (!tPlayer || (tPlayer->isDead() && !tPlayer->HaveBot())) continue;
-+            if (tPlayer->HaveBot())
-+                ++Bots;
++            if (!Bots && tPlayer->HaveBot())
++                Bots = true;
 +            if (me->GetDistance(tPlayer) > 30) continue;
-+            CureTarget(tPlayer, diff);
++            if (CureTarget(tPlayer, cureSpell, diff))
++                return;
 +        }
-+        if (Bots == 0) return;
++        if (!Bots) return;
 +        for (GroupReference *itr = pGroup->GetFirstMember(); itr != NULL; itr = itr->next())
 +        {
 +            Player *tPlayer = itr->getSource();
@@ -816,55 +818,41 @@ index 0000000..38f92a4
 +            {
 +                Creature *cre = tPlayer->GetBotMap()[i]._Cre();
 +                if (!cre || !cre->IsInWorld() || me->GetDistance(cre) > 30) continue;
-+                CureTarget(cre, diff);
++                if (CureTarget(cre, cureSpell, diff))
++                    return;
 +            }
 +        }
 +    }
 +}
 +// determines if unit has something to cure
-+bool bot_ai::CureTarget(Unit *dTarget, const uint32 diff)
++bool bot_ai::CureTarget(Unit *dTarget, uint32 cureSpell, const uint32 diff)
 +{
++    if (!cureSpell || GC_Timer > diff) return false;
 +    if (!dTarget || dTarget->isDead()) return false;
 +    if (me->getLevel() < 10 || dTarget->getLevel() < 10) return false;
-+    if (GC_Timer > diff) return false;
 +    if (me->IsMounted()) return false;
-+    if (IsCasting()) return false;
++    if (IsCasting() || Feasting()) return false;
 +    if (me->GetDistance(dTarget) > 30) return false;
 +    if (!IsInBotParty(dTarget)) return false;
++    SpellInfo const *info = sSpellMgr->GetSpellInfo(cureSpell);
++    if (!info) return false;
 +    //sLog->outBasic("CureTarget() by %s on %s", me->GetName(), dTarget->GetName());
-+    Unit::AuraMap const& auras = dTarget->GetOwnedAuras();
-+    for (Unit::AuraMap::const_iterator itr = auras.begin(); itr != auras.end(); itr++)
-+    {
-+        Aura *aura = itr->second;
-+        if (aura->IsPassive()) continue;
-+        if (aura->GetSpellInfo()->AttributesEx & SPELL_ATTR0_HIDDEN_CLIENTSIDE) continue;
-+        //exclude glitchy auras
-+        if (aura->GetId() == 64844 || //Divine Hymn
-+            aura->GetId() == 6346) // Fear Ward
-+            continue;
-+        if (aura->GetDuration() < 2000)
-+            continue;
-+        DispelType dispel = DispelType(aura->GetSpellInfo()->Dispel);
-+        if (dispel != DISPEL_MAGIC && 
-+            dispel != DISPEL_POISON && 
-+            dispel != DISPEL_DISEASE && 
-+            dispel != DISPEL_CURSE)
-+            continue;
-+        AuraApplication *aurApp = aura->GetApplicationOfTarget(dTarget->GetGUID());
-+        if (!aurApp || aurApp->IsPositive())
-+            continue;
-+        //uint32 mask = aura->GetSpellInfo()->GetDispelMask();
-+        //if (!(mask & (1 << DISPEL_MAGIC)) && 
-+        //    !(mask & (1 << DISPEL_DISEASE)) && 
-+        //    !(mask & (1 << DISPEL_POISON)) && 
-+        //    !(mask & (1 << DISPEL_CURSE)))
-+        //    continue;
 +
-+        //sLog->outBasic("CureTarget() by %s on %s : trying to cure %s", me->GetName(), dTarget->GetName(), aura->GetSpellInfo()->SpellName[0]);
-+        if (HandleCure(dispel, dTarget)) //send it to certain bot
-+            return true;
-+    }
-+    return false;
++    uint32 dispelMask = 0;
++    for (uint8 i = 0; i != MAX_SPELL_EFFECTS; ++i)
++        if (info->Effects[i].Effect == SPELL_EFFECT_DISPEL)
++            dispelMask |= SpellInfo::GetDispelMask(DispelType(info->Effects[i].MiscValue));
++
++    if (dispelMask == 0)
++        return false;
++
++    DispelChargesList dispel_list;
++    dTarget->GetDispellableAuraList(me, dispelMask, dispel_list);
++    if (dispel_list.empty())
++        return false;
++
++    sLog->outError(LOG_FILTER_PLAYER, "bot_ai::CureTarget(): bot %s (owner: %s) tries to cure %s with %s (%u)", me->GetName(), master->GetName(), dTarget->GetName(), info->SpellName[0], cureSpell);
++    return doCast(dTarget, cureSpell);
 +}
 +
 +bool bot_ai::HasAuraName(Unit *unit, uint32 spellId, uint64 casterGuid, bool exclude) const
@@ -1341,8 +1329,18 @@ index 0000000..38f92a4
 +//Applies/reapplies aura stacks
 +bool bot_ai::RefreshAura(uint32 spell, int8 count, Unit *target) const
 +{
-+    if (!target) target = me;
++    if (!spell)
++        return false;
++    if (!target)
++        target = me;
 +    SpellInfo const *spellInfo = sSpellMgr->GetSpellInfo(spell);
++    if (!spellInfo)
++        return false;
++    //if (!spellInfo->IsPassive())
++    //{
++    //    sLog->outError(LOG_FILTER_PLAYER, "bot_ai::RefreshAura(): bot %s received spell %u (%s) which is not a passive spell!", me->GetName(), spell, spellInfo->SpellName[0]);
++    //    //return false;
++    //}
 +    if (target->HasAura(spell))
 +        target->RemoveAurasDueToSpell(spell);
 +    if (count > 0)
@@ -1610,15 +1608,14 @@ index 0000000..38f92a4
 +        }
 +        return;
 +    }
-+    if ((!master->IsMounted() && (me->HasAuraType(SPELL_AURA_MOUNTED) || me->IsMounted())) || 
-+        ((!me->IsMounted() || (me->isInCombat() && opponent)) && me->HasAuraType(SPELL_AURA_MOUNTED)))
++    if ((!master->IsMounted() || (me->isInCombat() && opponent)) && 
++        (me->HasAuraType(SPELL_AURA_MOUNTED) || me->IsMounted()))
 +    {
 +        me->RemoveAurasByType(SPELL_AURA_MOUNTED);
 +        me->Dismount();
 +        return;
 +    }
-+    if (me->isInCombat() || IsCasting() || 
-+        me->HasUnitMovementFlag(MOVEMENTFLAG_SWIMMING)) //IsInWater() is too much calculations
++    if (me->isInCombat() || IsCasting() || me->HasUnitMovementFlag(MOVEMENTFLAG_SWIMMING)) //IsInWater() is too much calculations
 +        return;
 +    //fly
 +    //if ((master->IsMounted() && master->HasAuraType(SPELL_AURA_FLY))/* || master->HasUnitMovementFlag(MOVEMENTFLAG_CAN_FLY) || master->HasUnitMovementFlag(MOVEMENTFLAG_FLYING)*/)
@@ -1668,7 +1665,9 @@ index 0000000..38f92a4
 +                me->RemoveAurasDueToSpell(EAT);
 +            }
 +            if (doCast(me, mount))
-+            { }
++            {
++                return;
++            }
 +        }
 +    }
 +}
@@ -2493,10 +2492,10 @@ index 0000000..38f92a4
 \ No newline at end of file
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..65a0a12
+index 0000000..49fcc30
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,679 @@
+@@ -0,0 +1,677 @@
 +#include "ScriptedCreature.h"
 +#include "ScriptedGossip.h"
 +#include "Group.h"
@@ -2564,8 +2563,8 @@ index 0000000..65a0a12
 +        Player *master;
 +        Unit *opponent;
 +
-+        virtual bool HealTarget(Unit* /*target*/, uint8 /*pct*/, const uint32 /*diff*/) { return true; }
-+        virtual bool BuffTarget(Unit* /*target*/, const uint32 /*diff*/) { return true; }
++        virtual bool HealTarget(Unit* /*target*/, uint8 /*pct*/, const uint32 /*diff*/) { return false; }
++        virtual bool BuffTarget(Unit* /*target*/, const uint32 /*diff*/) { return false; }
 +
 +        void BuffAndHealGroup(Player *gPlayer, const uint32 diff);
 +        void RezGroup(uint32 REZZ, Player *gPlayer);
@@ -2576,16 +2575,14 @@ index 0000000..65a0a12
 +        bool HasAuraName(Unit *unit, uint32 spellId, uint64 casterGuid = 0, bool exclude = false) const;
 +
 +        //Cast engine
-+        virtual bool doCast(Unit * /*victim*/, uint32 /*spellId*/, bool /*triggered*/ = false) { return true; }
++        virtual bool doCast(Unit * /*victim*/, uint32 /*spellId*/, bool /*triggered*/ = false) { return false; }
 +        //Can act or not
 +        inline bool IAmDead() const { return (!master || ((master->isInCombat() || master->isDead()) && me->isDead())); }
 +
 +        // Cycles through the group and tries to cure every person
-+        void CureGroup(Player *pTarget, const uint32 diff);
++        void CureGroup(Player *pTarget, uint32 cureSpell, const uint32 diff);
 +        // Used to determine would we cure or not
-+        bool CureTarget(Unit *target, const uint32 diff);
-+        // Cure engine
-+        virtual bool HandleCure(DispelType /*dispel*/, Unit* /*target*/) { return true; }
++        bool CureTarget(Unit *target, uint32 cureSpell, const uint32 diff);
 +
 +        bool InDuel(Unit *target) const;
 +
@@ -2660,7 +2657,7 @@ index 0000000..65a0a12
 +            return (1 + master->GetNpcBotsCount()/4);
 +        }
 +        uint8 GetHaste() const { return haste; }
-+        uint16 Rand() const { return urand(0, 100 + (master->GetNpcBotsCount() - 1) * 5); }
++        uint16 Rand() const { return urand(0, 100 + (master->GetNpcBotsCount() - 1) * 10); }
 +        void CommonTimers(const uint32 diff)
 +        {
 +            if (Potion_cd > diff)           Potion_cd -= diff;
@@ -3179,10 +3176,10 @@ index 0000000..65a0a12
 \ No newline at end of file
 diff --git a/src/server/game/AI/NpcBots/bot_druid_ai.cpp b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 new file mode 100644
-index 0000000..f89c4fa
+index 0000000..39b3adf
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
-@@ -0,0 +1,1086 @@
+@@ -0,0 +1,1083 @@
 +#include "bot_ai.h"
 +/*
 +Druid NpcBot (reworked by Graff onlysuffering@mail.ru)
@@ -3217,7 +3214,7 @@ index 0000000..f89c4fa
 +            if (!CheckImmunities(spellId, victim)) return false;
 +            if (Feasting() && spellId != REVIVE && spellId != REBIRTH && !master->isInCombat() && !master->HasAuraType(SPELL_AURA_PERIODIC_DAMAGE)) return false;
 +            if (InDuel(victim)) return false;
-+            if (me->HasAuraWithMechanic(MECHANIC_SILENCE) && spellId != MANAPOTION && spellId != HEALINGPOTION) return false;
++            if (spellId != MANAPOTION && me->HasAuraWithMechanic(MECHANIC_SILENCE)) return false;
 +
 +            if (spellId == MANAPOTION)
 +            {
@@ -3228,6 +3225,11 @@ index 0000000..f89c4fa
 +            info = sSpellMgr->GetSpellInfo(spellId);
 +            if (info->CalcPowerCost(me, info->GetSchoolMask()) > me->GetPower(Powers(info->PowerType)))
 +                return false;
++            if (me->GetShapeshiftForm() != FORM_NONE && info->CheckShapeshift(me->GetShapeshiftForm()) != SPELL_CAST_OK)
++            {
++                removeFeralForm(true, true);
++                //sLog->outError("bot_druid_ai::doCast(): calls removeFeralForm(), spellId = %u, target = '%s'", spellId, victim->GetName());
++            }
 +            me->SetStandState(UNIT_STAND_STATE_STAND);
 +            if (me->GetShapeshiftForm() == FORM_CAT)
 +                value = int32(1000.f - 1000.f * (float(GetHaste()) / 100.f));
@@ -3237,12 +3239,6 @@ index 0000000..f89c4fa
 +
 +            if (!victim->IsWithinLOSInMap(me) && IsInBotParty(victim))
 +                me->Relocate(victim);
-+
-+            if (me->GetShapeshiftForm() != FORM_NONE && sSpellMgr->GetSpellInfo(spellId)->CheckShapeshift(me->GetShapeshiftForm()) != SPELL_CAST_OK)
-+            {
-+                removeFeralForm(false, true, 0);
-+                //sLog->outError("bot_druid_ai::doCast(): calls removeFeralForm(), spellId = %u, target = '%s'", spellId, victim->GetName());
-+            }
 +
 +            if (swiftness && sSpellMgr->GetSpellInfo(spellId)->CalcCastTime() > 0)
 +            {
@@ -3263,7 +3259,7 @@ index 0000000..f89c4fa
 +            DoCast(victim, spellId, triggered);
 +
 +            if (spellId != BEAR_FORM && spellId != CAT_FORM && 
-+                spellId != HEALINGPOTION && spellId != WARSTOMP && 
++                spellId != MANAPOTION && spellId != WARSTOMP && 
 +                me->HasAura(OMEN_OF_CLARITY_BUFF))
 +            {
 +                cost = info->CalcPowerCost(me, info->GetSchoolMask());
@@ -3469,7 +3465,7 @@ index 0000000..f89c4fa
 +                if (doCast(opponent, FAIRIE_FIRE))
 +                    return;
 +            if (Rand() > 30 && Moonfire_Timer <= diff && GC_Timer <= diff && 
-+                !opponent->HasAura(MOONFIRE))
++                !opponent->HasAura(MOONFIRE, me->GetGUID()))
 +                if (doCast(opponent, MOONFIRE))
 +                {
 +                    Moonfire_Timer = 5000;
@@ -3487,16 +3483,6 @@ index 0000000..f89c4fa
 +                Wrath_Timer = uint32(sSpellMgr->GetSpellInfo(WRATH)->CalcCastTime()/100 * me->GetFloatValue(UNIT_MOD_CAST_SPEED) + 1);
 +                return;
 +            }
-+        }
-+
-+        bool HandleCure(DispelType dispel, Unit *target)
-+        {
-+            if (dispel == DISPEL_POISON)
-+            {
-+                //sLog->outBasic("%s: HandleCure on %s", me->GetName(), target->GetName());
-+                return doCast(target, CURE_POISON);
-+            }
-+            return false;
 +        }
 +
 +        bool MassGroupHeal(Player *gPlayer, const uint32 diff)
@@ -3632,9 +3618,8 @@ index 0000000..f89c4fa
 +            else
 +                CheckBattleRez(diff);
 +            BuffAndHealGroup(master, diff);
-+            CureTarget(master, diff);
-+            CureGroup(master, diff);
-+            CureTarget(me, diff);
++            CureTarget(master, CURE_POISON, diff);
++            CureGroup(master, CURE_POISON, diff);
 +
 +            if (!(opponent = getTarget(me->GetShapeshiftForm() == FORM_NONE, me->GetShapeshiftForm() == FORM_NONE)))
 +            {
@@ -3814,10 +3799,10 @@ index 0000000..f89c4fa
 +            if (me->isInCombat() && !master->GetMap()->IsRaid()) return false;
 +            if (target && target->isAlive() && me->GetExactDist(target) < 30)
 +            {
-+                if (!HasAuraName(target, MARK_OF_THE_WILD)) 
++                if (!HasAuraName(target, MARK_OF_THE_WILD))
 +                    if (doCast(target, MARK_OF_THE_WILD))
 +                        return true;
-+                if (!HasAuraName(target, THORNS)) 
++                if (!HasAuraName(target, THORNS))
 +                    if (doCast(target, THORNS))
 +                        return true;
 +            }
@@ -3833,7 +3818,16 @@ index 0000000..f89c4fa
 +
 +            if (Feasting()) return;
 +
-+            BuffTarget(me, diff);
++            if (BuffTarget(master, diff))
++            {
++                /*GC_Timer = 800;*/
++                return;
++            }
++            if (BuffTarget(me, diff))
++            {
++                /*GC_Timer = 800;*/
++                return;
++            }
 +        }
 +
 +        void doInnervate(uint8 minmanaval = 30)
@@ -4619,10 +4613,10 @@ index 0000000..d888a33
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_mage_ai.cpp b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 new file mode 100644
-index 0000000..c23b3a1
+index 0000000..8122b8f
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
-@@ -0,0 +1,802 @@
+@@ -0,0 +1,795 @@
 +#include "bot_ai.h"
 +/*
 +Mage NpcBot (reworked by Graff onlysuffering@mail.ru)
@@ -4657,7 +4651,7 @@ index 0000000..c23b3a1
 +            if (!CheckImmunities(spellId, victim)) return false;
 +            if (Feasting() && !opponent && !master->isInCombat() && !master->HasAuraType(SPELL_AURA_PERIODIC_DAMAGE)) return false;
 +            if (InDuel(victim)) return false;
-+            if (me->HasAuraWithMechanic(MECHANIC_SILENCE) && spellId != MANAPOTION && spellId != HEALINGPOTION) return false;
++            if (spellId != MANAPOTION && spellId != HEALINGPOTION && me->HasAuraWithMechanic(MECHANIC_SILENCE)) return false;
 +
 +            if (spellId == MANAPOTION)
 +            {
@@ -4668,7 +4662,8 @@ index 0000000..c23b3a1
 +            info = sSpellMgr->GetSpellInfo(spellId);
 +            if (info->CalcPowerCost(me, info->GetSchoolMask()) > me->GetPower(Powers(info->PowerType)))
 +                return false;
-+            me->SetStandState(UNIT_STAND_STATE_STAND);
++            if (spellId != HEALINGPOTION)
++                me->SetStandState(UNIT_STAND_STATE_STAND);
 +            value = int32(1500.f - 1500.f * (float(GetHaste()) / 100.f));
 +            GC_Timer = value < 500 ? 500 : value;
 +
@@ -4730,16 +4725,6 @@ index 0000000..c23b3a1
 +            }
 +        }
 +
-+        bool HandleCure(DispelType dispel, Unit *target)
-+        {
-+            if (dispel == DISPEL_CURSE)
-+            {
-+                //sLog->outBasic("%s: HandleCure on %s", me->GetName(), target->GetName());
-+                return doCast(target, REMOVE_CURSE);
-+            }
-+            return false;
-+        }
-+
 +        void CheckSpellSteal(const uint32 diff)
 +        {
 +            if (me->getLevel() < 40 || Rand() > 20 || GC_Timer > diff) return;
@@ -4754,21 +4739,13 @@ index 0000000..c23b3a1
 +            if (GC_Timer > diff || me->IsMounted()) return;
 +            if (Feasting()) return;
 +
-+            //buff myself
-+            if (!me->HasAura(ARCANEINTELLECT) && 
-+                doCast(me, ARCANEINTELLECT))
-+            { GC_Timer = 800; return; }
-+
 +            if (!HasAuraName(me, DAMPENMAGIC) && 
 +                doCast(me, DAMPENMAGIC))
-+            { GC_Timer = 800; return; }
++            { /*GC_Timer = 800;*/ return; }
 +
 +            if (!HasAuraName(me, ICEARMOR) && 
 +                doCast(me, ICEARMOR))
-+            { GC_Timer = 800; return; }
-+
-+            FocusMagic(diff);
-+            BuffAndHealGroup(master, diff);
++            { /*GC_Timer = 800;*/ return; }
 +        }
 +
 +        bool BuffTarget(Unit *target, const uint32 diff)
@@ -4779,8 +4756,11 @@ index 0000000..c23b3a1
 +            if (target->getPowerType() == POWER_MANA && 
 +                !HasAuraName(target, ARCANEINTELLECT) && 
 +                doCast(target, ARCANEINTELLECT))
-+                GC_Timer = 800;
-+            return true;
++            {
++                /*GC_Timer = 800;*/
++                return true;
++            }
++            return false;
 +        }
 +
 +        void UpdateAI(const uint32 diff)
@@ -4808,9 +4788,12 @@ index 0000000..c23b3a1
 +            CheckBlink(diff);
 +            CheckPoly(diff);
 +            CheckPots(diff);
-+            CureTarget(master, diff);
-+            CureTarget(me, diff);
-+            CureGroup(master, diff);
++            CureTarget(master, REMOVE_CURSE, diff);
++            CureTarget(me, REMOVE_CURSE, diff);
++            CureGroup(master, REMOVE_CURSE, diff);
++
++            FocusMagic(diff);
++            BuffAndHealGroup(master, diff);
 +
 +            if (!me->isInCombat())
 +                DoNonCombatActions(diff);
@@ -5139,7 +5122,11 @@ index 0000000..c23b3a1
 +                    }
 +                }
 +                if (target && doCast(target, FOCUSMAGIC))
++                {
 +                    GC_Timer = 500;
++                    fmCheckTimer = 30000;
++                    return;
++                }
 +            }
 +            fmCheckTimer = 5000;
 +        }
@@ -5427,10 +5414,10 @@ index 0000000..c23b3a1
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 new file mode 100644
-index 0000000..1efc648
+index 0000000..d85b5a5
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
-@@ -0,0 +1,944 @@
+@@ -0,0 +1,935 @@
 +#include "bot_ai.h"
 +#include "SpellAuraEffects.h"
 +/*
@@ -5478,7 +5465,8 @@ index 0000000..1efc648
 +            info = sSpellMgr->GetSpellInfo(spellId);
 +            if (info->CalcPowerCost(me, info->GetSchoolMask()) > me->GetPower(Powers(info->PowerType)))
 +                return false;
-+            me->SetStandState(UNIT_STAND_STATE_STAND);
++            if (spellId != HEALINGPOTION)
++                me->SetStandState(UNIT_STAND_STATE_STAND);
 +            value = int32(1500.f - 1500.f * (float(GetHaste()) / 100.f));
 +            GC_Timer = value < 500 ? 500 : value;
 +
@@ -5486,16 +5474,6 @@ index 0000000..1efc648
 +                me->Relocate(victim);
 +            DoCast(victim, spellId, triggered);
 +            return true;
-+        }
-+
-+        bool HandleCure(DispelType dispel, Unit *target)
-+        {
-+            if (dispel == DISPEL_MAGIC || dispel == DISPEL_DISEASE || dispel == DISPEL_POISON)
-+            {
-+                //sLog->outBasic("%s: HandleCure on %s", me->GetName(), target->GetName());
-+                return doCast(target, CLEANSE);
-+            }
-+            return false;
 +        }
 +
 +        void HOFGroup(Player *pTarget, const uint32 diff)
@@ -5813,12 +5791,12 @@ index 0000000..1efc648
 +                if (doCast(me, DIVINE_PLEA))
 +                    Divine_Plea_Timer = 45000;
 +
-+            CureTarget(me, diff);//maybe unnecessary but this goes FIRST
++            CureTarget(me, CLEANSE, diff);//maybe unnecessary but this goes FIRST
 +            HOFTarget(master, diff);//maybe unnecessary
-+            CureTarget(master, diff);//maybe unnecessary
++            CureTarget(master, CLEANSE, diff);//maybe unnecessary
 +            BuffAndHealGroup(master, diff);
 +            HOSTarget(master, diff);
-+            CureGroup(master, diff);
++            CureGroup(master, CLEANSE, diff);
 +            HOFGroup(master, diff);
 +            HOSGroup(master, diff);
 +
@@ -5886,12 +5864,12 @@ index 0000000..1efc648
 +                    !concAura && 
 +                    doCast(me, CONCENTRATION_AURA))
 +                {
-+                    GC_Timer = 800;
++                    /*GC_Timer = 800;*/
 +                    return;
 +                }
 +                if (!devAura && doCast(me, DEVOTION_AURA))
 +                {
-+                    GC_Timer = 800;
++                    /*GC_Timer = 800;*/
 +                    return;
 +                }
 +            }
@@ -5925,10 +5903,10 @@ index 0000000..1efc648
 +            switch (Class)
 +            {
 +            case CLASS_PRIEST:
-+                if (BLESSING_OF_WISDOM && !wisdom)
-+                    doCast(target, BLESSING_OF_WISDOM);
-+                else if (BLESSING_OF_KINGS && !kings)
-+                    doCast(target, BLESSING_OF_KINGS);
++                if (BLESSING_OF_WISDOM && !wisdom && doCast(target, BLESSING_OF_WISDOM))
++                    return true;
++                else if (BLESSING_OF_KINGS && !kings && doCast(target, BLESSING_OF_KINGS))
++                    return true;
 +                break;
 +            case CLASS_DEATH_KNIGHT:
 +            case CLASS_WARRIOR:
@@ -5936,24 +5914,24 @@ index 0000000..1efc648
 +            case CLASS_ROGUE:
 +            case CLASS_HUNTER:
 +            case CLASS_SHAMAN:
-+                if (BLESSING_OF_KINGS && !kings)
-+                    doCast(target, BLESSING_OF_KINGS);
-+                else if (!might)
-+                    doCast(target, BLESSING_OF_MIGHT);
-+                else if (BLESSING_OF_SANCTUARY && !sanctuary)
-+                    doCast(target, BLESSING_OF_SANCTUARY);
-+                else if (BLESSING_OF_WISDOM && !wisdom && target->getPowerType() == POWER_MANA)
-+                    doCast(target, BLESSING_OF_WISDOM);
++                if (BLESSING_OF_KINGS && !kings && doCast(target, BLESSING_OF_KINGS))
++                    return true;
++                else if (!might && doCast(target, BLESSING_OF_MIGHT))
++                    return true;
++                else if (BLESSING_OF_SANCTUARY && !sanctuary && doCast(target, BLESSING_OF_SANCTUARY))
++                    return true;
++                else if (BLESSING_OF_WISDOM && !wisdom && target->getPowerType() == POWER_MANA && doCast(target, BLESSING_OF_WISDOM))
++                    return true;
 +                break;
 +            default:
-+                if (BLESSING_OF_KINGS && !kings)
-+                    doCast(target, BLESSING_OF_KINGS);
-+                else if (BLESSING_OF_WISDOM && !wisdom && target->getPowerType() == POWER_MANA)
-+                    doCast(target, BLESSING_OF_WISDOM);
-+                else if (BLESSING_OF_SANCTUARY && !sanctuary)
-+                    doCast(target, BLESSING_OF_SANCTUARY);
-+                else if (!might)
-+                    doCast(target, BLESSING_OF_MIGHT);
++                if (BLESSING_OF_KINGS && !kings && doCast(target, BLESSING_OF_KINGS))
++                    return true;
++                else if (BLESSING_OF_WISDOM && !wisdom && target->getPowerType() == POWER_MANA && doCast(target, BLESSING_OF_WISDOM))
++                    return true;
++                else if (BLESSING_OF_SANCTUARY && !sanctuary && doCast(target, BLESSING_OF_SANCTUARY))
++                    return true;
++                else if (!might && doCast(target, BLESSING_OF_MIGHT))
++                    return true;
 +                break;
 +            }
 +            return false;
@@ -6377,10 +6355,10 @@ index 0000000..1efc648
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_priest_ai.cpp b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 new file mode 100644
-index 0000000..bf9ce81
+index 0000000..a1bd897
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
-@@ -0,0 +1,865 @@
+@@ -0,0 +1,841 @@
 +#include "bot_ai.h"
 +/*
 +Priest NpcBot (reworked by Graff onlysuffering@mail.ru)
@@ -6415,7 +6393,7 @@ index 0000000..bf9ce81
 +            if (!CheckImmunities(spellId, victim)) return false;
 +            if (Feasting() && spellId != RESURRECTION && !master->isInCombat() && !master->HasAuraType(SPELL_AURA_PERIODIC_DAMAGE)) return false;
 +            if (InDuel(victim)) return false;
-+            if (me->HasAuraWithMechanic(MECHANIC_SILENCE) && spellId != MANAPOTION && spellId != HEALINGPOTION && spellId != DISPERSION) return false;
++            if (spellId != MANAPOTION && spellId != HEALINGPOTION && spellId != DISPERSION && me->HasAuraWithMechanic(MECHANIC_SILENCE)) return false;
 +
 +            if (spellId == MANAPOTION)
 +            {
@@ -6547,22 +6525,6 @@ index 0000000..bf9ce81
 +            return false;
 +        }
 +
-+        bool HandleCure(DispelType dispel, Unit *target)
-+        {
-+            if (dispel == DISPEL_MAGIC || dispel == DISPEL_DISEASE)
-+            {
-+                //sLog->outBasic("%s: HandleCure on %s", me->GetName(), target->GetName());
-+                if (dispel == DISPEL_DISEASE)
-+                    return doCast(target, CURE_DISEASE);
-+                else if (dispel == DISPEL_MAGIC)
-+                {
-+                    //sLog->outBasic("dispelling magic!");
-+                    return doCast(target, DISPELMAGIC);
-+                }
-+            }
-+            return false;
-+        }
-+
 +        void StartAttack(Unit *u, bool force = false)
 +        {
 +            if (GetBotCommandState() == (COMMAND_ATTACK) && !force) return;
@@ -6610,7 +6572,8 @@ index 0000000..bf9ce81
 +            //buff and heal master's group
 +            MassGroupHeal(master, diff);
 +            BuffAndHealGroup(master, diff);
-+            CureGroup(master, diff);
++            CureGroup(master, DISPELMAGIC, diff);
++            CureGroup(master, CURE_DISEASE, diff);
 +            //ShieldGroup(master);
 +            if (master->isInCombat() || me->isInCombat())
 +            {
@@ -6799,31 +6762,47 @@ index 0000000..bf9ce81
 +
 +        bool BuffTarget(Unit *target, const uint32 diff)
 +        {
-+            if (GC_Timer > diff) return false;
++            if (GC_Timer > diff || Rand() > 60) return false;
 +            if (!target || target->isDead() || me->GetExactDist(target) > 30) return false;
 +
-+            if (target->GetTypeId() == TYPEID_PLAYER)
++            if (Fear_Ward_Timer <= diff && !HasAuraName(target, FEAR_WARD) && doCast(target, FEAR_WARD))
 +            {
-+                if (Fear_Ward_Timer <= diff && !HasAuraName(target, FEAR_WARD) && doCast(target, FEAR_WARD))
++                Fear_Ward_Timer = target->GetTypeId() == TYPEID_PLAYER ? 60000 : 30000;//30sec for bots
++                GC_Timer = 800;
++                return true;
++            }
++
++            if (target == me)
++            {
++                if (!me->HasAura(INNER_FIRE) && doCast(me, INNER_FIRE))
 +                {
-+                    Fear_Ward_Timer = 60000;
++                    GC_Timer = 800;
 +                    return true;
 +                }
-+            }
-+            else if (Fear_Ward_Timer <= diff && !HasAuraName(target, FEAR_WARD) && doCast(target, FEAR_WARD))
-+            {
-+                Fear_Ward_Timer = 30000;//30sec for bots
-+                return true;
++                if (VAMPIRIC_EMBRACE && !me->HasAura(VAMPIRIC_EMBRACE) && doCast(me, VAMPIRIC_EMBRACE))
++                {
++                    GC_Timer = 800;
++                    return true;
++                }
 +            }
 +
 +            if (me->isInCombat() && !master->GetMap()->IsRaid()) return false;
 +
-+            if (!HasAuraName(target, PW_FORTITUDE) && doCast(target, PW_FORTITUDE)) 
++            if (!HasAuraName(target, PW_FORTITUDE) && doCast(target, PW_FORTITUDE))
++            {
++                /*GC_Timer = 800;*/
 +                return true;
-+            if (Rand() < 30 && !HasAuraName(target, SHADOW_PROTECTION) && doCast(target, SHADOW_PROTECTION)) 
++            }
++            if (Rand() < 30 && !HasAuraName(target, SHADOW_PROTECTION) && doCast(target, SHADOW_PROTECTION))
++            {
++                /*GC_Timer = 800;*/
 +                return true;
++            }
 +            if (Rand() < 30 && !HasAuraName(target, DIVINE_SPIRIT) && doCast(target, DIVINE_SPIRIT))
++            {
++                /*GC_Timer = 800;*/
 +                return true;
++            }
 +            return false;
 +        }
 +
@@ -6835,35 +6814,10 @@ index 0000000..bf9ce81
 +
 +            if (Feasting()) return;
 +
-+            //buff master
-+            if (master->isAlive() && me->GetExactDist(master) < 30)
-+            {
-+                if (!HasAuraName(master, PW_FORTITUDE) && doCast(master, PW_FORTITUDE))
-+                    return;
-+                if (!HasAuraName(master, DIVINE_SPIRIT) && doCast(master, DIVINE_SPIRIT))
-+                    return;
-+                if (!HasAuraName(master, SHADOW_PROTECTION) && doCast(master, SHADOW_PROTECTION))
-+                    return;
-+                if (!HasAuraName(master, FEAR_WARD) && Fear_Ward_Timer <= diff && doCast(master, FEAR_WARD))
-+                {
-+                    Fear_Ward_Timer = 60000;
-+                    return;
-+                }
-+            }
-+
-+            //buff myself
-+            if (master->isAlive())
-+            {
-+                if (!me->HasAura(INNER_FIRE) && doCast(me, INNER_FIRE))
-+                    return;
-+                if (!HasAuraName(me, PW_FORTITUDE) && doCast(me, PW_FORTITUDE))
-+                    return;
-+                if (!HasAuraName(me, DIVINE_SPIRIT) && doCast(me, DIVINE_SPIRIT))
-+                    return;
-+                if (VAMPIRIC_EMBRACE)
-+                    if (!me->HasAura(VAMPIRIC_EMBRACE) && doCast(me, VAMPIRIC_EMBRACE))
-+                        return;
-+            }
++            if (BuffTarget(master, diff))
++                return;
++            if (BuffTarget(me, diff))
++                return;
 +        }
 +
 +        void CheckDispel(const uint32 diff)
@@ -7248,10 +7202,10 @@ index 0000000..bf9ce81
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_rogue_ai.cpp b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 new file mode 100644
-index 0000000..1ba55c4
+index 0000000..5aa9664
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
-@@ -0,0 +1,357 @@
+@@ -0,0 +1,356 @@
 +#include "bot_ai.h"
 +
 +class rogue_bot : public CreatureScript
@@ -7283,7 +7237,6 @@ index 0000000..1ba55c4
 +            if (me->IsMounted()) return false;
 +            if (IsCasting()) return false;
 +            if (!CheckImmunities(spellId, victim)) return false;
-+            if (Feasting() && !master->isInCombat() && !master->HasAuraType(SPELL_AURA_PERIODIC_DAMAGE)) return false;
 +            if (InDuel(victim)) return false;
 +            if (me->HasAuraWithMechanic(MECHANIC_SILENCE) && spellId != HEALINGPOTION/* && spellId != THISTLEPOTION*/) return false;
 +            info = sSpellMgr->GetSpellInfo(spellId);
@@ -8233,10 +8186,10 @@ index 0000000..d1c7ad4
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warrior_ai.cpp b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 new file mode 100644
-index 0000000..09eecf0
+index 0000000..4e544a5
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
-@@ -0,0 +1,1125 @@
+@@ -0,0 +1,1126 @@
 +#include "bot_ai.h"
 +#include "SpellAuraEffects.h"
 +/*
@@ -8275,7 +8228,8 @@ index 0000000..09eecf0
 +            info = sSpellMgr->GetSpellInfo(spellId);
 +            if (info->CalcPowerCost(me, info->GetSchoolMask()) > me->GetPower(Powers(info->PowerType)))
 +                return false;
-+            me->SetStandState(UNIT_STAND_STATE_STAND);
++            if (spellId != HEALINGPOTION)
++                me->SetStandState(UNIT_STAND_STATE_STAND);
 +            value = int32(1500.f - 1500.f * (float(GetHaste()) / 100.f));
 +            GC_Timer = value < 500 ? 500 : value;
 +
@@ -8389,7 +8343,7 @@ index 0000000..09eecf0
 +        void EnterCombat(Unit*) { }
 +        void JustDied(Unit*) { master->SetNpcBotDied(me->GetGUID()); opponent = NULL; }
 +        void AttackStart(Unit*) { }
-+        void DoNonCombatActions(const uint32 diff)
++        void DoNonCombatActions(const uint32 /*diff*/)
 +        {}
 +
 +        void modrage(int32 mod, bool set = false)
@@ -9303,10 +9257,10 @@ index 0000000..09eecf0
 +            FLURRY4                                 = 16283,
 +            FLURRY5                                 = 16284,
 +            SWORD_SPEC1                             = 12281,
-+            SWORD_SPEC2                             = 12282,
-+            SWORD_SPEC3                             = 12283,
-+            SWORD_SPEC4                             = 12284,
-+            SWORD_SPEC5                             = 12285,
++            SWORD_SPEC2                             = 12812,
++            SWORD_SPEC3                             = 12813,
++            SWORD_SPEC4                             = 12814,
++            SWORD_SPEC5                             = 12815,
 +            BLOOD_CRAZE1                            = 16487,
 +            BLOOD_CRAZE2                            = 16489,
 +            BLOOD_CRAZE3                            = 16492,
@@ -9364,10 +9318,10 @@ index 0000000..09eecf0
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 0000000..28deb54
+index 0000000..2b6476d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
-@@ -0,0 +1,752 @@
+@@ -0,0 +1,760 @@
 +/*
 +Name: script_bot_commands
 +%Complete: ???
@@ -9634,12 +9588,12 @@ index 0000000..28deb54
 +                    group->RemoveUniqueGroupMemberFlag(MEMBER_FLAG_MAINTANK);
 +                    group->SetGroupMemberFlag(itr->guid, true, MEMBER_FLAG_MAINTANK);  // set new one
 +                    unit->HandleEmoteCommand(EMOTE_ONESHOT_CHEER);
-+                    handler->PSendSysMessage("Main tank is %s.", unit->GetName());
 +                    for (GroupReference *itr = group->GetFirstMember(); itr != NULL; itr = itr->next())
 +                    {
 +                        Player *tPlayer = itr->getSource();
 +                        if (!tPlayer || !tPlayer->IsInWorld()) continue;
 +                        tPlayer->SetBotTank(unit->GetGUID());
++                        ChatHandler(tPlayer).PSendSysMessage("Main tank is %s.", unit->GetName());
 +                        for (uint8 i = 0; i != tPlayer->GetMaxNpcBots(); ++i)
 +                        {
 +                            Creature *bot = tPlayer->GetBotMap()[i]._Cre();
@@ -9671,6 +9625,7 @@ index 0000000..28deb54
 +                        Player *tPlayer = itr->getSource();
 +                        if (!tPlayer || !tPlayer->IsInWorld()) continue;
 +                        tPlayer->SetBotTank(selection);
++                        ChatHandler(tPlayer).PSendSysMessage("Main tank is %s.", u->GetName());
 +                        for (uint8 i = 0; i != tPlayer->GetMaxNpcBots(); ++i)
 +                        {
 +                            Creature *bot = tPlayer->GetBotMap()[i]._Cre();
@@ -9678,7 +9633,6 @@ index 0000000..28deb54
 +                            bot->SetBotTank(u);
 +                        }
 +                    }
-+                    handler->PSendSysMessage("Main tank is %s.", u->GetName());
 +                }
 +                else
 +                {
@@ -9719,7 +9673,7 @@ index 0000000..28deb54
 +    }
 +
 +
-+    static bool HandleNpcBotInfoCommand(ChatHandler* handler, const char* args)
++    static bool HandleNpcBotInfoCommand(ChatHandler* handler, const char* /*args*/)
 +    {
 +        Player* owner = handler->GetSession()->GetPlayer();
 +        if (!owner->GetSelection())
@@ -9793,8 +9747,22 @@ index 0000000..28deb54
 +    static bool HandleNpcBotDistanceCommand(ChatHandler* handler, const char* args)
 +    {
 +        Player* owner = handler->GetSession()->GetPlayer();
++        if (!*args)
++        {
++            if (owner->HaveBot())
++            {
++                handler->PSendSysMessage("bot follow distance is %u", owner->GetBotFollowDist());
++                handler->SetSentErrorMessage(true);
++                return false;
++            }
++            handler->PSendSysMessage(".npcbot distance");
++            handler->PSendSysMessage("Sets 'distance to target' at which bots will follow you");
++            handler->PSendSysMessage("if set to 0, bots will not attack anything");
++            handler->PSendSysMessage("min: 0, max: 50");
++            handler->SetSentErrorMessage(true);
++            return false;
++        }
 +        char *distance = strtok((char*)args, " ");
-+        //handler->PSendSysMessage("distance: %s", distance);
 +        int8 dist = -1;
 +
 +        if (distance)
@@ -9831,30 +9799,27 @@ index 0000000..28deb54
 +            handler->PSendSysMessage("bot follow distance set to %u", dist);
 +            return true;
 +        }
-+        if (owner->HaveBot())
-+        {
-+            handler->PSendSysMessage("bot follow distance is %u", owner->GetBotFollowDist());
-+            handler->SetSentErrorMessage(true);
-+            return false;
-+        }
-+        handler->PSendSysMessage(".npcbot distance");
-+        handler->PSendSysMessage("Sets 'distance to target' at which bots will follow you (value is bigger for ranged bots)");
-+        handler->PSendSysMessage("must be between 0 and 50");
-+        handler->SetSentErrorMessage(true);
 +        return false;
 +    }
 +
 +    static bool HandleNpcBotCommandCommand(ChatHandler* handler, const char* args)
 +    {
 +        Player* owner = handler->GetSession()->GetPlayer();
++        if (!*args)
++        {
++            handler->PSendSysMessage(".npcbot command <command>");
++            handler->PSendSysMessage("Forces npcbots to either follow you or hold position. Can be used on Playerbots");
++            handler->SetSentErrorMessage(true);
++            return false;
++        }
 +        Player* master = owner->GetSelectedPlayer();
 +        if (!master || (master && master != owner && master->GetSession()->m_master != owner))
 +            master = owner;
 +        char *command = strtok((char*)args, " ");
 +        int8 state = -1;
-+        if (command[0] == 's' && command[1] == 't')
++        if (!strncmp(command, "st", 3) || !strncmp(command, "stay", 5) || !strncmp(command, "stand", 6))
 +            state = COMMAND_STAY;
-+        else if (command[0] == 'f' && command[1] == 'o' && command[2] == 'l')
++        else if (!strncmp(command, "follow", 7) || !strncmp(command, "fol", 4) || !strncmp(command, "fo", 3))
 +            state = COMMAND_FOLLOW;
 +        if (state >= 0 && master->HaveBot())
 +        {
@@ -9866,9 +9831,6 @@ index 0000000..28deb54
 +            }
 +            return true;
 +        }
-+        handler->PSendSysMessage(".npcbot command");
-+        handler->PSendSysMessage("Forces npcbots to either follow you or hold position. Can be used on Playerbots");
-+        handler->SetSentErrorMessage(true);
 +        return false;
 +    }
 +
@@ -10030,7 +9992,7 @@ index 0000000..28deb54
 +    {
 +        Player* owner = handler->GetSession()->GetPlayer();
 +        Player* master = owner->GetSelectedPlayer();
-+        if (!master)
++        if (!master || !*args)
 +        {
 +            handler->PSendSysMessage(".npcbot add");
 +            handler->PSendSysMessage("Allows to create npcbot of given class for targeted Playerbot, can be also used on self");
@@ -31286,7 +31248,7 @@ index 43b29c6..98ba8c3 100755
  }
  
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index 2fd80b7..7bf9937 100755
+index 2fd80b7..4ae8537 100755
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -75,6 +75,10 @@
@@ -31394,7 +31356,7 @@ index 2fd80b7..7bf9937 100755
      // preparing unsummon pet if lost (we must get pet before teleportation or will not find it later)
      Pet* pet = GetPet();
  
-@@ -2432,6 +2495,542 @@ void Player::RemoveFromWorld()
+@@ -2432,6 +2495,540 @@ void Player::RemoveFromWorld()
      }
  }
  
@@ -31534,7 +31496,7 @@ index 2fd80b7..7bf9937 100755
 +        //do not disband group unless not in dungeon or forced or on logout (Check WorldSession::LogoutPlayer())
 +        Group *gr = GetGroup();
 +        if (gr && gr->IsMember(guid))
-+            if (gr->GetMembersCount() > 2 || !GetMap()->Instanceable() || (final && eraseFromDB))
++            if (gr->GetMembersCount() > 2 || /*!GetMap()->Instanceable() || */(final && eraseFromDB))
 +                gr->RemoveMember(guid);
 +
 +        m_bot->SetCharmerGUID(0);
@@ -31589,7 +31551,7 @@ index 2fd80b7..7bf9937 100755
 +    }
 +    if (!botentry || !botrace || !botclass)
 +    {
-+        sLog->outError(LOG_FILTER_PLAYER, "ERROR! CreateBot(): player %u trying to create bot with entry = %u, race = %u, class = %u, ignored", GetGUIDLow(), botentry, botrace, botclass);
++        sLog->outError(LOG_FILTER_PLAYER, "ERROR! CreateBot(): player %s (%u) trying to create bot with entry = %u, race = %u, class = %u, ignored", GetName(), GetGUIDLow(), botentry, botrace, botclass);
 +        return;
 +    }
 +
@@ -31641,9 +31603,7 @@ index 2fd80b7..7bf9937 100755
 +    }
 +    if (!_set)
 +    {
-+        std::string str;
-+        sObjectMgr->GetPlayerNameByGUID(GetGUID(), str);
-+        sLog->outError(LOG_FILTER_PLAYER, "character %s (%u) is failed to create npcbot! Removing all bots", str.c_str(), GetGUIDLow());
++        sLog->outError(LOG_FILTER_PLAYER, "character %s (%u) is failed to create npcbot! Removing all bots", GetName(), GetGUIDLow());
 +        m_bot->SetCharmerGUID(0);
 +        SetMinion((Minion*)m_bot, false);
 +        m_bot->RemoveFromWorld();
@@ -31937,7 +31897,7 @@ index 2fd80b7..7bf9937 100755
  void Player::RegenerateAll()
  {
      //if (m_regenTimer <= 500)
-@@ -2907,6 +3506,47 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
+@@ -2907,6 +3504,47 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
  {
      if (group)
      {
@@ -31980,12 +31940,12 @@ index 2fd80b7..7bf9937 100755
 +                }
 +            }
 +            if (!(group = player->GetGroup()))
-+                return;//prevent crash while removing from already disbanded group
++                return;//prevent removing from already disbanded group
 +        }
          group->RemoveMember(guid, method, kicker, reason);
          group = NULL;
      }
-@@ -3086,6 +3726,9 @@ void Player::GiveLevel(uint8 level)
+@@ -3086,6 +3724,9 @@ void Player::GiveLevel(uint8 level)
              }
  
      sScriptMgr->OnPlayerLevelChanged(this, oldLevel);
@@ -32292,7 +32252,7 @@ index d65d717..ccaf4f3 100755
      uint32 modelid = 0;
      SpellShapeshiftEntry const* formEntry = sSpellShapeshiftStore.LookupEntry(form);
 diff --git a/src/server/game/Groups/Group.cpp b/src/server/game/Groups/Group.cpp
-index 5ace6da..4909963 100755
+index 5ace6da..e164cd8 100755
 --- a/src/server/game/Groups/Group.cpp
 +++ b/src/server/game/Groups/Group.cpp
 @@ -35,6 +35,8 @@
@@ -32334,25 +32294,12 @@ index 5ace6da..4909963 100755
      {
          if (!IsLeader(player->GetGUID()) && !isBGGroup())
          {
-@@ -533,6 +543,11 @@ bool Group::RemoveMember(uint64 guid, const RemoveMethod &method /*= GROUP_REMOV
- 
-             _homebindIfInstance(player);
-         }
-+        else if (IS_CREATURE_GUID(guid))
-+        {
-+            CharacterDatabase.PExecute("DELETE FROM group_member WHERE memberGuid=%u", guid);
-+            SendUpdate();
-+        }
- 
-         // Remove player from group in DB
-         PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_GROUP_MEMBER);
-@@ -605,6 +620,10 @@ bool Group::RemoveMember(uint64 guid, const RemoveMethod &method /*= GROUP_REMOV
+@@ -605,6 +615,9 @@ bool Group::RemoveMember(uint64 guid, const RemoveMethod &method /*= GROUP_REMOV
          }
  
          if (m_memberMgr.getSize() < ((isLFGGroup() || isBGGroup()) ? 1u : 2u))
 +        //npcbot
-+        if (Player* pl = (!(isLFGGroup() || isBGGroup()) && m_memberMgr.getFirst()) ? m_memberMgr.getFirst()->getSource() : NULL)
-+        if (!pl->HaveBot())
++        if (GetMembersCount() < ((isBGGroup() || isLFGGroup()) ? 1u : 2u))
 +        //end npcbot
              Disband();
  
