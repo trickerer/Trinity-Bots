@@ -1,19 +1,19 @@
-From 61a6529a2bfbd16dbb974c70c79830cdbb6bc7d2 Mon Sep 17 00:00:00 2001
+From 920f6e95f2e88b825c499cc2d5b982347b000063 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Tue, 21 Aug 2012 15:35:33 +0700
+Date: Wed, 22 Aug 2012 15:38:17 +0700
 Subject: [PATCH] AllBots
 
 ---
  sql/Bots/character_NPC_bots.sql                    |   10 +
  sql/Bots/world.bots.sql                            |  283 +
  sql/Bots/world.script_bot_giver.sql                |    7 +
- src/server/game/AI/NpcBots/bot_ai.cpp              | 2094 ++++
- src/server/game/AI/NpcBots/bot_ai.h                |  659 ++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 2105 ++++
+ src/server/game/AI/NpcBots/bot_ai.h                |  658 ++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1097 ++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  342 +
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  807 ++
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  958 ++
- src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  857 ++
+ src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  858 ++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  356 +
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  288 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  329 +
@@ -60,7 +60,7 @@ Subject: [PATCH] AllBots
  src/server/game/Server/WorldSession.h              |   36 +
  src/server/scripts/Spells/spell_priest.cpp         |    4 +
  src/server/worldserver/worldserver.conf.dist       |  188 +
- 56 files changed, 32436 insertions(+), 0 deletions(-)
+ 56 files changed, 32447 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -421,10 +421,10 @@ index 0000000..5b00cdc
 +
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..1306424
+index 0000000..f9d1e32
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,2094 @@
+@@ -0,0 +1,2105 @@
 +#include "bot_ai.h"
 +#include "Config.h"
 +#include "Chat.h"
@@ -610,7 +610,7 @@ index 0000000..1306424
 +        extank = me;
 +    //check if master set it and it is near
 +    tank = master->GetBotTankGuid() != 0 ? sObjectAccessor->GetObjectInWorld(master->GetBotTankGuid(), (Unit*)NULL) : NULL;
-+    //check if we have tank mark on us
++    //check if we have tank flag in master's motmap
 +    if (!tank)
 +        tank = master->GetBotTank(me->GetEntry());
 +    //at last try to find tank by class if master is too lazy to set it
@@ -826,16 +826,22 @@ index 0000000..1306424
 +        }
 +    }
 +}
-+// determines if unit has something to cure
++
 +bool bot_ai::CureTarget(Unit *dTarget, uint32 cureSpell, const uint32 diff)
 +{
++    return CanCureTarget(dTarget, cureSpell, diff) ? doCast(dTarget, cureSpell) : false;
++}
++// determines if unit has something to cure
++bool bot_ai::CanCureTarget(Unit *target, uint32 cureSpell, const uint32 diff) const
++{
 +    if (!cureSpell || GC_Timer > diff) return false;
-+    if (!dTarget || dTarget->isDead()) return false;
-+    if (me->getLevel() < 10 || dTarget->getLevel() < 10) return false;
++    if (!target || target->isDead()) return false;
++    if (me->getLevel() < 10 || target->getLevel() < 10) return false;
 +    if (me->IsMounted()) return false;
 +    if (IsCasting() || Feasting()) return false;
-+    if (me->GetDistance(dTarget) > 30) return false;
-+    if (!IsInBotParty(dTarget)) return false;
++    if (me->GetDistance(target) > 30) return false;
++    if (!IsInBotParty(target)) return false;
++
 +    SpellInfo const *info = sSpellMgr->GetSpellInfo(cureSpell);
 +    if (!info) return false;
 +
@@ -848,12 +854,10 @@ index 0000000..1306424
 +        return false;
 +
 +    DispelChargesList dispel_list;
-+    dTarget->GetDispellableAuraList(me, dispelMask, dispel_list);
++    target->GetDispellableAuraList(me, dispelMask, dispel_list);
 +    if (dispel_list.empty())
 +        return false;
-+
-+    //sLog->outError(LOG_FILTER_PLAYER, "bot_ai::CureTarget(): bot %s (owner: %s) tries to cure %s with %s (%u)", me->GetName(), master->GetName(), dTarget->GetName(), info->SpellName[0], cureSpell);
-+    return doCast(dTarget, cureSpell);
++    return true;
 +}
 +
 +bool bot_ai::HasAuraName(Unit *unit, uint32 spellId, uint64 casterGuid, bool exclude) const
@@ -1072,7 +1076,7 @@ index 0000000..1306424
 +        spp_mod *= (float(mylevel - 39))/41.f;// gain spell power slowly
 +
 +    //DAMAGE
-+    _OnMeleeDamageUpdate(myclass, myrace, mylevel, force);
++    _OnMeleeDamageUpdate(myclass, myrace, mylevel);
 +    
 +    //ARMOR
 +    //sLog->outBasic("Unpdating %s's ARMOR: ", me->GetName());
@@ -1113,7 +1117,7 @@ index 0000000..1306424
 +    }
 +
 +    //HEALTH
-+    _OnHealthUpdate(myclass, myrace, mylevel, force);
++    _OnHealthUpdate(myclass, myrace, mylevel);
 +
 +    //HASTE
 +    value = 0.f;
@@ -1175,7 +1179,7 @@ index 0000000..1306424
 +    RefreshAura(DODGE, int8(value/5.f));
 +
 +    //MANA
-+    _OnManaUpdate(myclass, myrace, mylevel, force);
++    _OnManaUpdate(myclass, myrace, mylevel);
 +
 +    //MANA REGEN
 +    if (mylevel >= 40 && me->getPowerType() == POWER_MANA)
@@ -1556,16 +1560,22 @@ index 0000000..1306424
 +void bot_ai::CalculateAttackPos(Unit *target, Position &pos) const
 +{
 +    uint8 followdist = master->GetBotFollowDist();
-+    float x,y,z;
-+    float dist = float(6 + urand(followdist/4, followdist/3));
-+    float angle = target->GetAngle(me);
++    float x,y,z, 
++        dist = float(6 + urand(followdist/4, followdist/3)), 
++        angle = target->GetAngle(me), 
++        foldist = followdist > 10 ? float(followdist) * 0.67f : 6.7f;
 +    for (uint8 i = 0; i != 5; ++i)
 +    {
 +        target->GetNearPoint(me, x, y, z, me->GetObjectSize()/3.f, dist, angle);
-+        if (master->GetDistance(x,y,z) > followdist)
-+            angle += M_PI;
-+        if (!target->IsWithinLOS(x,y,z))
-+            dist *= 0.5f;
++        bool toofaraway = master->GetDistance(x,y,z) > foldist;
++        bool outoflos = !target->IsWithinLOS(x,y,z);
++        if (toofaraway || outoflos)
++        {
++            if (toofaraway)
++                angle += M_PI*0.33f;
++            if (outoflos)
++                dist *= 0.5f;
++        }
 +        else
 +        {
 +            dist *= 0.75f;
@@ -1986,7 +1996,7 @@ index 0000000..1306424
 +            {
 +                if (!(*iter) || (*iter)->isDead()) continue;
 +                if ((*iter)->isMoving()) continue;
-+                if ((*iter)->HasAuraWithMechanic((1<<MECHANIC_SHACKLE)|(1<<MECHANIC_CHARM)|(1<<MECHANIC_DISORIENTED)|(1<<MECHANIC_FEAR)|(1<<MECHANIC_SLEEP)|(1<<MECHANIC_POLYMORPH)|(1<<MECHANIC_TURN)|(1<<MECHANIC_HORROR)|(1<<MECHANIC_SAPPED)))
++                if ((*iter)->HasBreakableByDamageCrowdControlAura())
 +                    continue;
 +                if (me->GetDistance(*iter) < 30)
 +                    ++mCount;
@@ -2015,7 +2025,7 @@ index 0000000..1306424
 +                {
 +                    if (!(*iter) || (*iter)->isDead()) continue;
 +                    if ((*iter)->isMoving()) continue;
-+                    if ((*iter)->HasAuraWithMechanic((1<<MECHANIC_SHACKLE)|(1<<MECHANIC_CHARM)|(1<<MECHANIC_DISORIENTED)|(1<<MECHANIC_FEAR)|(1<<MECHANIC_SLEEP)|(1<<MECHANIC_POLYMORPH)|(1<<MECHANIC_TURN)|(1<<MECHANIC_HORROR)|(1<<MECHANIC_SAPPED)))
++                    if ((*iter)->HasBreakableByDamageCrowdControlAura())
 +                        continue;
 +                    if (me->GetDistance(*iter) < 30)
 +                        ++mCount;
@@ -2111,6 +2121,7 @@ index 0000000..1306424
 +
 +    if (me->GetDistance(To) > dist)
 +        return NULL;
++
 +    CellCoord p(Trinity::ComputeCellCoord(me->GetPositionX(), me->GetPositionY()));
 +    Cell cell(p);
 +    cell.SetNoCreate();
@@ -2154,7 +2165,7 @@ index 0000000..1306424
 +
 +    return spell;//max rank, use this
 +}
-+void bot_ai::_OnHealthUpdate(uint8 myclass, uint8 myrace, uint8 mylevel, bool force /*= false*/) const
++void bot_ai::_OnHealthUpdate(uint8 myclass, uint8 myrace, uint8 mylevel) const
 +{
 +    //sLog->outBasic("_OnHealthUpdate(): updating bot %s", me->GetName());
 +    float pct = me->GetHealthPct();// needs for regeneration
@@ -2268,7 +2279,7 @@ index 0000000..1306424
 +        me->SetHealth(me->GetHealth() + m_basehp / 100);//regenerate
 +}
 +
-+void bot_ai::_OnManaUpdate(uint8 myclass, uint8 myrace, uint8 mylevel, bool force /*= false*/) const
++void bot_ai::_OnManaUpdate(uint8 myclass, uint8 myrace, uint8 mylevel) const
 +{
 +    if (me->getPowerType() != POWER_MANA)
 +        return;
@@ -2330,7 +2341,7 @@ index 0000000..1306424
 +    //No Regen
 +}
 +
-+void bot_ai::_OnMeleeDamageUpdate(uint8 myclass, uint8 myrace, uint8 mylevel, bool force /*= false*/) const
++void bot_ai::_OnMeleeDamageUpdate(uint8 myclass, uint8 myrace, uint8 mylevel) const
 +{
 +    if (ap_mod == 0.f) return; //do not bother casters
 +    //sLog->outBasic("_OnMeleeDamageUpdate: Updating bot %s", me->GetName());
@@ -2522,10 +2533,10 @@ index 0000000..1306424
 \ No newline at end of file
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..1bee139
+index 0000000..b9c2ef2
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,659 @@
+@@ -0,0 +1,658 @@
 +#include "ScriptedCreature.h"
 +#include "ScriptedGossip.h"
 +#include "Group.h"
@@ -2614,11 +2625,8 @@ index 0000000..1bee139
 +
 +        // Cycles through the group and tries to cure every person
 +        void CureGroup(Player *pTarget, uint32 cureSpell, const uint32 diff);
-+        // Used to determine would we cure or not
 +        bool CureTarget(Unit *target, uint32 cureSpell, const uint32 diff);
-+
-+        bool InDuel(Unit *target) const;
-+
++        //Finders
 +        Unit *FindHostileDispelTarget(float dist = 30, bool stealable = false) const;
 +        Unit *FindAffectedTarget(uint32 spellId, uint64 caster = 0, float dist = DEFAULT_VISIBILITY_DISTANCE, uint8 hostile = 0) const;
 +        Unit *FindPolyTarget(float dist = 30, Unit *currTarget = NULL) const;
@@ -2629,7 +2637,8 @@ index 0000000..1bee139
 +        Unit *FindCastingTarget(float dist = 10, bool isFriend = false, uint32 spellId = 0) const;
 +        Unit *FindAOETarget(float dist = 30, bool checkbots = false, bool targetfriend = true) const;
 +        Unit *FindSplashTarget(float dist = 5, Unit *To = NULL) const;
-+
++        // misc checkers
++        bool InDuel(Unit *target) const;
 +        bool IsInBotParty(Unit *unit) const;
 +        // Checks common conditions of 'CCed' state
 +        inline bool CCed(Unit *target, bool root = false) const
@@ -2666,13 +2675,11 @@ index 0000000..1bee139
 +        {
 +            if (doHealth)
 +            {
-+                doHealth = false;
-+                _OnHealthUpdate(me->GetBotClass(), me->getRace(), master->getLevel());
++                doHealth = false; _OnHealthUpdate(me->GetBotClass(), me->getRace(), master->getLevel());
 +            }
 +            if (doMana)
 +            {
-+                doMana = false;
-+                _OnManaUpdate(me->GetBotClass(), me->getRace(), master->getLevel());
++                doMana = false; _OnManaUpdate(me->GetBotClass(), me->getRace(), master->getLevel());
 +            }
 +            CheckAuras(true);
 +            return (1 + (master->GetNpcBotsCount() - 1)/3);
@@ -2700,6 +2707,8 @@ index 0000000..1bee139
 +        uint32 Potion_cd, GC_Timer, temptimer, checkAurasTimer, wait;
 +
 +    private:
++        // Used to determine would we cure or not
++        bool CanCureTarget(Unit *target, uint32 cureSpell, const uint32 diff) const;
 +        //Detemines, has bot any permission to attack target
 +        bool CanBotAttack(Unit *target, int8 byspell = 0) const
 +        {
@@ -2708,6 +2717,7 @@ index 0000000..1bee139
 +            float foldist = followdist > 10 ? float(followdist) * 0.67f : 6.7f;
 +            return
 +               (target->isAlive() && 
++               target->IsVisible() && 
 +                !IsInBotParty(target) && 
 +                target->isTargetableForAttack() && 
 +                (target->IsHostileTo(master) || 
@@ -2726,9 +2736,9 @@ index 0000000..1bee139
 +        void UpdateStandState() const;
 +        void UpdateRations() const;
 +
-+        void _OnHealthUpdate(uint8 myclass, uint8 myrace, uint8 mylevel, bool force = false) const;
-+        void _OnManaUpdate(uint8 myclass, uint8 myrace, uint8 mylevel, bool force = false) const;
-+        void _OnMeleeDamageUpdate(uint8 myclass, uint8 myrace, uint8 mylevel, bool force = false) const;
++        void _OnHealthUpdate(uint8 myclass, uint8 myrace, uint8 mylevel) const;
++        void _OnManaUpdate(uint8 myclass, uint8 myrace, uint8 mylevel) const;
++        void _OnMeleeDamageUpdate(uint8 myclass, uint8 myrace, uint8 mylevel) const;
 +        void _OnEvade() const;
 +
 +        CommandStates m_botCommandState;
@@ -5452,7 +5462,7 @@ index 0000000..112fa2d
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 new file mode 100644
-index 0000000..897df05
+index 0000000..19a713e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 @@ -0,0 +1,958 @@
@@ -5576,7 +5586,7 @@ index 0000000..897df05
 +       /*else */if (spellInfo->GetAllEffectsMechanicMask() & (1<<MECHANIC_SNARE) || 
 +                    spellInfo->GetAllEffectsMechanicMask() & (1<<MECHANIC_ROOT))
 +                {
-+                    uint32 spell = spellInfo->Dispel == DISPEL_MAGIC && CLEANSE ? CLEANSE : HOF;
++                    uint32 spell = (spellInfo->Dispel == DISPEL_MAGIC || spellInfo->Dispel == DISPEL_DISEASE || spellInfo->Dispel == DISPEL_POISON) && CLEANSE ? CLEANSE : HOF;
 +                    if (doCast(target, spell))
 +                    {
 +                        if (spell == HOF)
@@ -6416,10 +6426,10 @@ index 0000000..897df05
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_priest_ai.cpp b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 new file mode 100644
-index 0000000..b1d4e05
+index 0000000..5056ddc
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
-@@ -0,0 +1,857 @@
+@@ -0,0 +1,858 @@
 +#include "bot_ai.h"
 +/*
 +Priest NpcBot (reworked by Graff onlysuffering@mail.ru)
@@ -6788,6 +6798,7 @@ index 0000000..b1d4e05
 +            if (hp < 75 || GetLostHP(target) > 4000)
 +            {
 +                if (PENANCE && Penance_Timer <= diff && 
++                    !me->isMoving() && //better check then stop moving every try (furthermore it doesn't always work properly)
 +                    (target->GetTypeId() != TYPEID_PLAYER || !(target->ToPlayer()->isCharmed() || target->ToPlayer()->isPossessed())) && 
 +                    doCast(target, PENANCE))
 +                {
