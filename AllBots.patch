@@ -1,14 +1,14 @@
-From f76a2cc7f20af8c78d078a4361f0512ac8f0bd38 Mon Sep 17 00:00:00 2001
+From 2f047afd3c13ea420f79b32fb75717b22a83937b Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Fri, 24 Aug 2012 14:09:49 +0700
+Date: Sun, 26 Aug 2012 15:17:31 +0700
 Subject: [PATCH] AllBots
 
 ---
  sql/Bots/character_NPC_bots.sql                    |   10 +
  sql/Bots/world.bots.sql                            |  283 +
  sql/Bots/world.script_bot_giver.sql                |    7 +
- src/server/game/AI/NpcBots/bot_ai.cpp              | 2136 ++++
- src/server/game/AI/NpcBots/bot_ai.h                |  661 ++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 2135 ++++
+ src/server/game/AI/NpcBots/bot_ai.h                |  659 ++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1097 ++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  342 +
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  807 ++
@@ -60,7 +60,7 @@ Subject: [PATCH] AllBots
  src/server/game/Server/WorldSession.h              |   36 +
  src/server/scripts/Spells/spell_priest.cpp         |    4 +
  src/server/worldserver/worldserver.conf.dist       |  188 +
- 56 files changed, 32515 insertions(+), 0 deletions(-)
+ 56 files changed, 32512 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -421,10 +421,10 @@ index 0000000..5b00cdc
 +
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..3d4b4ec
+index 0000000..430abbc
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,2136 @@
+@@ -0,0 +1,2135 @@
 +#include "bot_ai.h"
 +#include "Config.h"
 +#include "Chat.h"
@@ -519,7 +519,7 @@ index 0000000..3d4b4ec
 +            break;
 +        }
 +    }
-+    if (abs(abs(myangle) - abs(angle)) > M_PI/4.f)
++    if (abs(abs(myangle) - abs(angle)) > M_PI/3.f)
 +        static_cast<float>(myangle) = angle;
 +    else
 +        angle = myangle;
@@ -581,8 +581,7 @@ index 0000000..3d4b4ec
 +            pos.m_positionY = newpos->m_positionY;
 +            pos.m_positionZ = newpos->m_positionZ;
 +        }
-+        //if (me->GetDistance(x,y,z) > 5.5f)
-+            me->GetMotionMaster()->MovePoint(master->GetMapId(), pos);
++        me->GetMotionMaster()->MovePoint(master->GetMapId(), pos);
 +        //me->GetMotionMaster()->MoveFollow(master, mydist, angle);
 +        //if (pet != NULL && pet->isAlive())
 +        //{
@@ -1597,12 +1596,12 @@ index 0000000..3d4b4ec
 +    for (uint8 i = 0; i != 5; ++i)
 +    {
 +        target->GetNearPoint(me, x, y, z, me->GetObjectSize()/3.f, dist, angle);
-+        bool toofaraway = master->GetDistance(x,y,z) > foldist && master->GetDistance(target) < master->GetDistance(me) * 1.25f;
++        bool toofaraway = master->GetDistance(x,y,z) > foldist;
 +        bool outoflos = !target->IsWithinLOS(x,y,z);
 +        if (toofaraway || outoflos)
 +        {
 +            if (toofaraway)
-+                angle += M_PI*0.33f*clockwise;
++                angle = target->GetAngle(master) + frand(0.f, M_PI*0.5f)*RAND(-1,1);
 +            if (outoflos)
 +                dist *= 0.5f;
 +        }
@@ -2564,10 +2563,10 @@ index 0000000..3d4b4ec
 \ No newline at end of file
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..2b7a336
+index 0000000..1e39337
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,661 @@
+@@ -0,0 +1,659 @@
 +#include "ScriptedCreature.h"
 +#include "ScriptedGossip.h"
 +#include "Group.h"
@@ -2600,7 +2599,7 @@ index 0000000..2b7a336
 +    HOLYCRIT /*Holy Spec - priest*/     = 15011,//rank 5 5% holy crit
 +    DODGE    /*Anticipation - paladin*/ = 20100,//rank 5 5% dodge
 +    PARRY    /*Deflection - warrior*/   = 16466,//rank 5 5% parry
-+    PRECISION/*Precision - warrior*/    = 29592,//rank 3 3% melee hit
++    PRECISION /*Precision - warrior*/   = 29592,//rank 3 3% melee hit
 +    PRECISION2/*Precision - mage*/      = 29440,//rank 3 3% spell hit
 +    DMG_TAKEN/*Deadened Nerves - rogue*/= 31383,//rank 3 (-6%)
 +    THREAT   /*Tank Class Passive*/     = 57339,//+43% threat
@@ -2646,8 +2645,6 @@ index 0000000..2b7a336
 +        void BuffAndHealGroup(Player *gPlayer, const uint32 diff);
 +        void RezGroup(uint32 REZZ, Player *gPlayer);
 +
-+        virtual void InitSpells() {}
-+
 +        bool HasAuraName(Unit *unit, const std::string spell, uint64 casterGuid = 0, bool exclude = false) const;
 +        bool HasAuraName(Unit *unit, uint32 spellId, uint64 casterGuid = 0, bool exclude = false) const;
 +
@@ -2674,7 +2671,7 @@ index 0000000..2b7a336
 +        bool InDuel(Unit *target) const;
 +        bool IsInBotParty(Unit *unit) const;
 +        // Checks common conditions of 'CCed' state
-+        inline bool CCed(Unit *target, bool root = false) const
++        static bool CCed(Unit *target, bool root = false)
 +        {
 +            return target->HasUnitState(UNIT_STATE_CONFUSED | UNIT_STATE_STUNNED | UNIT_STATE_FLEEING | UNIT_STATE_DISTRACTED | UNIT_STATE_CONFUSED_MOVE | UNIT_STATE_FLEEING_MOVE) || (root && target->HasUnitState(UNIT_STATE_ROOT));
 +        }
@@ -2702,6 +2699,7 @@ index 0000000..2b7a336
 +        inline bool isMeleeClass(uint8 m_class) const { return (m_class == CLASS_WARRIOR || m_class == CLASS_ROGUE || m_class == CLASS_PALADIN || m_class == CLASS_DEATH_KNIGHT || m_class == BEAR); }
 +        virtual void DoNonCombatActions(const uint32 /*diff*/) { /*if (rezz_cd <= 0) RezGroup(DEFIBRILLATE, master);*/ }
 +        virtual void StartAttack(Unit* /*u*/, bool /*force*/ = false) { }
++        virtual void InitSpells() { }
 +        //virtual void CreatePet() { }
 +        CommandStates GetBotCommandState() const { return m_botCommandState; }
 +        uint8 GetWait()
@@ -2752,13 +2750,13 @@ index 0000000..2b7a336
 +            return
 +               (target->isAlive() && 
 +               target->IsVisible() && 
-+                !IsInBotParty(target) && 
++               (master->isDead() || (target->GetDistance(master) < foldist && me->GetDistance(master) < followdist)) && //if master is killed pursue to the end
 +                target->isTargetableForAttack() && 
++                !IsInBotParty(target) && 
 +                (target->IsHostileTo(master) || 
 +                (target->GetReactionTo(master) < REP_FRIENDLY && master->getVictim() == target && (master->isInCombat() || target->isInCombat())) || //master has pointed this target
 +                target->IsHostileTo(me)) && //if master is controlled
 +                //target->IsWithinLOSInMap(me) && 
-+                (master->isDead() || (target->GetDistance(master) < foldist && me->GetDistance(master) < followdist)) && //if master is killed pursue to the end
 +                (byspell == -1 || !target->IsImmunedToDamage(byspell ? SPELL_SCHOOL_MASK_MAGIC : SPELL_SCHOOL_MASK_NORMAL)));
 +        }
 +        void FindTank();
@@ -2782,8 +2780,8 @@ index 0000000..2b7a336
 +        bool doHealth, doMana;
 +        int32 sppower, m_spellpower;
 +        uint8 rezz_cd, clear_cd, haste, tempclass, healTargetIconFlags;
-+        float stat, atpower, maxdist, myangle,
-+            regen_mp5, ap_mod, spp_mod, armor_mod, crit_mod, haste_mod, dodge_mod, parry_mod,
++        float stat, atpower, maxdist, myangle, regen_mp5,
++            ap_mod, spp_mod, armor_mod, crit_mod, haste_mod, dodge_mod, parry_mod,
 +            dmgmult_melee, dmgmult_spell;
 +        //uint64 petGuid;
 +        //Creature *pet;
@@ -2796,13 +2794,14 @@ index 0000000..2b7a336
 +            me(unit), m_range(dist), checksteal(stealable), ai(m_ai) { if (!ai) return; }
 +            bool operator()(Unit* u)
 +            {
-+                if (u->isAlive() && 
-+                    u->GetReactionTo(me) < REP_NEUTRAL && 
++                if (u->IsWithinDistInMap(me, m_range) && 
++                    u->isAlive() && 
 +                    u->InSamePhase(me) && 
 +                    u->isInCombat() && 
-+                    u->IsWithinDistInMap(me, m_range) && 
-+                    (ai->IsInBotParty(u->getVictim()) || u->getThreatManager().getThreat(const_cast<Unit*>(me)) > 0.f) && 
-+                    u->isTargetableForAttack())
++                    u->isTargetableForAttack() && 
++                    u->IsVisible() && 
++                    u->GetReactionTo(me) < REP_NEUTRAL && 
++                    (ai->IsInBotParty(u->getVictim()) || u->getThreatManager().getThreat(const_cast<Unit*>(me)) > 0.f))
 +                {
 +                    if (checksteal && u->IsImmunedToSpell(sSpellMgr->GetSpellInfo(30449))) return false;//immune to steal
 +                    if (!checksteal)
@@ -2860,7 +2859,7 @@ index 0000000..2b7a336
 +                    {
 +                        Aura *aura = itr->second;
 +                        if (aura->GetId() == spell)
-+                            if (caster == 0 || (caster != 0 && aura->GetCasterGUID() == caster))
++                            if (caster == 0 || aura->GetCasterGUID() == caster)
 +                                return true;
 +                    }
 +                }
@@ -2888,30 +2887,33 @@ index 0000000..2b7a336
 +                    return false;
 +                if (!u->isInCombat() || !u->isAlive() || !u->getVictim())
 +                    return false;
++                if (u->GetCreatureType() != CREATURE_TYPE_HUMANOID && 
++                    u->GetCreatureType() != CREATURE_TYPE_BEAST)
++                    return false;
 +                if (me->GetDistance(u) < 6 || mytar->GetDistance(u) < 5 || u->GetHealthPct() < 70)
 +                    return false;
 +                if (!u->InSamePhase(me))
 +                    return false;
 +                if (!u->isTargetableForAttack())
 +                    return false;
++                if (!u->IsVisible())
++                    return false;
 +                if (!u->getAttackers().empty())
 +                    return false;
 +                if (!u->IsHostileTo(me))
 +                    return false;
-+                if (u->GetCreatureType() != CREATURE_TYPE_HUMANOID && u->GetCreatureType() != CREATURE_TYPE_BEAST)
-+                    return false;
 +                if (u->IsPolymorphed() || 
++                    u->isFrozen() || 
++                    u->isInRoots() || 
 +                    u->HasAura(51514)/*hex*/ || 
 +                    u->HasAura(20066)/*repentance*/ || 
 +                    //u->HasAuraTypeWithAffectMask(SPELL_AURA_PERIODIC_DAMAGE, sSpellMgr->GetSpellInfo(339)) || //entangling roots
-+                    u->HasAuraTypeWithAffectMask(SPELL_AURA_PERIODIC_DAMAGE, sSpellMgr->GetSpellInfo(16914)) || //hurricane
-+                    u->HasAuraTypeWithAffectMask(SPELL_AURA_PERIODIC_DAMAGE, sSpellMgr->GetSpellInfo(10)) || //blizzard
-+                    u->HasAuraTypeWithAffectMask(SPELL_AURA_PERIODIC_DAMAGE, sSpellMgr->GetSpellInfo(2121)) || //flamestrike
-+                    u->HasAuraTypeWithAffectMask(SPELL_AURA_PERIODIC_DAMAGE, sSpellMgr->GetSpellInfo(20116))//consecration
-+                    /*u->HasAuraWithMechanic(1<<MECHANIC_SHACKLE)*//*shackleundead*/)
++                    //u->HasAuraTypeWithAffectMask(SPELL_AURA_PERIODIC_DAMAGE, sSpellMgr->GetSpellInfo(16914)) || //hurricane
++                    //u->HasAuraTypeWithAffectMask(SPELL_AURA_PERIODIC_DAMAGE, sSpellMgr->GetSpellInfo(10)) || //blizzard
++                    //u->HasAuraTypeWithAffectMask(SPELL_AURA_PERIODIC_DAMAGE, sSpellMgr->GetSpellInfo(2121)) || //flamestrike
++                    //u->HasAuraTypeWithAffectMask(SPELL_AURA_PERIODIC_DAMAGE, sSpellMgr->GetSpellInfo(20116)) || //consecration
++                    u->HasAuraType(SPELL_AURA_PERIODIC_DAMAGE))
 +                    return false;
-+                //if (u->HasAuraWithMechanic((1<<MECHANIC_FREEZE)|(1<<MECHANIC_SHACKLE)|(1<<MECHANIC_CHARM)|(1<<MECHANIC_SLEEP)|(1<<MECHANIC_SAPPED)))
-+                //    return false;
 +                if (!u->IsImmunedToSpell(sSpellMgr->GetSpellInfo(12826)))//Polymorph rank 4
 +                    return true;
 +
@@ -2937,22 +2939,21 @@ index 0000000..2b7a336
 +                    return false;
 +                if (u->GetCreatureType() == CREATURE_TYPE_UNDEAD)
 +                    return false;
-+                if (u->GetReactionTo(me) > REP_NEUTRAL)
-+                    return false;
 +                if (!u->isAlive())
 +                    return false;
 +                if (!u->isTargetableForAttack())
 +                    return false;
++                if (!u->IsVisible())
++                    return false;
 +                if (u->getAttackers().size() > 1)
 +                    return false;
-+                if (u->IsPolymorphed() || 
-+                    u->HasAura(51514)/*hex*/ || 
-+                    u->HasAura(20066)/*repentance*/ || 
-+                    u->HasUnitState(UNIT_STATE_FLEEING) || 
-+                    u->HasAuraWithMechanic(1<<MECHANIC_SHACKLE)/*shackleundead*/)
++                if (bot_ai::CCed(u))
 +                    return false;
 +                if (u->isFeared())
 +                    return false;
++                if (u->GetReactionTo(me) > REP_NEUTRAL)
++                    return false;
++                
 +                if (!u->IsImmunedToSpell(sSpellMgr->GetSpellInfo(5782)))//fear rank1
 +                    return true;
 +
@@ -2974,17 +2975,19 @@ index 0000000..2b7a336
 +            }
 +            bool operator()(Unit* u)
 +            {
-+                if (me->getVictim() == u || ai->master->getVictim() == u)
-+                    return false;
 +                if (!me->IsWithinDistInMap(u, m_range))
 +                    return false;
-+                if (!u->InSamePhase(me))
-+                    return false;
 +                if (!u->isInCombat())
++                    return false;
++                if (me->getVictim() == u || ai->master->getVictim() == u)
++                    return false;
++                if (!u->InSamePhase(me))
 +                    return false;
 +                if (u->GetReactionTo(me) > REP_NEUTRAL)
 +                    return false;
 +                if (!u->isAlive())
++                    return false;
++                if (!u->IsVisible())
 +                    return false;
 +                if (!u->isTargetableForAttack())
 +                    return false;
@@ -2996,7 +2999,7 @@ index 0000000..2b7a336
 +                    u->GetCreatureType() == CREATURE_TYPE_GIANT || 
 +                    u->GetCreatureType() == CREATURE_TYPE_UNDEAD))
 +                    return false;
-+                if (me->GetDistance(u) < 9)//do not allow close cast to prevent break due to consecration
++                if (me->GetDistance(u) < 10)//do not allow close cast to prevent break due to consecration
 +                    return false;
 +                if (u->IsPolymorphed() || 
 +                    u->HasAura(51514)/*hex*/ || 
@@ -3031,9 +3034,9 @@ index 0000000..2b7a336
 +                    return false;
 +                if (!u->isAlive())
 +                    return false;
-+                if (u->isFrozen() || u->isInRoots())
-+                    return false;
 +                if (!u->isTargetableForAttack())
++                    return false;
++                if (!u->IsVisible())
 +                    return false;
 +                if (me->getVictim() == u && u->getVictim() == me)
 +                    return false;
@@ -3050,12 +3053,7 @@ index 0000000..2b7a336
 +                    m_spellId == 48817 ||                       //th or
 +                    m_spellId == 10326))                        //turn evil
 +                    return false;
-+                if (u->IsPolymorphed() || 
-+                    u->HasAura(51514)/*hex*/ || 
-+                    u->HasAura(20066)/*repentance*/ || 
-+                    u->HasAuraWithMechanic(1<<MECHANIC_SHACKLE)/*shackleundead*/ || 
-+                    u->isInRoots() || 
-+                    u->isFeared())
++                if (bot_ai::CCed(u))
 +                    return false;
 +                if (u->HasAuraType(SPELL_AURA_PERIODIC_DAMAGE) && 
 +                    (m_spellId == 9484 || m_spellId == 9485 || m_spellId == 10955))//shackle undead
@@ -3076,22 +3074,24 @@ index 0000000..2b7a336
 +    {
 +        public:
 +            explicit RootUnitCheck(Unit const* unit, Unit const* mytarget, float dist = 30, uint32 spell = 0) : me(unit), curtar(mytarget), m_range(dist), m_spellId(spell)
-+            {
-+                if (!spell) return;
-+            }
++            { if (!spell) return; }
 +            bool operator()(Unit* u)
 +            {
 +                if (u == curtar)
 +                    return false;
 +                if (!me->IsWithinDistInMap(u, m_range))
 +                    return false;
++                if (!u->isAlive())
++                    return false;
++                if (!u->isInCombat())
++                    return false;
 +                if (me->GetDistance(u) < 8)
 +                    return false;
 +                if (!u->InSamePhase(me))
 +                    return false;
-+                if (!u->isAlive())
++                if (!u->IsVisible())
 +                    return false;
-+                if (!u->isInCombat())
++                if (!u->isTargetableForAttack())
 +                    return false;
 +                if (u->GetReactionTo(me) > REP_NEUTRAL)
 +                    return false;
@@ -3099,13 +3099,10 @@ index 0000000..2b7a336
 +                    return false;
 +                if (!u->getAttackers().empty())
 +                    return false;
-+                if (!u->isTargetableForAttack())
-+                    return false;
 +                if (u->IsPolymorphed() || 
 +                    u->HasAura(51514)/*hex*/ || 
 +                    u->HasAura(20066)/*repentance*/ || 
 +                    u->HasAuraWithMechanic(1<<MECHANIC_SHACKLE)/*shackleundead*/)
-+
 +                    return false;
 +                if (!u->IsImmunedToSpell(sSpellMgr->GetSpellInfo(m_spellId)))
 +                    return true;
@@ -3128,13 +3125,19 @@ index 0000000..2b7a336
 +            {
 +                if (!me->IsWithinDistInMap(u, m_range))
 +                    return false;
++                if (!u->isAlive())
++                    return false;
 +                if (!u->InSamePhase(me))
++                    return false;
++                if (!u->IsVisible())
++                    return false;
++                if (!m_friend && !u->isTargetableForAttack())
++                    return false;
++                if (!m_friend && u->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SILENCED))//prevent double silence
 +                    return false;
 +                if (!u->IsNonMeleeSpellCasted(false))
 +                    return false;
 +                if (m_friend == u->GetReactionTo(me) < REP_FRIENDLY)
-+                    return false;
-+                if (!m_friend && !u->isTargetableForAttack())
 +                    return false;
 +                if (m_spell == 10326 && //turn evil
 +                    u->GetCreatureType() != CREATURE_TYPE_UNDEAD && 
@@ -3147,7 +3150,7 @@ index 0000000..2b7a336
 +                    u->GetCreatureType() == CREATURE_TYPE_GIANT || 
 +                    u->GetCreatureType() == CREATURE_TYPE_UNDEAD))
 +                    return false;
-+                if (!u->IsImmunedToSpell(sSpellMgr->GetSpellInfo(m_spell)))
++                if (!m_spell || !u->IsImmunedToSpell(sSpellMgr->GetSpellInfo(m_spell)))
 +                    return true;
 +
 +                return false;
@@ -3207,14 +3210,8 @@ index 0000000..2b7a336
 +                    return false;
 +                if (!(ai->IsInBotParty(u->getVictim()) || (u->getThreatManager().getThreat(const_cast<Unit*>(me)) > 0.f) && u->HasUnitState(UNIT_STATE_FLEEING)))
 +                    return false;
-+                if (!AttackCCed && u->HasBreakableByDamageCrowdControlAura())
++                if (!AttackCCed && ai->CCed(u))
 +                    return false;//do not allow CCed units if checked
-+                //if (!AttackCCed)
-+                //    if (u->IsPolymorphed() || 
-+                //        u->HasAuraType(SPELL_AURA_MOD_FEAR) || 
-+                //        u->HasAuraType(SPELL_AURA_MOD_CHARM) || 
-+                //        u->HasAuraWithMechanic((1<<MECHANIC_SAPPED)|(1<<MECHANIC_SHACKLE)|(1<<MECHANIC_TURN)))
-+                //        return false;//do not allow CCed units if checked
 +
 +                m_range = me->GetDistance(u);   // use found unit range as new range limit for next check
 +                return true;
