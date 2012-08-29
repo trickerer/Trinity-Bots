@@ -1,6 +1,6 @@
-From 2f047afd3c13ea420f79b32fb75717b22a83937b Mon Sep 17 00:00:00 2001
+From 5ba794badabb9858610c510acb6650068237ed29 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Sun, 26 Aug 2012 15:17:31 +0700
+Date: Wed, 29 Aug 2012 22:38:23 +0700
 Subject: [PATCH] AllBots
 
 ---
@@ -20,7 +20,7 @@ Subject: [PATCH] AllBots
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1131 ++
  src/server/game/AI/NpcBots/botcommands.cpp         |  766 ++
  src/server/game/AI/NpcBots/botgiver.cpp            |  286 +
- src/server/game/AI/PlayerBots/PlayerbotAI.cpp      |11928 ++++++++++++++++++++
+ src/server/game/AI/PlayerBots/PlayerbotAI.cpp      |11974 ++++++++++++++++++++
  src/server/game/AI/PlayerBots/PlayerbotAI.h        | 2113 ++++
  .../game/AI/PlayerBots/PlayerbotDeathKnightAI.cpp  |  499 +
  .../game/AI/PlayerBots/PlayerbotDeathKnightAI.h    |  100 +
@@ -60,7 +60,7 @@ Subject: [PATCH] AllBots
  src/server/game/Server/WorldSession.h              |   36 +
  src/server/scripts/Spells/spell_priest.cpp         |    4 +
  src/server/worldserver/worldserver.conf.dist       |  188 +
- 56 files changed, 32512 insertions(+), 0 deletions(-)
+ 56 files changed, 32558 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -421,7 +421,7 @@ index 0000000..5b00cdc
 +
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..430abbc
+index 0000000..d8a84a4
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
 @@ -0,0 +1,2135 @@
@@ -1552,8 +1552,8 @@ index 0000000..430abbc
 +
 +    //check targets around
 +    Unit *t = NULL;
-+    float maxdist = float(followdist);
-+    maxdist += ranged ? float(followdist) * 0.2f : 0.f;
++    float maxdist = float(followdist) * (me->IsMounted() ? 0.3f : 1.f);
++    maxdist += ranged ? float(followdist) * 0.25f : 0.f;
 +    maxdist += master->isDead() ? sWorld->GetMaxVisibleDistanceOnContinents() * 0.5f : 0;//set max dist
 +    //first cycle we search non-cced target, then, if not found, check all
 +    for (uint8 i = 0; i != 2; ++i)
@@ -1588,15 +1588,16 @@ index 0000000..430abbc
 +void bot_ai::CalculateAttackPos(Unit *target, Position &pos) const
 +{
 +    uint8 followdist = master->GetBotFollowDist();
-+    float x,y,z, 
-+        dist = float(6 + urand(followdist/4, followdist/3)), 
-+        angle = target->GetAngle(me), 
++    float x,y,z,
++        dist = float(6 + urand(followdist/4, followdist/3)),
++        angle = target->GetAngle(me),
 +        foldist = followdist > 10 ? float(followdist) * 0.67f : 6.7f;
++    dist = std::min(dist, 20.f);
 +    float clockwise = RAND(1.f,-1.f);
 +    for (uint8 i = 0; i != 5; ++i)
 +    {
 +        target->GetNearPoint(me, x, y, z, me->GetObjectSize()/3.f, dist, angle);
-+        bool toofaraway = master->GetDistance(x,y,z) > foldist;
++        bool toofaraway = master->GetDistance(x,y,z) > (followdist > 30 ? 30.f : followdist < 20 ? 20.f : float(followdist));
 +        bool outoflos = !target->IsWithinLOS(x,y,z);
 +        if (toofaraway || outoflos)
 +        {
@@ -1616,7 +1617,6 @@ index 0000000..430abbc
 +    pos.m_positionZ = z;
 +}
 +// Forces bot to chase opponent (if ranged then distance depends on follow distance)
-+// Since MoveChase() is useless for ranged, try to use MovePoint()
 +void bot_ai::GetInPosition(bool force, bool ranged, Unit *newtarget, Position *mypos)
 +{
 +    if (me->HasUnitState(UNIT_STATE_ROOT)) return;
@@ -2563,7 +2563,7 @@ index 0000000..430abbc
 \ No newline at end of file
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..1e39337
+index 0000000..f46425c
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
 @@ -0,0 +1,659 @@
@@ -2947,7 +2947,7 @@ index 0000000..1e39337
 +                    return false;
 +                if (u->getAttackers().size() > 1)
 +                    return false;
-+                if (bot_ai::CCed(u))
++                if (CCed(u))
 +                    return false;
 +                if (u->isFeared())
 +                    return false;
@@ -3053,7 +3053,7 @@ index 0000000..1e39337
 +                    m_spellId == 48817 ||                       //th or
 +                    m_spellId == 10326))                        //turn evil
 +                    return false;
-+                if (bot_ai::CCed(u))
++                if (CCed(u))
 +                    return false;
 +                if (u->HasAuraType(SPELL_AURA_PERIODIC_DAMAGE) && 
 +                    (m_spellId == 9484 || m_spellId == 9485 || m_spellId == 10955))//shackle undead
@@ -3210,7 +3210,7 @@ index 0000000..1e39337
 +                    return false;
 +                if (!(ai->IsInBotParty(u->getVictim()) || (u->getThreatManager().getThreat(const_cast<Unit*>(me)) > 0.f) && u->HasUnitState(UNIT_STATE_FLEEING)))
 +                    return false;
-+                if (!AttackCCed && ai->CCed(u))
++                if (!AttackCCed && CCed(u))
 +                    return false;//do not allow CCed units if checked
 +
 +                m_range = me->GetDistance(u);   // use found unit range as new range limit for next check
@@ -10513,10 +10513,10 @@ index 0000000..1e5eabb
 +}
 diff --git a/src/server/game/AI/PlayerBots/PlayerbotAI.cpp b/src/server/game/AI/PlayerBots/PlayerbotAI.cpp
 new file mode 100644
-index 0000000..f307072
+index 0000000..1478bfe
 --- /dev/null
 +++ b/src/server/game/AI/PlayerBots/PlayerbotAI.cpp
-@@ -0,0 +1,11928 @@
+@@ -0,0 +1,11974 @@
 +/*
 +Name:       PlayerBot AI Core by Graff (onlysuffering@mail.ru)
 +Converted:  from original blueboy's Playerbots: https://github.com/blueboy/portal/
@@ -10933,19 +10933,19 @@ index 0000000..f307072
 +    {
 +        uint32 spellId = itr->first;
 +
-+        if (itr->second->state == PLAYERSPELL_REMOVED || itr->second->disabled || sSpellMgr->GetSpellInfo(spellId)->IsPassive())
++        if (itr->second->state == PLAYERSPELL_REMOVED || itr->second->disabled)
 +            continue;
 +
 +        const SpellInfo* pSpellInfo = sSpellMgr->GetSpellInfo(spellId);
-+        if (!pSpellInfo)
++        if (!pSpellInfo || pSpellInfo->IsPassive())
 +            continue;
 +
 +        const std::string name = pSpellInfo->SpellName[loc];
 +        if (name.empty() || !Utf8FitTo(name, wnamepart))
 +            continue;
 +
-+        bool isExactMatch = (name.length() == wnamepart.length()) ? true : false;
-+        bool usesNoReagents = (pSpellInfo->Reagent[0] <= 0) ? true : false;
++        bool isExactMatch = (name.length() == wnamepart.length());
++        bool usesNoReagents = (pSpellInfo->Reagent[0] <= 0);
 +
 +        // if we already found a spell
 +        bool useThisSpell = true;
@@ -10964,11 +10964,6 @@ index 0000000..f307072
 +            foundMatchUsesNoReagents = usesNoReagents;
 +        }
 +    }
-+
-+    // debug
-+    uint32 spell = initSpell(foundSpellId);
-+    foundSpellId = spell > 0 ? spell : foundSpellId;
-+    // end debug
 +
 +    return foundSpellId;
 +}
@@ -14838,21 +14833,6 @@ index 0000000..f307072
 +{
 +    if (m_bot->IsBeingTeleported() || m_bot->GetTrader())
 +        return;
-+    //new
-+    m_bot->UpdateZone(m_bot->GetZoneId(), m_bot->GetAreaId());
-+    //debug
-+    bool casting = false;
-+    for (uint8 i = 0; i != CURRENT_CHANNELED_SPELL; ++i)
-+    {
-+        if (m_bot->GetCurrentSpell(CurrentSpellTypes(i)))
-+        {
-+            casting = true;
-+            break;
-+        }
-+    }
-+    if (!casting)
-+        m_bot->RemoveAura(SPELL_ROOT);
-+    //end debug
 +
 +    if (!m_master->GetGroup() || !m_master->GetGroup()->IsMember(m_bot->GetGUID()))
 +    {
@@ -15071,49 +15051,111 @@ index 0000000..f307072
 +            }
 +        }
 +
-+        else if (m_master->IsMounted() && !m_bot->IsMounted())
++        else if (m_master->IsMounted() && !m_bot->IsMounted() && !m_bot->HasUnitState(UNIT_STATE_CASTING))
 +        {
 +            //Player Part
 +            Unit::AuraEffectList const& AuraList = m_master->GetAuraEffectsByType(SPELL_AURA_MOUNTED);
 +            if (!AuraList.empty())
 +            {
-+                int32 master_speed1 = AuraList.front()->GetSpellInfo()->Effects[0].BasePoints;
-+                int32 master_speed2 = AuraList.front()->GetSpellInfo()->Effects[1].BasePoints;
-+                int32 master_speed3 = AuraList.front()->GetSpellInfo()->Effects[2].BasePoints;
++                SpellInfo const *pSpellInfo = AuraList.front()->GetSpellInfo();
 +
 +                //Bot Part
 +                uint32 spellMount = 0;
++                //cheap check if we know this spell
 +                for (PlayerSpellMap::iterator itr = m_bot->GetSpellMap().begin(); itr != m_bot->GetSpellMap().end(); ++itr)
 +                {
 +                    if (itr->second->state == PLAYERSPELL_REMOVED || itr->second->disabled)
 +                        continue;
 +                    uint32 spellId = itr->first;
-+                    SpellInfo const *pSpellInfo = sSpellMgr->GetSpellInfo(spellId);
-+                    if (!pSpellInfo || pSpellInfo->IsPassive())
-+                        continue;
-+
-+                    bool mount = false;
-+                    for (uint8 i = 0; i != MAX_SPELL_EFFECTS; ++i)
-+                        if (pSpellInfo->Effects[i].ApplyAuraName == SPELL_AURA_MOUNTED)
-+                        {
-+                            mount = true;
-+                            break;
-+                        }
-+                    if (!mount) continue;
-+                    for (uint8 i = 0; i != MAX_SPELL_EFFECTS; ++i)
++                    if (pSpellInfo->Id == spellId)
 +                    {
-+                        int32 points = pSpellInfo->Effects[i].BasePoints;
-+                        if (points == master_speed1 || 
-+                            points == master_speed2 || 
-+                            points == master_speed3)
-+                        {
-+                            spellMount = spellId;
-+                            break;
-+                        }
++                        spellMount = spellId;
++                        break;
 +                    }
 +                }
-+                if (spellMount && !m_bot->HasUnitState(UNIT_STATE_CASTING))
-+                    m_bot->CastSpell(m_bot, spellMount, false);
++                if (!spellMount)
++                {
++                    //analyze and find proper mount spell
++                    for (PlayerSpellMap::iterator itr = m_bot->GetSpellMap().begin(); itr != m_bot->GetSpellMap().end(); ++itr)
++                    {
++                        if (itr->second->state == PLAYERSPELL_REMOVED || itr->second->disabled)
++                            continue;
++                        uint32 spellId = itr->first;
++                        SpellInfo const *bSpellInfo = sSpellMgr->GetSpellInfo(spellId);
++                        if (!bSpellInfo || bSpellInfo->IsPassive())
++                            continue;
++
++                        for (uint8 i = 0; i != MAX_SPELL_EFFECTS; ++i)
++                        {
++                            if (bSpellInfo->Effects[i].ApplyAuraName == SPELL_AURA_MOUNTED)
++                            {
++                                //arrange values
++                                int8 j = i-1, k = i+1;
++                                if (j < 0)// i == 0
++                                    j = k+1;//2
++                                else if (k >= MAX_SPELL_EFFECTS)// i == 2
++                                    k = j-1;//0
++
++                                if (bSpellInfo->Effects[j].ApplyAuraName == SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED)
++                                {
++                                    for (uint8 i = 0; i != MAX_SPELL_EFFECTS; ++i)
++                                    {
++                                        if (pSpellInfo->Effects[i].BasePoints == bSpellInfo->Effects[j].BasePoints)
++                                        {
++                                            spellMount = spellId;
++                                            break;
++                                        }
++                                    }
++                                    if (spellMount)
++                                        break;
++                                }
++                                else if (bSpellInfo->Effects[k].ApplyAuraName == SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED)
++                                {
++                                    for (uint8 i = 0; i != MAX_SPELL_EFFECTS; ++i)
++                                    {
++                                        if (pSpellInfo->Effects[i].BasePoints == bSpellInfo->Effects[k].BasePoints)
++                                        {
++                                            spellMount = spellId;
++                                            break;
++                                        }
++                                    }
++                                    if (spellMount)
++                                        break;
++                                }
++                                else if (bSpellInfo->Effects[j].ApplyAuraName == SPELL_AURA_MOD_INCREASE_MOUNTED_SPEED)
++                                {
++                                    for (uint8 i = 0; i != MAX_SPELL_EFFECTS; ++i)
++                                    {
++                                        if (pSpellInfo->Effects[i].BasePoints == bSpellInfo->Effects[j].BasePoints)
++                                        {
++                                            spellMount = spellId;
++                                            break;
++                                        }
++                                    }
++                                    if (spellMount)
++                                        break;
++                                }
++                                else if (bSpellInfo->Effects[k].ApplyAuraName == SPELL_AURA_MOD_INCREASE_MOUNTED_SPEED)
++                                {
++                                    for (uint8 i = 0; i != MAX_SPELL_EFFECTS; ++i)
++                                    {
++                                        if (pSpellInfo->Effects[i].BasePoints == bSpellInfo->Effects[k].BasePoints)
++                                        {
++                                            spellMount = spellId;
++                                            break;
++                                        }
++                                    }
++                                    if (spellMount)
++                                        break;
++                                }
++                            }
++                        }
++                        if (spellMount)
++                            break;
++                    }
++                }
++                if (spellMount)
++                    CastSpell(spellMount);
 +                else
 +                    SendWhisper("Cannot find approriate mount!", *m_master);
 +            }
@@ -15183,6 +15225,10 @@ index 0000000..f307072
 +                    SetState(BOTSTATE_LOOTING);
 +            }
 +        }
++        //debug
++        if (!m_bot->HasUnitState(UNIT_STATE_CASTING))
++            m_bot->RemoveAura(SPELL_ROOT);
++        //end debug
 +        // debug
 +        if (m_botState == BOTSTATE_NORMAL)
 +        {
@@ -15280,7 +15326,7 @@ index 0000000..f307072
 +        return false;
 +    //debug
 +    //prevent interrupting
-+    if (m_bot->IsNonMeleeSpellCasted(false, false, false))
++    if (m_bot->IsNonMeleeSpellCasted(false))
 +        return false;
 +    //debug
 +
