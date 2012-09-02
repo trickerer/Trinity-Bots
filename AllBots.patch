@@ -1,13 +1,13 @@
-From 98c5026c2ddc162f5c5543c59362da1e8e5fcfa5 Mon Sep 17 00:00:00 2001
+From cea1c9f4d3563491b3dc1a2cc8a6a761d6cf42d8 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Sat, 1 Sep 2012 22:56:07 +0700
+Date: Sun, 2 Sep 2012 11:39:34 +0700
 Subject: [PATCH] AllBots
 
 ---
  sql/Bots/character_NPC_bots.sql                    |   10 +
  sql/Bots/world.bots.sql                            |  283 +
  sql/Bots/world.script_bot_giver.sql                |    7 +
- src/server/game/AI/NpcBots/bot_ai.cpp              | 2134 ++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 2131 ++++
  src/server/game/AI/NpcBots/bot_ai.h                |  663 ++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1097 ++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  342 +
@@ -60,7 +60,7 @@ Subject: [PATCH] AllBots
  src/server/game/Server/WorldSession.h              |   36 +
  src/server/scripts/Spells/spell_priest.cpp         |    4 +
  src/server/worldserver/worldserver.conf.dist       |  188 +
- 56 files changed, 32566 insertions(+), 0 deletions(-)
+ 56 files changed, 32563 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -421,10 +421,10 @@ index 0000000..5b00cdc
 +
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..a4c8025
+index 0000000..64e809b
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,2134 @@
+@@ -0,0 +1,2131 @@
 +#include "bot_ai.h"
 +#include "Config.h"
 +#include "Chat.h"
@@ -931,19 +931,16 @@ index 0000000..a4c8025
 +    for (Unit::AuraMap::const_iterator itr = vAuras.begin(); itr != vAuras.end(); ++itr)
 +    {
 +        SpellInfo const *spellInfo = itr->second->GetSpellInfo();
-+        const std::string name = spellInfo->SpellName[0];
-+        const std::string rank = spellInfo->Rank[0];
-+        char *passive = NULL;
++        const std::string name = spellInfo->SpellName[0],
++            rank = spellInfo->Rank[0];
++        std::string passive = "";
 +        if (spellInfo->IsPassive()) 
 +            passive = "(Passive)";
-+        if (passive != NULL)
-+            ch.PSendSysMessage("%u %s %s %s", spellInfo->Id, name.c_str(), rank.c_str(), passive);
-+        else
-+            ch.PSendSysMessage("%u %s %s", spellInfo->Id, name.c_str(), rank.c_str());
++        ch.PSendSysMessage("%u %s %s %s", spellInfo->Id, name.c_str(), rank.c_str(), passive.c_str());
 +    }
 +    for (uint8 i = STAT_STRENGTH; i != MAX_STATS; ++i)
 +    {
-+        const char *mystat;
++        std::string mystat;
 +        switch (i)
 +        {
 +        case STAT_STRENGTH: mystat = "str"; break;
@@ -953,7 +950,7 @@ index 0000000..a4c8025
 +        case STAT_SPIRIT: mystat = "spi"; break;
 +        default: mystat = "unk stat"; break;
 +        }
-+        ch.PSendSysMessage("%s: %f", mystat, unit->GetTotalStatValue(Stats(i)));
++        ch.PSendSysMessage("%s: %f", mystat.c_str(), unit->GetTotalStatValue(Stats(i)));
 +    }
 +    ch.PSendSysMessage("Melee AP: %f", unit->GetTotalAttackPowerValue(BASE_ATTACK));
 +    ch.PSendSysMessage("Ranged AP: %f", unit->GetTotalAttackPowerValue(RANGED_ATTACK));
@@ -2194,7 +2191,7 @@ index 0000000..a4c8025
 +
 +    return spell;//max rank, use this
 +}
-+void bot_ai::_OnHealthUpdate(uint8 myclass, uint8 myrace, uint8 mylevel) const
++void bot_ai::_OnHealthUpdate(uint8 myclass, uint8 /*myrace*/, uint8 mylevel) const
 +{
 +    //sLog->outBasic("_OnHealthUpdate(): updating bot %s", me->GetName());
 +    float pct = me->GetHealthPct();// needs for regeneration
@@ -2308,7 +2305,7 @@ index 0000000..a4c8025
 +        me->SetHealth(me->GetHealth() + m_basehp / 100);//regenerate
 +}
 +
-+void bot_ai::_OnManaUpdate(uint8 myclass, uint8 myrace, uint8 mylevel) const
++void bot_ai::_OnManaUpdate(uint8 myclass, uint8 /*myrace*/, uint8 mylevel) const
 +{
 +    if (me->getPowerType() != POWER_MANA)
 +        return;
@@ -3232,7 +3229,7 @@ index 0000000..43eec1e
 \ No newline at end of file
 diff --git a/src/server/game/AI/NpcBots/bot_druid_ai.cpp b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 new file mode 100644
-index 0000000..7ce3cb8
+index 0000000..8c3b428
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 @@ -0,0 +1,1097 @@
@@ -3252,7 +3249,7 @@ index 0000000..7ce3cb8
 +        return new bot_druid_ai(pCreature);
 +    }
 +
-+    bool OnGossipHello(Player *player, Creature *creature)
++    bool OnGossipHello(Player *player, Creature * /*creature*/)
 +    {
 +        player->CLOSE_GOSSIP_MENU();
 +        return true;
@@ -3326,7 +3323,7 @@ index 0000000..7ce3cb8
 +        }
 +
 +        void Aggro(Unit *){}
-+        void AttackStart(Unit *u) { }
++        void AttackStart(Unit *) { }
 +        void KilledUnit(Unit *) { }
 +        void EnterEvadeMode() { }
 +        void EnterCombat(Unit*) { }
@@ -4335,7 +4332,7 @@ index 0000000..7ce3cb8
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_hunter_ai.cpp b/src/server/game/AI/NpcBots/bot_hunter_ai.cpp
 new file mode 100644
-index 0000000..6d590fd
+index 0000000..04fb08e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_hunter_ai.cpp
 @@ -0,0 +1,342 @@
@@ -4351,7 +4348,7 @@ index 0000000..6d590fd
 +        return new hunter_botAI(pCreature);
 +    }
 +
-+    bool OnGossipHello(Player *player, Creature *creature)
++    bool OnGossipHello(Player *player, Creature * /*creature*/)
 +    {
 +        player->CLOSE_GOSSIP_MENU();
 +        return true;
@@ -4586,7 +4583,7 @@ index 0000000..6d590fd
 +            doCast(opponent, AUTO_SHOT);
 +        }
 +
-+        void DoNonCombatActions(const uint32 diff)
++        void DoNonCombatActions(const uint32 /*diff*/)
 +        {
 +            //if (ASPECT_OF_THE_DRAGONHAWK && 
 +            //    !HasAuraName(me, "Aspect of the Dragonhawk") && 
@@ -4683,7 +4680,7 @@ index 0000000..6d590fd
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_mage_ai.cpp b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 new file mode 100644
-index 0000000..112fa2d
+index 0000000..540a34b
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 @@ -0,0 +1,807 @@
@@ -4703,7 +4700,7 @@ index 0000000..112fa2d
 +        return new mage_botAI(pCreature);
 +    }
 +
-+    bool OnGossipHello(Player *player, Creature *creature)
++    bool OnGossipHello(Player *player, Creature * /*creature*/)
 +    {
 +        player->CLOSE_GOSSIP_MENU();
 +        return true;
@@ -5496,7 +5493,7 @@ index 0000000..112fa2d
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 new file mode 100644
-index 0000000..19a713e
+index 0000000..5b0bcfc
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 @@ -0,0 +1,958 @@
@@ -5517,7 +5514,7 @@ index 0000000..19a713e
 +        return new paladin_botAI(pCreature);
 +    }
 +
-+    bool OnGossipHello(Player *player, Creature *creature)
++    bool OnGossipHello(Player *player, Creature * /*creature*/)
 +    {
 +        player->CLOSE_GOSSIP_MENU();
 +        return true;
@@ -6460,7 +6457,7 @@ index 0000000..19a713e
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_priest_ai.cpp b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 new file mode 100644
-index 0000000..5056ddc
+index 0000000..c7e6ebf
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 @@ -0,0 +1,858 @@
@@ -6480,7 +6477,7 @@ index 0000000..5056ddc
 +        return new priest_botAI(pCreature);
 +    }
 +
-+    bool OnGossipHello(Player *player, Creature *creature)
++    bool OnGossipHello(Player *player, Creature * /*creature*/)
 +    {
 +        player->CLOSE_GOSSIP_MENU();
 +        return true;
@@ -7324,7 +7321,7 @@ index 0000000..5056ddc
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_rogue_ai.cpp b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 new file mode 100644
-index 0000000..6bee3bd
+index 0000000..5cbe379
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 @@ -0,0 +1,356 @@
@@ -7340,7 +7337,7 @@ index 0000000..6bee3bd
 +        return new rogue_botAI(pCreature);
 +    }
 +
-+    bool OnGossipHello(Player *player, Creature *creature)
++    bool OnGossipHello(Player *player, Creature * /*creature*/)
 +    {
 +        player->CLOSE_GOSSIP_MENU();
 +        return true;
@@ -7686,7 +7683,7 @@ index 0000000..6bee3bd
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_shaman_ai.cpp b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 new file mode 100644
-index 0000000..ee7569a
+index 0000000..885e9aa
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 @@ -0,0 +1,288 @@
@@ -7702,7 +7699,7 @@ index 0000000..ee7569a
 +        return new shaman_botAI(pCreature);
 +    }
 +
-+    bool OnGossipHello(Player *player, Creature *creature)
++    bool OnGossipHello(Player *player, Creature * /*creature*/)
 +    {
 +        player->CLOSE_GOSSIP_MENU();
 +        return true;
@@ -7980,7 +7977,7 @@ index 0000000..ee7569a
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warlock_ai.cpp b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 new file mode 100644
-index 0000000..710344b
+index 0000000..d1b2b5e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 @@ -0,0 +1,329 @@
@@ -7996,7 +7993,7 @@ index 0000000..710344b
 +        return new warlock_botAI(pCreature);
 +    }
 +
-+    bool OnGossipHello(Player *player, Creature *creature)
++    bool OnGossipHello(Player *player, Creature * /*creature*/)
 +    {
 +        player->CLOSE_GOSSIP_MENU();
 +        return true;
@@ -8315,7 +8312,7 @@ index 0000000..710344b
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warrior_ai.cpp b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 new file mode 100644
-index 0000000..dfa82ef
+index 0000000..b797d52
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 @@ -0,0 +1,1131 @@
@@ -8336,7 +8333,7 @@ index 0000000..dfa82ef
 +        return new warrior_botAI(pCreature);
 +    }
 +
-+    bool OnGossipHello(Player *player, Creature *creature)
++    bool OnGossipHello(Player *player, Creature * /*creature*/)
 +    {
 +        player->CLOSE_GOSSIP_MENU();
 +        return true;
