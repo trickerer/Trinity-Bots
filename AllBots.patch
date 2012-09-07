@@ -1,24 +1,24 @@
-From cea1c9f4d3563491b3dc1a2cc8a6a761d6cf42d8 Mon Sep 17 00:00:00 2001
+From 10351029a847db74dcb68320449ab734867269ef Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Sun, 2 Sep 2012 11:39:34 +0700
+Date: Fri, 7 Sep 2012 23:14:25 +0700
 Subject: [PATCH] AllBots
 
 ---
  sql/Bots/character_NPC_bots.sql                    |   10 +
  sql/Bots/world.bots.sql                            |  283 +
  sql/Bots/world.script_bot_giver.sql                |    7 +
- src/server/game/AI/NpcBots/bot_ai.cpp              | 2131 ++++
- src/server/game/AI/NpcBots/bot_ai.h                |  663 ++
- src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1097 ++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 2168 ++++
+ src/server/game/AI/NpcBots/bot_ai.h                |  666 ++
+ src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1092 ++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  342 +
- src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  807 ++
- src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  958 ++
- src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  858 ++
+ src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  803 ++
+ src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  955 ++
+ src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  854 ++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  356 +
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  288 +
- src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  329 +
- src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1131 ++
- src/server/game/AI/NpcBots/botcommands.cpp         |  771 ++
+ src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  325 +
+ src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1132 ++
+ src/server/game/AI/NpcBots/botcommands.cpp         |  788 ++
  src/server/game/AI/NpcBots/botgiver.cpp            |  286 +
  src/server/game/AI/PlayerBots/PlayerbotAI.cpp      |11974 ++++++++++++++++++++
  src/server/game/AI/PlayerBots/PlayerbotAI.h        | 2113 ++++
@@ -60,7 +60,7 @@ Subject: [PATCH] AllBots
  src/server/game/Server/WorldSession.h              |   36 +
  src/server/scripts/Spells/spell_priest.cpp         |    4 +
  src/server/worldserver/worldserver.conf.dist       |  188 +
- 56 files changed, 32563 insertions(+), 0 deletions(-)
+ 56 files changed, 32601 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -421,10 +421,10 @@ index 0000000..5b00cdc
 +
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..64e809b
+index 0000000..f84b4e5
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,2131 @@
+@@ -0,0 +1,2168 @@
 +#include "bot_ai.h"
 +#include "Config.h"
 +#include "Chat.h"
@@ -525,7 +525,7 @@ index 0000000..64e809b
 +        angle = myangle;
 +    mydist += followdist > 10 ? float(followdist - 10)/4.f : 0;
 +    angle += followTarget->GetOrientation();
-+    float x,y,z;
++    float x(0),y(0),z(0);
 +    float size = me->GetObjectSize()/3.f;
 +    bool over = false;
 +    for (uint8 i = 0; i != 5 + over; ++i)
@@ -1462,7 +1462,7 @@ index 0000000..64e809b
 +//GETTARGET
 +//Returns attack target or 'no target'
 +//uses follow distance if range isn't set
-+Unit *bot_ai::getTarget(bool byspell, bool ranged) const
++Unit *bot_ai::getTarget(bool byspell, bool ranged, bool &reset) const
 +{
 +    //check if no need to change target
 +    Unit *u = master->GetPlayerbotAI() ? master->GetSession()->m_master->getVictim() : master->getVictim();
@@ -1490,8 +1490,8 @@ index 0000000..64e809b
 +    if (CanBotAttack(mytar, byspell) && !InDuel(mytar))
 +    {
 +        //sLog->outError(LOG_FILTER_PLAYER, "bot %s continues attack opponent %s", me->GetName(), opponent->GetName());
-+        //if (me->GetDistance(mytar) > (ranged ? 20.f : 5.f) && m_botCommandState != COMMAND_STAY && m_botCommandState != COMMAND_FOLLOW)
-+        //    const_cast<CommandStates>(m_botCommandState) = COMMAND_ABANDON;
++        if (me->GetDistance(opponent) > (ranged ? 20.f : 5.f) && m_botCommandState != COMMAND_STAY && m_botCommandState != COMMAND_FOLLOW)
++            reset = true;
 +        return mytar;
 +    }
 +
@@ -1574,25 +1574,62 @@ index 0000000..64e809b
 +        }
 +    }
 +
-+    //if (t && opponent && t != opponent)
-+    //{
-+    //    //sLog->outError(LOG_FILTER_PLAYER, "bot %s has Found new target %s", me->GetName(), t->GetName());
-+    //    const_cast<CommandStates>(m_botCommandState) = COMMAND_ABANDON;//reset StartAttack()
-+    //}
++    if (t && opponent && t != opponent)
++    {
++        //sLog->outError(LOG_FILTER_PLAYER, "bot %s has Found new target %s", me->GetName(), t->GetName());
++        reset = true;
++    }
 +    return t;
++}
++//'CanAttack' function
++bool bot_ai::CheckAttackTarget(uint8 myclass)
++{
++    bool byspell = false, ranged = false, reset = false;
++    switch (myclass)
++    {
++    case CLASS_DRUID:
++        byspell = me->GetShapeshiftForm() == FORM_NONE || 
++            me->GetShapeshiftForm() == FORM_TREE || 
++            me->GetShapeshiftForm() == FORM_MOONKIN;
++        ranged = byspell;
++        break;
++    case CLASS_PRIEST:
++    case CLASS_MAGE:
++    case CLASS_WARLOCK:
++    //case CLASS_SHAMAN:
++    //case CLASS_HUNTER:
++        byspell = true;
++        ranged = true;
++        break;
++    default:
++        break;
++    }
++
++    opponent = getTarget(byspell, ranged, reset);
++    if (!opponent)
++    {
++        me->AttackStop();
++        return false;
++    }
++
++    if (reset)
++        m_botCommandState = COMMAND_ABANDON;//reset AttackStart()
++
++    me->Attack(opponent, !ranged);
++    return true;
 +}
 +//POSITION
 +void bot_ai::CalculateAttackPos(Unit *target, Position &pos) const
 +{
 +    uint8 followdist = master->GetBotFollowDist();
-+    float x,y,z,
++    float x(0),y(0),z(0),
 +        dist = float(6 + urand(followdist/4, followdist/3)),
 +        angle = target->GetAngle(me);
 +    dist = std::min(dist, 20.f);
 +    float clockwise = RAND(1.f,-1.f);
 +    for (uint8 i = 0; i != 5; ++i)
 +    {
-+        target->GetNearPoint(me, x, y, z, me->GetObjectSize()/3.f, dist, angle);
++        target->GetNearPoint(me, x, y, z, me->GetObjectSize()/2.f, dist, angle);
 +        bool toofaraway = master->GetDistance(x,y,z) > (followdist > 30 ? 30.f : followdist < 20 ? 20.f : float(followdist));
 +        bool outoflos = !target->IsWithinLOS(x,y,z);
 +        if (toofaraway || outoflos)
@@ -1811,7 +1848,7 @@ index 0000000..64e809b
 +bool bot_ai::InDuel(Unit *target) const
 +{
 +    if (!target) return false;
-+    Player *player = target->GetTypeId() == TYPEID_PLAYER ? target->ToPlayer() : target->GetTypeId() == TYPEID_UNIT ? target->ToCreature()->GetBotOwner() : NULL;
++    Player *player = target->GetTypeId() == TYPEID_PLAYER ? target->ToPlayer() : target->GetTypeId() == TYPEID_UNIT && target->ToCreature()->GetIAmABot() ? target->ToCreature()->GetBotOwner() : NULL;
 +    if (!player)
 +    {
 +        if (!target->IsControlledByPlayer())
@@ -2559,10 +2596,10 @@ index 0000000..64e809b
 \ No newline at end of file
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..43eec1e
+index 0000000..29dea60
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,663 @@
+@@ -0,0 +1,666 @@
 +#include "ScriptedCreature.h"
 +#include "ScriptedGossip.h"
 +#include "Group.h"
@@ -2686,7 +2723,8 @@ index 0000000..43eec1e
 +                (me->isAlive() && (!me->isInCombat() || !opponent) && m_botCommandState != COMMAND_STAY))
 +                SetBotCommandState(COMMAND_FOLLOW, force, newpos);
 +        }
-+        Unit *getTarget(bool byspell = false, bool ranged = false) const;
++        Unit *getTarget(bool byspell, bool ranged, bool &reset) const;
++        bool CheckAttackTarget(uint8 myclass);
 +        //inline Creature *GetPet() { pet = petGuid != 0 ? sObjectAccessor->GetObjectInWorld(petGuid, (Creature*)NULL) : NULL; return pet; }
 +        //inline void SetPet(Creature *newpet) { petGuid = newpet ? newpet->GetGUID() : 0; pet = newpet; }
 +        void ApplyPassives(Classes m_class) const;
@@ -2703,14 +2741,16 @@ index 0000000..43eec1e
 +        {
 +            if (doHealth)
 +            {
-+                doHealth = false; _OnHealthUpdate(me->GetBotClass(), me->getRace(), master->getLevel());
++                doHealth = false;
++                _OnHealthUpdate(me->GetBotClass(), me->getRace(), master->getLevel());
 +            }
 +            if (doMana)
 +            {
-+                doMana = false; _OnManaUpdate(me->GetBotClass(), me->getRace(), master->getLevel());
++                doMana = false;
++                _OnManaUpdate(me->GetBotClass(), me->getRace(), master->getLevel());
 +            }
 +            CheckAuras(true);
-+            return (1 + (master->GetNpcBotsCount() - 1)/3);
++            return (1 + (master->GetNpcBotsCount() - 1)/3 + (irand(0,100) <= 50)*int8(RAND(-1,1)));
 +        }
 +        inline uint8 GetHaste() const { return haste; }
 +        inline uint16 Rand() const { return urand(0, 100 + (master->GetNpcBotsCount() - 1) * 10); }
@@ -3229,10 +3269,10 @@ index 0000000..43eec1e
 \ No newline at end of file
 diff --git a/src/server/game/AI/NpcBots/bot_druid_ai.cpp b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 new file mode 100644
-index 0000000..8c3b428
+index 0000000..f394be0
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
-@@ -0,0 +1,1097 @@
+@@ -0,0 +1,1092 @@
 +#include "bot_ai.h"
 +/*
 +Druid NpcBot (reworked by Graff onlysuffering@mail.ru)
@@ -3449,7 +3489,8 @@ index 0000000..8c3b428
 +
 +            if (GetHealthPCT(me) < 75)
 +                HealTarget(me, GetHealthPCT(me), diff);
-+            if (opponent = me->getVictim())
++            opponent = me->getVictim();
++            if (opponent)
 +                StartAttack(opponent, true);
 +            else
 +                return;
@@ -3472,14 +3513,16 @@ index 0000000..8c3b428
 +        {
 +            if (GetHealthPCT(me) < 75)
 +                HealTarget(me, GetHealthPCT(me), diff);
-+            if (opponent = me->getVictim())
++            opponent = me->getVictim();
++            if (opponent)
 +                StartAttack(opponent, true);
 +            else
 +                return;
 +            uint32 energy = me->GetPower(POWER_ENERGY);
 +
 +            if (MoveBehind(*opponent))
-+            { wait = 5; return; }
++                wait = 5;
++            //{ wait = 5; return; }
 +
 +            //range check (melee) to prevent fake casts
 +            if (me->GetDistance(opponent) > 5) return;
@@ -3499,7 +3542,8 @@ index 0000000..8c3b428
 +        void doBalanceActions(const uint32 diff)
 +        {
 +            removeFeralForm(true, true);
-+            if (opponent = me->getVictim())
++            opponent = me->getVictim();
++            if (opponent)
 +            {
 +                if (!IsCasting())
 +                    StartAttack(opponent);
@@ -3683,17 +3727,8 @@ index 0000000..8c3b428
 +            CureTarget(master, CURE_POISON, diff);
 +            CureGroup(master, CURE_POISON, diff);
 +
-+            bool melee = me->GetShapeshiftForm() != FORM_NONE && 
-+                me->GetShapeshiftForm() != FORM_TREE && 
-+                me->GetShapeshiftForm() != FORM_MOONKIN;
-+
-+            if (!(opponent = getTarget(!melee, !melee)))
-+            {
-+                me->AttackStop();
++            if (!CheckAttackTarget(CLASS_DRUID))
 +                return;
-+            }
-+            else
-+                me->Attack(opponent, melee);
 +
 +            if (GetHealthPCT(me) < 75)
 +            {
@@ -4680,10 +4715,10 @@ index 0000000..04fb08e
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_mage_ai.cpp b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 new file mode 100644
-index 0000000..540a34b
+index 0000000..3886437
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
-@@ -0,0 +1,807 @@
+@@ -0,0 +1,803 @@
 +#include "bot_ai.h"
 +/*
 +Mage NpcBot (reworked by Graff onlysuffering@mail.ru)
@@ -4866,13 +4901,8 @@ index 0000000..540a34b
 +            if (!me->isInCombat())
 +                DoNonCombatActions(diff);
 +            
-+            if (!(opponent = getTarget(true, true)))
-+            {
-+                me->AttackStop();
++            if (!CheckAttackTarget(CLASS_MAGE))
 +                return;
-+            }
-+            else
-+                me->Attack(opponent, false);
 +
 +            CheckPoly2();//this should go AFTER getting opponent
 +
@@ -4883,7 +4913,8 @@ index 0000000..540a34b
 +
 +        void DoNormalAttack(const uint32 diff)
 +        {
-+            if (opponent = me->getVictim())
++            opponent = me->getVictim();
++            if (opponent)
 +            {
 +                if (!IsCasting())
 +                    StartAttack(opponent);
@@ -5493,10 +5524,10 @@ index 0000000..540a34b
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 new file mode 100644
-index 0000000..5b0bcfc
+index 0000000..3c7805c
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
-@@ -0,0 +1,958 @@
+@@ -0,0 +1,955 @@
 +#include "bot_ai.h"
 +#include "SpellAuraEffects.h"
 +/*
@@ -5912,13 +5943,8 @@ index 0000000..5b0bcfc
 +            if (GetHealthPCT(me) < 80)
 +                HealTarget(me, GetHealthPCT(me), diff);
 +
-+            if (!(opponent = getTarget()))
-+            {
-+                me->AttackStop();
++            if (!CheckAttackTarget(CLASS_PALADIN))
 +                return;
-+            }
-+            else
-+                me->Attack(opponent, true);
 +
 +            Repentance(diff);
 +            Counter(diff);
@@ -6118,7 +6144,8 @@ index 0000000..5b0bcfc
 +
 +        void DoNormalAttack(const uint32 diff)
 +        {
-+            if (opponent = me->getVictim())
++            opponent = me->getVictim();
++            if (opponent)
 +            {
 +                if (!IsCasting())
 +                    StartAttack(opponent, true);
@@ -6130,7 +6157,8 @@ index 0000000..5b0bcfc
 +            TurnEvil(diff);
 +
 +            if (MoveBehind(*opponent))
-+            { wait = 5; return; }
++                wait = 5;
++            //{ wait = 5; return; }
 +
 +            if (HOW && HOW_Timer <= diff && GC_Timer <= diff && Rand() < 50 && GetHealthPCT(opponent) < 20 && 
 +                me->GetExactDist(opponent) < 30)
@@ -6457,10 +6485,10 @@ index 0000000..5b0bcfc
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_priest_ai.cpp b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 new file mode 100644
-index 0000000..c7e6ebf
+index 0000000..8cb92a8
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
-@@ -0,0 +1,858 @@
+@@ -0,0 +1,854 @@
 +#include "bot_ai.h"
 +/*
 +Priest NpcBot (reworked by Graff onlysuffering@mail.ru)
@@ -6681,13 +6709,8 @@ index 0000000..c7e6ebf
 +            if (!me->isInCombat())
 +                DoNonCombatActions(diff);
 +
-+            if (!(opponent = getTarget(true, true)))
-+            {
-+                me->AttackStop();
++            if (!CheckAttackTarget(CLASS_PRIEST))
 +                return;
-+            }
-+            else
-+                me->Attack(opponent, false);
 +
 +            AttackerSet m_attackers = master->getAttackers();
 +            AttackerSet b_attackers = me->getAttackers();
@@ -6697,7 +6720,8 @@ index 0000000..c7e6ebf
 +                !IsCasting())
 +                //general rule
 +            {
-+                if (opponent = me->getVictim())
++                opponent = me->getVictim();
++                if (opponent)
 +                {
 +                    if (!IsCasting())
 +                        StartAttack(opponent);
@@ -7977,10 +8001,10 @@ index 0000000..885e9aa
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warlock_ai.cpp b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 new file mode 100644
-index 0000000..d1b2b5e
+index 0000000..7229eeb
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
-@@ -0,0 +1,329 @@
+@@ -0,0 +1,325 @@
 +#include "bot_ai.h"
 +
 +class warlock_bot : public CreatureScript
@@ -8100,20 +8124,16 @@ index 0000000..d1b2b5e
 +            if (!me->isInCombat())
 +                DoNonCombatActions();
 +
-+            if (!(opponent = getTarget(true, true)))
-+            {
-+                me->AttackStop();
++            if (!CheckAttackTarget(CLASS_WARLOCK))
 +                return;
-+            }
-+            else
-+                me->Attack(opponent, false);
 +
 +            DoNormalAttack(diff);
 +        }
 +
 +        void DoNormalAttack(const uint32 diff)
 +        {
-+            if (opponent = me->getVictim())
++            opponent = me->getVictim();
++            if (opponent)
 +            {
 +                if (!IsCasting())
 +                    StartAttack(opponent);
@@ -8312,10 +8332,10 @@ index 0000000..d1b2b5e
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warrior_ai.cpp b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 new file mode 100644
-index 0000000..b797d52
+index 0000000..09e5857
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
-@@ -0,0 +1,1131 @@
+@@ -0,0 +1,1132 @@
 +#include "bot_ai.h"
 +#include "SpellAuraEffects.h"
 +/*
@@ -8424,15 +8444,12 @@ index 0000000..b797d52
 +            if (!me->isInCombat())
 +                DoNonCombatActions(diff);
 +
-+            if (!(opponent = getTarget()))
++            if (!CheckAttackTarget(CLASS_WARRIOR))
 +            {
 +                if (tank != me && !me->isInCombat() && battleStance != true && master->getAttackers().empty() && stancetimer <= diff)
 +                    stanceChange(diff, 1);
-+                me->AttackStop();
 +                return;
 +            }
-+            else
-+                me->Attack(opponent, true);
 +
 +            if (Rand() < 30 && battleShout_cd <= diff && GC_Timer <= diff && getrage() > 100 && 
 +                !HasAuraName(master, BATTLESHOUT) && 
@@ -8535,7 +8552,8 @@ index 0000000..b797d52
 +
 +        void Attack(const uint32 diff)
 +        {
-+            if (opponent = me->getVictim())
++            opponent = me->getVictim();
++            if (opponent)
 +            {
 +                if (!IsCasting())
 +                    StartAttack(opponent, true);
@@ -8685,26 +8703,29 @@ index 0000000..b797d52
 +                }
 +            }//end FEAR
 +            //OVERPOWER
-+            bool blood = false;
-+            if (OVERPOWER && getrage() > 50 && meleedist <= 5 && GC_Timer <= diff && (battleStance == true || stancetimer <= diff) &&
-+                (((opponent->GetTypeId() == TYPEID_PLAYER && UNRELENTING_ASSAULT && me->HasAura(TASTE_FOR_BLOOD_BUFF) && opponent->IsNonMeleeSpellCasted(false) && overpower_cd <= 3000) || 
-+                (opponent->IsNonMeleeSpellCasted(false) && (blood = me->HasAura(TASTE_FOR_BLOOD_BUFF))) || 
-+                (overpower_cd <= diff && me->HasAura(TASTE_FOR_BLOOD_BUFF)))))
++            if (OVERPOWER && getrage() > 50 && meleedist <= 5 && GC_Timer <= diff && (battleStance == true || stancetimer <= diff))
 +            {
-+                if (battleStance == true || stanceChange(diff, 1))
++                bool blood = me->HasAura(TASTE_FOR_BLOOD_BUFF);
++                if ((((opponent->GetTypeId() == TYPEID_PLAYER && UNRELENTING_ASSAULT && me->HasAura(TASTE_FOR_BLOOD_BUFF) && opponent->IsNonMeleeSpellCasted(false) && overpower_cd <= 3000) || 
++                    (opponent->IsNonMeleeSpellCasted(false) && blood) || 
++                    (overpower_cd <= diff && me->HasAura(TASTE_FOR_BLOOD_BUFF)))))
 +                {
-+                    if (doCast(opponent, OVERPOWER))
++                    if (battleStance == true || stanceChange(diff, 1))
 +                    {
-+                        overpower_cd = 5000;
-+                        if (blood)
-+                            me->RemoveAura(TASTE_FOR_BLOOD_BUFF);
-+                        return;
++                        if (doCast(opponent, OVERPOWER))
++                        {
++                            overpower_cd = 5000;
++                            if (blood)
++                                me->RemoveAura(TASTE_FOR_BLOOD_BUFF);
++                            return;
++                        }
 +                    }
 +                }
 +            }
 +
 +            if (MoveBehind(*opponent))
-+            { wait = 5; return; }
++                wait = 5;
++            //{ wait = 5; return; }
 +            //HAMSTRING
 +            if (HAMSTRING && Rand() < 50 && getrage() > 100 && GC_Timer <= diff && meleedist <= 5 && opponent->isMoving() && 
 +                (battleStance == true || berserkerStance == true || stancetimer <= diff) && 
@@ -9449,10 +9470,10 @@ index 0000000..b797d52
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 0000000..7b98da6
+index 0000000..32b7922
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
-@@ -0,0 +1,771 @@
+@@ -0,0 +1,788 @@
 +/*
 +Name: script_bot_commands
 +%Complete: ???
@@ -9589,6 +9610,7 @@ index 0000000..7b98da6
 +            }
 +            else
 +            {
++                guid = sObjectMgr->GetPlayerGUIDByName(charnameStr.c_str());
 +                if (player->GetSession()->GetPlayerBot(guid) != NULL)
 +                {
 +                    handler->PSendSysMessage("Bot already exists in world.");
@@ -9618,6 +9640,7 @@ index 0000000..7b98da6
 +            }
 +            else
 +            {
++                guid = sObjectMgr->GetPlayerGUIDByName(charnameStr.c_str());
 +                if (!handler->GetSession()->GetPlayerBot(guid))
 +                {
 +                    handler->PSendSysMessage("Bot can not be removed because bot does not exist in world.");
@@ -9633,7 +9656,7 @@ index 0000000..7b98da6
 +        {
 +            Unit *target = NULL;
 +            char *orderChar = strtok(NULL, " ");
-+            if (!orderChar)
++            if (!orderChar || handler->GetSession()->m_playerBots.empty())
 +            {
 +                handler->PSendSysMessage("|cffff0000Syntax error:|cffffffff .bot co <botName> <order=reset|tank|assist|heal|protect> [targetPlayer]");
 +                handler->SetSentErrorMessage(true);
@@ -9663,15 +9686,17 @@ index 0000000..7b98da6
 +                    return false;
 +                }
 +            }
-+            if (handler->GetSession()->GetPlayerBot(guid) == NULL)
-+            {
-+                handler->PSendSysMessage("|cffff0000Bot can not receive combat order because bot does not exist in world.");
-+                handler->SetSentErrorMessage(true);
-+                return false;
-+            }
++            //if (handler->GetSession()->GetPlayerBot(guid) == NULL)
++            //{
++            //    handler->PSendSysMessage("|cffff0000Bot can not receive combat order because bot does not exist in world.");
++            //    handler->SetSentErrorMessage(true);
++            //    return false;
++            //}
 +            //if (mgr)
-+            if (Player *bot = handler->GetSession()->GetPlayerBot(guid))
-+                bot->GetPlayerbotAI()->SetCombatOrderByStr(orderStr, target);
++            PlayerBotMap::const_iterator itr;
++            for (itr = handler->GetSession()->GetPlayerBotsBegin(); itr != handler->GetSession()->GetPlayerBotsEnd(); ++itr)
++                if (Player *bot = sObjectAccessor->GetPlayer(*player, itr->first))
++                    bot->GetPlayerbotAI()->SetCombatOrderByStr(orderStr, target);
 +        }
 +        return true;
 +    }
@@ -10095,16 +10120,29 @@ index 0000000..7b98da6
 +    //For debug purposes only
 +    static bool HandleNpcBotReviveCommand(ChatHandler* handler, const char* /*args*/)
 +    {
-+        Player* owner = handler->GetSession()->GetPlayer();
-+        if (owner->GetSession()->GetSecurity() == SEC_PLAYER)
++        if (handler->GetSession()->GetSecurity() == SEC_PLAYER)
 +        {
 +            handler->PSendSysMessage("Revive command is disabled");
 +            handler->SetSentErrorMessage(true);
 +            return false;
 +        }
++
++        Player* owner = handler->GetSession()->GetPlayer();
 +        if (owner->InBattleground())
 +        {
 +            handler->PSendSysMessage("Bot revival is disabled in pvp matches");
++            handler->SetSentErrorMessage(true);
++            return false;
++        }
++        if (owner->isInCombat())
++        {
++            handler->PSendSysMessage("Bot revival is disabled in combat");
++            handler->SetSentErrorMessage(true);
++            return false;
++        }
++        if (owner->isInFlight())
++        {
++            handler->PSendSysMessage("Bot revival is disabled in flight");
 +            handler->SetSentErrorMessage(true);
 +            return false;
 +        }
