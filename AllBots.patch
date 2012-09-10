@@ -1,23 +1,23 @@
-From b0c2292589a830f5c164072ca67df711856030ee Mon Sep 17 00:00:00 2001
+From 0fff073e6b9dd699cc9495215e5f6204ab3777ae Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Mon, 10 Sep 2012 18:47:07 +0700
+Date: Mon, 10 Sep 2012 18:49:20 +0700
 Subject: [PATCH] AllBots
 
 ---
  sql/Bots/character_NPC_bots.sql                    |   10 +
  sql/Bots/world.bots.sql                            |  283 +
  sql/Bots/world.script_bot_giver.sql                |    7 +
- src/server/game/AI/NpcBots/bot_ai.cpp              | 2168 ++++
- src/server/game/AI/NpcBots/bot_ai.h                |  666 ++
- src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1092 ++
- src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  342 +
- src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  803 ++
- src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  955 ++
- src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  854 ++
- src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  356 +
- src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  288 +
- src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  325 +
- src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1132 ++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 2237 ++++
+ src/server/game/AI/NpcBots/bot_ai.h                |  671 ++
+ src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1097 ++
+ src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  347 +
+ src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  874 ++
+ src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  960 ++
+ src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  859 ++
+ src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  361 +
+ src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  293 +
+ src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  330 +
+ src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1137 ++
  src/server/game/AI/NpcBots/botcommands.cpp         |  797 ++
  src/server/game/AI/NpcBots/botgiver.cpp            |  285 +
  src/server/game/AI/PlayerBots/PlayerbotAI.cpp      |11974 ++++++++++++++++++++
@@ -60,7 +60,7 @@ Subject: [PATCH] AllBots
  src/server/game/Server/WorldSession.h              |   36 +
  src/server/scripts/Spells/spell_priest.cpp         |    4 +
  src/server/worldserver/worldserver.conf.dist       |  188 +
- 56 files changed, 32609 insertions(+), 0 deletions(-)
+ 56 files changed, 32794 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -421,10 +421,10 @@ index 0000000..5b00cdc
 +
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..f84b4e5
+index 0000000..878dbc3
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,2168 @@
+@@ -0,0 +1,2237 @@
 +#include "bot_ai.h"
 +#include "Config.h"
 +#include "Chat.h"
@@ -478,6 +478,7 @@ index 0000000..f84b4e5
 +    pos.m_positionX = 0.f;
 +    pos.m_positionY = 0.f;
 +    pos.m_positionZ = 0.f;
++    aftercastTargetGuid = 0;
 +    dmgmult_melee = ConfigMgr::GetFloatDefault("Bot.DamageMult.Melee", 1.0);
 +    dmgmult_spell = ConfigMgr::GetFloatDefault("Bot.DamageMult.Spell", 1.0);
 +    dmgmult_melee = std::max(dmgmult_melee, 0.01f);
@@ -2205,13 +2206,15 @@ index 0000000..f84b4e5
 +//////////
 +//Internal
 +//////////
-+uint32 bot_ai::InitSpell(uint32 spell) const
++uint32 bot_ai::InitSpell(Creature *caster, uint32 spell)
 +{
-+    uint8 lvl = me->getLevel();
++    if (!caster->GetIAmABot() || !caster->GetBotOwner())
++        return 0;
++    uint8 lvl = caster->getLevel();
 +    SpellInfo const* info = sSpellMgr->GetSpellInfo(spell);
 +    if (!info)
 +    {
-+        sLog->outError(LOG_FILTER_PLAYER, "Bot %s (owner: %s) failed to init spell %u! No spell info found!", me->GetName(), master->GetName(), spell);
++        sLog->outError(LOG_FILTER_PLAYER, "Bot %s (owner: %s) failed to init spell %u! No spell info found!", caster->GetName(), caster->GetBotOwner()->GetName(), spell);
 +        return 0;//weird spell with no info, disable it
 +    }
 +
@@ -2223,7 +2226,7 @@ index 0000000..f84b4e5
 +        if (lvl < spInfo->BaseLevel)
 +            return spell;//cannot use next rank, use this one
 +        else
-+            return InitSpell(spInfo->Id);//can use next rank, forward check
++            return InitSpell(caster, spInfo->Id);//can use next rank, forward check
 +    }
 +
 +    return spell;//max rank, use this
@@ -2549,9 +2552,7 @@ index 0000000..f84b4e5
 +        return;
 +    }
 +}
-+//////////////
-+//OnTriggered
-+//////////////
++
 +void bot_ai::OnSpellHit(Unit* /*caster*/, SpellInfo const* spell)
 +{
 +    for (uint8 i = 0; i != MAX_SPELL_EFFECTS; ++i)
@@ -2593,13 +2594,81 @@ index 0000000..f84b4e5
 +    if (damage && dmgmult_spell != 1.0)
 +        damage = float(damage) * dmgmult_spell;
 +}
++
++bool bot_ai::OnGossipHello(Player *player, Creature *creature)
++{
++    if (!creature->GetIAmABot())
++        return false;
++    uint32 const botGossip = 2279; // "I live only to serve the master."
++    switch (creature->GetBotClass())
++    {
++    case CLASS_MAGE:
++        player->ADD_GOSSIP_ITEM(0, "I need food", 6001, GOSSIP_ACTION_INFO_DEF + 1);
++        player->PlayerTalkClass->SendGossipMenu(botGossip, creature->GetGUID());
++        break;
++    default:
++        player->CLOSE_GOSSIP_MENU();
++        break;
++    }
++    return true;
++}
++
++bool bot_ai::OnGossipSelect(Player *player, Creature *creature, uint32 sender, uint32 /*action*/)
++{
++    if (!IsInBotParty(player))
++    {
++        player->CLOSE_GOSSIP_MENU();
++        creature->MonsterWhisper("Get away from me!", player->GetGUID());
++        return false;
++    }
++    switch (creature->GetBotClass())
++    {
++    case CLASS_MAGE:
++        switch (sender)
++        {
++            case 6001:
++                // Conjure Food rank 1
++                uint32 const food = InitSpell(creature, 587);
++                if (!food)
++                {
++                    creature->MonsterWhisper("I can't conjure food yet!", player->GetGUID());
++                    player->PlayerTalkClass->ClearMenus();
++                    return OnGossipHello(player, creature);
++                }
++                player->CLOSE_GOSSIP_MENU();
++                SpellInfo const *Info = sSpellMgr->GetSpellInfo(food);
++                Spell *foodspell = new Spell(creature, Info, TRIGGERED_NONE, player->GetGUID());
++                SpellCastTargets targets;
++                targets.SetUnitTarget(player);
++                SpellCastResult result = creature->IsMounted() || CCed(creature) ? SPELL_FAILED_CUSTOM_ERROR : foodspell->CheckPetCast(player);
++                if (result != SPELL_CAST_OK)
++                {
++                    foodspell->finish(false);
++                    delete foodspell;
++                    creature->MonsterWhisper("I can't do it right now", player->GetGUID());
++                    creature->SendPetCastFail(food, result);
++                }
++                else
++                {
++                    aftercastTargetGuid = player->GetGUID();
++                    foodspell->prepare(&targets);
++                    creature->MonsterWhisper("Here you go...", player->GetGUID());
++                }
++                break;
++        }
++        break;
++    default:
++        break;
++    }
++    return true;
++}
 \ No newline at end of file
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..29dea60
+index 0000000..06dab29
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,666 @@
+@@ -0,0 +1,671 @@
 +#include "ScriptedCreature.h"
 +#include "ScriptedGossip.h"
 +#include "Group.h"
@@ -2609,7 +2678,7 @@ index 0000000..29dea60
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
-+enum Common
++enum CommonValues
 +{
 +//COMMON SPELLS
 +    MANAPOTION                          = 32453,
@@ -2641,12 +2710,12 @@ index 0000000..29dea60
 +    RCP      /*Rogue Class Passive*/    = 21184,//-27% threat caused
 +};
 +
-+enum HoverSpells
-+{
-+    LEVITATE                            = 1706,
-+    SLOW_FALL                           = 130,
-+    //WATER_WALKING                       = 546,
-+};
++//enum HoverSpells
++//{
++//    LEVITATE                            = 1706,
++//    SLOW_FALL                           = 130,
++//    //WATER_WALKING                       = 546,
++//};
 +
 +enum DruidStances//bot's temp set class
 +{
@@ -2668,6 +2737,8 @@ index 0000000..29dea60
 +        void ApplyBotDamageMultiplierSpell(int32 &damage) const;
 +        inline void UpdateHealth() { doHealth = true; }
 +        inline void SetBotTank(Unit *newtank) { tank = newtank; }
++        static bool OnGossipHello(Player *player, Creature *creature);
++        bool OnGossipSelect(Player *player, Creature *creature, uint32 sender, uint32 action);
 +
 +    protected:
 +        Player *master;
@@ -2762,17 +2833,20 @@ index 0000000..29dea60
 +            if (checkAurasTimer != 0)       --checkAurasTimer;
 +            if (wait != 0)                  --wait;
 +        }
-+        void OnSpellHit(Unit* /*caster*/, SpellInfo const* /*spell*/);
++        void OnSpellHit(Unit* caster, SpellInfo const* spell);
 +        inline void Evade() const { _OnEvade(); }
 +
 +        typedef std::set<Unit*> AttackerSet;
 +        void setStats(uint8 myclass, uint8 myrace, uint8 mylevel, bool force = false);
-+        uint32 InitSpell(uint32 spell) const;
++        static uint32 InitSpell(Creature *caster, uint32 spell);
 +
 +        Unit *tank;
 +        SpellInfo const *info;
 +        int32 cost, value;
 +        uint32 Potion_cd, GC_Timer, temptimer, checkAurasTimer, wait;
++
++        //aftercasts
++        uint64 aftercastTargetGuid;
 +
 +    private:
 +        static Unit *_GetBotGroupMainTank(Group *group);
@@ -3269,10 +3343,10 @@ index 0000000..29dea60
 \ No newline at end of file
 diff --git a/src/server/game/AI/NpcBots/bot_druid_ai.cpp b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 new file mode 100644
-index 0000000..f394be0
+index 0000000..7367132
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
-@@ -0,0 +1,1092 @@
+@@ -0,0 +1,1097 @@
 +#include "bot_ai.h"
 +/*
 +Druid NpcBot (reworked by Graff onlysuffering@mail.ru)
@@ -3289,10 +3363,15 @@ index 0000000..f394be0
 +        return new bot_druid_ai(pCreature);
 +    }
 +
-+    bool OnGossipHello(Player *player, Creature * /*creature*/)
++    bool OnGossipHello(Player *player, Creature *creature)
 +    {
-+        player->CLOSE_GOSSIP_MENU();
-+        return true;
++        return bot_ai::OnGossipHello(player, creature);
++    }
++
++    bool OnGossipSelect(Player *player, Creature *creature, uint32 sender, uint32 action)
++    {
++        bot_ai *myai = creature->GetBotAI();
++        return myai->OnGossipSelect(player, creature, sender, action);
 +    }
 +
 +    struct bot_druid_ai : public bot_ai
@@ -4187,37 +4266,37 @@ index 0000000..f394be0
 +        void InitSpells()
 +        {
 +            uint8 lvl = me->getLevel();
-+            MARK_OF_THE_WILD                        = InitSpell(MARK_OF_THE_WILD_1);
-+            THORNS                                  = InitSpell(THORNS_1);
-+            HEALING_TOUCH                           = InitSpell(HEALING_TOUCH_1);
-+            REGROWTH                                = InitSpell(REGROWTH_1);
-+            REJUVENATION                            = InitSpell(REJUVENATION_1);
-+            LIFEBLOOM                               = InitSpell(LIFEBLOOM_1);
-+            NOURISH                                 = InitSpell(NOURISH_1);
-+     /*tal*/WILD_GROWTH                 = lvl >= 60 ? InitSpell(WILD_GROWTH_1) : 0;
-+     /*tal*/SWIFTMEND                   = lvl >= 40 ? InitSpell(SWIFTMEND_1) : 0;
-+            TRANQUILITY                             = InitSpell(TRANQUILITY_1);
-+            REVIVE                                  = InitSpell(REVIVE_1);
-+            REBIRTH                                 = InitSpell(REBIRTH_1);
-+            BEAR_FORM                               = InitSpell(BEAR_FORM_1);
-+            SWIPE                                   = InitSpell(SWIPE_1);
-+     /*tal*/MANGLE_BEAR                 = lvl >= 50 ? InitSpell(MANGLE_BEAR_1) : 0;
-+            BASH                                    = InitSpell(BASH_1);
-+            CAT_FORM                                = InitSpell(CAT_FORM_1);
-+            CLAW                                    = InitSpell(CLAW_1);
-+            RAKE                                    = InitSpell(RAKE_1);
-+            SHRED                                   = InitSpell(SHRED_1);
-+            RIP                                     = InitSpell(RIP_1);
-+     /*tal*/MANGLE_CAT                  = lvl >= 50 ? InitSpell(MANGLE_CAT_1) : 0;
-+            MOONFIRE                                = InitSpell(MOONFIRE_1);
-+            STARFIRE                                = InitSpell(STARFIRE_1);
-+            WRATH                                   = InitSpell(WRATH_1);
-+            HURRICANE                               = InitSpell(HURRICANE_1);
-+            FAIRIE_FIRE                             = InitSpell(FAIRIE_FIRE_1);
-+            CURE_POISON                             = InitSpell(CURE_POISON_1);
-+            INNERVATE                               = InitSpell(INNERVATE_1);
-+            ENTANGLING_ROOTS                        = InitSpell(ENTANGLING_ROOTS_1);
-+     /*tal*/NATURES_SWIFTNESS           = lvl >= 30 ? InitSpell(NATURES_SWIFTNESS_1) : 0;
++            MARK_OF_THE_WILD                        = InitSpell(me, MARK_OF_THE_WILD_1);
++            THORNS                                  = InitSpell(me, THORNS_1);
++            HEALING_TOUCH                           = InitSpell(me, HEALING_TOUCH_1);
++            REGROWTH                                = InitSpell(me, REGROWTH_1);
++            REJUVENATION                            = InitSpell(me, REJUVENATION_1);
++            LIFEBLOOM                               = InitSpell(me, LIFEBLOOM_1);
++            NOURISH                                 = InitSpell(me, NOURISH_1);
++     /*tal*/WILD_GROWTH                 = lvl >= 60 ? InitSpell(me, WILD_GROWTH_1) : 0;
++     /*tal*/SWIFTMEND                   = lvl >= 40 ? InitSpell(me, SWIFTMEND_1) : 0;
++            TRANQUILITY                             = InitSpell(me, TRANQUILITY_1);
++            REVIVE                                  = InitSpell(me, REVIVE_1);
++            REBIRTH                                 = InitSpell(me, REBIRTH_1);
++            BEAR_FORM                               = InitSpell(me, BEAR_FORM_1);
++            SWIPE                                   = InitSpell(me, SWIPE_1);
++     /*tal*/MANGLE_BEAR                 = lvl >= 50 ? InitSpell(me, MANGLE_BEAR_1) : 0;
++            BASH                                    = InitSpell(me, BASH_1);
++            CAT_FORM                                = InitSpell(me, CAT_FORM_1);
++            CLAW                                    = InitSpell(me, CLAW_1);
++            RAKE                                    = InitSpell(me, RAKE_1);
++            SHRED                                   = InitSpell(me, SHRED_1);
++            RIP                                     = InitSpell(me, RIP_1);
++     /*tal*/MANGLE_CAT                  = lvl >= 50 ? InitSpell(me, MANGLE_CAT_1) : 0;
++            MOONFIRE                                = InitSpell(me, MOONFIRE_1);
++            STARFIRE                                = InitSpell(me, STARFIRE_1);
++            WRATH                                   = InitSpell(me, WRATH_1);
++            HURRICANE                               = InitSpell(me, HURRICANE_1);
++            FAIRIE_FIRE                             = InitSpell(me, FAIRIE_FIRE_1);
++            CURE_POISON                             = InitSpell(me, CURE_POISON_1);
++            INNERVATE                               = InitSpell(me, INNERVATE_1);
++            ENTANGLING_ROOTS                        = InitSpell(me, ENTANGLING_ROOTS_1);
++     /*tal*/NATURES_SWIFTNESS           = lvl >= 30 ? InitSpell(me, NATURES_SWIFTNESS_1) : 0;
 +            WARSTOMP                                = WARSTOMP_1;
 +        }
 +
@@ -4367,10 +4446,10 @@ index 0000000..f394be0
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_hunter_ai.cpp b/src/server/game/AI/NpcBots/bot_hunter_ai.cpp
 new file mode 100644
-index 0000000..04fb08e
+index 0000000..82b1d12
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_hunter_ai.cpp
-@@ -0,0 +1,342 @@
+@@ -0,0 +1,347 @@
 +#include "bot_ai.h"
 +
 +class hunter_bot : public CreatureScript
@@ -4383,10 +4462,15 @@ index 0000000..04fb08e
 +        return new hunter_botAI(pCreature);
 +    }
 +
-+    bool OnGossipHello(Player *player, Creature * /*creature*/)
++    bool OnGossipHello(Player *player, Creature *creature)
 +    {
-+        player->CLOSE_GOSSIP_MENU();
-+        return true;
++        return bot_ai::OnGossipHello(player, creature);
++    }
++
++    bool OnGossipSelect(Player *player, Creature *creature, uint32 sender, uint32 action)
++    {
++        bot_ai *myai = creature->GetBotAI();
++        return myai->OnGossipSelect(player, creature, sender, action);
 +    }
 +
 +    struct hunter_botAI : public bot_ai
@@ -4664,15 +4748,15 @@ index 0000000..04fb08e
 +        {
 +            uint8 lvl = me->getLevel();
 +            AUTO_SHOT                               = AUTO_SHOT_1;
-+            TRANQ_SHOT                              = InitSpell(TRANQ_SHOT_1);
-+            SCORPID_STING                           = InitSpell(SCORPID_STING_1);
-+            HUNTERS_MARK                            = InitSpell(HUNTERS_MARK_1);
-+            ARCANE_SHOT                             = InitSpell(ARCANE_SHOT_1);
++            TRANQ_SHOT                              = InitSpell(me, TRANQ_SHOT_1);
++            SCORPID_STING                           = InitSpell(me, SCORPID_STING_1);
++            HUNTERS_MARK                            = InitSpell(me, HUNTERS_MARK_1);
++            ARCANE_SHOT                             = InitSpell(me, ARCANE_SHOT_1);
 +            CHIMERA_SHOT                = lvl >= 60 ? CHIMERA_SHOT_1 : 0;
-+            AIMED_SHOT                  = lvl >= 20 ? InitSpell(AIMED_SHOT_1) : 0;
++            AIMED_SHOT                  = lvl >= 20 ? InitSpell(me, AIMED_SHOT_1) : 0;
 +            SILENCING_SHOT              = lvl >= 50 ? SILENCING_SHOT_1 : 0;
-+            ASPECT_OF_THE_DRAGONHAWK                = InitSpell(ASPECT_OF_THE_DRAGONHAWK_1);
-+            FEIGN_DEATH                             = InitSpell(FEIGN_DEATH_1);
++            ASPECT_OF_THE_DRAGONHAWK                = InitSpell(me, ASPECT_OF_THE_DRAGONHAWK_1);
++            FEIGN_DEATH                             = InitSpell(me, FEIGN_DEATH_1);
 +        }
 +
 +        void ApplyClassPassives()
@@ -4715,10 +4799,10 @@ index 0000000..04fb08e
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_mage_ai.cpp b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 new file mode 100644
-index 0000000..3886437
+index 0000000..5121398
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
-@@ -0,0 +1,803 @@
+@@ -0,0 +1,874 @@
 +#include "bot_ai.h"
 +/*
 +Mage NpcBot (reworked by Graff onlysuffering@mail.ru)
@@ -4735,10 +4819,15 @@ index 0000000..3886437
 +        return new mage_botAI(pCreature);
 +    }
 +
-+    bool OnGossipHello(Player *player, Creature * /*creature*/)
++    bool OnGossipHello(Player *player, Creature *creature)
 +    {
-+        player->CLOSE_GOSSIP_MENU();
-+        return true;
++        return bot_ai::OnGossipHello(player, creature);
++    }
++
++    bool OnGossipSelect(Player *player, Creature *creature, uint32 sender, uint32 action)
++    {
++        bot_ai *myai = creature->GetBotAI();
++        return myai->OnGossipSelect(player, creature, sender, action);
 +    }
 +
 +    struct mage_botAI : public bot_ai
@@ -5245,6 +5334,72 @@ index 0000000..3886437
 +            OnSpellHit(caster, spell);
 +        }
 +
++        void SpellHitTarget(Unit * /*target*/, SpellInfo const* spell)
++        {
++            if (aftercastTargetGuid == 0)
++                return;
++            //only players for now
++            if (!IS_PLAYER_GUID(aftercastTargetGuid))
++            {
++                aftercastTargetGuid = 0;
++                return;
++            }
++            Player *pTarget = sObjectAccessor->FindPlayer(aftercastTargetGuid);
++            aftercastTargetGuid = 0;
++            if (!pTarget/* || me->GetDistance(pTarget) > 15*/)
++                return;
++
++            //handle effects
++            for (uint8 i = 0; i != MAX_SPELL_EFFECTS; ++i)
++            {
++                switch (spell->Effects[i].Effect)
++                {
++                    case SPELL_EFFECT_CREATE_ITEM:
++                    case SPELL_EFFECT_CREATE_ITEM_2:
++                    {
++                        uint32 newitemid = spell->Effects[i].ItemType;
++                        if (newitemid)
++                        {
++                            ItemPosCountVec dest;
++                            ItemTemplate const* pProto = sObjectMgr->GetItemTemplate(newitemid);
++                            if (!pProto)
++                                return;
++                            uint32 count = pProto->GetMaxStackSize();
++                            uint32 no_space = 0;
++                            InventoryResult msg = pTarget->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, newitemid, count, &no_space);
++                            if (msg != EQUIP_ERR_OK)
++                            {
++                                if (msg == EQUIP_ERR_INVENTORY_FULL || msg == EQUIP_ERR_CANT_CARRY_MORE_OF_THIS)
++                                    count -= no_space;
++                                else
++                                {
++                                    // if not created by another reason from full inventory or unique items amount limitation
++                                    pTarget->SendEquipError(msg, NULL, NULL, newitemid);
++                                    continue;
++                                }
++                            }
++                            if (count)
++                            {
++                                Item* pItem = pTarget->StoreNewItem(dest, newitemid, true, Item::GenerateItemRandomPropertyId(newitemid));
++                                if (!pItem)
++                                {
++                                    pTarget->SendEquipError(EQUIP_ERR_ITEM_NOT_FOUND, NULL, NULL);
++                                    continue;
++                                }
++                                //unsafe possible
++                                pItem->SetUInt32Value(ITEM_FIELD_CREATOR, me->GetGUIDLow());
++
++                                pTarget->SendNewItem(pItem, count, true, false, true);
++                            }
++                        }
++                        break;
++                    }
++                    default:
++                        break;
++                }
++            }
++        }
++
 +        void Reset()
 +        {
 +            Pyroblast_cd = 0;
@@ -5302,31 +5457,31 @@ index 0000000..3886437
 +        void InitSpells()
 +        {
 +            uint8 lvl = me->getLevel();
-+            DAMPENMAGIC                             = InitSpell(DAMPENMAGIC_1);
-+            ARCANEINTELLECT                         = InitSpell(ARCANEINTELLECT_1);
-+            ARCANEMISSILES                          = InitSpell(ARCANEMISSILES_1); 
-+            POLYMORPH                               = InitSpell(POLYMORPH_1);
-+            COUNTERSPELL                            = InitSpell(COUNTERSPELL_1);
-+            SPELLSTEAL                              = InitSpell(SPELLSTEAL_1);
-+            EVOCATION                               = InitSpell(EVOCATION_1);
-+            BLINK                                   = InitSpell(BLINK_1);
-+            REMOVE_CURSE                            = InitSpell(REMOVE_CURSE_1);
-+            //INVISIBILITY                            = InitSpell(INVISIBILITY_1);
-+            FIREBALL                                = InitSpell(FIREBALL_1);
-+            BLASTWAVE                   = lvl >= 30 ? InitSpell(BLASTWAVE_1) : 0;
-+            DRAGONBREATH                = lvl >= 40 ? InitSpell(DRAGONBREATH_1) : 0;
-+            FIREBLAST                               = InitSpell(FIREBLAST_1);
-+            PYROBLAST                   = lvl >= 20 ? InitSpell(PYROBLAST_1) : 0;
-+            LIVINGBOMB                  = lvl >= 60 ? InitSpell(LIVINGBOMB_1) : 0;
-+            FLAMESTRIKE                             = InitSpell(DAMPENMAGIC_1);
++            DAMPENMAGIC                             = InitSpell(me, DAMPENMAGIC_1);
++            ARCANEINTELLECT                         = InitSpell(me, ARCANEINTELLECT_1);
++            ARCANEMISSILES                          = InitSpell(me, ARCANEMISSILES_1); 
++            POLYMORPH                               = InitSpell(me, POLYMORPH_1);
++            COUNTERSPELL                            = InitSpell(me, COUNTERSPELL_1);
++            SPELLSTEAL                              = InitSpell(me, SPELLSTEAL_1);
++            EVOCATION                               = InitSpell(me, EVOCATION_1);
++            BLINK                                   = InitSpell(me, BLINK_1);
++            REMOVE_CURSE                            = InitSpell(me, REMOVE_CURSE_1);
++            //INVISIBILITY                            = InitSpell(me, INVISIBILITY_1);
++            FIREBALL                                = InitSpell(me, FIREBALL_1);
++            BLASTWAVE                   = lvl >= 30 ? InitSpell(me, BLASTWAVE_1) : 0;
++            DRAGONBREATH                = lvl >= 40 ? InitSpell(me, DRAGONBREATH_1) : 0;
++            FIREBLAST                               = InitSpell(me, FIREBLAST_1);
++            PYROBLAST                   = lvl >= 20 ? InitSpell(me, PYROBLAST_1) : 0;
++            LIVINGBOMB                  = lvl >= 60 ? InitSpell(me, LIVINGBOMB_1) : 0;
++            FLAMESTRIKE                             = InitSpell(me, DAMPENMAGIC_1);
 +            COMBUSTION                  = lvl >= 50 ? COMBUSTION_1 : 0;
-+            FROSTBOLT                               = InitSpell(FROSTBOLT_1);
-+            FROSTNOVA                               = InitSpell(FROSTNOVA_1);
-+            CONEOFCOLD                              = InitSpell(CONEOFCOLD_1);
-+            BLIZZARD                                = InitSpell(BLIZZARD_1);
-+            ICEARMOR                    = lvl >= 20 ? InitSpell(ICEARMOR_1) : InitSpell(FROSTARMOR_1);
-+            ICE_BARRIER                 = lvl >= 40 ? InitSpell(ICE_BARRIER_1) : 0;
-+            ICEBLOCK                                = InitSpell(ICEBLOCK_1);
++            FROSTBOLT                               = InitSpell(me, FROSTBOLT_1);
++            FROSTNOVA                               = InitSpell(me, FROSTNOVA_1);
++            CONEOFCOLD                              = InitSpell(me, CONEOFCOLD_1);
++            BLIZZARD                                = InitSpell(me, BLIZZARD_1);
++            ICEARMOR                    = lvl >= 20 ? InitSpell(me, ICEARMOR_1) : InitSpell(me, FROSTARMOR_1);
++            ICE_BARRIER                 = lvl >= 40 ? InitSpell(me, ICE_BARRIER_1) : 0;
++            ICEBLOCK                                = InitSpell(me, ICEBLOCK_1);
 +            FOCUSMAGIC                  = lvl >= 20 ? FOCUSMAGIC_1 : 0;
 +        }
 +
@@ -5524,10 +5679,10 @@ index 0000000..3886437
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 new file mode 100644
-index 0000000..3c7805c
+index 0000000..bdb72b0
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
-@@ -0,0 +1,955 @@
+@@ -0,0 +1,960 @@
 +#include "bot_ai.h"
 +#include "SpellAuraEffects.h"
 +/*
@@ -5545,10 +5700,15 @@ index 0000000..3c7805c
 +        return new paladin_botAI(pCreature);
 +    }
 +
-+    bool OnGossipHello(Player *player, Creature * /*creature*/)
++    bool OnGossipHello(Player *player, Creature *creature)
 +    {
-+        player->CLOSE_GOSSIP_MENU();
-+        return true;
++        return bot_ai::OnGossipHello(player, creature);
++    }
++
++    bool OnGossipSelect(Player *player, Creature *creature, uint32 sender, uint32 action)
++    {
++        bot_ai *myai = creature->GetBotAI();
++        return myai->OnGossipSelect(player, creature, sender, action);
 +    }
 +
 +    struct paladin_botAI : public bot_ai
@@ -6284,36 +6444,36 @@ index 0000000..3c7805c
 +        void InitSpells()
 +        {
 +            uint8 lvl = me->getLevel();
-+            FLASH_OF_LIGHT                          = InitSpell(FLASH_OF_LIGHT_1);
-+            HOLY_LIGHT                              = InitSpell(HOLY_LIGHT_1);
-+            LAY_ON_HANDS                            = InitSpell(LAY_ON_HANDS_1);
-+            SACRED_SHIELD                           = InitSpell(SACRED_SHIELD_1);
-+            HOLY_SHOCK                  = lvl >= 40 ? InitSpell(HOLY_SHOCK_1) : 0;
-+            CLEANSE                                 = InitSpell(CLEANSE_1);
-+            REDEMPTION                              = InitSpell(REDEMPTION_1);
-+            HAMMER_OF_JUSTICE                       = InitSpell(HAMMER_OF_JUSTICE_1);
++            FLASH_OF_LIGHT                          = InitSpell(me, FLASH_OF_LIGHT_1);
++            HOLY_LIGHT                              = InitSpell(me, HOLY_LIGHT_1);
++            LAY_ON_HANDS                            = InitSpell(me, LAY_ON_HANDS_1);
++            SACRED_SHIELD                           = InitSpell(me, SACRED_SHIELD_1);
++            HOLY_SHOCK                  = lvl >= 40 ? InitSpell(me, HOLY_SHOCK_1) : 0;
++            CLEANSE                                 = InitSpell(me, CLEANSE_1);
++            REDEMPTION                              = InitSpell(me, REDEMPTION_1);
++            HAMMER_OF_JUSTICE                       = InitSpell(me, HAMMER_OF_JUSTICE_1);
 +            REPENTANCE                  = lvl >= 45 ? REPENTANCE_1 : 0;
-+            TURN_EVIL                               = InitSpell(TURN_EVIL_1);
-+            HOLY_WRATH                              = InitSpell(HOLY_WRATH_1);
-+            EXORCISM                                = InitSpell(EXORCISM_1);
++            TURN_EVIL                               = InitSpell(me, TURN_EVIL_1);
++            HOLY_WRATH                              = InitSpell(me, HOLY_WRATH_1);
++            EXORCISM                                = InitSpell(me, EXORCISM_1);
 +            SEAL_OF_COMMAND             = lvl >= 25 ? SEAL_OF_COMMAND_1 : 0;
 +            CRUSADER_STRIKE             = lvl >= 20 ? CRUSADER_STRIKE_1 : 0;//exception
-+            JUDGEMENT_OF_LIGHT                      = InitSpell(JUDGEMENT_OF_LIGHT_1);
-+            CONSECRATION                            = InitSpell(CONSECRATION_1);
++            JUDGEMENT_OF_LIGHT                      = InitSpell(me, JUDGEMENT_OF_LIGHT_1);
++            CONSECRATION                            = InitSpell(me, CONSECRATION_1);
 +            DIVINE_STORM                = lvl >= 60 ? DIVINE_STORM_1 : 0;
-+            HOW /*Hammer of Wrath*/                 = InitSpell(HOW_1);
-+            AVENGING_WRATH                          = InitSpell(AVENGING_WRATH_1);
-+            BLESSING_OF_MIGHT                       = InitSpell(BLESSING_OF_MIGHT_1);
-+            BLESSING_OF_WISDOM                      = InitSpell(BLESSING_OF_WISDOM_1);
-+            BLESSING_OF_KINGS                       = InitSpell(BLESSING_OF_KINGS_1);
++            HOW /*Hammer of Wrath*/                 = InitSpell(me, HOW_1);
++            AVENGING_WRATH                          = InitSpell(me, AVENGING_WRATH_1);
++            BLESSING_OF_MIGHT                       = InitSpell(me, BLESSING_OF_MIGHT_1);
++            BLESSING_OF_WISDOM                      = InitSpell(me, BLESSING_OF_WISDOM_1);
++            BLESSING_OF_KINGS                       = InitSpell(me, BLESSING_OF_KINGS_1);
 +            BLESSING_OF_SANCTUARY       = lvl >= 30 ? BLESSING_OF_SANCTUARY_1 : 0;
-+            DEVOTION_AURA                           = InitSpell(DEVOTION_AURA_1);
-+            CONCENTRATION_AURA                      = InitSpell(CONCENTRATION_AURA_1);
-+            DIVINE_PLEA                             = InitSpell(DIVINE_PLEA_1);
-+            HAND_OF_PROTECTION                      = InitSpell(HAND_OF_PROTECTION_1);
-+            HOF/*Hand of Freedom*/                  = InitSpell(HOF_1);
-+            HOS /*Hand of salvation*/               = InitSpell(HOS_1);
-+            HANDOFRECKONING                         = InitSpell(HANDOFRECKONING_1);
++            DEVOTION_AURA                           = InitSpell(me, DEVOTION_AURA_1);
++            CONCENTRATION_AURA                      = InitSpell(me, CONCENTRATION_AURA_1);
++            DIVINE_PLEA                             = InitSpell(me, DIVINE_PLEA_1);
++            HAND_OF_PROTECTION                      = InitSpell(me, HAND_OF_PROTECTION_1);
++            HOF/*Hand of Freedom*/                  = InitSpell(me, HOF_1);
++            HOS /*Hand of salvation*/               = InitSpell(me, HOS_1);
++            HANDOFRECKONING                         = InitSpell(me, HANDOFRECKONING_1);
 +        }
 +
 +        void ApplyClassPassives()
@@ -6485,10 +6645,10 @@ index 0000000..3c7805c
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_priest_ai.cpp b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 new file mode 100644
-index 0000000..8cb92a8
+index 0000000..f8c13e1
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
-@@ -0,0 +1,854 @@
+@@ -0,0 +1,859 @@
 +#include "bot_ai.h"
 +/*
 +Priest NpcBot (reworked by Graff onlysuffering@mail.ru)
@@ -6505,10 +6665,15 @@ index 0000000..8cb92a8
 +        return new priest_botAI(pCreature);
 +    }
 +
-+    bool OnGossipHello(Player *player, Creature * /*creature*/)
++    bool OnGossipHello(Player *player, Creature *creature)
 +    {
-+        player->CLOSE_GOSSIP_MENU();
-+        return true;
++        return bot_ai::OnGossipHello(player, creature);
++    }
++
++    bool OnGossipSelect(Player *player, Creature *creature, uint32 sender, uint32 action)
++    {
++        bot_ai *myai = creature->GetBotAI();
++        return myai->OnGossipSelect(player, creature, sender, action);
 +    }
 +
 +    struct priest_botAI : public bot_ai
@@ -7164,37 +7329,37 @@ index 0000000..8cb92a8
 +        void InitSpells()
 +        {
 +            uint8 lvl = me->getLevel();
-+            DISPELMAGIC                = lvl >= 70 ? MASS_DISPEL_1 : InitSpell(DISPEL_MAGIC_1);
-+            CURE_DISEASE                            = InitSpell(CURE_DISEASE_1);
-+            FEAR_WARD                               = InitSpell(FEAR_WARD_1);
++            DISPELMAGIC                = lvl >= 70 ? MASS_DISPEL_1 : InitSpell(me, DISPEL_MAGIC_1);
++            CURE_DISEASE                            = InitSpell(me, CURE_DISEASE_1);
++            FEAR_WARD                               = InitSpell(me, FEAR_WARD_1);
 +  /*Talent*/PAIN_SUPPRESSION            = lvl >= 50 ? PAIN_SUPPRESSION_1 : 0;
-+            PSYCHIC_SCREAM                          = InitSpell(PSYCHIC_SCREAM_1);
-+            FADE                                    = InitSpell(FADE_1);
++            PSYCHIC_SCREAM                          = InitSpell(me, PSYCHIC_SCREAM_1);
++            FADE                                    = InitSpell(me, FADE_1);
 +  /*Talent*/PSYCHIC_HORROR              = lvl >= 50 ? PSYCHIC_HORROR_1 : 0;
 +  /*Talent*/SILENCE                     = lvl >= 30 ? SILENCE_1 : 0;
-+  /*Talent*/PENANCE                     = lvl >= 60 ? InitSpell(PENANCE_1) : 0;
++  /*Talent*/PENANCE                     = lvl >= 60 ? InitSpell(me, PENANCE_1) : 0;
 +  /*Talent*/VAMPIRIC_EMBRACE            = lvl >= 30 ? VAMPIRIC_EMBRACE_1 : 0;
 +  /*Talent*/DISPERSION                  = lvl >= 60 ? DISPERSION_1 : 0;
-+            MIND_SEAR                               = InitSpell(MIND_SEAR_1);
++            MIND_SEAR                               = InitSpell(me, MIND_SEAR_1);
 +  /*Talent*/GUARDIAN_SPIRIT             = lvl >= 60 ? GUARDIAN_SPIRIT_1 : 0;
-+            SHACKLE_UNDEAD                          = InitSpell(SHACKLE_UNDEAD_1);
-+            HEAL = lvl >= 40 ? InitSpell(GREATER_HEAL_1) : lvl >= 16 ? InitSpell(NORMAL_HEAL_1) : InitSpell(LESSER_HEAL_1);
-+            RENEW                                   = InitSpell(RENEW_1);
-+            FLASH_HEAL                              = InitSpell(FLASH_HEAL_1);
-+            PRAYER_OF_HEALING                       = InitSpell(PRAYER_OF_HEALING_1);
-+            DIVINE_HYMN                             = InitSpell(DIVINE_HYMN_1);
-+            RESURRECTION                            = InitSpell(RESURRECTION_1);
-+            PW_SHIELD                               = InitSpell(PW_SHIELD_1);
-+            INNER_FIRE                              = InitSpell(INNER_FIRE_1);
-+            PW_FORTITUDE                            = InitSpell(PW_FORTITUDE_1);
-+            SHADOW_PROTECTION                       = InitSpell(SHADOW_PROTECTION_1);
-+            DIVINE_SPIRIT                           = InitSpell(DIVINE_SPIRIT_1);
-+            SW_PAIN                                 = InitSpell(SW_PAIN_1);
-+            MIND_BLAST                              = InitSpell(MIND_BLAST_1);
-+            SW_DEATH                                = InitSpell(SW_DEATH_1);
-+            DEVOURING_PLAGUE                        = InitSpell(DEVOURING_PLAGUE_1);
-+  /*Talent*/MIND_FLAY                   = lvl >= 20 ? InitSpell(MIND_FLAY_1) : 0;
-+  /*Talent*/VAMPIRIC_TOUCH              = lvl >= 50 ? InitSpell(VAMPIRIC_TOUCH_1) : 0;
++            SHACKLE_UNDEAD                          = InitSpell(me, SHACKLE_UNDEAD_1);
++            HEAL                        = lvl >= 40 ? InitSpell(me, GREATER_HEAL_1) : lvl >= 16 ? InitSpell(me, NORMAL_HEAL_1) : InitSpell(me, LESSER_HEAL_1);
++            RENEW                                   = InitSpell(me, RENEW_1);
++            FLASH_HEAL                              = InitSpell(me, FLASH_HEAL_1);
++            PRAYER_OF_HEALING                       = InitSpell(me, PRAYER_OF_HEALING_1);
++            DIVINE_HYMN                             = InitSpell(me, DIVINE_HYMN_1);
++            RESURRECTION                            = InitSpell(me, RESURRECTION_1);
++            PW_SHIELD                               = InitSpell(me, PW_SHIELD_1);
++            INNER_FIRE                              = InitSpell(me, INNER_FIRE_1);
++            PW_FORTITUDE                            = InitSpell(me, PW_FORTITUDE_1);
++            SHADOW_PROTECTION                       = InitSpell(me, SHADOW_PROTECTION_1);
++            DIVINE_SPIRIT                           = InitSpell(me, DIVINE_SPIRIT_1);
++            SW_PAIN                                 = InitSpell(me, SW_PAIN_1);
++            MIND_BLAST                              = InitSpell(me, MIND_BLAST_1);
++            SW_DEATH                                = InitSpell(me, SW_DEATH_1);
++            DEVOURING_PLAGUE                        = InitSpell(me, DEVOURING_PLAGUE_1);
++  /*Talent*/MIND_FLAY                   = lvl >= 20 ? InitSpell(me, MIND_FLAY_1) : 0;
++  /*Talent*/VAMPIRIC_TOUCH              = lvl >= 50 ? InitSpell(me, VAMPIRIC_TOUCH_1) : 0;
 +        }
 +        void ApplyClassPassives()
 +        {
@@ -7345,10 +7510,10 @@ index 0000000..8cb92a8
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_rogue_ai.cpp b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 new file mode 100644
-index 0000000..5cbe379
+index 0000000..cf7668e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
-@@ -0,0 +1,356 @@
+@@ -0,0 +1,361 @@
 +#include "bot_ai.h"
 +
 +class rogue_bot : public CreatureScript
@@ -7361,10 +7526,15 @@ index 0000000..5cbe379
 +        return new rogue_botAI(pCreature);
 +    }
 +
-+    bool OnGossipHello(Player *player, Creature * /*creature*/)
++    bool OnGossipHello(Player *player, Creature *creature)
 +    {
-+        player->CLOSE_GOSSIP_MENU();
-+        return true;
++        return bot_ai::OnGossipHello(player, creature);
++    }
++
++    bool OnGossipSelect(Player *player, Creature *creature, uint32 sender, uint32 action)
++    {
++        bot_ai *myai = creature->GetBotAI();
++        return myai->OnGossipSelect(player, creature, sender, action);
 +    }
 +
 +    struct rogue_botAI : public bot_ai
@@ -7649,16 +7819,16 @@ index 0000000..5cbe379
 +        void InitSpells()
 +        {
 +            uint8 lvl = me->getLevel();
-+            BACKSTAB                                = InitSpell(BACKSTAB_1);
-+            SINISTER_STRIKE                         = InitSpell(SINISTER_STRIKE_1);
-+            SLICE_DICE                              = InitSpell(SLICE_DICE_1);
-+            EVISCERATE                              = InitSpell(EVISCERATE_1);
-+            KICK                                    = InitSpell(KICK_1);
-+            RUPTURE                                 = InitSpell(RUPTURE_1);
-+            KIDNEY_SHOT                             = InitSpell(KIDNEY_SHOT_1);
-+            MUTILATE                    = lvl >= 50 ? InitSpell(MUTILATE_1) : 0;
++            BACKSTAB                                = InitSpell(me, BACKSTAB_1);
++            SINISTER_STRIKE                         = InitSpell(me, SINISTER_STRIKE_1);
++            SLICE_DICE                              = InitSpell(me, SLICE_DICE_1);
++            EVISCERATE                              = InitSpell(me, EVISCERATE_1);
++            KICK                                    = InitSpell(me, KICK_1);
++            RUPTURE                                 = InitSpell(me, RUPTURE_1);
++            KIDNEY_SHOT                             = InitSpell(me, KIDNEY_SHOT_1);
++            MUTILATE                    = lvl >= 50 ? InitSpell(me, MUTILATE_1) : 0;
 +            SHADOWSTEP                  = lvl >= 50 ? SHADOWSTEP_1 : 0;
-+            DISMANTLE                               = InitSpell(DISMANTLE_1);
++            DISMANTLE                               = InitSpell(me, DISMANTLE_1);
 +        }
 +
 +        void ApplyClassPassives()
@@ -7707,10 +7877,10 @@ index 0000000..5cbe379
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_shaman_ai.cpp b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 new file mode 100644
-index 0000000..885e9aa
+index 0000000..3e4828c
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
-@@ -0,0 +1,288 @@
+@@ -0,0 +1,293 @@
 +#include "bot_ai.h"
 +
 +class shaman_bot : public CreatureScript
@@ -7723,10 +7893,15 @@ index 0000000..885e9aa
 +        return new shaman_botAI(pCreature);
 +    }
 +
-+    bool OnGossipHello(Player *player, Creature * /*creature*/)
++    bool OnGossipHello(Player *player, Creature *creature)
 +    {
-+        player->CLOSE_GOSSIP_MENU();
-+        return true;
++        return bot_ai::OnGossipHello(player, creature);
++    }
++
++    bool OnGossipSelect(Player *player, Creature *creature, uint32 sender, uint32 action)
++    {
++        bot_ai *myai = creature->GetBotAI();
++        return myai->OnGossipSelect(player, creature, sender, action);
 +    }
 +
 +    struct shaman_botAI : public bot_ai
@@ -7939,18 +8114,18 @@ index 0000000..885e9aa
 +        void InitSpells()
 +        {
 +            //uint8 lvl = me->getLevel();
-+            CHAIN_HEAL                              = InitSpell(CHAIN_HEAL_1);
-+            LESSER_HEAL                             = InitSpell(LESSER_HEAL_1);
-+            ANCESTRAL_SPIRIT                        = InitSpell(ANCESTRAL_SPIRIT_1);
-+            FLAME_SHOCK                             = InitSpell(FLAME_SHOCK_1);
-+            EARTH_SHOCK                             = InitSpell(EARTH_SHOCK_1);
-+            LIGHTNING_BOLT                          = InitSpell(LIGHTNING_BOLT_1);
-+            LIGHTNING_SHIELD                        = InitSpell(LIGHTNING_SHIELD_1);
-+            STONESKIN_TOTEM                         = InitSpell(STONESKIN_TOTEM_1);
-+            HEALINGSTREAM_TOTEM                     = InitSpell(HEALINGSTREAM_TOTEM_1);
-+            MANASPRING_TOTEM                        = InitSpell(MANASPRING_TOTEM_1);
-+            SEARING_TOTEM                           = InitSpell(SEARING_TOTEM_1);
-+            WINDFURY_TOTEM                          = InitSpell(WINDFURY_TOTEM_1);
++            CHAIN_HEAL                              = InitSpell(me, CHAIN_HEAL_1);
++            LESSER_HEAL                             = InitSpell(me, LESSER_HEAL_1);
++            ANCESTRAL_SPIRIT                        = InitSpell(me, ANCESTRAL_SPIRIT_1);
++            FLAME_SHOCK                             = InitSpell(me, FLAME_SHOCK_1);
++            EARTH_SHOCK                             = InitSpell(me, EARTH_SHOCK_1);
++            LIGHTNING_BOLT                          = InitSpell(me, LIGHTNING_BOLT_1);
++            LIGHTNING_SHIELD                        = InitSpell(me, LIGHTNING_SHIELD_1);
++            STONESKIN_TOTEM                         = InitSpell(me, STONESKIN_TOTEM_1);
++            HEALINGSTREAM_TOTEM                     = InitSpell(me, HEALINGSTREAM_TOTEM_1);
++            MANASPRING_TOTEM                        = InitSpell(me, MANASPRING_TOTEM_1);
++            SEARING_TOTEM                           = InitSpell(me, SEARING_TOTEM_1);
++            WINDFURY_TOTEM                          = InitSpell(me, WINDFURY_TOTEM_1);
 +        }
 +
 +        void ApplyClassPassives()
@@ -8001,10 +8176,10 @@ index 0000000..885e9aa
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warlock_ai.cpp b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 new file mode 100644
-index 0000000..7229eeb
+index 0000000..eaff8b6
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
-@@ -0,0 +1,325 @@
+@@ -0,0 +1,330 @@
 +#include "bot_ai.h"
 +
 +class warlock_bot : public CreatureScript
@@ -8017,10 +8192,15 @@ index 0000000..7229eeb
 +        return new warlock_botAI(pCreature);
 +    }
 +
-+    bool OnGossipHello(Player *player, Creature * /*creature*/)
++    bool OnGossipHello(Player *player, Creature *creature)
 +    {
-+        player->CLOSE_GOSSIP_MENU();
-+        return true;
++        return bot_ai::OnGossipHello(player, creature);
++    }
++
++    bool OnGossipSelect(Player *player, Creature *creature, uint32 sender, uint32 action)
++    {
++        bot_ai *myai = creature->GetBotAI();
++        return myai->OnGossipSelect(player, creature, sender, action);
 +    }
 +
 +    struct warlock_botAI : public bot_ai
@@ -8284,16 +8464,16 @@ index 0000000..7229eeb
 +        void InitSpells()
 +        {
 +            uint8 lvl = me->getLevel();
-+            CURSE_OF_THE_ELEMENTS                   = InitSpell(CURSE_OF_THE_ELEMENTS_1);
-+            SHADOW_BOLT                             = InitSpell(SHADOW_BOLT_1);
-+            IMMOLATE                                = InitSpell(IMMOLATE_1);
++            CURSE_OF_THE_ELEMENTS                   = InitSpell(me, CURSE_OF_THE_ELEMENTS_1);
++            SHADOW_BOLT                             = InitSpell(me, SHADOW_BOLT_1);
++            IMMOLATE                                = InitSpell(me, IMMOLATE_1);
 +            CONFLAGRATE                 = lvl >= 40 ? CONFLAGRATE_1 : 0;
-+  /*Talent*/CHAOS_BOLT                  = lvl >= 60 ? InitSpell(CHAOS_BOLT_1) : 0;
-+            RAIN_OF_FIRE                            = InitSpell(RAIN_OF_FIRE_1);
-+  /*Talent*/HAUNT                       = lvl >= 60 ? InitSpell(HAUNT_1) : 0;
-+            CORRUPTION                              = InitSpell(CORRUPTION_1);
-+  /*Talent*/UNSTABLE_AFFLICTION         = lvl >= 50 ? InitSpell(UNSTABLE_AFFLICTION_1) : 0;
-+            FEAR                                    = InitSpell(FEAR_1);
++  /*Talent*/CHAOS_BOLT                  = lvl >= 60 ? InitSpell(me, CHAOS_BOLT_1) : 0;
++            RAIN_OF_FIRE                            = InitSpell(me, RAIN_OF_FIRE_1);
++  /*Talent*/HAUNT                       = lvl >= 60 ? InitSpell(me, HAUNT_1) : 0;
++            CORRUPTION                              = InitSpell(me, CORRUPTION_1);
++  /*Talent*/UNSTABLE_AFFLICTION         = lvl >= 50 ? InitSpell(me, UNSTABLE_AFFLICTION_1) : 0;
++            FEAR                                    = InitSpell(me, FEAR_1);
 +        }
 +
 +        void ApplyClassPassives() {}
@@ -8332,10 +8512,10 @@ index 0000000..7229eeb
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warrior_ai.cpp b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 new file mode 100644
-index 0000000..09e5857
+index 0000000..b3fc06a
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
-@@ -0,0 +1,1132 @@
+@@ -0,0 +1,1137 @@
 +#include "bot_ai.h"
 +#include "SpellAuraEffects.h"
 +/*
@@ -8353,10 +8533,15 @@ index 0000000..09e5857
 +        return new warrior_botAI(pCreature);
 +    }
 +
-+    bool OnGossipHello(Player *player, Creature * /*creature*/)
++    bool OnGossipHello(Player *player, Creature *creature)
 +    {
-+        player->CLOSE_GOSSIP_MENU();
-+        return true;
++        return bot_ai::OnGossipHello(player, creature);
++    }
++
++    bool OnGossipSelect(Player *player, Creature *creature, uint32 sender, uint32 action)
++    {
++        bot_ai *myai = creature->GetBotAI();
++        return myai->OnGossipSelect(player, creature, sender, action);
 +    }
 +
 +    struct warrior_botAI : public bot_ai
@@ -9233,34 +9418,34 @@ index 0000000..09e5857
 +        void InitSpells()
 +        {
 +            uint8 lvl = me->getLevel();
-+            //CHALLENGING_SHOUT                       = InitSpell(CHALLENGING_SHOUT_1);
-+            INTIMIDATING_SHOUT                      = InitSpell(INTIMIDATING_SHOUT_1);
-+            ENRAGED_REGENERATION                    = InitSpell(ENRAGED_REGENERATION_1);
-+            CHARGE                                  = InitSpell(CHARGE_1);
-+            OVERPOWER                               = InitSpell(OVERPOWER_1);
++            //CHALLENGING_SHOUT                       = InitSpell(me, CHALLENGING_SHOUT_1);
++            INTIMIDATING_SHOUT                      = InitSpell(me, INTIMIDATING_SHOUT_1);
++            ENRAGED_REGENERATION                    = InitSpell(me, ENRAGED_REGENERATION_1);
++            CHARGE                                  = InitSpell(me, CHARGE_1);
++            OVERPOWER                               = InitSpell(me, OVERPOWER_1);
 +   /*Quest*/TAUNT                       = lvl >= 10 ? TAUNT_1 : 0;
 +            //DISARM                                  = InitSpell(DISARM_1);
-+            BLOODRAGE                               = InitSpell(BLOODRAGE_1);
-+            BERSERKERRAGE                           = InitSpell(BERSERKERRAGE_1);
-+            INTERCEPT                               = InitSpell(INTERCEPT_1);
-+            CLEAVE                                  = InitSpell(CLEAVE_1);
-+            HAMSTRING                               = InitSpell(HAMSTRING_1);
-+            INTERVENE                               = InitSpell(INTERVENE_1);
-+            WHIRLWIND                               = InitSpell(WHIRLWIND_1);
++            BLOODRAGE                               = InitSpell(me, BLOODRAGE_1);
++            BERSERKERRAGE                           = InitSpell(me, BERSERKERRAGE_1);
++            INTERCEPT                               = InitSpell(me, INTERCEPT_1);
++            CLEAVE                                  = InitSpell(me, CLEAVE_1);
++            HAMSTRING                               = InitSpell(me, HAMSTRING_1);
++            INTERVENE                               = InitSpell(me, INTERVENE_1);
++            WHIRLWIND                               = InitSpell(me, WHIRLWIND_1);
 +  /*Talent*/BLADESTORM                  = lvl >= 60 ? BLADESTORM_1 : 0;
-+            BATTLESHOUT                             = InitSpell(BATTLESHOUT_1);
-+            REND                                    = InitSpell(REND_1);
-+            EXECUTE                                 = InitSpell(EXECUTE_1);
-+            PUMMEL                                  = InitSpell(PUMMEL_1);
-+  /*Talent*/MORTALSTRIKE                = lvl >= 40 ? InitSpell(MORTALSTRIKE_1) : 0;
-+            SLAM                                    = InitSpell(SLAM_1);
-+   /*Quest*/SUNDER                      = lvl >= 10 ? InitSpell(SUNDER_1) : 0;
++            BATTLESHOUT                             = InitSpell(me, BATTLESHOUT_1);
++            REND                                    = InitSpell(me, REND_1);
++            EXECUTE                                 = InitSpell(me, EXECUTE_1);
++            PUMMEL                                  = InitSpell(me, PUMMEL_1);
++  /*Talent*/MORTALSTRIKE                = lvl >= 40 ? InitSpell(me, MORTALSTRIKE_1) : 0;
++            SLAM                                    = InitSpell(me, SLAM_1);
++   /*Quest*/SUNDER                      = lvl >= 10 ? InitSpell(me, SUNDER_1) : 0;
 +  /*Talent*/SWEEPING_STRIKES            = lvl >= 30 ? SWEEPING_STRIKES_1 : 0;
 +            BATTLESTANCE                            = BATTLESTANCE_1;
 +   /*Quest*/DEFENSIVESTANCE             = lvl >= 10 ? DEFENSIVESTANCE_1 : 0;
 +   /*Quest*/BERSERKERSTANCE             = lvl >= 30 ? BERSERKERSTANCE_1 : 0;
-+            RECKLESSNESS                            = InitSpell(RECKLESSNESS_1);
-+            RETALIATION                             = InitSpell(RETALIATION_1);
++            RECKLESSNESS                            = InitSpell(me, RECKLESSNESS_1);
++            RETALIATION                             = InitSpell(me, RETALIATION_1);
 +  /*Talent*/DEATHWISH                   = lvl >= 30 ? DEATHWISH_1 : 0;
 +        }
 +
