@@ -1,13 +1,13 @@
-From 0fff073e6b9dd699cc9495215e5f6204ab3777ae Mon Sep 17 00:00:00 2001
+From 4a0ddafe4e3c4caf73488e04d32d8e19866eb621 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Mon, 10 Sep 2012 18:49:20 +0700
+Date: Tue, 11 Sep 2012 15:24:10 +0700
 Subject: [PATCH] AllBots
 
 ---
  sql/Bots/character_NPC_bots.sql                    |   10 +
  sql/Bots/world.bots.sql                            |  283 +
  sql/Bots/world.script_bot_giver.sql                |    7 +
- src/server/game/AI/NpcBots/bot_ai.cpp              | 2237 ++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 2255 ++++
  src/server/game/AI/NpcBots/bot_ai.h                |  671 ++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1097 ++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  347 +
@@ -60,7 +60,7 @@ Subject: [PATCH] AllBots
  src/server/game/Server/WorldSession.h              |   36 +
  src/server/scripts/Spells/spell_priest.cpp         |    4 +
  src/server/worldserver/worldserver.conf.dist       |  188 +
- 56 files changed, 32794 insertions(+), 0 deletions(-)
+ 56 files changed, 32812 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -421,10 +421,10 @@ index 0000000..5b00cdc
 +
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..878dbc3
+index 0000000..fb5edbb
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,2237 @@
+@@ -0,0 +1,2255 @@
 +#include "bot_ai.h"
 +#include "Config.h"
 +#include "Chat.h"
@@ -1079,6 +1079,7 @@ index 0000000..878dbc3
 +        if (i == 0 || value > stat)
 +            stat = value;//Get Hightest stat (on first cycle just set base value)
 +    }
++    stat = std::max(stat - 18.f, 0.f);
 +
 +    //INIT CLASS MODIFIERS
 +    switch (myclass)
@@ -2233,10 +2234,10 @@ index 0000000..878dbc3
 +}
 +void bot_ai::_OnHealthUpdate(uint8 myclass, uint8 /*myrace*/, uint8 mylevel) const
 +{
-+    //sLog->outBasic("_OnHealthUpdate(): updating bot %s", me->GetName());
++    //sLog->outError(LOG_FILTER_PLAYER, "_OnHealthUpdate(): updating bot %s", me->GetName());
 +    float pct = me->GetHealthPct();// needs for regeneration
 +    uint32 m_basehp = classinfo.basehealth;
-+    //sLog->outBasic("class base health: %u", m_basehp);
++    //sLog->outError(LOG_FILTER_PLAYER, "class base health: %u", m_basehp);
 +    me->SetCreateHealth(m_basehp);
 +    float stammod;
 +    switch (myclass)
@@ -2295,43 +2296,47 @@ index 0000000..878dbc3
 +    default: stammod = 10.f;
 +        break;
 +    }
-+    //sLog->outBasic("stammod: %f", stammod);
++    stammod -= 0.3f;
++    //sLog->outError(LOG_FILTER_PLAYER, "stammod: %f", stammod);
 +    
 +    //manually pick up stamina from bot's buffs
 +    float stamValue = me->GetTotalStatValue(STAT_STAMINA);
-+    //sLog->outBasic("bot's stats to health add: Stamina (%f), value: %f", stamValue, stamValue * 10.f);
++    stamValue = std::max(stamValue - 18.f, 1.f); //remove base stamina (not calculated into health)
++    //sLog->outError(LOG_FILTER_PLAYER, "bot's stats to health add: Stamina (%f), value: %f", stamValue, stamValue * 10.f);
 +    int32 hp_add = int32(stamValue * 10.f);
 +    //pick up master's stamina from items
 +    float total_pct = std::max((master->GetModifierValue(UNIT_MOD_STAT_STAMINA, TOTAL_PCT) - 0.1f), 1.f);
-+    stamValue = master->GetModifierValue(UNIT_MOD_STAT_STAMINA, BASE_VALUE) * master->GetModifierValue(UNIT_MOD_STAT_STAMINA, BASE_PCT) * total_pct;
-+    //sLog->outBasic("stat to health add: Stamina (%f), value: %f", stamValue, stamValue*stammod);
++    float base_stam = master->GetModifierValue(UNIT_MOD_STAT_STAMINA, BASE_VALUE);
++    base_stam = std::max(base_stam - 18.f, 0.f); //remove base stamina (not calculated into health)
++    stamValue = base_stam * master->GetModifierValue(UNIT_MOD_STAT_STAMINA, BASE_PCT) * total_pct;
++    //sLog->outError(LOG_FILTER_PLAYER, "stat to health add: Stamina (%f), value: %f", stamValue, stamValue*stammod);
 +    hp_add += int32(stamValue*stammod);
-+    //float stamstat = stat*0.5f;
++    //float stamstat = stat * 0.5f;
 +    //if (stamValue > stamstat)
 +    //{
 +    //    //sLog->outBasic("selected stat to health add: Stamina (%f), value: %f", stamValue, stamValue*stammod);
-+    //    hp_add += int32(stamValue*stammod);
++    //    hp_add += int32(stamValue * stammod);
 +    //}
 +    //else
 +    //{
 +    //    //sLog->outBasic("selected stat to health add: stamStat (%f), value: %f", stamstat, stamstat*stammod);
-+    //    hp_add += int32(stamstat*stammod);
++    //    hp_add += int32(stamstat * stammod);
 +    //}
 +    //sLog->outBasic("health to add after master's stat mod: %i", hp_add);
 +    int32 miscVal = me->getGender()*mylevel;
-+    //sLog->outBasic("health to remove from gender mod: %i", -miscVal);
++    //sLog->outError(LOG_FILTER_PLAYER, "health to remove from gender mod: %i", -miscVal);
 +    hp_add -= miscVal;//less hp for females lol
-+    //sLog->outBasic("health to add after gender mod: %i", hp_add);
++    //sLog->outError(LOG_FILTER_PLAYER, "health to add after gender mod: %i", hp_add);
 +    //miscVal = myrace*(mylevel/5);
-+    //sLog->outBasic("health to add from race mod: %i", miscVal);
++    //sLog->outError(LOG_FILTER_PLAYER, "health to add from race mod: %i", miscVal);
 +    //hp_add += miscVal;//draenei tanks lol
-+    //sLog->outBasic("health to add after race mod: %i", hp_add);
-+    miscVal = master->GetNpcBotSlot(me->GetGUID())*(mylevel/5);
-+    //sLog->outBasic("health to remove from slot mod: %i", -miscVal);
++    //sLog->outError(LOG_FILTER_PLAYER, "health to add after race mod: %i", hp_add);
++    miscVal = master->GetNpcBotSlot(me->GetGUID()) * (mylevel/5);
++    //sLog->outError(LOG_FILTER_PLAYER, "health to remove from slot mod: %i", -miscVal);
 +    hp_add -= miscVal;
-+    //sLog->outBasic("health to add after slot mod: %i", hp_add);
++    //sLog->outError(LOG_FILTER_PLAYER, "health to add after slot mod: %i", hp_add);
 +    uint32 m_totalhp = m_basehp + hp_add;//m_totalhp = uint32(float(m_basehp + hp_add) * stammod);
-+    //sLog->outBasic("total base health: %u", m_totalhp);
++    //sLog->outError(LOG_FILTER_PLAYER, "total base health: %u", m_totalhp);
 +    if (master->GetBotTankGuid() == me->GetGUID())
 +    {
 +        m_totalhp = (m_totalhp * 135) / 100;//35% hp bonus for tanks
@@ -2339,7 +2344,7 @@ index 0000000..878dbc3
 +    }
 +    me->SetModifierValue(UNIT_MOD_HEALTH, BASE_VALUE, float(m_totalhp));//replaces base 18900 hp at 80 lvl
 +    me->UpdateMaxHealth();//will use our values we just set (update base health and buffs)
-+    //sLog->outBasic("overall hp: %u", me->GetMaxHealth());
++    //sLog->outError(LOG_FILTER_PLAYER, "overall hp: %u", me->GetMaxHealth());
 +    me->SetHealth(uint32(0.5f + float(me->GetMaxHealth()) * pct / 100.f));//restore pct
 +    if (!me->isInCombat())
 +        me->SetHealth(me->GetHealth() + m_basehp / 100);//regenerate
@@ -2349,10 +2354,10 @@ index 0000000..878dbc3
 +{
 +    if (me->getPowerType() != POWER_MANA)
 +        return;
-+    //sLog->outBasic("_OnManaUpdate(): updating bot %s", me->GetName());
-+    float pct = (float(me->GetPower(POWER_MANA)) * 100.f) / me->GetMaxPower(POWER_MANA);
++    //sLog->outError(LOG_FILTER_PLAYER, "_OnManaUpdate(): updating bot %s", me->GetName());
++    float pct = (float(me->GetPower(POWER_MANA)) * 100.f) / float(me->GetMaxPower(POWER_MANA));
 +    float m_basemana = classinfo.basemana > 0 ? classinfo.basemana : me->GetCreateMana();
-+    //sLog->outBasic("classinfo base mana = %u", m_basemana);
++    //sLog->outError(LOG_FILTER_PLAYER, "classinfo base mana = %f", m_basemana);
 +    me->SetCreateMana(m_basemana);//set base mana, critical
 +    float manamod = 15.f;//here we set mana multiplier from intellect as we gain mana from MASTER's stats mostly
 +    switch (myclass)
@@ -2366,43 +2371,40 @@ index 0000000..878dbc3
 +    }
 +    //manamod += 1.f;//custom
 +    //manamod *= 0.70f;//custom
-+    //sLog->outBasic("Manamod: %f", manamod);
++    //sLog->outError(LOG_FILTER_PLAYER, "Manamod: %f", manamod);
 +    float intValue = me->GetTotalStatValue(STAT_INTELLECT);
-+    //sLog->outBasic("bot's stats to mana add: Int (%f), value: %f", intValue, intValue*manamod);
-+    m_basemana += uint32(intValue * 15.f/*manamod*/);
-+    //intValue = master->GetTotalAuraModValue(UNIT_MOD_STAT_INTELLECT)*0.67f;// 50% goes to bot (need to check items)
-+    //pick up master's intellect from items
-+    float total_pct = std::max((master->GetModifierValue(UNIT_MOD_STAT_INTELLECT, TOTAL_PCT) - 0.1f), 1.f);
-+    intValue = master->GetModifierValue(UNIT_MOD_STAT_INTELLECT, BASE_VALUE) * master->GetModifierValue(UNIT_MOD_STAT_INTELLECT, BASE_PCT) * total_pct;
-+    float intstat = stat*0.5f;
-+    if (intValue > intstat)
++    intValue = std::max(intValue - 18.f, 1.f); //remove base int (not calculated into mana)
++    //sLog->outError(LOG_FILTER_PLAYER, "bot's stats to mana add: Int (%f), value: %f", intValue, intValue * manamod);
++    m_basemana += intValue * 15.f;
++    //pick up master's intellect from items if master has mana
++    if (master->getPowerType() == POWER_MANA)
 +    {
-+        //sLog->outBasic("selected stat to mana add: Int (%f), value: %f", intValue, intValue*manamod);
-+        m_basemana += int32(intValue*manamod);
++        float total_pct = std::max((master->GetModifierValue(UNIT_MOD_STAT_INTELLECT, TOTAL_PCT) - 0.1f), 1.f);
++        intValue = std::max(master->GetModifierValue(UNIT_MOD_STAT_INTELLECT, BASE_VALUE) - 18.f, 1.f); //remove base int (not calculated into mana)
++        intValue = intValue * master->GetModifierValue(UNIT_MOD_STAT_INTELLECT, BASE_PCT) * total_pct;
 +    }
-+    else
-+    {
-+        //sLog->outBasic("selected stat to mana add: intStat (%f), value: %f", intstat, intstat*manamod);
-+        m_basemana += int32(intstat*manamod);
-+    }
-+    //sLog->outBasic("base mana + mana from master's intellect or stat: %u", m_basemana);
++    else// pick up maxstat
++        intValue = stat * 0.5f;
++    //sLog->outError(LOG_FILTER_PLAYER, "mana add from master's stat: %f", intValue * manamod);
++    m_basemana += intValue * manamod;
++    //sLog->outError(LOG_FILTER_PLAYER, "base mana + mana from master's intellect or stat: %f", m_basemana);
 +    //intValue = me->GetTotalAuraModValue(UNIT_MOD_STAT_INTELLECT);
 +    //sLog->outBasic("Intellect from buffs: %f", intValue);
 +    //m_basemana += uint32(intValue) * manamod;
 +    //sLog->outBasic("base mana + mana from intellect + mana from buffs: %u", m_basemana);
 +    uint8 otherVal = me->getGender()*3*mylevel;
-+    //sLog->outBasic("mana to add from gender mod: %u", otherVal);
-+    m_basemana += otherVal;//more mana for females lol
-+    //sLog->outBasic("base mana after gender mod: %u", m_basemana);
-+    otherVal = master->GetNpcBotSlot(me->GetGUID())*(mylevel/5);// only to make mana unique
-+    //sLog->outBasic("mana to remove from slot mod: %i", -otherVal);
++    //sLog->outError(LOG_FILTER_PLAYER, "mana to add from gender mod: %u", otherVal);
++    m_basemana += float(otherVal);//more mana for females lol
++    //sLog->outError(LOG_FILTER_PLAYER, "base mana after gender mod: %f", m_basemana);
++    otherVal = master->GetNpcBotSlot(me->GetGUID()) * (mylevel/5);// only to make mana unique
++    //sLog->outError(LOG_FILTER_PLAYER, "mana to remove from slot mod: %i", -int8(otherVal));
 +    m_basemana -= otherVal;
-+    //sLog->outBasic("base mana after slot mod: %u", m_basemana);
++    //sLog->outError(LOG_FILTER_PLAYER, "base mana after slot mod: %f", m_basemana);
 +    float m_totalmana = m_basemana;
-+    //sLog->outBasic("total mana to set: %u", m_totalmana);
-+    me->SetModifierValue(UNIT_MOD_MANA, BASE_VALUE, float(m_totalmana));
++    //sLog->outError(LOG_FILTER_PLAYER, "total mana to set: %f", m_totalmana);
++    me->SetModifierValue(UNIT_MOD_MANA, BASE_VALUE, m_totalmana);
 +    me->UpdateMaxPower(POWER_MANA);
-+    //sLog->outBasic("Overall mana to set: %u", me->GetMaxPower(POWER_MANA));
++    //sLog->outError(LOG_FILTER_PLAYER, "Overall mana to set: %u", me->GetMaxPower(POWER_MANA));
 +    me->SetPower(POWER_MANA, uint32(0.5f + float(me->GetMaxPower(POWER_MANA)) * pct / 100.f));//restore pct
 +    //No Regen
 +}
@@ -2604,6 +2606,7 @@ index 0000000..878dbc3
 +    {
 +    case CLASS_MAGE:
 +        player->ADD_GOSSIP_ITEM(0, "I need food", 6001, GOSSIP_ACTION_INFO_DEF + 1);
++        player->ADD_GOSSIP_ITEM(0, "I need drink", 6001, GOSSIP_ACTION_INFO_DEF + 2);
 +        player->PlayerTalkClass->SendGossipMenu(botGossip, creature->GetGUID());
 +        break;
 +    default:
@@ -2613,7 +2616,7 @@ index 0000000..878dbc3
 +    return true;
 +}
 +
-+bool bot_ai::OnGossipSelect(Player *player, Creature *creature, uint32 sender, uint32 /*action*/)
++bool bot_ai::OnGossipSelect(Player *player, Creature *creature, uint32 sender, uint32 action)
 +{
 +    if (!IsInBotParty(player))
 +    {
@@ -2626,14 +2629,28 @@ index 0000000..878dbc3
 +    case CLASS_MAGE:
 +        switch (sender)
 +        {
-+            case 6001:
-+                // Conjure Food rank 1
-+                uint32 const food = InitSpell(creature, 587);
++            case 6001:// food/drink
++            {
++                // Conjure Refreshment rank 1
++                uint32 food = InitSpell(creature, 42955);
++                bool iswater = (action == GOSSIP_ACTION_INFO_DEF + 2);
 +                if (!food)
 +                {
-+                    creature->MonsterWhisper("I can't conjure food yet!", player->GetGUID());
-+                    player->PlayerTalkClass->ClearMenus();
-+                    return OnGossipHello(player, creature);
++                    if (!iswater)// Conjure Food rank 1
++                        food = InitSpell(creature, 587);
++                    else// Conjure Water rank 1
++                        food = InitSpell(creature, 5504);
++                }
++                if (!food)
++                {
++                    std::string errorstr = "I can't conjure ";
++                    errorstr += iswater ? "water" : "food";
++                    errorstr += " yet";
++                    creature->MonsterWhisper(errorstr.c_str(), player->GetGUID());
++                    //player->PlayerTalkClass->ClearMenus();
++                    //return OnGossipHello(player, creature);
++                    player->CLOSE_GOSSIP_MENU();
++                    return false;
 +                }
 +                player->CLOSE_GOSSIP_MENU();
 +                SpellInfo const *Info = sSpellMgr->GetSpellInfo(food);
@@ -2655,6 +2672,7 @@ index 0000000..878dbc3
 +                    creature->MonsterWhisper("Here you go...", player->GetGUID());
 +                }
 +                break;
++            }
 +        }
 +        break;
 +    default:
@@ -4799,7 +4817,7 @@ index 0000000..82b1d12
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_mage_ai.cpp b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 new file mode 100644
-index 0000000..5121398
+index 0000000..18c6ab3
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 @@ -0,0 +1,874 @@
@@ -5405,7 +5423,7 @@ index 0000000..5121398
 +            Pyroblast_cd = 0;
 +            FireBlast_cd = 0;
 +            DragonBreath_cd = 0;
-+            Combustion_cd = 300;//30 sec for reset
++            Combustion_cd = 30000;//30 sec for reset
 +            Ice_Barrier_cd = 0;
 +            Iceblock_cd = 0;
 +            ConeofCold_cd = 0;
