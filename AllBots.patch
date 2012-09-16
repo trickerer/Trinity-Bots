@@ -1,14 +1,14 @@
-From d67b70c92274859526d065acf12d24c76dfb27b7 Mon Sep 17 00:00:00 2001
+From 037243e4cba33f85145ce970d04ea191ef821a77 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Sat, 15 Sep 2012 23:26:45 +0700
+Date: Sun, 16 Sep 2012 21:19:31 +0700
 Subject: [PATCH] AllBots
 
 ---
  sql/Bots/character_NPC_bots.sql                    |   10 +
  sql/Bots/world.bots.sql                            |  287 +
  sql/Bots/world.script_bot_giver.sql                |    7 +
- src/server/game/AI/NpcBots/bot_ai.cpp              | 2872 +++++
- src/server/game/AI/NpcBots/bot_ai.h                |  770 ++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 2902 +++++
+ src/server/game/AI/NpcBots/bot_ai.h                |  776 ++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1096 ++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  346 +
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  873 ++
@@ -16,7 +16,7 @@ Subject: [PATCH] AllBots
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  858 ++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  360 +
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  292 +
- src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  420 +
+ src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  458 +
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1136 ++
  src/server/game/AI/NpcBots/botcommands.cpp         |  797 ++
  src/server/game/AI/NpcBots/botgiver.cpp            |  285 +
@@ -43,7 +43,7 @@ Subject: [PATCH] AllBots
  .../game/AI/PlayerBots/PlayerbotWarriorAI.cpp      |  353 +
  src/server/game/AI/PlayerBots/PlayerbotWarriorAI.h |  103 +
  src/server/game/CMakeLists.txt                     |    2 +
- src/server/game/Entities/Creature/Creature.cpp     |  115 +
+ src/server/game/Entities/Creature/Creature.cpp     |  120 +
  src/server/game/Entities/Creature/Creature.h       |   34 +
  .../game/Entities/Creature/TemporarySummon.cpp     |    7 +
  src/server/game/Entities/Player/Player.cpp         |  644 ++
@@ -60,7 +60,7 @@ Subject: [PATCH] AllBots
  src/server/game/Server/WorldSession.h              |   36 +
  src/server/scripts/Spells/spell_priest.cpp         |    4 +
  src/server/worldserver/worldserver.conf.dist       |  188 +
- 56 files changed, 33592 insertions(+), 0 deletions(-)
+ 56 files changed, 33671 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -425,10 +425,10 @@ index 0000000..5b00cdc
 +
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..68327a6
+index 0000000..ee0fac3
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,2872 @@
+@@ -0,0 +1,2902 @@
 +#include "bot_ai.h"
 +#include "Config.h"
 +#include "Chat.h"
@@ -1090,6 +1090,8 @@ index 0000000..68327a6
 +            else
 +                ch.PSendSysMessage("Maintank is %s", tank->GetName());
 +        }
++        //debug
++        //if (IsPetAI()) GetPetAI()->ListSpells(&ch);
 +    }
 +}
 +//SETSTATS
@@ -1332,7 +1334,7 @@ index 0000000..68327a6
 +    //SetStats for pet
 +    if (Creature *pet = me->GetBotsPet())
 +        if (bot_pet_ai* petai = pet->GetBotPetAI())
-+            petai->setStats(mylevel, bot_pet_ai::GetPetType(pet), true);
++            petai->setStats(mylevel, bot_pet_ai::GetPetType(pet), force);
 +}
 +void bot_pet_ai::setStats(uint8 mylevel, uint8 petType, bool force)
 +{
@@ -2081,17 +2083,17 @@ index 0000000..68327a6
 +    me->Attack(newtarget, !ranged);
 +}
 +
-+bool bot_ai::MoveBehind(Unit &target) const
++bool bot_ai::MoveBehind(Unit& target) const
 +{
 +    if (me->HasUnitState(UNIT_STATE_ROOT)) return false;
 +    if (rand()%100 < 25 && //prevent cycle
-+        target.getVictim() != me    && 
-+        tank != me                  && 
-+        target.HasInArc(M_PI, me)   && 
-+        target.IsWithinCombatRange(me, ATTACK_DISTANCE) && 
++        target.getVictim() != me                        &&
++        tank != me                                      &&
++        target.IsWithinCombatRange(me, ATTACK_DISTANCE) &&
++        target.HasInArc(M_PI, me)                       &&
 +        !CCed(&target))//can we go behind?
 +    {
-+        float x,y,z;
++        float x(0),y(0),z(0);
 +        target.GetNearPoint(me, x, y, z, me->GetObjectSize()/3, 0.1f, me->GetAngle(&target));
 +        me->GetMotionMaster()->MovePoint(target.GetMapId(), x, y, z);
 +        return true;
@@ -2235,23 +2237,32 @@ index 0000000..68327a6
 +
 +    //apply +healing taken
 +    if (master->getLevel() >= 60) RefreshAura(BOR);//+40%
-+    if (me->GetIAmABot())
++    if (IsMinionAI())
 +    {
 +        //apply -threat mod
 +        switch (botOrPetType)
 +        {
-+        case CLASS_WARRIOR: RefreshAura(RCP,1); break;
-+        case CLASS_PRIEST:  RefreshAura(RCP,3); break;//-87%
-+        default:            RefreshAura(RCP,2); break;//-54%
++        case CLASS_WARRIOR:
++            RefreshAura(RCP,1);//-27%
++            break;
++        case CLASS_PRIEST:
++        case CLASS_MAGE:
++            RefreshAura(RCP,3);//-87%
++            break;
++        default:
++            RefreshAura(RCP,2);//-54%
++            break;
 +        }
 +    }
 +    else
 +    {
-+        //PLACEHOLDER TODO: pettype-based pasives
 +        switch (botOrPetType)
 +        {
-+        case PET_TYPE_VOIDWALKER: RefreshAura(RCP,1);   break;
-+        default:                                        break;
++        case PET_TYPE_VOIDWALKER:
++            RefreshAura(DEFENSIVE_STANCE_PASSIVE,2);
++            break;
++        default:
++            break;
 +        }
 +    }
 +}
@@ -2637,7 +2648,7 @@ index 0000000..68327a6
 +
 +    return spell;//max rank, use this
 +}
-+void bot_minion_ai::_OnHealthUpdate(uint8 myclass,  uint8 mylevel) const
++void bot_minion_ai::_OnHealthUpdate(uint8 myclass, uint8 mylevel) const
 +{
 +    //sLog->outError(LOG_FILTER_PLAYER, "_OnHealthUpdate(): updating bot %s", me->GetName());
 +    float pct = me->GetHealthPct();// needs for regeneration
@@ -2881,18 +2892,27 @@ index 0000000..68327a6
 +
 +void bot_pet_ai::_OnHealthUpdate(uint8 /*petType*/, uint8 mylevel) const
 +{
++    float hp_mult = 10.f;
++    switch (GetPetType(me))
++    {
++    case PET_TYPE_VOIDWALKER:
++        hp_mult = 11.5;
++        break;
++    default:
++        break;
++    }
 +    float pct = me->GetHealthPct();// needs for regeneration
 +    //Use simple checks and calcs
 +    //0.3 hp for bots (inaccurate but cheap)
-+    uint32 m_basehp = me->GetCreateHealth();
++    uint32 m_basehp = me->GetCreateHealth()/2;
 +    //pick up stamina from buffs
 +    float stamValue = me->GetTotalStatValue(STAT_STAMINA);
 +    stamValue = std::max(stamValue - 18.f, 1.f); //remove base stamina (not calculated into health)
-+    uint32 hp_add = uint32(stamValue*10.f);
++    uint32 hp_add = uint32(stamValue*hp_mult);
 +    hp_add += (m_creatureOwner->GetMaxHealth() - m_creatureOwner->GetCreateHealth())*0.3f;
 +    uint8 miscVal = GetPetType(me)*mylevel;
 +    hp_add -= miscVal;
-+    uint32 m_totalhp = m_basehp + hp_add + me->GetCreateHealth();
++    uint32 m_totalhp = m_basehp + hp_add;
 +    if (master->GetBotTankGuid() == me->GetGUID())
 +        m_totalhp = (m_totalhp*135) / 100;//35% hp bonus for tanks
 +    me->SetModifierValue(UNIT_MOD_HEALTH, BASE_VALUE, float(m_totalhp));
@@ -2906,11 +2926,21 @@ index 0000000..68327a6
 +{
 +    if (me->getPowerType() != POWER_MANA)
 +        return;
++
++    float mana_mult = 15.f;
++    switch (GetPetType(me))
++    {
++    case PET_TYPE_VOIDWALKER:
++        mana_mult = 11.5;
++        break;
++    default:
++        break;
++    }
 +    float pct = (float(me->GetPower(POWER_MANA)) * 100.f) / float(me->GetMaxPower(POWER_MANA));
 +    //Use simple checks and calcs
 +    //0.3 mana for bots (inaccurate but cheap)
 +    float m_basemana = float(me->GetCreateMana());
-+    m_basemana += (std::max<float>(me->GetTotalStatValue(STAT_INTELLECT) - 18.f, 1.f))*15.f; //remove base stamina (not calculated into mana)
++    m_basemana += (std::max<float>(me->GetTotalStatValue(STAT_INTELLECT) - 18.f, 1.f))*mana_mult; //remove base stamina (not calculated into mana)
 +    m_basemana += float(m_creatureOwner->GetMaxPower(POWER_MANA) - m_creatureOwner->GetCreateMana())*0.3f;
 +    m_basemana -= float(GetPetType(me)*mylevel);
 +    me->SetModifierValue(UNIT_MOD_MANA, BASE_VALUE, m_basemana);
@@ -3304,10 +3334,10 @@ index 0000000..68327a6
 \ No newline at end of file
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..6c9d743
+index 0000000..fed285c
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,770 @@
+@@ -0,0 +1,776 @@
 +#include "ScriptedCreature.h"
 +#include "ScriptedGossip.h"
 +#include "Group.h"
@@ -3435,6 +3465,7 @@ index 0000000..6c9d743
 +        inline uint8 GetHaste() const { return haste; }
 +
 +        void ReceiveEmote(Player* player, uint32 emote);
++        void ApplyPassives(uint8 botOrPetType) const;
 +
 +    protected:
 +        static bool CCed(Unit* target, bool root = false)
@@ -3454,7 +3485,6 @@ index 0000000..6c9d743
 +        inline bool IsChanneling(Unit* u = NULL) const { if (!u) u = me; return u->GetCurrentSpell(CURRENT_CHANNELED_SPELL); }
 +        inline bool IsCasting(Unit* u = NULL) const { if (!u) u = me; return (u->HasUnitState(UNIT_STATE_CASTING) || IsChanneling(u) || u->IsNonMeleeSpellCasted(false)); }
 +
-+        void ApplyPassives(uint8 botOrPetType) const;
 +        void GetInPosition(bool force = false, bool ranged = true, Unit* newtarget = NULL, Position* pos = NULL);
 +        void OnSpellHit(Unit* caster, SpellInfo const* spell);
 +        void FindTank();
@@ -3473,13 +3503,7 @@ index 0000000..6c9d743
 +        //virtual void _OnMeleeDamageUpdate(uint8 /*myclass*/) const = 0;
 +
 +        //virtual void ReceiveEmote(Player* /*player*/, uint32 /*emote*/) {}
-+        virtual void CommonTimers(const uint32 diff)
-+        {
-+            if (GC_Timer > diff)            GC_Timer -= diff;
-+            if (temptimer > diff)           temptimer -= diff;
-+            if (checkAurasTimer != 0)       --checkAurasTimer;
-+            if (wait != 0)                  --wait;
-+        }
++        virtual void CommonTimers(const uint32 diff) = 0;
 +
 +        virtual bool HealTarget(Unit* /*target*/, uint8 /*pct*/, const uint32 /*diff*/) { return false; }
 +        virtual bool BuffTarget(Unit* /*target*/, const uint32 /*diff*/) { return false; }
@@ -4061,9 +4085,21 @@ index 0000000..6c9d743
 +        //virtual void DoNonCombatActions(const uint32 /*diff*/) {}
 +        //virtual void StartAttack(Unit* /*u*/, bool /*force*/ = false) {}
 +        void setStats(uint8 mylevel, uint8 petType, bool force = false);
++
++        void CommonTimers(const uint32 diff)
++        {
++            if (GC_Timer > diff)            GC_Timer -= diff;
++            if (temptimer > diff)           temptimer -= diff;
++            if (checkAurasTimer != 0)       --checkAurasTimer;
++            if (wait != 0)                  --wait;
++        }
++
 +        static uint8 GetPetType(Creature* pet);
 +        static uint8 GetPetClass(Creature* pet);
 +        static uint32 GetPetOriginalEntry(uint32 entry);
++
++        //debug
++        //virtual void ListSpells(ChatHandler* /*handler*/) const {}
 +
 +        void InitSpells() {}
 +        void _OnHealthUpdate(uint8 petType, uint8 mylevel) const;
@@ -8907,10 +8943,10 @@ index 0000000..a8edcb0
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warlock_ai.cpp b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 new file mode 100644
-index 0000000..c2f9aa1
+index 0000000..d67a890
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
-@@ -0,0 +1,420 @@
+@@ -0,0 +1,458 @@
 +#include "bot_ai.h"
 +
 +class warlock_bot : public CreatureScript
@@ -8970,7 +9006,7 @@ index 0000000..c2f9aa1
 +        void KilledUnit(Unit *) { }
 +        void EnterEvadeMode() { }
 +        void EnterCombat(Unit*) { }
-+        void JustDied(Unit *) { master->SetNpcBotDied(me->GetGUID()); }
++        void JustDied(Unit *) { me->SetBotsPetDied(); master->SetNpcBotDied(me->GetGUID()); }
 +        void Aggro(Unit *) { }
 +        void AttackStart(Unit *) { }
 +
@@ -9002,7 +9038,7 @@ index 0000000..c2f9aa1
 +            //if pet is dead or unreachable
 +            Creature* m_botsPet = me->GetBotsPet();
 +            if (!m_botsPet || m_botsPet->GetMap() != master->GetMap() || (me->GetDistance2d(m_botsPet) > sWorld->GetMaxVisibleDistanceOnContinents() - 20.f))
-+                if (master->getLevel() >= 20 && !me->isInCombat() && !IsCasting() && !me->IsMounted())
++                if (master->getLevel() >= 10 && !me->isInCombat() && !IsCasting() && !me->IsMounted())
 +                    SummonBotsPet(PET_VOIDWALKER);
 +
 +            //TODO: implement healthstone
@@ -9224,7 +9260,7 @@ index 0000000..c2f9aa1
 +        bool doCast(Unit *victim, uint32 spellId, bool triggered = false)
 +        {
 +            if (spellId == 0) return false;
-+            if (me->IsMounted()) return false;
++            //if (me->IsMounted()) return false;
 +            if (IsCasting()) return false;
 +            if (!CheckImmunities(spellId, victim)) return false;
 +            if (InDuel(victim)) return false;
@@ -9233,7 +9269,7 @@ index 0000000..c2f9aa1
 +            info = sSpellMgr->GetSpellInfo(spellId);
 +            if (info->CalcPowerCost(me, info->GetSchoolMask()) > me->GetPower(Powers(info->PowerType)))
 +                return false;
-+            me->SetStandState(UNIT_STAND_STATE_STAND);
++            //me->SetStandState(UNIT_STAND_STATE_STAND);
 +            value = int32(1500.f - 1500.f * (float(GetHaste()) / 100.f));
 +            GC_Timer = value < 500 ? 500 : value;
 +
@@ -9286,7 +9322,7 @@ index 0000000..c2f9aa1
 +            DoNormalAttack(diff);
 +        }
 +
-+        void DoNormalAttack(const uint32 /*diff*/)
++        void DoNormalAttack(const uint32 diff)
 +        {
 +            opponent = me->getVictim();
 +            if (opponent)
@@ -9296,6 +9332,17 @@ index 0000000..c2f9aa1
 +            }
 +            else
 +                return;
++            if (MoveBehind(*opponent))
++                wait = 5;
++
++            //TORMENT
++            if (Torment_cd <= diff && (!tank || tank == me || opponent->getVictim() == m_creatureOwner))
++            {
++                temptimer = GC_Timer;
++                if (doCast(opponent, TORMENT))
++                    Torment_cd = 5000;
++                GC_Timer = temptimer;
++            }
 +        }
 +
 +        void SpellHit(Unit* caster, SpellInfo const* spell)
@@ -9303,18 +9350,28 @@ index 0000000..c2f9aa1
 +            OnSpellHit(caster, spell);
 +        }
 +
++        //debug
++        //void ListSpells(ChatHandler* ch) const
++        //{
++        //    ch->PSendSysMessage("Spells list:");
++        //    ch->PSendSysMessage("Torment: %u", TORMENT);
++        //    ch->PSendSysMessage("End of spells list.");
++        //}
++
 +        void Reset()
 +        {
-+            if (master && m_creatureOwner)
++            if (master)
 +            {
 +                //setStats(master->getLevel(), PET_TYPE_VOIDWALKER, 0, true);
 +                ApplyPassives(PET_TYPE_VOIDWALKER);
++                ApplyClassPassives();
 +            }
 +        }
 +
 +        void ReduceCD(const uint32 diff)
 +        {
 +            CommonTimers(diff);
++            if (Torment_cd > diff)              Torment_cd -= diff;
 +        }
 +
 +        bool CanRespawn()
@@ -9322,7 +9379,24 @@ index 0000000..c2f9aa1
 +
 +        void InitSpells()
 +        {
++            TORMENT                             = InitSpell(me, TORMENT_1);
 +        }
++
++        void ApplyClassPassives() {}
++
++    private:
++        uint32 
++            TORMENT;
++        //Timers
++        uint32 Torment_cd;
++
++        enum VoidwalkerBaseSpells
++        {
++            TORMENT_1                           = 3716,
++        };
++        enum VoidwalkerPassives
++        {
++        };
 +    };
 +};
 +
@@ -32291,7 +32365,7 @@ index 68ae2d8..a286b44 100644
    ${CMAKE_CURRENT_SOURCE_DIR}/AI/EventAI
    ${CMAKE_CURRENT_SOURCE_DIR}/AI/ScriptedAI
 diff --git a/src/server/game/Entities/Creature/Creature.cpp b/src/server/game/Entities/Creature/Creature.cpp
-index 5cf81fb..8dddf59 100755
+index 5cf81fb..563c933 100755
 --- a/src/server/game/Entities/Creature/Creature.cpp
 +++ b/src/server/game/Entities/Creature/Creature.cpp
 @@ -52,6 +52,9 @@
@@ -32326,7 +32400,7 @@ index 5cf81fb..8dddf59 100755
  
      m_corpseRemoveTime = time(NULL);
      setDeathState(DEAD);
-@@ -2536,3 +2547,107 @@ bool Creature::SetHover(bool enable)
+@@ -2536,3 +2547,112 @@ bool Creature::SetHover(bool enable)
      SendMessageToSet(&data, false);
      return true;
  }
@@ -32360,9 +32434,13 @@ index 5cf81fb..8dddf59 100755
 +        return;
 +    uint64 tankGuid = bot_AI->GetBotTankGuid();
 +    if (newtank && newtank->GetGUID() == tankGuid) return;
-+    if (Unit* oldtank = tankGuid ? sObjectAccessor->FindUnit(tankGuid) : NULL)
-+        if (oldtank->IsInWorld() && oldtank->ToCreature() && oldtank->HasAura(DEFENSIVE_STANCE_PASSIVE))//bots only
-+            oldtank->RemoveAurasDueToSpell(DEFENSIVE_STANCE_PASSIVE);//defensivestancepassive
++    Creature* oldtank = tankGuid && IS_CREATURE_GUID(tankGuid) ? sObjectAccessor->GetObjectInWorld(tankGuid, (Creature* )NULL) : NULL;
++    if (oldtank && oldtank->IsInWorld() && (oldtank->GetIAmABot() || oldtank->GetIAmABotsPet()))
++    {
++        oldtank->RemoveAurasDueToSpell(DEFENSIVE_STANCE_PASSIVE);
++        uint8 ClassOrPetType = oldtank->GetIAmABotsPet() ? bot_pet_ai::GetPetType(oldtank) : oldtank->GetBotClass();
++        oldtank->GetBotAI()->ApplyPassives(ClassOrPetType);
++    }
 +    if (newtank == this)
 +    {
 +        for (uint8 i = 0; i < 3; ++i)
@@ -32379,7 +32457,8 @@ index 5cf81fb..8dddf59 100755
 +            }
 +        }
 +        bot_AI->UpdateHealth();
-+        SetBotCommandState(COMMAND_FOLLOW, !isInCombat());
++        if (!isInCombat())
++            SetBotCommandState(COMMAND_FOLLOW, true);
 +    }
 +    bot_AI->SetBotTank(newtank);
 +}
@@ -32512,7 +32591,7 @@ index 43b29c6..98ba8c3 100755
  }
  
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index 142b593..0e70364 100755
+index 142b593..ab283e3 100755
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -77,6 +77,10 @@
@@ -32681,7 +32760,7 @@ index 142b593..0e70364 100755
 +    }//end for botmap
 +    m_botTimer = 100 + isInFlight()*3000;//x2 ms //temp hack
 +    //BOT CREATION/RECREATION SUPPORT
-+    if (!isInFlight() && isAlive() && GetBotMustBeCreated())
++    if (!isInFlight() && isAlive() && !HasUnitMovementFlag(MOVEMENTFLAG_ONTRANSPORT) && GetBotMustBeCreated())
 +        for (uint8 pos = 0; pos != GetMaxNpcBots(); ++pos)
 +            if (m_botmap[pos].m_entry != 0 && m_botmap[pos].m_guid == 0)
 +                CreateBot(m_botmap[pos].m_entry, m_botmap[pos].m_race, m_botmap[pos].m_class, m_botmap[pos].tank);
