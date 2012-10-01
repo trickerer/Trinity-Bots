@@ -1,20 +1,20 @@
-From 9920df8c25533fa9b73bedce12a07a6b23c2cc12 Mon Sep 17 00:00:00 2001
+From 15f2ff8664250a57ba6b1fb6611597225f8a3f87 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Fri, 28 Sep 2012 20:23:09 +0700
+Date: Mon, 1 Oct 2012 12:16:55 +0700
 Subject: [PATCH] AllBots
 
 ---
  sql/Bots/character_NPC_bots.sql                    |   10 +
  sql/Bots/world.bots.sql                            |  287 +
  sql/Bots/world.script_bot_giver.sql                |    7 +
- src/server/game/AI/NpcBots/bot_ai.cpp              | 3040 +++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 3045 +++++
  src/server/game/AI/NpcBots/bot_ai.h                |  785 ++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1071 ++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  320 +
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  855 ++
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  933 ++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  839 ++
- src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  621 +
+ src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  695 ++
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  273 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  435 +
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1113 ++
@@ -60,7 +60,7 @@ Subject: [PATCH] AllBots
  src/server/game/Server/WorldSession.h              |   36 +
  src/server/scripts/Spells/spell_priest.cpp         |    4 +
  src/server/worldserver/worldserver.conf.dist       |  188 +
- 56 files changed, 33955 insertions(+), 0 deletions(-)
+ 56 files changed, 34034 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -425,10 +425,10 @@ index 0000000..5b00cdc
 +
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..dd2fe4f
+index 0000000..fa4301a
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,3040 @@
+@@ -0,0 +1,3045 @@
 +#include "bot_ai.h"
 +#include "Config.h"
 +#include "Chat.h"
@@ -498,6 +498,7 @@ index 0000000..dd2fe4f
 +    pos.m_positionY = 0.f;
 +    pos.m_positionZ = 0.f;
 +    aftercastTargetGuid = 0;
++    currentSpell = 0;
 +    dmgmult_melee = ConfigMgr::GetFloatDefault("Bot.DamageMult.Melee", 1.0);
 +    dmgmult_spell = ConfigMgr::GetFloatDefault("Bot.DamageMult.Spell", 1.0);
 +    dmgmult_melee = std::max(dmgmult_melee, 0.01f);
@@ -516,29 +517,29 @@ index 0000000..dd2fe4f
 +
 +    switch (botclass)
 +    {
-+    case CLASS_MAGE:
-+    case CLASS_PRIEST:
-+    case CLASS_DRUID:
-+    case CLASS_WARLOCK:
-+    case CLASS_SHAMAN:
-+        if (Feasting() && !master->isInCombat() && !master->HasAuraType(SPELL_AURA_PERIODIC_DAMAGE))
-+            return SPELL_FAILED_DONT_REPORT;
-+        return SPELL_CAST_OK;
-+    case CLASS_PALADIN:
-+        //Crusader Strike
-+        if (spellId != MANAPOTION && spellId != HEALINGPOTION && spellId != 35395 && me->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SILENCED))
-+            return SPELL_FAILED_DONT_REPORT;
-+        return SPELL_CAST_OK;
-+    case CLASS_WARRIOR:
-+        //BladeStorm
-+        if (me->HasAura(46924/*67541*/))
-+            return SPELL_FAILED_DONT_REPORT;
-+        return SPELL_CAST_OK;
-+    case CLASS_ROGUE:
-+    case CLASS_HUNTER:
-+    case CLASS_DEATH_KNIGHT:
-+    default:
-+        return SPELL_CAST_OK;
++        case CLASS_MAGE:
++        case CLASS_PRIEST:
++        case CLASS_DRUID:
++        case CLASS_WARLOCK:
++        case CLASS_SHAMAN:
++            if (Feasting() && !master->isInCombat() && !master->HasAuraType(SPELL_AURA_PERIODIC_DAMAGE))
++                return SPELL_FAILED_DONT_REPORT;
++            return SPELL_CAST_OK;
++        case CLASS_PALADIN:
++            //Crusader Strike
++            if (spellId != MANAPOTION && spellId != HEALINGPOTION && spellId != 35395 && me->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SILENCED))
++                return SPELL_FAILED_DONT_REPORT;
++            return SPELL_CAST_OK;
++        case CLASS_WARRIOR:
++            //BladeStorm
++            if (me->HasAura(46924/*67541*/))
++                return SPELL_FAILED_DONT_REPORT;
++            return SPELL_CAST_OK;
++        case CLASS_ROGUE:
++        case CLASS_HUNTER:
++        case CLASS_DEATH_KNIGHT:
++        default:
++            return SPELL_CAST_OK;
 +    }
 +}
 +
@@ -588,15 +589,17 @@ index 0000000..dd2fe4f
 +        return false;
 +    }
 +
++    currentSpell = spellId;
++
 +    switch (me->GetBotClass())
 +    {
-+    case CLASS_ROGUE:
-+    case CAT:
-+        value = int32(1000.f - 1000.f*(float(haste) / 100.f));
-+        break;
-+    default:
-+        value = int32(1500.f - 1500.f*(float(haste) / 100.f));
-+        break;
++        case CLASS_ROGUE:
++        case CAT:
++            value = int32(1000.f - 1000.f*(float(haste) / 100.f));
++            break;
++        default:
++            value = int32(1500.f - 1500.f*(float(haste) / 100.f));
++            break;
 +    }
 +    GC_Timer = std::max<uint32>(value, 500);
 +
@@ -619,18 +622,18 @@ index 0000000..dd2fe4f
 +    {
 +        switch (me->GetBotClass())
 +        {
-+        case CLASS_WARRIOR: case CLASS_DEATH_KNIGHT: case CLASS_PALADIN: case BEAR:
-+            mydist = frand(0.2f, 1.f);//(1.f, 3.f);//RAND(1.f,1.5f,2.f,2.5f,3.f,3.5f);
-+            angle = (M_PI/2.f) / 8.f * RAND(frand(5.f, 10.f), frand(-10.f, -5.f));//RAND(6.5f,7.f,7.5f,8.f,8.5f,9.f,9.5f,-6.5f,-7.f,-7.5f,-8.f,-8.5f,-9.f,-9.5f);
-+            break;
-+        case CLASS_WARLOCK: case CLASS_PRIEST: case CLASS_MAGE: case CAT:
-+            mydist = frand(0.15f, 0.8f);//(0.5f, 2.f);//RAND(0.5f,1.f,1.5f,2.f);
-+            angle = (M_PI/2.f) / 6.f * frand(10.5f, 13.5f);//RAND(10.5f,11.f,11.5f,12.f,12.5f,13.f,13.5f);
-+            break;
-+        default:
-+            mydist = frand(0.3f, 1.2f);//(2.5f, 4.f);//RAND(2.5f,3.f,3.5f,4.f);
-+            angle = (M_PI/2.f) / 6.f * frand(9.f, 15.f);//RAND(9.f,10.f,11.f,12.f,13.f,14.f,15.f);
-+            break;
++            case CLASS_WARRIOR: case CLASS_DEATH_KNIGHT: case CLASS_PALADIN: case BEAR:
++                mydist = frand(0.2f, 1.f);//(1.f, 3.f);//RAND(1.f,1.5f,2.f,2.5f,3.f,3.5f);
++                angle = (M_PI/2.f) / 8.f * RAND(frand(5.f, 10.f), frand(-10.f, -5.f));//RAND(6.5f,7.f,7.5f,8.f,8.5f,9.f,9.5f,-6.5f,-7.f,-7.5f,-8.f,-8.5f,-9.f,-9.5f);
++                break;
++            case CLASS_WARLOCK: case CLASS_PRIEST: case CLASS_MAGE: case CAT:
++                mydist = frand(0.15f, 0.8f);//(0.5f, 2.f);//RAND(0.5f,1.f,1.5f,2.f);
++                angle = (M_PI/2.f) / 6.f * frand(10.5f, 13.5f);//RAND(10.5f,11.f,11.5f,12.f,12.5f,13.f,13.5f);
++                break;
++            default:
++                mydist = frand(0.3f, 1.2f);//(2.5f, 4.f);//RAND(2.5f,3.f,3.5f,4.f);
++                angle = (M_PI/2.f) / 6.f * frand(9.f, 15.f);//RAND(9.f,10.f,11.f,12.f,13.f,14.f,15.f);
++                break;
 +        }
 +    }
 +    if (abs(abs(myangle) - abs(angle)) > M_PI/3.f)
@@ -1124,12 +1127,12 @@ index 0000000..dd2fe4f
 +        std::string mystat;
 +        switch (i)
 +        {
-+        case STAT_STRENGTH: mystat = "str"; break;
-+        case STAT_AGILITY: mystat = "agi"; break;
-+        case STAT_STAMINA: mystat = "sta"; break;
-+        case STAT_INTELLECT: mystat = "int"; break;
-+        case STAT_SPIRIT: mystat = "spi"; break;
-+        default: mystat = "unk stat"; break;
++            case STAT_STRENGTH: mystat = "str"; break;
++            case STAT_AGILITY: mystat = "agi"; break;
++            case STAT_STAMINA: mystat = "sta"; break;
++            case STAT_INTELLECT: mystat = "int"; break;
++            case STAT_SPIRIT: mystat = "spi"; break;
++            default: mystat = "unk stat"; break;
 +        }
 +        ch.PSendSysMessage("%s: %f", mystat.c_str(), unit->GetTotalStatValue(Stats(i)));
 +    }
@@ -1195,12 +1198,12 @@ index 0000000..dd2fe4f
 +            const char* resist = NULL;
 +            switch (i)
 +            {
-+            case 1: resist = "holy";   break;
-+            case 2: resist = "fire";   break;
-+            case 3: resist = "nature"; break;
-+            case 4: resist = "frost";  break;
-+            case 5: resist = "shadow"; break;
-+            case 6: resist = "arcane"; break;
++                case 1: resist = "holy";   break;
++                case 2: resist = "fire";   break;
++                case 3: resist = "nature"; break;
++                case 4: resist = "frost";  break;
++                case 5: resist = "shadow"; break;
++                case 6: resist = "arcane"; break;
 +            }
 +            ch.PSendSysMessage("Resistance %s: %u", resist, me->GetResistance(SpellSchools(i)));
 +        }
@@ -1274,19 +1277,19 @@ index 0000000..dd2fe4f
 +    //INIT CLASS MODIFIERS
 +    switch (myclass)
 +    {
-+    case CLASS_WARRIOR:      ap_mod = 1.3f;  spp_mod = 0.0f; armor_mod = 1.4f;  crit_mod = 1.0f; haste_mod = 0.75f; dodge_mod = 0.75f; parry_mod = 1.75f; break;
-+    case CLASS_DEATH_KNIGHT: ap_mod = 1.2f;  spp_mod = 1.0f; armor_mod = 1.15f; crit_mod = 0.9f; haste_mod = 0.65f; dodge_mod = 0.8f;  parry_mod = 2.0f;  break;//NYI
-+    case CLASS_PALADIN:      ap_mod = 1.0f;  spp_mod = 0.8f; armor_mod = 1.2f;  crit_mod = 0.8f; haste_mod = 0.85f; dodge_mod = 0.7f;  parry_mod = 1.5f;  break;
-+    case CLASS_ROGUE:        ap_mod = 1.5f;  spp_mod = 0.0f; armor_mod = 0.7f;  crit_mod = 1.5f; haste_mod = 1.35f; dodge_mod = 1.5f;  parry_mod = 0.8f;  break;//NYI
-+    case CLASS_HUNTER:       ap_mod = 1.15f; spp_mod = 0.0f; armor_mod = 0.85f; crit_mod = 1.2f; haste_mod = 1.25f; dodge_mod = 1.2f;  parry_mod = 1.2f;  break;//NYI
-+    case CLASS_SHAMAN:       ap_mod = 0.9f;  spp_mod = 1.0f; armor_mod = 0.9f;  crit_mod = 1.2f; haste_mod = 1.65f; dodge_mod = 0.8f;  parry_mod = 0.5f;  break;//NYI
-+    case CLASS_DRUID:        ap_mod = 0.0f;  spp_mod = 1.3f; armor_mod = 0.7f;  crit_mod = 0.7f; haste_mod = 1.95f; dodge_mod = 0.5f;  parry_mod = 0.0f;  break;
-+    case CLASS_MAGE:         ap_mod = 0.0f;  spp_mod = 0.8f; armor_mod = 0.5f;  crit_mod = 0.7f; haste_mod = 1.75f; dodge_mod = 0.5f;  parry_mod = 0.0f;  break;          
-+    case CLASS_PRIEST:       ap_mod = 0.0f;  spp_mod = 1.2f; armor_mod = 0.5f;  crit_mod = 0.7f; haste_mod = 1.75f; dodge_mod = 0.5f;  parry_mod = 0.0f;  break;
-+    case CLASS_WARLOCK:      ap_mod = 0.0f;  spp_mod = 1.0f; armor_mod = 0.5f;  crit_mod = 0.7f; haste_mod = 1.75f; dodge_mod = 0.5f;  parry_mod = 0.0f;  break;
-+    case BEAR:               ap_mod = 2.0f;  spp_mod = 1.3f; armor_mod = 2.25f; crit_mod = 1.0f; haste_mod = 0.75f; dodge_mod = 2.5f;  parry_mod = 0.0f;  break;
-+    case CAT:                ap_mod = 1.5f;  spp_mod = 1.3f; armor_mod = 1.1f;  crit_mod = 1.5f; haste_mod = 2.25f; dodge_mod = 1.35f; parry_mod = 0.0f;  break;
-+    default:                 ap_mod = 0.0f;  spp_mod = 0.0f; armor_mod = 0.0f;  crit_mod = 0.0f; haste_mod = 0.00f; dodge_mod = 0.0f;  parry_mod = 0.0f;  break;
++        case CLASS_WARRIOR:      ap_mod = 1.3f;  spp_mod = 0.0f; armor_mod = 1.4f;  crit_mod = 1.0f; haste_mod = 0.75f; dodge_mod = 0.75f; parry_mod = 1.75f; break;
++        case CLASS_DEATH_KNIGHT: ap_mod = 1.2f;  spp_mod = 1.0f; armor_mod = 1.15f; crit_mod = 0.9f; haste_mod = 0.65f; dodge_mod = 0.8f;  parry_mod = 2.0f;  break;//NYI
++        case CLASS_PALADIN:      ap_mod = 1.0f;  spp_mod = 0.8f; armor_mod = 1.2f;  crit_mod = 0.8f; haste_mod = 0.85f; dodge_mod = 0.7f;  parry_mod = 1.5f;  break;
++        case CLASS_ROGUE:        ap_mod = 1.5f;  spp_mod = 0.0f; armor_mod = 0.7f;  crit_mod = 1.5f; haste_mod = 1.35f; dodge_mod = 1.5f;  parry_mod = 0.8f;  break;//NYI
++        case CLASS_HUNTER:       ap_mod = 1.15f; spp_mod = 0.0f; armor_mod = 0.85f; crit_mod = 1.2f; haste_mod = 1.25f; dodge_mod = 1.2f;  parry_mod = 1.2f;  break;//NYI
++        case CLASS_SHAMAN:       ap_mod = 0.9f;  spp_mod = 1.0f; armor_mod = 0.9f;  crit_mod = 1.2f; haste_mod = 1.65f; dodge_mod = 0.8f;  parry_mod = 0.5f;  break;//NYI
++        case CLASS_DRUID:        ap_mod = 0.0f;  spp_mod = 1.3f; armor_mod = 0.7f;  crit_mod = 0.7f; haste_mod = 1.95f; dodge_mod = 0.5f;  parry_mod = 0.0f;  break;
++        case CLASS_MAGE:         ap_mod = 0.0f;  spp_mod = 0.8f; armor_mod = 0.5f;  crit_mod = 0.7f; haste_mod = 1.75f; dodge_mod = 0.5f;  parry_mod = 0.0f;  break;          
++        case CLASS_PRIEST:       ap_mod = 0.0f;  spp_mod = 1.2f; armor_mod = 0.5f;  crit_mod = 0.7f; haste_mod = 1.75f; dodge_mod = 0.5f;  parry_mod = 0.0f;  break;
++        case CLASS_WARLOCK:      ap_mod = 0.0f;  spp_mod = 1.0f; armor_mod = 0.5f;  crit_mod = 0.7f; haste_mod = 1.75f; dodge_mod = 0.5f;  parry_mod = 0.0f;  break;
++        case BEAR:               ap_mod = 2.0f;  spp_mod = 1.3f; armor_mod = 2.25f; crit_mod = 1.0f; haste_mod = 0.75f; dodge_mod = 2.5f;  parry_mod = 0.0f;  break;
++        case CAT:                ap_mod = 1.5f;  spp_mod = 1.3f; armor_mod = 1.1f;  crit_mod = 1.5f; haste_mod = 2.25f; dodge_mod = 1.35f; parry_mod = 0.0f;  break;
++        default:                 ap_mod = 0.0f;  spp_mod = 0.0f; armor_mod = 0.0f;  crit_mod = 0.0f; haste_mod = 0.00f; dodge_mod = 0.0f;  parry_mod = 0.0f;  break;
 +    }
 +    if (spp_mod != 0.f && mylevel > 39)
 +        spp_mod *= (float(mylevel - 39))/41.f;// gain spell power slowly
@@ -1352,7 +1355,7 @@ index 0000000..dd2fe4f
 +    if (myclass == CAT)//give cat lots of haste
 +        value += float(mylevel/16);//or 20 (+ 4-5 stacks);
 +    RefreshAura(HASTE,  uint8(value));//spell haste
-+    RefreshAura(HASTE2, uint8(value));//melee haste
++    RefreshAura(HASTE2, uint8(value + 1*(myclass == CLASS_ROGUE)));//melee haste
 +    haste = uint8(value);//for show only
 +
 +    //HIT
@@ -1393,6 +1396,8 @@ index 0000000..dd2fe4f
 +        value = 55.f;
 +    if (parryAndDodge + value > 55.f)
 +        value = 55.f - parryAndDodge;//do not allow avoidance to be more than 65% (base 5+5)
++    if (myclass == CLASS_ROGUE)
++        value += 6.f;
 +    RefreshAura(DODGE, int8(value/5.f));
 +
 +    //MANA
@@ -1526,19 +1531,19 @@ index 0000000..dd2fe4f
 +    //Other   x1.0  -- use as default
 +    switch (petType)
 +    {
-+    case PET_TYPE_VOIDWALKER:       ap_mod = 0.57f; spp_mod = 0.15f; crit_mod = 1.0f; break;
-+    //case PET_TYPE_FELHUNTER:        ap_mod = 0.57f; spp_mod = 0.15f; crit_mod = 1.0f; break;//NYI
-+    //case PET_TYPE_FELGUARD:         ap_mod = 0.57f; spp_mod = 0.15f; crit_mod = 1.0f; break;//NYI
-+    //case PET_TYPE_SUCCUBUS:         ap_mod = 0.57f; spp_mod = 0.15f; crit_mod = 1.0f; break;//NYI
-+    //case PET_TYPE_IMP:              ap_mod = 0.f;   spp_mod = 0.15f; crit_mod = 1.0f; break;//NYI
++        case PET_TYPE_VOIDWALKER:       ap_mod = 0.57f; spp_mod = 0.15f; crit_mod = 1.0f; break;
++        //case PET_TYPE_FELHUNTER:        ap_mod = 0.57f; spp_mod = 0.15f; crit_mod = 1.0f; break;//NYI
++        //case PET_TYPE_FELGUARD:         ap_mod = 0.57f; spp_mod = 0.15f; crit_mod = 1.0f; break;//NYI
++        //case PET_TYPE_SUCCUBUS:         ap_mod = 0.57f; spp_mod = 0.15f; crit_mod = 1.0f; break;//NYI
++        //case PET_TYPE_IMP:              ap_mod = 0.f;   spp_mod = 0.15f; crit_mod = 1.0f; break;//NYI
 +
-+    //case PET_TYPE_WATER_ELEMENTAL:  ap_mod = 0.0f;  spp_mod = 0.0f; crit_mod = 0.0f; break;//NYI
++        //case PET_TYPE_WATER_ELEMENTAL:  ap_mod = 0.0f;  spp_mod = 0.0f; crit_mod = 0.0f; break;//NYI
 +
-+    //case PET_TYPE_FIRE_ELEMENTAL:   ap_mod = 0.0f;  spp_mod = 0.0f; crit_mod = 0.0f; break;//NYI
-+    //case PET_TYPE_EARTH_ELEMENTAL:  ap_mod = 0.0f;  spp_mod = 0.0f; crit_mod = 0.0f; break;//NYI
++        //case PET_TYPE_FIRE_ELEMENTAL:   ap_mod = 0.0f;  spp_mod = 0.0f; crit_mod = 0.0f; break;//NYI
++        //case PET_TYPE_EARTH_ELEMENTAL:  ap_mod = 0.0f;  spp_mod = 0.0f; crit_mod = 0.0f; break;//NYI
 +
-+    //case PET_TYPE_VULTURE:          ap_mod = 0.9f;  spp_mod = 1.0f; crit_mod = 1.2f; break;//NYI
-+    default:                        ap_mod = 0.0f;  spp_mod = 0.0f; crit_mod = 0.0f; break;
++        //case PET_TYPE_VULTURE:          ap_mod = 0.9f;  spp_mod = 1.0f; crit_mod = 1.2f; break;//NYI
++        default:                        ap_mod = 0.0f;  spp_mod = 0.0f; crit_mod = 0.0f; break;
 +    }
 +    //case CLASS_WARRIOR:      ap_mod = 1.3f;  spp_mod = 0.0f; armor_mod = 1.4f;  crit_mod = 1.0f; haste_mod = 0.75f; dodge_mod = 0.75f; parry_mod = 1.75f; break;
 +    //case CLASS_DEATH_KNIGHT: ap_mod = 1.2f;  spp_mod = 1.0f; armor_mod = 1.15f; crit_mod = 0.9f; haste_mod = 0.65f; dodge_mod = 0.8f;  parry_mod = 2.0f;  break;//NYI
@@ -1561,12 +1566,12 @@ index 0000000..dd2fe4f
 +    {
 +        switch (m_creatureOwner->GetBotClass())
 +        {
-+        case CLASS_WARLOCK:
-+            value = float(m_creatureOwner->GetBotAI()->GetSpellPower());
-+            break;
-+        default://some weird class or NYI
-+            value = 0.f;
-+            break;
++            case CLASS_WARLOCK:
++                value = float(m_creatureOwner->GetBotAI()->GetSpellPower());
++                break;
++            default://some weird class or NYI
++                value = 0.f;
++                break;
 +        }
 +        //Calculate ap
 +        //set base strength
@@ -1670,12 +1675,12 @@ index 0000000..dd2fe4f
 +    {
 +        switch (m_creatureOwner->GetBotClass())
 +        {
-+        case CLASS_WARLOCK:
-+            value = float(m_creatureOwner->GetBotAI()->GetSpellPower());
-+            break;
-+        default://some weird class or NYI
-+            value = 0.f;
-+            break;
++            case CLASS_WARLOCK:
++                value = float(m_creatureOwner->GetBotAI()->GetSpellPower());
++                break;
++            default://some weird class or NYI
++                value = 0.f;
++                break;
 +        }
 +        m_spellpower = int32(value*spp_mod);
 +        me->RemoveAurasDueToSpell(SPELL_BONUS_250);
@@ -1697,36 +1702,36 @@ index 0000000..dd2fe4f
 +{
 +    switch (emote)
 +    {
-+    case TEXT_EMOTE_BONK:
-+        listAuras(player, me);
-+        break;
-+    case TEXT_EMOTE_SALUTE:
-+        listAuras(player, player);
-+        break;
-+    case TEXT_EMOTE_STAND:
-+        if (!IsMinionAI())
-+            return;
-+        if (master != player)
-+        {
-+            me->HandleEmoteCommand(EMOTE_ONESHOT_RUDE);
-+            return;
-+        }
-+        SetBotCommandState(COMMAND_STAY);
-+        me->MonsterWhisper("Standing Still.", player->GetGUID());
-+        break;
-+    case TEXT_EMOTE_WAVE:
-+        if (!IsMinionAI())
-+            return;
-+        if (master != player)
-+        {
-+            me->HandleEmoteCommand(EMOTE_ONESHOT_RUDE);
-+            return;
-+        }
-+        SetBotCommandState(COMMAND_FOLLOW, true);
-+        me->MonsterWhisper("Following!", player->GetGUID());
-+        break;
-+    default:
-+        break;
++        case TEXT_EMOTE_BONK:
++            listAuras(player, me);
++            break;
++        case TEXT_EMOTE_SALUTE:
++            listAuras(player, player);
++            break;
++        case TEXT_EMOTE_STAND:
++            if (!IsMinionAI())
++                return;
++            if (master != player)
++            {
++                me->HandleEmoteCommand(EMOTE_ONESHOT_RUDE);
++                return;
++            }
++            SetBotCommandState(COMMAND_STAY);
++            me->MonsterWhisper("Standing Still.", player->GetGUID());
++            break;
++        case TEXT_EMOTE_WAVE:
++            if (!IsMinionAI())
++                return;
++            if (master != player)
++            {
++                me->HandleEmoteCommand(EMOTE_ONESHOT_RUDE);
++                return;
++            }
++            SetBotCommandState(COMMAND_FOLLOW, true);
++            me->MonsterWhisper("Following!", player->GetGUID());
++            break;
++        default:
++            break;
 +    }
 +}
 +
@@ -1828,15 +1833,15 @@ index 0000000..dd2fe4f
 +            {
 +                switch (me->GetBotClass())
 +                {
-+                case CLASS_MAGE: case CLASS_DRUID: case CLASS_WARLOCK: case CLASS_PRIEST:/* case CLASS_SHAMAN:*/
-+                    CalculateAttackPos(opponent, attackpos);
-+                    if (me->GetDistance(attackpos) > 8)
-+                        GetInPosition(true, true, opponent, &attackpos);
-+                    break;
-+                default:
-+                    if (me->GetDistance(opponent) > 1.5f)
-+                        GetInPosition(true, false);
-+                    break;
++                    case CLASS_MAGE: case CLASS_DRUID: case CLASS_WARLOCK: case CLASS_PRIEST:/* case CLASS_SHAMAN:*/
++                        CalculateAttackPos(opponent, attackpos);
++                        if (me->GetDistance(attackpos) > 8)
++                            GetInPosition(true, true, opponent, &attackpos);
++                        break;
++                    default:
++                        if (me->GetDistance(opponent) > 1.5f)
++                            GetInPosition(true, false);
++                        break;
 +                }
 +            }
 +        }
@@ -1904,15 +1909,15 @@ index 0000000..dd2fe4f
 +        {
 +            switch (GetPetType(me))
 +            {
-+            case PET_TYPE_IMP:
-+                CalculateAttackPos(opponent, attackpos);
-+                if (me->GetDistance(attackpos) > 8)
-+                    GetInPosition(true, true, opponent, &attackpos);
-+                break;
-+            default:
-+                if (me->GetDistance(opponent) > 1.5f)
-+                    GetInPosition(true, false);
-+                break;
++                case PET_TYPE_IMP:
++                    CalculateAttackPos(opponent, attackpos);
++                    if (me->GetDistance(attackpos) > 8)
++                        GetInPosition(true, true, opponent, &attackpos);
++                    break;
++                default:
++                    if (me->GetDistance(opponent) > 1.5f)
++                        GetInPosition(true, false);
++                    break;
 +            }
 +        }
 +    }
@@ -2097,34 +2102,34 @@ index 0000000..dd2fe4f
 +    {
 +        switch (botOrPetType)
 +        {
-+        case CLASS_DRUID:
-+            byspell = me->GetShapeshiftForm() == FORM_NONE || 
-+                me->GetShapeshiftForm() == FORM_TREE || 
-+                me->GetShapeshiftForm() == FORM_MOONKIN;
-+            ranged = byspell;
-+            break;
-+        case CLASS_PRIEST:
-+        case CLASS_MAGE:
-+        case CLASS_WARLOCK:
-+        //case CLASS_SHAMAN:
-+        //case CLASS_HUNTER:
-+            byspell = true;
-+            ranged = true;
-+            break;
-+        default:
-+            break;
++            case CLASS_DRUID:
++                byspell = me->GetShapeshiftForm() == FORM_NONE || 
++                    me->GetShapeshiftForm() == FORM_TREE || 
++                    me->GetShapeshiftForm() == FORM_MOONKIN;
++                ranged = byspell;
++                break;
++            case CLASS_PRIEST:
++            case CLASS_MAGE:
++            case CLASS_WARLOCK:
++            //case CLASS_SHAMAN:
++            //case CLASS_HUNTER:
++                byspell = true;
++                ranged = true;
++                break;
++            default:
++                break;
 +        }
 +    }
 +    else
 +    {
 +        switch (botOrPetType)
 +        {
-+        case PET_TYPE_IMP:
-+            byspell = true;
-+            ranged = true;
-+            break;
-+        default:
-+            break;
++            case PET_TYPE_IMP:
++                byspell = true;
++                ranged = true;
++                break;
++            default:
++                break;
 +        }
 +    }
 +
@@ -2364,28 +2369,28 @@ index 0000000..dd2fe4f
 +        //apply -threat mod
 +        switch (botOrPetType)
 +        {
-+        case CLASS_WARRIOR:
-+            RefreshAura(RCP,1);//-27%
-+            break;
-+        case CLASS_PRIEST:
-+        case CLASS_MAGE:
-+        case CLASS_ROGUE:
-+            RefreshAura(RCP,3);//-87%
-+            break;
-+        default:
-+            RefreshAura(RCP,2);//-54%
-+            break;
++            case CLASS_WARRIOR:
++                RefreshAura(RCP,1);//-27%
++                break;
++            case CLASS_PRIEST:
++            case CLASS_MAGE:
++            case CLASS_ROGUE:
++                RefreshAura(RCP,3);//-87%
++                break;
++            default:
++                RefreshAura(RCP,2);//-54%
++                break;
 +        }
 +    }
 +    else
 +    {
 +        switch (botOrPetType)
 +        {
-+        case PET_TYPE_VOIDWALKER:
-+            RefreshAura(DEFENSIVE_STANCE_PASSIVE,2);
-+            break;
-+        default:
-+            break;
++            case PET_TYPE_VOIDWALKER:
++                RefreshAura(DEFENSIVE_STANCE_PASSIVE,2);
++                break;
++            default:
++                break;
 +        }
 +    }
 +}
@@ -2781,59 +2786,59 @@ index 0000000..dd2fe4f
 +    float stammod;
 +    switch (myclass)
 +    {
-+    case CLASS_WARRIOR: case CLASS_DEATH_KNIGHT: case BEAR:
-+        switch (master->getClass())
-+        {
-+            case CLASS_PRIEST: case CLASS_MAGE: case CLASS_WARLOCK:
-+                stammod = 16.f;
-+                break;
-+            case CLASS_DRUID: case CLASS_SHAMAN: case CLASS_HUNTER: case CLASS_ROGUE:
-+                stammod = 13.f;
-+                break;
-+            default: stammod = 9.8f; break;
-+        }
-+        break;
-+    case CLASS_PALADIN:
-+        switch (master->getClass())
-+        {
-+            case CLASS_PRIEST: case CLASS_MAGE: case CLASS_WARLOCK:
-+                stammod = 15.5f;
-+                break;
-+            case CLASS_DRUID: case CLASS_SHAMAN: case CLASS_HUNTER: case CLASS_ROGUE:
-+                stammod = 12.5f;
-+                break;
-+            case CLASS_PALADIN:
-+                stammod = 9.8f;
-+                break;
-+            default: stammod = 9.f; break;
-+        }
-+        break;
-+    case CLASS_PRIEST: case CLASS_MAGE: case CLASS_WARLOCK:
-+        switch (master->getClass())
-+        {
-+            case CLASS_PRIEST: case CLASS_MAGE: case CLASS_WARLOCK:
-+                stammod = 9.8f;
-+                break;
-+            case CLASS_DRUID: case CLASS_SHAMAN: case CLASS_HUNTER: case CLASS_ROGUE:
-+                stammod = 8.f;
-+                break;
-+            default: stammod = 5.f; break;
-+        }
-+        break;
-+    case CLASS_DRUID: case CAT: case CLASS_SHAMAN: case CLASS_HUNTER: case CLASS_ROGUE:
-+        switch (master->getClass())
-+        {
-+            case CLASS_PRIEST: case CLASS_MAGE: case CLASS_WARLOCK:
-+                stammod = 12.f;
-+                break;
-+            case CLASS_DRUID: case CLASS_SHAMAN: case CLASS_HUNTER: case CLASS_ROGUE:
-+                stammod = 9.8f;
-+                break;
-+            default: stammod = 8.f; break;
-+        }
-+        break;
-+    default: stammod = 10.f;
-+        break;
++        case CLASS_WARRIOR: case CLASS_DEATH_KNIGHT: case BEAR:
++            switch (master->getClass())
++            {
++                case CLASS_PRIEST: case CLASS_MAGE: case CLASS_WARLOCK:
++                    stammod = 16.f;
++                    break;
++                case CLASS_DRUID: case CLASS_SHAMAN: case CLASS_HUNTER: case CLASS_ROGUE:
++                    stammod = 13.f;
++                    break;
++                default: stammod = 9.8f; break;
++            }
++            break;
++        case CLASS_PALADIN:
++            switch (master->getClass())
++            {
++                case CLASS_PRIEST: case CLASS_MAGE: case CLASS_WARLOCK:
++                    stammod = 15.5f;
++                    break;
++                case CLASS_DRUID: case CLASS_SHAMAN: case CLASS_HUNTER: case CLASS_ROGUE:
++                    stammod = 12.5f;
++                    break;
++                case CLASS_PALADIN:
++                    stammod = 9.8f;
++                    break;
++                default: stammod = 9.f; break;
++            }
++            break;
++        case CLASS_PRIEST: case CLASS_MAGE: case CLASS_WARLOCK:
++            switch (master->getClass())
++            {
++                case CLASS_PRIEST: case CLASS_MAGE: case CLASS_WARLOCK:
++                    stammod = 9.8f;
++                    break;
++                case CLASS_DRUID: case CLASS_SHAMAN: case CLASS_HUNTER: case CLASS_ROGUE:
++                    stammod = 8.f;
++                    break;
++                default: stammod = 5.f; break;
++            }
++            break;
++        case CLASS_DRUID: case CAT: case CLASS_SHAMAN: case CLASS_HUNTER: case CLASS_ROGUE:
++            switch (master->getClass())
++            {
++                case CLASS_PRIEST: case CLASS_MAGE: case CLASS_WARLOCK:
++                    stammod = 12.f;
++                    break;
++                case CLASS_DRUID: case CLASS_SHAMAN: case CLASS_HUNTER: case CLASS_ROGUE:
++                    stammod = 9.8f;
++                    break;
++                default: stammod = 8.f; break;
++            }
++            break;
++        default: stammod = 10.f;
++            break;
 +    }
 +    stammod -= 0.3f;
 +    //sLog->outError(LOG_FILTER_PLAYER, "stammod: %f", stammod);
@@ -2901,12 +2906,12 @@ index 0000000..dd2fe4f
 +    float manamod = 15.f;//here we set mana multiplier from intellect as we gain mana from MASTER's stats mostly
 +    switch (myclass)
 +    {
-+    case CLASS_PALADIN: case CLASS_HUNTER: manamod =  4.5f; break;
-+    case CLASS_SHAMAN:                     manamod = 11.5f; break;
-+    case CLASS_DRUID:                      manamod = 12.5f; break;
-+    case CLASS_PRIEST:                     manamod = 16.5f; break;
-+    case CLASS_MAGE: case CLASS_WARLOCK:   manamod = 10.5f; break;
-+    default:                                                break;
++        case CLASS_PALADIN: case CLASS_HUNTER: manamod =  4.5f; break;
++        case CLASS_SHAMAN:                     manamod = 11.5f; break;
++        case CLASS_DRUID:                      manamod = 12.5f; break;
++        case CLASS_PRIEST:                     manamod = 16.5f; break;
++        case CLASS_MAGE: case CLASS_WARLOCK:   manamod = 10.5f; break;
++        default:                                                break;
 +    }
 +    //manamod += 1.f;//custom
 +    //manamod *= 0.70f;//custom
@@ -3019,11 +3024,11 @@ index 0000000..dd2fe4f
 +    float hp_mult = 10.f;
 +    switch (GetPetType(me))
 +    {
-+    case PET_TYPE_VOIDWALKER:
-+        hp_mult = 11.f;
-+        break;
-+    default:
-+        break;
++        case PET_TYPE_VOIDWALKER:
++            hp_mult = 11.f;
++            break;
++        default:
++            break;
 +    }
 +    float pct = me->GetHealthPct();// needs for regeneration
 +    //Use simple checks and calcs
@@ -3054,11 +3059,11 @@ index 0000000..dd2fe4f
 +    float mana_mult = 15.f;
 +    switch (GetPetType(me))
 +    {
-+    case PET_TYPE_VOIDWALKER:
-+        mana_mult = 11.5f;
-+        break;
-+    default:
-+        break;
++        case PET_TYPE_VOIDWALKER:
++            mana_mult = 11.5f;
++            break;
++        default:
++            break;
 +    }
 +    float pct = (float(me->GetPower(POWER_MANA)) * 100.f) / float(me->GetMaxPower(POWER_MANA));
 +    //Use simple checks and calcs
@@ -3247,36 +3252,36 @@ index 0000000..dd2fe4f
 +void bot_ai::ApplyBotDamageMultiplierMelee(uint32& damage) const
 +{
 +    if (damage && dmgmult_melee != 1.0)
-+        damage = float(damage) * dmgmult_melee;
++        damage = int32(float(damage)*dmgmult_melee);
 +}
 +void bot_ai::ApplyBotDamageMultiplierMelee(int32& damage) const
 +{
 +    if (damage && dmgmult_melee != 1.0)
-+        damage = float(damage) * dmgmult_melee;
++        damage = int32(float(damage)*dmgmult_melee);
 +}
 +void bot_ai::ApplyBotDamageMultiplierSpell(int32& damage) const
 +{
 +    if (damage && dmgmult_spell != 1.0)
-+        damage = float(damage) * dmgmult_spell;
++        damage = int32(float(damage)*dmgmult_spell);
 +}
 +
 +bool bot_minion_ai::OnGossipHello(Player* player, Creature* creature)
 +{
 +    switch (creature->GetBotClass())
 +    {
-+    case CLASS_MAGE:
-+        if (creature->isInCombat())
-+        {
++        case CLASS_MAGE:
++            if (creature->isInCombat())
++            {
++                player->CLOSE_GOSSIP_MENU();
++                return false;
++            }
++            player->ADD_GOSSIP_ITEM(0, "I need food", 6001, GOSSIP_ACTION_INFO_DEF + 1);
++            player->ADD_GOSSIP_ITEM(0, "I need drink", 6001, GOSSIP_ACTION_INFO_DEF + 2);
++            player->PlayerTalkClass->SendGossipMenu(GOSSIP_SERVE_MASTER, creature->GetGUID());
++            break;
++        default:
 +            player->CLOSE_GOSSIP_MENU();
-+            return false;
-+        }
-+        player->ADD_GOSSIP_ITEM(0, "I need food", 6001, GOSSIP_ACTION_INFO_DEF + 1);
-+        player->ADD_GOSSIP_ITEM(0, "I need drink", 6001, GOSSIP_ACTION_INFO_DEF + 2);
-+        player->PlayerTalkClass->SendGossipMenu(GOSSIP_SERVE_MASTER, creature->GetGUID());
-+        break;
-+    default:
-+        player->CLOSE_GOSSIP_MENU();
-+        break;
++            break;
 +    }
 +    return true;
 +}
@@ -3291,65 +3296,65 @@ index 0000000..dd2fe4f
 +    }
 +    switch (creature->GetBotClass())
 +    {
-+    case CLASS_MAGE:
-+        switch (sender)
-+        {
-+            case 6001:// food/drink
++        case CLASS_MAGE:
++            switch (sender)
 +            {
-+                //Prevent high-leveled consumables for low-level characters
-+                Unit* checker;
-+                if (player->getLevel() < creature->getLevel())
-+                    checker = player;
-+                else
-+                    checker = creature;
++                case 6001:// food/drink
++                {
++                    //Prevent high-leveled consumables for low-level characters
++                    Unit* checker;
++                    if (player->getLevel() < creature->getLevel())
++                        checker = player;
++                    else
++                        checker = creature;
 +
-+                // Conjure Refreshment rank 1
-+                uint32 food = InitSpell(checker, 42955);
-+                bool iswater = (action == GOSSIP_ACTION_INFO_DEF + 2);
-+                if (!food)
-+                {
-+                    if (!iswater)// Conjure Food rank 1
-+                        food = InitSpell(checker, 587);
-+                    else// Conjure Water rank 1
-+                        food = InitSpell(checker, 5504);
-+                }
-+                if (!food)
-+                {
-+                    std::string errorstr = "I can't conjure ";
-+                    errorstr += iswater ? "water" : "food";
-+                    errorstr += " yet";
-+                    creature->MonsterWhisper(errorstr.c_str(), player->GetGUID());
-+                    //player->PlayerTalkClass->ClearMenus();
-+                    //return OnGossipHello(player, creature);
++                    // Conjure Refreshment rank 1
++                    uint32 food = InitSpell(checker, 42955);
++                    bool iswater = (action == GOSSIP_ACTION_INFO_DEF + 2);
++                    if (!food)
++                    {
++                        if (!iswater)// Conjure Food rank 1
++                            food = InitSpell(checker, 587);
++                        else// Conjure Water rank 1
++                            food = InitSpell(checker, 5504);
++                    }
++                    if (!food)
++                    {
++                        std::string errorstr = "I can't conjure ";
++                        errorstr += iswater ? "water" : "food";
++                        errorstr += " yet";
++                        creature->MonsterWhisper(errorstr.c_str(), player->GetGUID());
++                        //player->PlayerTalkClass->ClearMenus();
++                        //return OnGossipHello(player, creature);
++                        player->CLOSE_GOSSIP_MENU();
++                        return false;
++                    }
 +                    player->CLOSE_GOSSIP_MENU();
-+                    return false;
++                    SpellInfo const* Info = sSpellMgr->GetSpellInfo(food);
++                    Spell* foodspell = new Spell(creature, Info, TRIGGERED_NONE, player->GetGUID());
++                    SpellCastTargets targets;
++                    targets.SetUnitTarget(player);
++                    //TODO implement checkcast for bots
++                    SpellCastResult result = creature->IsMounted() || CCed(creature) ? SPELL_FAILED_CUSTOM_ERROR : foodspell->CheckPetCast(player);
++                    if (result != SPELL_CAST_OK)
++                    {
++                        foodspell->finish(false);
++                        delete foodspell;
++                        creature->MonsterWhisper("I can't do it right now", player->GetGUID());
++                        creature->SendPetCastFail(food, result);
++                    }
++                    else
++                    {
++                        aftercastTargetGuid = player->GetGUID();
++                        foodspell->prepare(&targets);
++                        creature->MonsterWhisper("Here you go...", player->GetGUID());
++                    }
++                    break;
 +                }
-+                player->CLOSE_GOSSIP_MENU();
-+                SpellInfo const* Info = sSpellMgr->GetSpellInfo(food);
-+                Spell* foodspell = new Spell(creature, Info, TRIGGERED_NONE, player->GetGUID());
-+                SpellCastTargets targets;
-+                targets.SetUnitTarget(player);
-+                //TODO implement checkcast for bots
-+                SpellCastResult result = creature->IsMounted() || CCed(creature) ? SPELL_FAILED_CUSTOM_ERROR : foodspell->CheckPetCast(player);
-+                if (result != SPELL_CAST_OK)
-+                {
-+                    foodspell->finish(false);
-+                    delete foodspell;
-+                    creature->MonsterWhisper("I can't do it right now", player->GetGUID());
-+                    creature->SendPetCastFail(food, result);
-+                }
-+                else
-+                {
-+                    aftercastTargetGuid = player->GetGUID();
-+                    foodspell->prepare(&targets);
-+                    creature->MonsterWhisper("Here you go...", player->GetGUID());
-+                }
-+                break;
 +            }
-+        }
-+        break;
-+    default:
-+        break;
++            break;
++        default:
++            break;
 +    }
 +    return true;
 +}
@@ -3428,8 +3433,8 @@ index 0000000..dd2fe4f
 +{
 +    switch (pet->GetEntry())
 +    {
-+    case PET_VOIDWALKER:
-+        return PET_TYPE_VOIDWALKER;
++        case PET_VOIDWALKER:
++            return PET_TYPE_VOIDWALKER;
 +    }
 +    return PET_TYPE_NONE;
 +}
@@ -3438,10 +3443,10 @@ index 0000000..dd2fe4f
 +{
 +    switch (GetPetType(pet))
 +    {
-+    case PET_TYPE_IMP:
-+        return CLASS_MAGE;
-+    default:
-+        return CLASS_PALADIN;
++        case PET_TYPE_IMP:
++            return CLASS_MAGE;
++        default:
++            return CLASS_PALADIN;
 +    }
 +}
 +
@@ -3449,10 +3454,10 @@ index 0000000..dd2fe4f
 +{
 +    switch (entry)
 +    {
-+    case PET_VOIDWALKER:
-+        return ORIGINAL_ENTRY_VOIDWALKER;
-+    default:
-+        return 0;
++        case PET_VOIDWALKER:
++            return ORIGINAL_ENTRY_VOIDWALKER;
++        default:
++            return 0;
 +    }
 +}
 +
@@ -3472,7 +3477,7 @@ index 0000000..dd2fe4f
 \ No newline at end of file
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..9099f8f
+index 0000000..13efff9
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
 @@ -0,0 +1,785 @@
@@ -3592,9 +3597,9 @@ index 0000000..9099f8f
 +        bool IsInBotParty(Unit* unit) const;
 +        bool CanBotAttack(Unit* target, int8 byspell = 0) const;
 +        bool InDuel(Unit* target) const;
-+        void ApplyBotDamageMultiplierMelee(uint32& damage) const;
-+        void ApplyBotDamageMultiplierMelee(int32& damage) const;
-+        void ApplyBotDamageMultiplierSpell(int32& damage) const;
++        virtual void ApplyBotDamageMultiplierMelee(uint32& damage) const;
++        virtual void ApplyBotDamageMultiplierMelee(int32& damage) const;
++        virtual void ApplyBotDamageMultiplierSpell(int32& damage) const;
 +        inline void UpdateHealth() { doHealth = true; }
 +        inline void SetBotTank(Unit* newtank) { tank = newtank; m_TankGuid = newtank ? newtank->GetGUID() : 0; }
 +        static Unit* GetBotGroupMainTank(Group* group) { return _GetBotGroupMainTank(group); }
@@ -3678,7 +3683,7 @@ index 0000000..9099f8f
 +            dmgmult_melee, dmgmult_spell;
 +        uint64 aftercastTargetGuid;
 +        int32 cost, value, sppower, m_spellpower;
-+        uint32 GC_Timer, temptimer, checkAurasTimer, wait;
++        uint32 GC_Timer, temptimer, checkAurasTimer, wait, currentSpell;
 +        uint8 clear_cd, haste, healTargetIconFlags;
 +        bool doHealth, doMana;
 +
@@ -8312,16 +8317,53 @@ index 0000000..56a1998
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_rogue_ai.cpp b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 new file mode 100644
-index 0000000..53bcd2e
+index 0000000..170f8f4
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
-@@ -0,0 +1,621 @@
+@@ -0,0 +1,695 @@
 +#include "bot_ai.h"
 +/*
 +Rogue NpcBot (reworked by Graff onlysuffering@mail.ru)
 +Complete - 15% maybe...
 +TODO:
 +*/
++#define DAMAGE_RANGE        2
++#define MIN                 1
++#define MAX                 2
++#define MAX_COMBO_POINTS    5
++#define EVISCERATE_MAX_RANK 12
++const uint32 EVSCRDamage[EVISCERATE_MAX_RANK+1][MAX_COMBO_POINTS+1][DAMAGE_RANGE+1] = 
++{
++    { { 0,0,0 }, { 0,0,0 }, { 0,0,0 }, { 0,0,0 }, { 0,0,0 }, { 0,0,0 } },
++    { { 0,0,0 }, { 0,6,11 }, { 0,12,16 }, { 0,17,22 }, { 0,22,28 }, { 0,28,34 } },
++    { { 0,0,0 }, { 0,14,23 }, { 0,26,34 }, { 0,37,46 }, { 0,48,58 }, { 0,60,70 } },
++    { { 0,0,0 }, { 0,25,49 }, { 0,45,59 }, { 0,64,79 }, { 0,83,99 }, { 0,103,119 } },
++    { { 0,0,0 }, { 0,41,62 }, { 0,73,93 }, { 0,104,125 }, { 0,135,157 }, { 0,167,189 } },
++    { { 0,0,0 }, { 0,60,91 }, { 0,106,136 }, { 0,151,182 }, { 0,196,228 }, { 0,242,274 } },
++    { { 0,0,0 }, { 0,93,138 }, { 0,165,209 }, { 0,236,281 }, { 0,307,353 }, { 0,379,425 } },
++    { { 0,0,0 }, { 0,144,213 }, { 0,255,323 }, { 0,365,434 }, { 0,475,545 }, { 0,586,656 } },
++    { { 0,0,0 }, { 0,199,296 }, { 0,351,447 }, { 0,502,599 }, { 0,653,751 }, { 0,805,903 } },
++    { { 0,0,0 }, { 0,224,333 }, { 0,395,503 }, { 0,565,674 }, { 0,735,845 }, { 0,906,1016 } },
++    { { 0,0,0 }, { 0,245,366 }, { 0,431,551 }, { 0,616,737 }, { 0,801,923 }, { 0,987,1109 } },
++    { { 0,0,0 }, { 0,405,614 }, { 0,707,915 }, { 0,1008,1217 }, { 0,1309,1519 }, { 0,1611,1821 } },
++    { { 0,0,0 }, { 0,497,752 }, { 0,868,1122 }, { 0,1238,1493 }, { 0,1608,1864 }, { 0,1979,2235 } }
++};
++
++#define RUPTURE_MAX_RANK    9
++const uint32 RuptureDamage[RUPTURE_MAX_RANK+1][MAX_COMBO_POINTS+1] = 
++{
++    { 0, 0, 0, 0, 0, 0 },
++    { 0, 41, 61, 86, 114, 147 },
++    { 0, 61, 91, 128, 170, 219 },
++    { 0, 89, 131, 182, 240, 307 },
++    { 0, 129, 186, 254, 331, 419 },
++    { 0, 177, 256, 350, 457, 579 },
++    { 0, 273, 381, 506, 646, 803 },
++    { 0, 325, 461, 620, 800, 1003 },
++    { 0, 489, 686, 914, 1171, 1459 },
++    { 0, 581, 816, 1088, 1395, 1739 }
++};
++
 +class rogue_bot : public CreatureScript
 +{
 +public:
@@ -8401,7 +8443,7 @@ index 0000000..53bcd2e
 +        void UpdateAI(const uint32 diff)
 +        {
 +            ReduceCD(diff);
-+            if (KidneyTarget != 0 && tempComboPoints != 0)
++            if (KidneyTarget != 0)
 +            {
 +                //kidney shot is casted as rank 1 (1 or 2 secs) so add duration accordingly
 +                //i.e. kedney rank 1, points = 5, we have aura with duration 1 sec so add 4 more secs
@@ -8419,7 +8461,7 @@ index 0000000..53bcd2e
 +                KidneyTarget = 0;
 +                tempComboPoints = 0;
 +            }
-+            if (RuptureTarget != 0 && tempComboPoints != 0)
++            else if (RuptureTarget != 0)
 +            {
 +                //tempComboPoints -= 1;
 +                if (tempComboPoints != 0)
@@ -8433,13 +8475,13 @@ index 0000000..53bcd2e
 +                RuptureTarget = 0;
 +                tempComboPoints = 0;
 +            }
-+            if (tempDICE && tempComboPoints != 0)
++            else if (tempDICE)
 +            {
 +                //tempComboPoints -= 1;
 +                if (tempComboPoints != 0)
 +                    if (Aura* dice = me->GetAura(SLICE_DICE))
 +                    {
-+                        uint32 dur = dice->GetDuration() + tempComboPoints*4500;//with Improved Slice and Dice
++                        uint32 dur = (dice->GetDuration()*3)/2 + tempComboPoints*4500;//with Improved Slice and Dice
 +                        dice->SetDuration(dur);
 +                        dice->SetMaxDuration(dur);
 +                    }
@@ -8492,7 +8534,7 @@ index 0000000..53bcd2e
 +
 +            comboPoints = std::min<uint8>(comboPoints, 5);
 +            //AttackerSet m_attackers = master->getAttackers();
-+            //AttackerSet b_attackers = me->getAttackers();
++            AttackerSet b_attackers = me->getAttackers();
 +            float dist = me->GetExactDist(opponent);
 +            float meleedist = me->GetDistance(opponent);
 +
@@ -8538,7 +8580,7 @@ index 0000000..53bcd2e
 +                //doCast(opponent, BACKSTAB, true);
 +            }
 +            //BACKSTAB
-+            if (BACKSTAB && GC_Timer <= diff && meleedist <= 5 && comboPoints < 4 &&
++            if (BACKSTAB && GC_Timer <= diff && meleedist <= 5 && comboPoints < 5 &&
 +                /*Rand() < 90 && */getenergy() >= 60 && !opponent->HasInArc(M_PI, me))
 +            {
 +                if (doCast(opponent, BACKSTAB))
@@ -8552,8 +8594,8 @@ index 0000000..53bcd2e
 +                    return;
 +            }
 +            //SLICE AND DICE
-+            if (SLICE_DICE && Slice_Dice_Timer <= diff && GC_Timer <= diff && dist < 20 &&
-+                comboPoints > 0 && Rand() < 70 && getenergy() >= 25)
++            if (SLICE_DICE && Slice_Dice_Timer <= diff && GC_Timer <= diff && dist < 20 && comboPoints > 1 &&
++                (b_attackers.size() <= 1 || Blade_Flurry_Timer > 80000) && Rand() < 30 && getenergy() >= 25)
 +            {
 +                if (doCast(opponent, SLICE_DICE))
 +                {
@@ -8566,7 +8608,7 @@ index 0000000..53bcd2e
 +            }
 +            //KIDNEY SHOT
 +            if (KIDNEY_SHOT && GC_Timer <= diff && Kidney_Timer <= diff && meleedist <= 5 && comboPoints > 0 &&
-+                !CCed(opponent) && getenergy() >= 25 && Rand() < 5 + comboPoints*15 + 60*(opponent->IsNonMeleeSpellCasted(false)))
++                !CCed(opponent) && getenergy() >= 25 && ((Rand() < 15 + comboPoints*15 && opponent->getVictim() == me && comboPoints > 2) || opponent->IsNonMeleeSpellCasted(false)))
 +            {
 +                if (doCast(opponent, KIDNEY_SHOT))
 +                {
@@ -8579,13 +8621,13 @@ index 0000000..53bcd2e
 +            }
 +            //EVISCERATE
 +            if (EVISCERATE && GC_Timer <= diff && meleedist <= 5 && comboPoints > 2 &&
-+                getenergy() >= 35 && Rand() < comboPoints*10)
++                getenergy() >= 35 && Rand() < comboPoints*15)
 +            {
++                SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(EVISCERATE);
++                uint8 rank = spellInfo->GetRank();
 +                float ap = me->GetTotalAttackPowerValue(BASE_ATTACK);
-+                float maxdamage = me->GetFloatValue(UNIT_FIELD_MAXDAMAGE)*4.f;
-+                float mindamage = maxdamage*0.66f;
 +                float combo = float(comboPoints);
-+                int32 damage = int32(frand(mindamage,maxdamage)*0.2f*combo);//base damage
++                int32 damage = int32(urand(EVSCRDamage[rank][comboPoints][MIN], EVSCRDamage[rank][comboPoints][MAX]));//base damage
 +                damage += irand(int32(ap*combo*0.03f), int32(ap*combo*0.07f));//ap bonus
 +
 +                //PlaceHolder::damage bonuses
@@ -8593,9 +8635,8 @@ index 0000000..53bcd2e
 +                //if (me->HasAura(37169))
 +                //    damage += comboPoints*100;
 +
++                currentSpell = EVISCERATE;
 +                me->CastCustomSpell(opponent, EVISCERATE, &damage, NULL, NULL, false);
-+                GC_Timer = 800;
-+                //comboPoints = 1;//bonus
 +                return;
 +            }
 +            //MUTILATE
@@ -8620,22 +8661,36 @@ index 0000000..53bcd2e
 +            //}
 +
 +            //RUPTURE
-+            //TODO: impl. damage calc.
-+            if (RUPTURE && Rupture_Timer <= diff && GC_Timer <= diff && meleedist <= 5 && comboPoints > 1 &&
-+                opponent->GetHealth() > me->GetMaxHealth()/3 && getenergy() >= 25 && Rand() < 20 + 55*opponent->isMoving())
++            if (RUPTURE && Rupture_Timer <= diff && GC_Timer <= diff && meleedist <= 5 && comboPoints > 2 &&
++                opponent->GetHealth() > me->GetMaxHealth()/3 && getenergy() >= 25 && Rand() < 50 + 50*opponent->isMoving())
 +            {
-+                if (doCast(opponent, RUPTURE))
-+                {
-+                    RuptureTarget = opponent->GetGUID();
-+                    tempComboPoints = comboPoints;
-+                    Rupture_Timer = 6000 + (comboPoints-1)*2000;
-+                    //comboPoints = 0;
-+                    return;
-+                }
++                //no damage range for rupture
++                SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(RUPTURE);
++                uint8 rank = spellInfo->GetRank();
++                float ap = me->GetTotalAttackPowerValue(BASE_ATTACK);
++                float AP_per_combo[6] = {0.0f, 0.015f, 0.024f, 0.03f, 0.03428571f, 0.0375f};
++                float divider[6] = {0.0f, 4.f, 5.f, 6.f, 7.f, 8.f};//duration/2 = number of ticks
++                int32 damage = int32(RuptureDamage[rank][comboPoints]/divider[comboPoints]);//base damage
++                damage += int32(ap*AP_per_combo[comboPoints]);//ap bonus is strict - applied to every tick
++
++                currentSpell = RUPTURE;
++                me->CastCustomSpell(opponent, RUPTURE, &damage, NULL, NULL, false);
++                return;
++                //if (doCast(opponent, RUPTURE))
++                //{
++                //    RuptureTarget = opponent->GetGUID();
++                //    tempComboPoints = comboPoints;
++                //    Rupture_Timer = 6000 + (comboPoints-1)*2000;
++                //    //comboPoints = 0;
++                //    return;
++                //}
 +            }
 +            //DISMANTLE
 +            if (DISMANTLE && Dismantle_Timer <= diff && meleedist <= 5 &&
-+                Rand() < 20 && getenergy() >= 25 && !CCed(opponent) && !opponent->HasAuraType(SPELL_AURA_MOD_DISARM))
++                opponent->GetTypeId() == TYPEID_PLAYER && 
++                Rand() < 20 && getenergy() >= 25 && !CCed(opponent) &&
++                !opponent->HasAuraType(SPELL_AURA_MOD_DISARM) && 
++                opponent->ToPlayer()->GetWeaponForAttack(BASE_ATTACK))
 +            {
 +                temptimer = GC_Timer;
 +                if (doCast(opponent, DISMANTLE))
@@ -8665,11 +8720,17 @@ index 0000000..53bcd2e
 +                            {
 +                                case 0:
 +                                    if (WOUND_POISON)
-+                                        DoCast(victim, WOUND_POISON, true); 
++                                    {
++                                        currentSpell = WOUND_POISON;
++                                        DoCast(victim, WOUND_POISON, true);
++                                    }
 +                                    break;
 +                                case 1:
 +                                    if (MIND_NUMBING_POISON)
++                                    {
++                                        currentSpell = MIND_NUMBING_POISON;
 +                                        DoCast(opponent, MIND_NUMBING_POISON, true);
++                                    }
 +                                    break;
 +                            }
 +                        }
@@ -8681,64 +8742,82 @@ index 0000000..53bcd2e
 +        void SpellHit(Unit* caster, SpellInfo const* spell)
 +        {
 +            OnSpellHit(caster, spell);
-+
-+            if (spell->Id == SLICE_DICE && !tempDICE)
-+            {
-+                tempDICE = true;
-+                tempComboPoints = comboPoints == 0 ? 1 : comboPoints;
-+                Slice_Dice_Timer = 5000 + tempComboPoints*4500;
-+            }
 +        }
 +
 +        void SpellHitTarget(Unit* target, SpellInfo const* spell)
 +        {
-+            //this func being called twice -_-
-+            if (spellHitTarget)
-+                spellHitTarget = false;
-+            else
-+            {
-+                spellHitTarget = true;
-+                return;
-+            }
-+            
 +            uint32 spellId = spell->Id;
++            if (spellId != SEAL_FATE_EFFECT && currentSpell != spellId)
++                return;
++
++            if (spellId == SLICE_DICE)
++            {
++                tempDICE = true;
++                tempComboPoints = comboPoints;
++                Slice_Dice_Timer = 15000 + (comboPoints-1)*4500;
++            }
++            else if (spellId == RUPTURE)
++            {
++                RuptureTarget = target->GetGUID();
++                tempComboPoints = comboPoints;
++                Rupture_Timer = 8000 + (comboPoints-1)*2000;
++                GC_Timer = 800;
++            }
++            else if (spellId == EVISCERATE)
++                GC_Timer = 800;
++
++            //if (spellId == EVISCERATE || spellId == KIDNEY_SHOT || spellId == SLICE_DICE || spellId == RUPTURE/* || spellId == EXPOSE_ARMOR || spellId == ENVENOM*/)
 +            //Relentless Strikes
 +            if (spell->NeedsComboPoints())
++            {
++                //std::ostringstream msg;
++                //msg << "casting finisher, cp: " << uint32(comboPoints);
++                //me->MonsterWhisper(msg.str().c_str(), master->GetGUID());
 +                if (rand()%100 < 1 + 20*(comboPoints > 5 ? 5 : comboPoints))
 +                    DoCast(me, RELENTLESS_STRIKES_EFFECT, true);
-+            if (spellId == EVISCERATE)
-+                comboPoints = 1;
-+            //else if (spellId == KIDNEY_SHOT || spellId == SLICE_DICE || spellId == RUPTURE/* || spellId == EXPOSE_ARMOR || spellId == ENVENOM*/)
-+            else if (spell->NeedsComboPoints())
++                tempComboPoints = comboPoints;
 +                comboPoints = 0;
-+            else if (spellId == SINISTER_STRIKE || spellId == SEAL_FATE_EFFECT || spellId == RUTHLESSNESS_EFFECT/* || spellId == GOUGE || spellId == HEMORRHAGE || spellId == SHOSTLY_STRIKE*/)
++            }
++            else if (spellId == SINISTER_STRIKE ||
++                spellId == BACKSTAB ||
++                spellId == SEAL_FATE_EFFECT ||
++                spellId == RUTHLESSNESS_EFFECT/* ||
++                spellId == GOUGE ||
++                spellId == HEMORRHAGE ||
++                spellId == SHOSTLY_STRIKE*/)
 +                ++comboPoints;
-+            else if (spellId == BACKSTAB || spellId == MUTILATE)
++            else if (spellId == MUTILATE/* ||
++                spellId == AMBUSH*/)
 +                comboPoints += 2;
 +
 +            if (spellId == SINISTER_STRIKE)
 +            {
-+                //Glyph of Sinister Strike (non-crit for bots)
-+                if (rand()%100 < 50)
-+                    ++comboPoints;
 +                //Improved Sinister Strike
++                //instead of restoring energy we should override current value
 +                if (me->getLevel() >= 10)
-+                    modenergy(5);
++                    modenergy(-40, true);//45 - 5
 +            }
++            //Glyph of Sinister Strike (50% to add cp on crit)
++            //Seal Fate means crit so this glyph is enabled from lvl 35)
++            if (spellId == SEAL_FATE_EFFECT && currentSpell == SINISTER_STRIKE && rand()%100 >= 50)
++                ++comboPoints;
 +
 +            //Slaughter from the Shadows energy restore
++            //instead of restoring energy we should override current value
 +            if (me->getLevel() >= 55)
 +            {
 +                if (spellId == BACKSTAB/* || spellId == AMBUSH*/)
-+                    modenergy(20);
++                    modenergy(-40, true);
 +                //else if (spellId == HEMORRHAGE)
-+                //    modenergy(5);
++                //    modenergy(-30, true);
 +            }
 +
 +            //move behind on Kidney Shot and Gouge (optionally)
 +            if (spellId == KIDNEY_SHOT/* || spellId == GOUGE*/)
 +                if (MoveBehind(*target))
 +                    wait = 3;
++
++            currentSpell = 0;
 +        }
 +
 +        void Reset()
@@ -8785,7 +8864,7 @@ index 0000000..53bcd2e
 +            if (Kidney_Timer > diff)                Kidney_Timer -= diff;
 +            if (Dismantle_Timer > diff)             Dismantle_Timer -= diff;
 +            if (Blade_Flurry_Timer > diff)          Blade_Flurry_Timer -= diff;
-+            if (Slice_Dice_Timer > diff)          Slice_Dice_Timer -= diff;
++            if (Slice_Dice_Timer > diff)            Slice_Dice_Timer -= diff;
 +        }
 +
 +        bool CanRespawn()
@@ -8914,7 +8993,7 @@ index 0000000..53bcd2e
 +            BLADE_TWISTING1                     = 31124,
 +            //BLADE_TWISTING2                     = 31126,
 +            VITALITY                            = 61329,//rank 3
-+            DEADLY_BREW                         = 51626,
++            DEADLY_BREW                         = 51626,//rank 2
 +            ROGUE_VIGOR                         = 14983,
 +            //Other
 +            //ROGUE_ARMOR_ENERGIZE/*Deathmantle*/ = 27787,
