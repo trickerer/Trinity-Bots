@@ -1,6 +1,6 @@
-From 15f2ff8664250a57ba6b1fb6611597225f8a3f87 Mon Sep 17 00:00:00 2001
+From c482e816b426600dff35d464e042e81fe93b52dc Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Mon, 1 Oct 2012 12:16:55 +0700
+Date: Mon, 1 Oct 2012 20:46:25 +0700
 Subject: [PATCH] AllBots
 
 ---
@@ -14,7 +14,7 @@ Subject: [PATCH] AllBots
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  855 ++
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  933 ++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  839 ++
- src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  695 ++
+ src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  774 ++
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  273 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  435 +
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1113 ++
@@ -48,7 +48,7 @@ Subject: [PATCH] AllBots
  .../game/Entities/Creature/TemporarySummon.cpp     |    7 +
  src/server/game/Entities/Player/Player.cpp         |  644 ++
  src/server/game/Entities/Player/Player.h           |   66 +
- src/server/game/Entities/Unit/Unit.cpp             |  195 +
+ src/server/game/Entities/Unit/Unit.cpp             |  201 +
  src/server/game/Groups/Group.cpp                   |   13 +
  src/server/game/Groups/Group.h                     |    3 +
  src/server/game/Handlers/CharacterHandler.cpp      |  143 +
@@ -60,7 +60,7 @@ Subject: [PATCH] AllBots
  src/server/game/Server/WorldSession.h              |   36 +
  src/server/scripts/Spells/spell_priest.cpp         |    4 +
  src/server/worldserver/worldserver.conf.dist       |  188 +
- 56 files changed, 34034 insertions(+), 0 deletions(-)
+ 56 files changed, 34119 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -425,7 +425,7 @@ index 0000000..5b00cdc
 +
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..fa4301a
+index 0000000..d86f6b2
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
 @@ -0,0 +1,3045 @@
@@ -3249,17 +3249,17 @@ index 0000000..fa4301a
 +    return (1 + (master->GetNpcBotsCount() - 1)/3 + (irand(0,100) <= 50)*int8(RAND(-1,1)));
 +}
 +
-+void bot_ai::ApplyBotDamageMultiplierMelee(uint32& damage) const
++void bot_ai::ApplyBotDamageMultiplierMelee(uint32& damage, CalcDamageInfo& /*damageinfo*/) const
 +{
 +    if (damage && dmgmult_melee != 1.0)
 +        damage = int32(float(damage)*dmgmult_melee);
 +}
-+void bot_ai::ApplyBotDamageMultiplierMelee(int32& damage) const
++void bot_ai::ApplyBotDamageMultiplierMelee(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* /*spellInfo*/, WeaponAttackType /*attackType*/, bool& /*crit*/) const
 +{
 +    if (damage && dmgmult_melee != 1.0)
 +        damage = int32(float(damage)*dmgmult_melee);
 +}
-+void bot_ai::ApplyBotDamageMultiplierSpell(int32& damage) const
++void bot_ai::ApplyBotDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* /*spellInfo*/, WeaponAttackType /*attackType*/, bool& /*crit*/) const
 +{
 +    if (damage && dmgmult_spell != 1.0)
 +        damage = int32(float(damage)*dmgmult_spell);
@@ -3477,7 +3477,7 @@ index 0000000..fa4301a
 \ No newline at end of file
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..13efff9
+index 0000000..0349abd
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
 @@ -0,0 +1,785 @@
@@ -3597,9 +3597,9 @@ index 0000000..13efff9
 +        bool IsInBotParty(Unit* unit) const;
 +        bool CanBotAttack(Unit* target, int8 byspell = 0) const;
 +        bool InDuel(Unit* target) const;
-+        virtual void ApplyBotDamageMultiplierMelee(uint32& damage) const;
-+        virtual void ApplyBotDamageMultiplierMelee(int32& damage) const;
-+        virtual void ApplyBotDamageMultiplierSpell(int32& damage) const;
++        virtual void ApplyBotDamageMultiplierMelee(uint32& damage, CalcDamageInfo& damageinfo) const;
++        virtual void ApplyBotDamageMultiplierMelee(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool& crit) const;
++        virtual void ApplyBotDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool& crit) const;
 +        inline void UpdateHealth() { doHealth = true; }
 +        inline void SetBotTank(Unit* newtank) { tank = newtank; m_TankGuid = newtank ? newtank->GetGUID() : 0; }
 +        static Unit* GetBotGroupMainTank(Group* group) { return _GetBotGroupMainTank(group); }
@@ -8317,14 +8317,14 @@ index 0000000..56a1998
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_rogue_ai.cpp b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 new file mode 100644
-index 0000000..170f8f4
+index 0000000..61ac9a7
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
-@@ -0,0 +1,695 @@
+@@ -0,0 +1,774 @@
 +#include "bot_ai.h"
 +/*
 +Rogue NpcBot (reworked by Graff onlysuffering@mail.ru)
-+Complete - 15% maybe...
++Complete - 25% maybe...
 +TODO:
 +*/
 +#define DAMAGE_RANGE        2
@@ -8701,6 +8701,76 @@ index 0000000..170f8f4
 +            }
 +        }
 +
++        void ApplyBotDamageMultiplierMelee(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool& crit) const
++        {
++            uint32 spellId = spellInfo->Id;
++            uint8 lvl = me->getLevel();
++            float fdamage = float(damage);
++            //1) apply additional crit chance. This new chance roll will replace original (balance safe)
++            if (!crit)
++            {
++                float crit_chance = me->GetUnitCriticalChance(BASE_ATTACK, me);
++                //Puncturing Wounds: 30% additional critical chance for Backstab
++                if (lvl >= 15 && spellId == BACKSTAB)
++                    crit_chance += 30.f;
++                //Puncturing Wounds: 15% additional critical chance for Mutilate
++                else if (spellId == MUTILATE)
++                    crit_chance += 15.f;
++                //Glyph of Eviscerate: 10% additional critical chance for Eviscerate
++                else if (spellId == EVISCERATE)
++                    crit_chance += 10.f;
++                //Improved Ambush: 50% additional critical chance for Ambush
++                //else if (spellId == AMBUSH)
++                //    crit_chance += 50.f;
++                if (lvl >= 50 && spellInfo->HasEffect(SPELL_EFFECT_ADD_COMBO_POINTS) && me->HasAura(TURN_THE_TABLES_EFFECT))
++                    crit_chance += 6.f;
++
++                //second roll (may be illogical)
++                crit = roll_chance_f(crit_chance);
++            }
++
++            //2) apply bonus damage mods
++            float pctbonus = 0.0f;
++            if (crit)
++            {
++                //!!!Melee spell damage is not yet critical, all reduced by half
++                //Lethality: 30% crit damage bonus for non-stealth combo-generating abilities (on 25 lvl)
++                if (lvl >= 25 && !(spellInfo->Attributes & SPELL_ATTR0_ONLY_STEALTHED) &&
++                    spellInfo->HasEffect(SPELL_EFFECT_ADD_COMBO_POINTS))
++                    pctbonus += 0.15f;
++            }
++            //DeathDealer set bonus: 15% damage bonus for Eviscerate
++            if (lvl >= 60 && spellId == EVISCERATE)
++                pctbonus += 0.15f;
++            //Find Weakness: 6% bonus damage to all abilities
++            if (lvl >= 45)
++                pctbonus += 0.06f;
++            //Imoroved Eviscerate: 20% damage bonus for Eviscerate
++            if (spellId == EVISCERATE)
++                pctbonus += 0.2f;
++            //Opportunity: 20% damage bonus for Backstab, Mutilate, Garrote and Ambush
++            if (spellId == BACKSTAB || spellId == MUTILATE/* || 
++                spellId == GARROTE || spellId == AMBUSH*/)
++                pctbonus += 0.2f;
++            //Aggression: 15% damage bonus for Sinister Strike, Backstab and Eviscerate
++            if (lvl >= 30 && (spellId == SINISTER_STRIKE || spellId == BACKSTAB || spellId == EVISCERATE))
++                pctbonus += 0.15f;
++            //Blood Spatter: 30% bonus damage for Rupture and Garrote
++            if (lvl >= 15 && (spellId == RUPTURE/* || spellId == GARROTE*/))
++                pctbonus += 0.3f;
++            //Serrated Blades: 30% bonus damage for Rupture
++            if (lvl >= 20 && spellId == RUPTURE)
++                pctbonus += 0.3f;
++            //Surprise Attacks: 10% bonus damage for Sinister Strike, Backstab, Shiv, Hemmorhage and Gouge
++            if (lvl >= 50 && (spellId == SINISTER_STRIKE || spellId == BACKSTAB/* ||
++                spellId == SHIV || spellId == HEMMORHAGE || spellId == GOUGE*/))
++                pctbonus += 0.1f;
++
++            fdamage *= (1.0f + pctbonus);
++            //last: overall multiplier
++            damage = int32(fdamage*dmgmult_melee);
++        }
++
 +        void DamageDealt(Unit* victim, uint32& /*damage*/, DamageEffectType damageType)
 +        {
 +            if (!WOUND_POISON && !MIND_NUMBING_POISON)
@@ -8747,8 +8817,6 @@ index 0000000..170f8f4
 +        void SpellHitTarget(Unit* target, SpellInfo const* spell)
 +        {
 +            uint32 spellId = spell->Id;
-+            if (spellId != SEAL_FATE_EFFECT && currentSpell != spellId)
-+                return;
 +
 +            if (spellId == SLICE_DICE)
 +            {
@@ -8935,6 +9003,12 @@ index 0000000..170f8f4
 +                RefreshAura(QUICK_RECOVERY2);
 +            else if (level >= 30)
 +                RefreshAura(QUICK_RECOVERY1);
++            if (level >= 30)
++                RefreshAura(IMPROVED_KIDNEY_SHOT);
++            if (level >= 10)
++                RefreshAura(GLYPH_BACKSTAB);
++            if (level >= 10)
++                RefreshAura(SURPRISE_ATTACKS);
 +
 +            //On 25 get Glyph of Vigor
 +            if (level >= 25)
@@ -8972,7 +9046,7 @@ index 0000000..170f8f4
 +            BLADE_FLURRY_1                      = 33735,
 +
 +            WOUND_POISON_1                      = 13218,
-+            MIND_NUMBING_POISON_1               = 5760,
++            MIND_NUMBING_POISON_1               = 5760
 +        };
 +
 +        enum RoguePassives
@@ -8994,10 +9068,14 @@ index 0000000..170f8f4
 +            //BLADE_TWISTING2                     = 31126,
 +            VITALITY                            = 61329,//rank 3
 +            DEADLY_BREW                         = 51626,//rank 2
++            IMPROVED_KIDNEY_SHOT                = 14176,//rank 3
++            TURN_THE_TABLES                     = 51627,//rank 3
++            SURPRISE_ATTACKS                    = 32601,
 +            ROGUE_VIGOR                         = 14983,
 +            //Other
 +            //ROGUE_ARMOR_ENERGIZE/*Deathmantle*/ = 27787,
 +            GLADIATOR_VIGOR                     = 21975,
++            GLYPH_BACKSTAB                      = 56800
 +        };
 +
 +        enum RogueSpecial
@@ -9008,6 +9086,7 @@ index 0000000..170f8f4
 +            RELENTLESS_STRIKES_EFFECT           = 14181,
 +            RUTHLESSNESS_EFFECT                 = 14157,
 +            SEAL_FATE_EFFECT                    = 14189,
++            TURN_THE_TABLES_EFFECT              = 52910
 +        };
 +    };
 +};
@@ -32728,7 +32807,7 @@ index 68ae2d8..a286b44 100644
    ${CMAKE_CURRENT_SOURCE_DIR}/AI/EventAI
    ${CMAKE_CURRENT_SOURCE_DIR}/AI/ScriptedAI
 diff --git a/src/server/game/Entities/Creature/Creature.cpp b/src/server/game/Entities/Creature/Creature.cpp
-index b92c304..ca8275b 100755
+index b92c304..7497c69 100755
 --- a/src/server/game/Entities/Creature/Creature.cpp
 +++ b/src/server/game/Entities/Creature/Creature.cpp
 @@ -52,6 +52,9 @@
@@ -32832,20 +32911,20 @@ index b92c304..ca8275b 100755
 +        bot_AI->SetBotCommandState(st, force);
 +}
 +//Bot damage mods
-+void Creature::ApplyBotDamageMultiplierMelee(uint32& damage) const
++void Creature::ApplyBotDamageMultiplierMelee(uint32& damage, CalcDamageInfo& damageinfo) const
 +{
 +    if (bot_AI)
-+        bot_AI->ApplyBotDamageMultiplierMelee(damage);
++        bot_AI->ApplyBotDamageMultiplierMelee(damage, damageinfo);
 +}
-+void Creature::ApplyBotDamageMultiplierMelee(int32& damage) const
++void Creature::ApplyBotDamageMultiplierMelee(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool& crit) const
 +{
 +    if (bot_AI)
-+        bot_AI->ApplyBotDamageMultiplierMelee(damage);
++        bot_AI->ApplyBotDamageMultiplierMelee(damage, damageinfo, spellInfo, attackType, crit);
 +}
-+void Creature::ApplyBotDamageMultiplierSpell(int32& damage) const
++void Creature::ApplyBotDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool& crit) const
 +{
 +    if (bot_AI)
-+        bot_AI->ApplyBotDamageMultiplierSpell(damage);
++        bot_AI->ApplyBotDamageMultiplierSpell(damage, damageinfo, spellInfo, attackType, crit);
 +}
 +
 +bool Creature::GetIAmABot() const
@@ -32877,7 +32956,7 @@ index b92c304..ca8275b 100755
 +        bot_AI = (bot_minion_ai* )AI();
 +}
 diff --git a/src/server/game/Entities/Creature/Creature.h b/src/server/game/Entities/Creature/Creature.h
-index b9fb5c8..ae66c30 100755
+index b9fb5c8..1646c61 100755
 --- a/src/server/game/Entities/Creature/Creature.h
 +++ b/src/server/game/Entities/Creature/Creature.h
 @@ -37,6 +37,11 @@ class Player;
@@ -32913,9 +32992,9 @@ index b9fb5c8..ae66c30 100755
 +        bot_pet_ai* GetBotPetAI() const;
 +        void InitBotAI(bool asPet = false);
 +        void SetBotCommandState(CommandStates st, bool force = false);
-+        void ApplyBotDamageMultiplierMelee(uint32& damage) const;
-+        void ApplyBotDamageMultiplierMelee(int32& damage) const;
-+        void ApplyBotDamageMultiplierSpell(int32& damage) const;
++        void ApplyBotDamageMultiplierMelee(uint32& damage, CalcDamageInfo& damageinfo) const;
++        void ApplyBotDamageMultiplierMelee(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool& crit) const;
++        void ApplyBotDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool& crit) const;
 +        //Bot commands
 +
      protected:
@@ -33756,46 +33835,52 @@ index 0decacd..dcc7473 100755
          InventoryResult CanStoreItem_InSpecificSlot(uint8 bag, uint8 slot, ItemPosCountVec& dest, ItemTemplate const* pProto, uint32& count, bool swap, Item* pSrcItem) const;
          InventoryResult CanStoreItem_InBag(uint8 bag, ItemPosCountVec& dest, ItemTemplate const* pProto, uint32& count, bool merge, bool non_specialized, Item* pSrcItem, uint8 skip_bag, uint8 skip_slot) const;
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index 6e9ebb3..3ac7cda 100755
+index 6e9ebb3..ca86b6c 100755
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
-@@ -967,6 +967,11 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
+@@ -967,6 +967,14 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
          case SPELL_DAMAGE_CLASS_RANGED:
          case SPELL_DAMAGE_CLASS_MELEE:
          {
 +            //Npcbot mod: apply bot damage mods
 +            if (GetTypeId() == TYPEID_UNIT)
-+                if (ToCreature()->GetIAmABot())
-+                    ToCreature()->ApplyBotDamageMultiplierMelee(damage);
++            {
++                Creature* bot = ToCreature();
++                if (bot->GetIAmABot() || bot->GetIAmABotsPet())
++                    bot->ApplyBotDamageMultiplierMelee(damage, *damageInfo, spellInfo, attackType, crit);
++            }
 +
              // Physical Damage
              if (damageSchoolMask & SPELL_SCHOOL_MASK_NORMAL)
              {
-@@ -1024,6 +1029,11 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
+@@ -1024,6 +1032,14 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
          case SPELL_DAMAGE_CLASS_NONE:
          case SPELL_DAMAGE_CLASS_MAGIC:
          {
 +            //Npcbot mod: apply bot damage mods
 +            if (GetTypeId() == TYPEID_UNIT)
-+                if (ToCreature()->GetIAmABot())
-+                    ToCreature()->ApplyBotDamageMultiplierSpell(damage);
++            {
++                Creature* bot = ToCreature();
++                if (bot->GetIAmABot() || bot->GetIAmABotsPet())
++                    bot->ApplyBotDamageMultiplierSpell(damage, *damageInfo, spellInfo, attackType, crit);
++            }
 +
              // If crit add critical bonus
              if (crit)
              {
-@@ -1134,6 +1144,11 @@ void Unit::CalculateMeleeDamage(Unit* victim, uint32 damage, CalcDamageInfo* dam
+@@ -1134,6 +1150,11 @@ void Unit::CalculateMeleeDamage(Unit* victim, uint32 damage, CalcDamageInfo* dam
      damage = MeleeDamageBonusDone(damageInfo->target, damage, damageInfo->attackType);
      damage = damageInfo->target->MeleeDamageBonusTaken(this, damage, damageInfo->attackType);
  
 +    //Npcbot mod: apply bot damage mods
 +    if (GetTypeId() == TYPEID_UNIT)
 +        if (ToCreature()->GetIAmABot())
-+            ToCreature()->ApplyBotDamageMultiplierMelee(damage);
++            ToCreature()->ApplyBotDamageMultiplierMelee(damage, *damageInfo);
 +
      // Calculate armor reduction
      if (IsDamageReducedByArmor((SpellSchoolMask)(damageInfo->damageSchoolMask)))
      {
-@@ -10867,6 +10882,7 @@ bool Unit::isSpellCrit(Unit* victim, SpellInfo const* spellProto, SpellSchoolMas
+@@ -10867,6 +10888,7 @@ bool Unit::isSpellCrit(Unit* victim, SpellInfo const* spellProto, SpellSchoolMas
      //! Mobs can't crit with spells. Player Totems can
      //! Fire Elemental (from totem) can too - but this part is a hack and needs more research
      if (IS_CREATURE_GUID(GetGUID()) && !(isTotem() && IS_PLAYER_GUID(GetOwnerGUID())) && GetEntry() != 15438)
@@ -33803,7 +33888,7 @@ index 6e9ebb3..3ac7cda 100755
          return false;
  
      // not critting spell
-@@ -16662,6 +16678,8 @@ uint32 Unit::GetCombatRatingDamageReduction(CombatRating cr, float rate, float c
+@@ -16662,6 +16684,8 @@ uint32 Unit::GetCombatRatingDamageReduction(CombatRating cr, float rate, float c
  
  uint32 Unit::GetModelForForm(ShapeshiftForm form)
  {
@@ -33812,7 +33897,7 @@ index 6e9ebb3..3ac7cda 100755
      switch (form)
      {
          case FORM_CAT:
-@@ -16833,6 +16851,183 @@ uint32 Unit::GetModelForForm(ShapeshiftForm form)
+@@ -16833,6 +16857,183 @@ uint32 Unit::GetModelForForm(ShapeshiftForm form)
          default:
              break;
      }
