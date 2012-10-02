@@ -1,20 +1,20 @@
-From c482e816b426600dff35d464e042e81fe93b52dc Mon Sep 17 00:00:00 2001
+From 042c1289cf24e025e223a42ca483fc64784eb92d Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Mon, 1 Oct 2012 20:46:25 +0700
+Date: Tue, 2 Oct 2012 11:25:38 +0700
 Subject: [PATCH] AllBots
 
 ---
  sql/Bots/character_NPC_bots.sql                    |   10 +
  sql/Bots/world.bots.sql                            |  287 +
  sql/Bots/world.script_bot_giver.sql                |    7 +
- src/server/game/AI/NpcBots/bot_ai.cpp              | 3045 +++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 3047 +++++
  src/server/game/AI/NpcBots/bot_ai.h                |  785 ++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1071 ++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  320 +
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  855 ++
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  933 ++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  839 ++
- src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  774 ++
+ src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  804 ++
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  273 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  435 +
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1113 ++
@@ -60,7 +60,7 @@ Subject: [PATCH] AllBots
  src/server/game/Server/WorldSession.h              |   36 +
  src/server/scripts/Spells/spell_priest.cpp         |    4 +
  src/server/worldserver/worldserver.conf.dist       |  188 +
- 56 files changed, 34119 insertions(+), 0 deletions(-)
+ 56 files changed, 34151 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -425,10 +425,10 @@ index 0000000..5b00cdc
 +
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..d86f6b2
+index 0000000..79219e0
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,3045 @@
+@@ -0,0 +1,3047 @@
 +#include "bot_ai.h"
 +#include "Config.h"
 +#include "Chat.h"
@@ -2969,9 +2969,11 @@ index 0000000..d86f6b2
 +    me->SetModifierValue(UNIT_MOD_DAMAGE_OFFHAND, BASE_PCT, mod);
 +    me->SetModifierValue(UNIT_MOD_DAMAGE_RANGED, BASE_PCT, mod);
 +    me->SetCanDualWield(myclass == CLASS_ROGUE || myclass == CLASS_SHAMAN);
-+    //Rogue has mainhand attack speed 1600, other dual-wielders - 2800 or 2600 or 2400
++    //Rogue has mainhand attack speed 1900, other dual-wielders - 2800 or 2600 or 2400
++    if (myclass == CLASS_ROGUE)
++        me->SetAttackTime(BASE_ATTACK, 1900);
 +    if (me->CanDualWield())
-+        me->SetAttackTime(OFF_ATTACK, myclass == CLASS_ROGUE ? 1300 : 1800);
++        me->SetAttackTime(OFF_ATTACK, myclass == CLASS_ROGUE ? 1400 : 1800);
 +    //me->SetModifierValue(UNIT_MOD_DAMAGE_RANGED, BASE_PCT, mod);//NUY
 +    mod = (mod - 1.f)*0.5f;
 +    //sLog->outBasic("reduced damage modifier to gain bonus: %f", mod);
@@ -3254,12 +3256,12 @@ index 0000000..d86f6b2
 +    if (damage && dmgmult_melee != 1.0)
 +        damage = int32(float(damage)*dmgmult_melee);
 +}
-+void bot_ai::ApplyBotDamageMultiplierMelee(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* /*spellInfo*/, WeaponAttackType /*attackType*/, bool& /*crit*/) const
++void bot_ai::ApplyBotDamageMultiplierMelee(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* /*spellInfo*/, WeaponAttackType /*attackType*/, bool& /*crit*/)
 +{
 +    if (damage && dmgmult_melee != 1.0)
 +        damage = int32(float(damage)*dmgmult_melee);
 +}
-+void bot_ai::ApplyBotDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* /*spellInfo*/, WeaponAttackType /*attackType*/, bool& /*crit*/) const
++void bot_ai::ApplyBotDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* /*spellInfo*/, WeaponAttackType /*attackType*/, bool& /*crit*/)
 +{
 +    if (damage && dmgmult_spell != 1.0)
 +        damage = int32(float(damage)*dmgmult_spell);
@@ -3477,7 +3479,7 @@ index 0000000..d86f6b2
 \ No newline at end of file
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..0349abd
+index 0000000..76505ac
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
 @@ -0,0 +1,785 @@
@@ -3598,8 +3600,8 @@ index 0000000..0349abd
 +        bool CanBotAttack(Unit* target, int8 byspell = 0) const;
 +        bool InDuel(Unit* target) const;
 +        virtual void ApplyBotDamageMultiplierMelee(uint32& damage, CalcDamageInfo& damageinfo) const;
-+        virtual void ApplyBotDamageMultiplierMelee(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool& crit) const;
-+        virtual void ApplyBotDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool& crit) const;
++        virtual void ApplyBotDamageMultiplierMelee(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool& crit);
++        virtual void ApplyBotDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool& crit);
 +        inline void UpdateHealth() { doHealth = true; }
 +        inline void SetBotTank(Unit* newtank) { tank = newtank; m_TankGuid = newtank ? newtank->GetGUID() : 0; }
 +        static Unit* GetBotGroupMainTank(Group* group) { return _GetBotGroupMainTank(group); }
@@ -8317,10 +8319,10 @@ index 0000000..56a1998
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_rogue_ai.cpp b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 new file mode 100644
-index 0000000..61ac9a7
+index 0000000..39f522a
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
-@@ -0,0 +1,774 @@
+@@ -0,0 +1,804 @@
 +#include "bot_ai.h"
 +/*
 +Rogue NpcBot (reworked by Graff onlysuffering@mail.ru)
@@ -8701,7 +8703,7 @@ index 0000000..61ac9a7
 +            }
 +        }
 +
-+        void ApplyBotDamageMultiplierMelee(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool& crit) const
++        void ApplyBotDamageMultiplierMelee(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool& crit)
 +        {
 +            uint32 spellId = spellInfo->Id;
 +            uint8 lvl = me->getLevel();
@@ -8739,12 +8741,19 @@ index 0000000..61ac9a7
 +                    spellInfo->HasEffect(SPELL_EFFECT_ADD_COMBO_POINTS))
 +                    pctbonus += 0.15f;
 +            }
-+            //DeathDealer set bonus: 15% damage bonus for Eviscerate
-+            if (lvl >= 60 && spellId == EVISCERATE)
-+                pctbonus += 0.15f;
++            //Shadowstep: 20% bonus damage to all abilities once
++            if (shadowstep == true)
++            {
++                shadowstep = false;
++                me->RemoveAurasDueToSpell(SHADOWSTEP_EFFECT_DAMAGE);
++                pctbonus += 0.2f;
++            }
 +            //Find Weakness: 6% bonus damage to all abilities
 +            if (lvl >= 45)
 +                pctbonus += 0.06f;
++            //DeathDealer set bonus: 15% damage bonus for Eviscerate
++            if (lvl >= 60 && spellId == EVISCERATE)
++                pctbonus += 0.15f;
 +            //Imoroved Eviscerate: 20% damage bonus for Eviscerate
 +            if (spellId == EVISCERATE)
 +                pctbonus += 0.2f;
@@ -8817,6 +8826,8 @@ index 0000000..61ac9a7
 +        void SpellHitTarget(Unit* target, SpellInfo const* spell)
 +        {
 +            uint32 spellId = spell->Id;
++            if (currentSpell == 0)
++                return;
 +
 +            if (spellId == SLICE_DICE)
 +            {
@@ -8839,7 +8850,16 @@ index 0000000..61ac9a7
 +            if (spell->NeedsComboPoints())
 +            {
 +                //std::ostringstream msg;
-+                //msg << "casting finisher, cp: " << uint32(comboPoints);
++                //msg << "casting ";
++                //if (spellId == EVISCERATE)
++                //    msg << "Eviscerate, ";
++                //else if (spellId == RUPTURE)
++                //    msg << "Rupture, ";
++                //else if (spellId == SLICE_DICE)
++                //    msg << "Slice and Dice, ";
++                //else if (spellId == KIDNEY_SHOT)
++                //    msg << "Kidney Shot, ";
++                //msg << "combo points: " << uint32(std::min<uint8>(comboPoints,5));
 +                //me->MonsterWhisper(msg.str().c_str(), master->GetGUID());
 +                if (rand()%100 < 1 + 20*(comboPoints > 5 ? 5 : comboPoints))
 +                    DoCast(me, RELENTLESS_STRIKES_EFFECT, true);
@@ -8880,12 +8900,19 @@ index 0000000..61ac9a7
 +                //    modenergy(-30, true);
 +            }
 +
++            if (spellId == SHADOWSTEP)
++            {
++                Shadowstep_eff_Timer = 10000;
++                shadowstep = true;
++            }
++
 +            //move behind on Kidney Shot and Gouge (optionally)
 +            if (spellId == KIDNEY_SHOT/* || spellId == GOUGE*/)
 +                if (MoveBehind(*target))
 +                    wait = 3;
 +
-+            currentSpell = 0;
++            if (spellId == currentSpell)
++                currentSpell = 0;
 +        }
 +
 +        void Reset()
@@ -8898,6 +8925,7 @@ index 0000000..61ac9a7
 +            Shadowstep_Timer = 0;
 +            Blade_Flurry_Timer = 0;
 +            Slice_Dice_Timer = 0;
++            Shadowstep_eff_Timer = 0;
 +
 +            comboPoints = 0;
 +            tempComboPoints = 0;
@@ -8907,6 +8935,7 @@ index 0000000..61ac9a7
 +
 +            tempDICE = false;
 +            spellHitTarget = true;
++            shadowstep = false;
 +
 +            me->setPowerType(POWER_ENERGY);
 +            //10 energy gained per stack
@@ -8933,6 +8962,8 @@ index 0000000..61ac9a7
 +            if (Dismantle_Timer > diff)             Dismantle_Timer -= diff;
 +            if (Blade_Flurry_Timer > diff)          Blade_Flurry_Timer -= diff;
 +            if (Slice_Dice_Timer > diff)            Slice_Dice_Timer -= diff;
++            if (Shadowstep_eff_Timer > diff)        Shadowstep_eff_Timer -= diff;
++            else                                    shadowstep = false;
 +        }
 +
 +        bool CanRespawn()
@@ -9026,10 +9057,10 @@ index 0000000..61ac9a7
 +        uint64 KidneyTarget, RuptureTarget;
 +        uint32 Rupture_Timer, Dismantle_Timer,
 +            Kick_Timer, Shadowstep_Timer, Mutilate_Timer, Kidney_Timer,
-+            Blade_Flurry_Timer, Slice_Dice_Timer;
++            Blade_Flurry_Timer, Slice_Dice_Timer, Shadowstep_eff_Timer;
 +        uint32 energy;
 +        uint8 comboPoints, tempComboPoints;
-+        bool tempDICE, spellHitTarget;
++        bool tempDICE, spellHitTarget, shadowstep;
 +
 +        enum RogueBaseSpells
 +        {
@@ -9086,6 +9117,7 @@ index 0000000..61ac9a7
 +            RELENTLESS_STRIKES_EFFECT           = 14181,
 +            RUTHLESSNESS_EFFECT                 = 14157,
 +            SEAL_FATE_EFFECT                    = 14189,
++            SHADOWSTEP_EFFECT_DAMAGE            = 36563,
 +            TURN_THE_TABLES_EFFECT              = 52910
 +        };
 +    };
