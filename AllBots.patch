@@ -1,6 +1,6 @@
-From bd843b4fc48f1d69345d32b159c8d2a44777bd26 Mon Sep 17 00:00:00 2001
+From 971ef7c0e2de358c6ba545882c836887fe688a56 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Thu, 4 Oct 2012 15:39:28 +0700
+Date: Fri, 5 Oct 2012 23:39:57 +0700
 Subject: [PATCH] AllBots
 
 ---
@@ -14,7 +14,7 @@ Subject: [PATCH] AllBots
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  855 ++
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  933 ++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  839 ++
- src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  808 ++
+ src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  879 ++
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  358 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  435 +
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1113 ++
@@ -48,7 +48,7 @@ Subject: [PATCH] AllBots
  .../game/Entities/Creature/TemporarySummon.cpp     |    7 +
  src/server/game/Entities/Player/Player.cpp         |  646 ++
  src/server/game/Entities/Player/Player.h           |   66 +
- src/server/game/Entities/Unit/Unit.cpp             |  201 +
+ src/server/game/Entities/Unit/Unit.cpp             |  204 +
  src/server/game/Groups/Group.cpp                   |   13 +
  src/server/game/Groups/Group.h                     |    3 +
  src/server/game/Handlers/CharacterHandler.cpp      |  148 +
@@ -60,7 +60,7 @@ Subject: [PATCH] AllBots
  src/server/game/Server/WorldSession.h              |   36 +
  src/server/scripts/Spells/spell_priest.cpp         |    4 +
  src/server/worldserver/worldserver.conf.dist       |  188 +
- 56 files changed, 34249 insertions(+), 0 deletions(-)
+ 56 files changed, 34323 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -430,7 +430,7 @@ index 0000000..5b00cdc
 +
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..6a39a0c
+index 0000000..ef085ce
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
 @@ -0,0 +1,3049 @@
@@ -3260,17 +3260,17 @@ index 0000000..6a39a0c
 +
 +void bot_ai::ApplyBotDamageMultiplierMelee(uint32& damage, CalcDamageInfo& /*damageinfo*/) const
 +{
-+    if (damage && dmgmult_melee != 1.0)
++    if (damage && dmgmult_melee != 1.0f)
 +        damage = int32(float(damage)*dmgmult_melee);
 +}
 +void bot_ai::ApplyBotDamageMultiplierMelee(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* /*spellInfo*/, WeaponAttackType /*attackType*/, bool& /*crit*/)
 +{
-+    if (damage && dmgmult_melee != 1.0)
++    if (damage && dmgmult_melee != 1.0f)
 +        damage = int32(float(damage)*dmgmult_melee);
 +}
 +void bot_ai::ApplyBotDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* /*spellInfo*/, WeaponAttackType /*attackType*/, bool& /*crit*/)
 +{
-+    if (damage && dmgmult_spell != 1.0)
++    if (damage && dmgmult_spell != 1.0f)
 +        damage = int32(float(damage)*dmgmult_spell);
 +}
 +
@@ -3486,7 +3486,7 @@ index 0000000..6a39a0c
 \ No newline at end of file
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..71c6d6d
+index 0000000..630b318
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
 @@ -0,0 +1,785 @@
@@ -3622,7 +3622,7 @@ index 0000000..71c6d6d
 +        void ApplyPassives(uint8 botOrPetType) const;
 +
 +    protected:
-+        static bool CCed(Unit* target, bool root = false)
++        static inline bool CCed(Unit* target, bool root = false)
 +        {
 +            return target->HasUnitState(UNIT_STATE_CONFUSED | UNIT_STATE_STUNNED | UNIT_STATE_FLEEING | UNIT_STATE_DISTRACTED | UNIT_STATE_CONFUSED_MOVE | UNIT_STATE_FLEEING_MOVE) || (root && target->HasUnitState(UNIT_STATE_ROOT));
 +        }
@@ -8326,22 +8326,21 @@ index 0000000..56a1998
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_rogue_ai.cpp b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 new file mode 100644
-index 0000000..d33d291
+index 0000000..6d394b2
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
-@@ -0,0 +1,808 @@
+@@ -0,0 +1,879 @@
 +#include "bot_ai.h"
 +/*
 +Rogue NpcBot (reworked by Graff onlysuffering@mail.ru)
 +Complete - 25% maybe...
 +TODO:
 +*/
-+#define DAMAGE_RANGE        2
 +#define MIN                 1
 +#define MAX                 2
 +#define MAX_COMBO_POINTS    5
 +#define EVISCERATE_MAX_RANK 12
-+const uint32 EVSCRDamage[EVISCERATE_MAX_RANK+1][MAX_COMBO_POINTS+1][DAMAGE_RANGE+1] = 
++const uint32 EVSCRDamage[EVISCERATE_MAX_RANK+1][MAX_COMBO_POINTS+1][MAX+1] = 
 +{
 +    { { 0,0,0 }, { 0,0,0 }, { 0,0,0 }, { 0,0,0 }, { 0,0,0 }, { 0,0,0 } },
 +    { { 0,0,0 }, { 0,6,11 }, { 0,12,16 }, { 0,17,22 }, { 0,22,28 }, { 0,28,34 } },
@@ -8357,7 +8356,6 @@ index 0000000..d33d291
 +    { { 0,0,0 }, { 0,405,614 }, { 0,707,915 }, { 0,1008,1217 }, { 0,1309,1519 }, { 0,1611,1821 } },
 +    { { 0,0,0 }, { 0,497,752 }, { 0,868,1122 }, { 0,1238,1493 }, { 0,1608,1864 }, { 0,1979,2235 } }
 +};
-+
 +#define RUPTURE_MAX_RANK    9
 +const uint32 RuptureDamage[RUPTURE_MAX_RANK+1][MAX_COMBO_POINTS+1] = 
 +{
@@ -8452,12 +8450,13 @@ index 0000000..d33d291
 +        void UpdateAI(const uint32 diff)
 +        {
 +            ReduceCD(diff);
-+            if (KidneyTarget != 0)
++            if (KidneyTarget)
 +            {
 +                //kidney shot is casted as rank 1 (1 or 2 secs) so add duration accordingly
 +                //i.e. kedney rank 1, points = 5, we have aura with duration 1 sec so add 4 more secs
 +                //tempComboPoints -= 1;
-+                if (tempComboPoints != 0)
++                if (tempComboPoints)
++                {
 +                    if (Unit* u = sObjectAccessor->FindUnit(KidneyTarget))
 +                    {
 +                        if (Aura* kidney = u->GetAura(KIDNEY_SHOT, me->GetGUID()))
@@ -8467,35 +8466,52 @@ index 0000000..d33d291
 +                            kidney->SetMaxDuration(dur);
 +                        }
 +                    }
++                    else//spell is failed to hit: restore cp
++                    {
++                        if (comboPoints == 0)
++                            comboPoints = tempComboPoints;
++                    }
++                    tempComboPoints = 0;
++                }
 +                KidneyTarget = 0;
-+                tempComboPoints = 0;
 +            }
-+            else if (RuptureTarget != 0)
++            else if (RuptureTarget)
 +            {
 +                //tempComboPoints -= 1;
-+                if (tempComboPoints != 0)
++                if (tempComboPoints)
++                {
 +                    if (Unit* u = sObjectAccessor->FindUnit(RuptureTarget))
++                    {
 +                        if (Aura* rupture = u->GetAura(RUPTURE, me->GetGUID()))
 +                        {
 +                            uint32 dur = rupture->GetDuration() + tempComboPoints*2000;
 +                            rupture->SetDuration(dur);
 +                            rupture->SetMaxDuration(dur);
 +                        }
++                    }
++                    else//spell is failed to hit: restore cp
++                    {
++                        if (comboPoints == 0)
++                            comboPoints = tempComboPoints;
++                    }
++                    tempComboPoints = 0;
++                }
 +                RuptureTarget = 0;
-+                tempComboPoints = 0;
 +            }
 +            else if (tempDICE)
 +            {
 +                //tempComboPoints -= 1;
-+                if (tempComboPoints != 0)
++                if (tempComboPoints)
++                {
 +                    if (Aura* dice = me->GetAura(SLICE_DICE))
 +                    {
 +                        uint32 dur = (dice->GetDuration()*3)/2 + tempComboPoints*4500;//with Improved Slice and Dice
 +                        dice->SetDuration(dur);
 +                        dice->SetMaxDuration(dur);
 +                    }
++                    tempComboPoints = 0;
++                }
 +                tempDICE = false;
-+                tempComboPoints = 0;
 +            }
 +            if (IAmDead()) return;
 +            if (me->getVictim())
@@ -8511,7 +8527,7 @@ index 0000000..d33d291
 +            BreakCC(diff);
 +            if (CCed(me)) return;
 +
-+            if (GetHealthPCT(me) < 67 && Potion_cd <= diff)
++            if (GetHealthPCT(me) < 33 && Potion_cd <= diff)
 +            {
 +                temptimer = GC_Timer;
 +                if (doCast(me, HEALINGPOTION))
@@ -8866,28 +8882,78 @@ index 0000000..d33d291
 +                //    msg << "Slice and Dice, ";
 +                //else if (spellId == KIDNEY_SHOT)
 +                //    msg << "Kidney Shot, ";
-+                //else if (spellId == EXPOSE_ARMOR)
-+                //    msg << "Expose Armor, ";
-+                //else if (spellId == ENVENOM)
-+                //    msg << "Envenom, ";
-+                //msg << "combo points: " << uint32(std::min<uint8>(comboPoints,5));
++                ////else if (spellId == EXPOSE_ARMOR)
++                ////    msg << "Expose Armor, ";
++                ////else if (spellId == ENVENOM)
++                ////    msg << "Envenom, ";
++                //msg << "combo points: " << uint32(std::min<uint32>(comboPoints,5));
 +                //me->MonsterWhisper(msg.str().c_str(), master->GetGUID());
 +                if (rand()%100 < 1 + 20*(comboPoints > 5 ? 5 : comboPoints))
 +                    DoCast(me, RELENTLESS_STRIKES_EFFECT, true);
 +                tempComboPoints = comboPoints;
-+                comboPoints = 0;
++                //CP adding effects are handled before actual finisher so use temp value
++                //std::ostringstream msg2;
++                //msg2 << "cp set to 0";
++                if (tempAddCP)
++                {
++                    //msg2 << " + " << uint32(tempAddCP) << " (temp)";
++                    comboPoints = tempAddCP;
++                    tempAddCP = 0;
++                }
++                else
++                    comboPoints = 0;
++                //me->MonsterWhisper(msg2.str().c_str(), master->GetGUID());
 +            }
 +            else if (spellId == SINISTER_STRIKE ||
-+                spellId == BACKSTAB ||
-+                spellId == SEAL_FATE_EFFECT ||
-+                spellId == RUTHLESSNESS_EFFECT/* ||
++                spellId == BACKSTAB/* ||
 +                spellId == GOUGE ||
 +                spellId == HEMORRHAGE ||
 +                spellId == SHOSTLY_STRIKE*/)
++            {
 +                ++comboPoints;
++                //std::ostringstream msg;
++                //msg << "1 cp generated ";
++                //if (spellId == SINISTER_STRIKE)
++                //    msg << "(Sinister Strike)";
++                //else if (spellId == BACKSTAB)
++                //    msg << "(Backstab)";
++                //msg << " set to " << uint32(comboPoints);
++                //if (tempAddCP)
++                //    msg << " + " << uint32(tempAddCP) << " (triggered)";
++                //me->MonsterWhisper(msg.str().c_str(), master->GetGUID());
++                if (tempAddCP)
++                {
++                    comboPoints += tempAddCP;
++                    tempAddCP = 0;
++                }
++            }
 +            else if (spellId == MUTILATE/* ||
 +                spellId == AMBUSH*/)
++            {
 +                comboPoints += 2;
++                //std::ostringstream msg;
++                //msg << "2 cp generated (Mutilate), set to " << uint32(comboPoints);
++                //if (tempAddCP)
++                //    msg << " + " << uint32(tempAddCP) << " (triggered)";
++                //me->MonsterWhisper(msg.str().c_str(), master->GetGUID());
++                if (tempAddCP)
++                {
++                    comboPoints += tempAddCP;
++                    tempAddCP = 0;
++                }
++            }
++            else if (spellId == SEAL_FATE_EFFECT ||
++                spellId == RUTHLESSNESS_EFFECT)
++            {
++                ++tempAddCP;
++                //std::ostringstream msg;
++                //msg << "1 temp cp generated ";
++                //if (spellId == SEAL_FATE_EFFECT)
++                //    msg << "(Seal Fate)";
++                //else if (spellId == RUTHLESSNESS_EFFECT)
++                //    msg << "(Ruthleness)";
++                //me->MonsterWhisper(msg.str().c_str(), master->GetGUID());
++            }
 +
 +            if (spellId == SINISTER_STRIKE)
 +            {
@@ -8899,8 +8965,10 @@ index 0000000..d33d291
 +            //Glyph of Sinister Strike (50% to add cp on crit)
 +            //Seal Fate means crit so this glyph is enabled from lvl 35)
 +            if (spellId == SEAL_FATE_EFFECT && currentSpell == SINISTER_STRIKE && rand()%100 >= 50)
-+                ++comboPoints;
-+
++            {
++                ++tempAddCP;
++                //me->MonsterWhisper("1 temp cp generated (glyph of SS)", master->GetGUID());
++            }
 +            //Slaughter from the Shadows energy restore
 +            //instead of restoring energy we should override current value
 +            if (me->getLevel() >= 55)
@@ -8940,6 +9008,7 @@ index 0000000..d33d291
 +
 +            comboPoints = 0;
 +            tempComboPoints = 0;
++            tempAddCP = 0;
 +
 +            KidneyTarget = 0;
 +            RuptureTarget = 0;
@@ -8974,7 +9043,7 @@ index 0000000..d33d291
 +            if (Blade_Flurry_Timer > diff)          Blade_Flurry_Timer -= diff;
 +            if (Slice_Dice_Timer > diff)            Slice_Dice_Timer -= diff;
 +            if (Shadowstep_eff_Timer > diff)        Shadowstep_eff_Timer -= diff;
-+            else                                    shadowstep = false;
++            else if (shadowstep)                    shadowstep = false;
 +        }
 +
 +        bool CanRespawn()
@@ -9037,6 +9106,8 @@ index 0000000..d33d291
 +                RefreshAura(VITALITY,2);
 +            else if (level >= 40)
 +                RefreshAura(VITALITY);
++            if (level >= 55)
++                RefreshAura(TURN_THE_TABLES);
 +            if (level >= 40)
 +                RefreshAura(DEADLY_BREW);
 +            if (level >= 35)
@@ -9070,7 +9141,7 @@ index 0000000..d33d291
 +            Kick_Timer, Shadowstep_Timer, Mutilate_Timer, Kidney_Timer,
 +            Blade_Flurry_Timer, Slice_Dice_Timer, Shadowstep_eff_Timer;
 +        uint32 energy;
-+        uint8 comboPoints, tempComboPoints;
++        uint8 comboPoints, tempComboPoints, tempAddCP;
 +        bool tempDICE, spellHitTarget, shadowstep;
 +
 +        enum RogueBaseSpells
@@ -9111,7 +9182,7 @@ index 0000000..d33d291
 +            VITALITY                            = 61329,//rank 3
 +            DEADLY_BREW                         = 51626,//rank 2
 +            IMPROVED_KIDNEY_SHOT                = 14176,//rank 3
-+            TURN_THE_TABLES                     = 51627,//rank 3
++            TURN_THE_TABLES                     = 51629,//rank 3
 +            SURPRISE_ATTACKS                    = 32601,
 +            ROGUE_VIGOR                         = 14983,
 +            //Other
@@ -32930,7 +33001,7 @@ index 68ae2d8..a286b44 100644
    ${CMAKE_CURRENT_SOURCE_DIR}/AI/EventAI
    ${CMAKE_CURRENT_SOURCE_DIR}/AI/ScriptedAI
 diff --git a/src/server/game/Entities/Creature/Creature.cpp b/src/server/game/Entities/Creature/Creature.cpp
-index b92c304..7497c69 100755
+index b92c304..3b0baec 100755
 --- a/src/server/game/Entities/Creature/Creature.cpp
 +++ b/src/server/game/Entities/Creature/Creature.cpp
 @@ -52,6 +52,9 @@
@@ -33074,9 +33145,9 @@ index b92c304..7497c69 100755
 +{
 +    if (bot_AI) return;
 +    if (asPet)
-+        bot_AI = (bot_pet_ai* )AI();
++        bot_AI = (bot_pet_ai*)AI();
 +    else
-+        bot_AI = (bot_minion_ai* )AI();
++        bot_AI = (bot_minion_ai*)AI();
 +}
 diff --git a/src/server/game/Entities/Creature/Creature.h b/src/server/game/Entities/Creature/Creature.h
 index b9fb5c8..1646c61 100755
@@ -33960,7 +34031,7 @@ index 0decacd..dcc7473 100755
          InventoryResult CanStoreItem_InSpecificSlot(uint8 bag, uint8 slot, ItemPosCountVec& dest, ItemTemplate const* pProto, uint32& count, bool swap, Item* pSrcItem) const;
          InventoryResult CanStoreItem_InBag(uint8 bag, ItemPosCountVec& dest, ItemTemplate const* pProto, uint32& count, bool merge, bool non_specialized, Item* pSrcItem, uint8 skip_bag, uint8 skip_slot) const;
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index 6e9ebb3..ca86b6c 100755
+index 6e9ebb3..1242d9c 100755
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
 @@ -967,6 +967,14 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
@@ -33993,19 +34064,22 @@ index 6e9ebb3..ca86b6c 100755
              // If crit add critical bonus
              if (crit)
              {
-@@ -1134,6 +1150,11 @@ void Unit::CalculateMeleeDamage(Unit* victim, uint32 damage, CalcDamageInfo* dam
+@@ -1134,6 +1150,14 @@ void Unit::CalculateMeleeDamage(Unit* victim, uint32 damage, CalcDamageInfo* dam
      damage = MeleeDamageBonusDone(damageInfo->target, damage, damageInfo->attackType);
      damage = damageInfo->target->MeleeDamageBonusTaken(this, damage, damageInfo->attackType);
  
 +    //Npcbot mod: apply bot damage mods
 +    if (GetTypeId() == TYPEID_UNIT)
-+        if (ToCreature()->GetIAmABot())
-+            ToCreature()->ApplyBotDamageMultiplierMelee(damage, *damageInfo);
++    {
++        Creature* bot = ToCreature();
++        if (bot->GetIAmABot() || bot->GetIAmABotsPet())
++            bot->ApplyBotDamageMultiplierMelee(damage, *damageInfo);
++    }
 +
      // Calculate armor reduction
      if (IsDamageReducedByArmor((SpellSchoolMask)(damageInfo->damageSchoolMask)))
      {
-@@ -10867,6 +10888,7 @@ bool Unit::isSpellCrit(Unit* victim, SpellInfo const* spellProto, SpellSchoolMas
+@@ -10867,6 +10891,7 @@ bool Unit::isSpellCrit(Unit* victim, SpellInfo const* spellProto, SpellSchoolMas
      //! Mobs can't crit with spells. Player Totems can
      //! Fire Elemental (from totem) can too - but this part is a hack and needs more research
      if (IS_CREATURE_GUID(GetGUID()) && !(isTotem() && IS_PLAYER_GUID(GetOwnerGUID())) && GetEntry() != 15438)
@@ -34013,7 +34087,7 @@ index 6e9ebb3..ca86b6c 100755
          return false;
  
      // not critting spell
-@@ -16662,6 +16684,8 @@ uint32 Unit::GetCombatRatingDamageReduction(CombatRating cr, float rate, float c
+@@ -16662,6 +16687,8 @@ uint32 Unit::GetCombatRatingDamageReduction(CombatRating cr, float rate, float c
  
  uint32 Unit::GetModelForForm(ShapeshiftForm form)
  {
@@ -34022,7 +34096,7 @@ index 6e9ebb3..ca86b6c 100755
      switch (form)
      {
          case FORM_CAT:
-@@ -16833,6 +16857,183 @@ uint32 Unit::GetModelForForm(ShapeshiftForm form)
+@@ -16833,6 +16860,183 @@ uint32 Unit::GetModelForForm(ShapeshiftForm form)
          default:
              break;
      }
