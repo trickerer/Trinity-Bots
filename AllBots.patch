@@ -1,6 +1,6 @@
-From 3d41c4001b588d0b01771e26757a6800e597f1a7 Mon Sep 17 00:00:00 2001
+From 0929a4e8cfa2c8d20ca0e70cf6bbf82a4ae9726f Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Tue, 9 Oct 2012 10:35:58 +0700
+Date: Tue, 9 Oct 2012 15:31:22 +0700
 Subject: [PATCH] AllBots
 
 ---
@@ -14,10 +14,10 @@ Subject: [PATCH] AllBots
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  857 ++
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  933 ++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  839 ++
- src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  879 ++
- src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  369 +
+ src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  881 ++
+ src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  373 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  435 +
- src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1113 ++
+ src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1170 ++
  src/server/game/AI/NpcBots/botcommands.cpp         |  795 ++
  src/server/game/AI/NpcBots/botgiver.cpp            |  337 +
  src/server/game/AI/PlayerBots/PlayerbotAI.cpp      |11974 ++++++++++++++++++++
@@ -60,7 +60,7 @@ Subject: [PATCH] AllBots
  src/server/game/Server/WorldSession.h              |   36 +
  src/server/scripts/Spells/spell_priest.cpp         |    4 +
  src/server/worldserver/worldserver.conf.dist       |  188 +
- 56 files changed, 34336 insertions(+), 0 deletions(-)
+ 56 files changed, 34399 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -430,7 +430,7 @@ index 0000000..5b00cdc
 +
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..de0ef2a
+index 0000000..3905a4b
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
 @@ -0,0 +1,3049 @@
@@ -3472,7 +3472,7 @@ index 0000000..de0ef2a
 +
 +void bot_minion_ai::BreakCC(const uint32 diff)
 +{
-+    if (pvpTrinket_cd <= diff && CCed(me))
++    if (pvpTrinket_cd <= diff && CCed(me, true))
 +    {
 +        temptimer = GC_Timer;
 +        if (doCast(me, PVPTRINKET))
@@ -8328,10 +8328,10 @@ index 0000000..56a1998
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_rogue_ai.cpp b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 new file mode 100644
-index 0000000..6d394b2
+index 0000000..89f1ac4
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
-@@ -0,0 +1,879 @@
+@@ -0,0 +1,881 @@
 +#include "bot_ai.h"
 +/*
 +Rogue NpcBot (reworked by Graff onlysuffering@mail.ru)
@@ -8733,27 +8733,29 @@ index 0000000..6d394b2
 +            uint32 spellId = spellInfo->Id;
 +            uint8 lvl = me->getLevel();
 +            float fdamage = float(damage);
-+            //1) apply additional crit chance. This new chance roll will replace original (balance safe)
++            //1) apply additional crit chance. This new chance roll will replace original (balance unsafe)
 +            if (!crit)
 +            {
 +                float crit_chance = me->GetUnitCriticalChance(BASE_ATTACK, me);
++                float aftercrit = crit_chance;
 +                //Puncturing Wounds: 30% additional critical chance for Backstab
 +                if (lvl >= 15 && spellId == BACKSTAB)
-+                    crit_chance += 30.f;
++                    aftercrit += 30.f;
 +                //Puncturing Wounds: 15% additional critical chance for Mutilate
 +                else if (spellId == MUTILATE)
-+                    crit_chance += 15.f;
++                    aftercrit += 15.f;
 +                //Glyph of Eviscerate: 10% additional critical chance for Eviscerate
 +                else if (spellId == EVISCERATE)
-+                    crit_chance += 10.f;
++                    aftercrit += 10.f;
 +                //Improved Ambush: 50% additional critical chance for Ambush
 +                //else if (spellId == AMBUSH)
 +                //    crit_chance += 50.f;
 +                if (lvl >= 50 && spellInfo->HasEffect(SPELL_EFFECT_ADD_COMBO_POINTS) && me->HasAura(TURN_THE_TABLES_EFFECT))
-+                    crit_chance += 6.f;
++                    aftercrit += 6.f;
 +
 +                //second roll (may be illogical)
-+                crit = roll_chance_f(crit_chance);
++                if (aftercrit > crit_chance)
++                    crit = roll_chance_f(aftercrit);
 +            }
 +
 +            //2) apply bonus damage mods
@@ -9213,10 +9215,10 @@ index 0000000..6d394b2
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_shaman_ai.cpp b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 new file mode 100644
-index 0000000..7c2f907
+index 0000000..9751f1e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
-@@ -0,0 +1,369 @@
+@@ -0,0 +1,373 @@
 +#include "bot_ai.h"
 +/*
 +Shaman NpcBot (reworked by Graff onlysuffering@mail.ru)
@@ -9469,11 +9471,15 @@ index 0000000..7c2f907
 +            //uint32 spellId = spellInfo->Id;
 +            //uint8 lvl = me->getLevel();
 +            float fdamage = float(damage);
-+            //1) apply additional crit chance. This new chance roll will replace original (balance safe)
++            //1) apply additional crit chance. This new chance roll will replace original (balance unsafe)
 +            //if (!crit)
 +            //{
 +            //    float crit_chance = me->GetUnitCriticalChance(BASE_ATTACK, me);
-+            //    crit = roll_chance_f(crit_chance);
++            //    float aftercrit = crit_chance;
++
++            //    //second roll (may be illogical)
++            //    if (aftercrit > crit_chance)
++            //        crit = roll_chance_f(aftercrit);
 +            //}
 +
 +            //2) apply bonus damage mods
@@ -10029,10 +10035,10 @@ index 0000000..e972c30
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warrior_ai.cpp b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 new file mode 100644
-index 0000000..eb54353
+index 0000000..789cfc7
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
-@@ -0,0 +1,1113 @@
+@@ -0,0 +1,1170 @@
 +#include "bot_ai.h"
 +#include "SpellAuraEffects.h"
 +/*
@@ -10074,6 +10080,20 @@ index 0000000..eb54353
 +        void UpdateAI(const uint32 diff)
 +        {
 +            ReduceCD(diff);
++            if (rendTarget)
++            {
++                //Glyph of Rending: Increases Rend duration by 6 sec.
++                if (Unit* u = sObjectAccessor->FindUnit(rendTarget))
++                {
++                    if (Aura* rend = u->GetAura(REND, me->GetGUID()))
++                    {
++                        uint32 dur = rend->GetDuration() + 6000;
++                        rend->SetDuration(dur);
++                        rend->SetMaxDuration(dur);
++                    }
++                }
++                rendTarget = 0;
++            }
 +            if (IAmDead()) return;
 +            if (me->getVictim())
 +                DoMeleeAttackIfReady();
@@ -10209,27 +10229,8 @@ index 0000000..eb54353
 +                        modrage(20);
 +                    return;
 +                }
-+                else if (pvpTrinket_cd <= diff)
-+                {
-+                    temptimer = GC_Timer;
-+                    if (doCast(me, PVPTRINKET))
-+                    {
-+                        pvpTrinket_cd = PVPTRINKET_CD;
-+                        GC_Timer = temptimer;
-+                        return;
-+                    }
-+                }
 +            }
-+            if (pvpTrinket_cd <= diff && CCed(me))
-+            {
-+                temptimer = GC_Timer;
-+                if (doCast(me, PVPTRINKET))
-+                {
-+                    pvpTrinket_cd = PVPTRINKET_CD;
-+                    GC_Timer = temptimer;
-+                    return;
-+                }
-+            }
++            bot_minion_ai::BreakCC(diff);
 +        }
 +
 +        void Attack(const uint32 diff)
@@ -10284,11 +10285,10 @@ index 0000000..eb54353
 +                (me->getLevel() >= 50 || 
 +                (!me->isInCombat() && (battleStance == true || stanceChange(diff, 1)))))
 +            {
-+                bool combat = me->isInCombat();
 +                temptimer = GC_Timer;
 +                if (me->getLevel() >= 50)
 +                    me->RemoveMovementImpairingAuras();
-+                if (doCast(opponent, CHARGE, combat))
++                if (doCast(opponent, CHARGE, me->isInCombat()))
 +                {
 +                    charge_cd = CHARGE_CD;
 +                    GC_Timer = temptimer;
@@ -10319,7 +10319,7 @@ index 0000000..eb54353
 +                        return;
 +                    }
 +                }
-+                Unit *fearTarget = NULL;
++                Unit* fearTarget = NULL;
 +                bool triggered = false;
 +                uint8 tCount = 0;
 +                //fear master's attackers
@@ -10388,9 +10388,9 @@ index 0000000..eb54353
 +            if (OVERPOWER && getrage() > 50 && meleedist <= 5 && GC_Timer <= diff && (battleStance == true || stancetimer <= diff))
 +            {
 +                bool blood = me->HasAura(TASTE_FOR_BLOOD_BUFF);
-+                if ((((opponent->GetTypeId() == TYPEID_PLAYER && UNRELENTING_ASSAULT && me->HasAura(TASTE_FOR_BLOOD_BUFF) && opponent->IsNonMeleeSpellCasted(false) && overpower_cd <= 3000) || 
++                if ((((opponent->GetTypeId() == TYPEID_PLAYER && UNRELENTING_ASSAULT && blood && opponent->IsNonMeleeSpellCasted(false) && overpower_cd <= 3000) || 
 +                    (opponent->IsNonMeleeSpellCasted(false) && blood) || 
-+                    (overpower_cd <= diff && me->HasAura(TASTE_FOR_BLOOD_BUFF)))))
++                    (overpower_cd <= diff && blood))))
 +                {
 +                    if (battleStance == true || stanceChange(diff, 1))
 +                    {
@@ -10455,7 +10455,7 @@ index 0000000..eb54353
 +                }
 +            }
 +            //TAUNT
-+            Unit *u = opponent->getVictim();
++            Unit* u = opponent->getVictim();
 +            if (TAUNT && taunt_cd <= diff && u && u != me && u != tank && dist <= 30 &&
 +                (IsInBotParty(u) || tank == me) && !CCed(opponent) && 
 +                (defensiveStance == true || (stancetimer <= diff && stanceChange(diff, 2))))//No GCD
@@ -10500,7 +10500,7 @@ index 0000000..eb54353
 +                }
 +            }
 +            //SS
-+            if (SWEEPING_STRIKES && sweeping_strikes_cd <= diff && !SS && tank != me && Rand() < 20 && 
++            if (SWEEPING_STRIKES && sweeping_strikes_cd <= diff && tank != me && Rand() < 20 && 
 +                (battleStance == true || berserkerStance == true || stancetimer <= diff) && 
 +                (b_attackers.size() > 1 || FindSplashTarget(7, opponent)))
 +            {
@@ -10547,7 +10547,7 @@ index 0000000..eb54353
 +                }
 +            }
 +            //Slam
-+            bool triggered = mortalStrike_cd >= 6900;
++            bool triggered = mortalStrike_cd == 7000;
 +            if (SLAM && Rand() < (30 + triggered*60) && slam_cd <= diff && getrage() > 150 && meleedist <= 5)
 +            {
 +                if (doCast(opponent, SLAM, triggered))
@@ -10580,7 +10580,10 @@ index 0000000..eb54353
 +            {
 +                if ((battleStance == true || defensiveStance == true || stanceChange(diff, 1)) && 
 +                    doCast(opponent, REND))
++                {
++                    rendTarget = opponent->GetGUID();
 +                    return;
++                }
 +            }
 +            //Cleave
 +            if (Rand() < 30 && CLEAVE && cleave_cd <= diff && me->getLevel() >= 20 && getrage() > 200 && meleedist <= 5)//noGC_Timer
@@ -10642,7 +10645,7 @@ index 0000000..eb54353
 +                    }
 +                }
 +                //sLog->outBasic("%s: Intervene check.", me->GetName());
-+                Group *gr = master->GetGroup();
++                Group* gr = master->GetGroup();
 +                if (!gr)
 +                {
 +                    if (GetHealthPCT(master) < 95 && !master->getAttackers().empty() && 
@@ -10665,9 +10668,9 @@ index 0000000..eb54353
 +                {
 +                    bool Bots = false;
 +                    float dist;
-+                    for (GroupReference *itr = gr->GetFirstMember(); itr != NULL; itr = itr->next())
++                    for (GroupReference* itr = gr->GetFirstMember(); itr != NULL; itr = itr->next())
 +                    {
-+                        Player *tPlayer = itr->getSource();
++                        Player* tPlayer = itr->getSource();
 +                        if (!tPlayer) continue;
 +                        if (tPlayer->GetMap() != me->GetMap()) continue;
 +                        //sLog->outBasic("checking player %s", tPlayer->GetName());
@@ -10695,14 +10698,14 @@ index 0000000..eb54353
 +                        }
 +                    }
 +                    if (!Bots) return;
-+                    for (GroupReference *itr = gr->GetFirstMember(); itr != NULL; itr = itr->next())
++                    for (GroupReference* itr = gr->GetFirstMember(); itr != NULL; itr = itr->next())
 +                    {
-+                        Player *tPlayer = itr->getSource();
++                        Player* tPlayer = itr->getSource();
 +                        if (!tPlayer || !tPlayer->HaveBot()) continue;
 +                        if (tPlayer->GetMap() != me->GetMap()) continue;
 +                        for (uint8 i = 0; i != tPlayer->GetMaxNpcBots(); ++i)
 +                        {
-+                            Creature *bot = tPlayer->GetBotMap()[i]._Cre();
++                            Creature* bot = tPlayer->GetBotMap()[i]._Cre();
 +                            if (!bot || bot == me || bot->isDead()) continue;
 +                            if (GetHealthPCT(bot) > 90 || tank == bot) continue;
 +                            dist = me->GetExactDist(bot);
@@ -10828,6 +10831,61 @@ index 0000000..eb54353
 +            return false;
 +        }
 +
++        void ApplyBotDamageMultiplierMelee(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool& crit)
++        {
++            uint32 spellId = spellInfo->Id;
++            uint8 lvl = me->getLevel();
++            float fdamage = float(damage);
++            //1) apply additional crit chance. This new chance roll will replace original (balance unsafe)
++            if (!crit)
++            {
++                float crit_chance = me->GetUnitCriticalChance(BASE_ATTACK, me);
++                float aftercrit = crit_chance;
++                //Incite: 15% additional critical chance for Cleave, Heroic Strike and Thunder Clap
++                if (lvl >= 15 && spellId == CLEAVE /*|| spellId == HEROICSTRIKE || spellId == THUNDERCLAP*/)
++                    aftercrit += 15.f;
++                //Improved Overpower: 50% additional critical chance for Overpower
++                if (lvl >= 20 && spellId == OVERPOWER)
++                    aftercrit += 50.f;
++
++                //second roll (may be illogical)
++                if (aftercrit > crit_chance)
++                    crit = roll_chance_f(aftercrit);
++            }
++
++            //2) apply bonus damage mods
++            float pctbonus = 0.0f;
++            if (crit)
++            {
++                //!!!Melee spell damage is not yet critical, all reduced by half
++                //Impale: 20% crit damage bonus for all abilities
++                if (lvl >= 20)
++                    pctbonus += 0.10f;
++            }
++            //Improved Rend: 20% bonus damage for Rend
++            if (spellId == REND)
++                pctbonus += 0.2f;
++            //Improved Whirlwind: 20% bonus damage for Whirlwind
++            if (lvl >= 40 && spellId == WHIRLWIND)
++                pctbonus += 0.2f;
++            //Glyph of Mortal Strike: 10% bonus damage for Mortal Strike
++            if (lvl >= 40 && spellId == MORTALSTRIKE)
++                pctbonus += 0.1f;
++            //Unrelenting Assault (part 2): 20% bonus damage for Overpower and Revenge
++            if (lvl >= 45 && (spellId == OVERPOWER/* || spellId == REVENGE*/))
++                pctbonus += 0.2f;
++            //Improved Mortal Strike: 10% bonus damage for Mortal Strike
++            if (lvl >= 45 && spellId == MORTALSTRIKE)
++                pctbonus += 0.1f;
++            //Undending Fury: 10% bonus damage for Whirlwind, Slam and Bloodthirst
++            if (lvl >= 55 && (spellId == WHIRLWIND || spellId == SLAM /*|| spellId == BLOODTHIRST*/))
++                pctbonus += 0.1f;
++
++            fdamage *= (1.0f + pctbonus);
++            //last: overall multiplier
++            damage = int32(fdamage*dmgmult_melee);
++        }
++
 +        void SpellHit(Unit* caster, SpellInfo const* spell)
 +        {
 +            OnSpellHit(caster, spell);
@@ -10858,6 +10916,9 @@ index 0000000..eb54353
 +            stancetimer = 0;
 +            ragetimer = 1500;
 +            ragetimer2 = 3000;
++
++            rendTarget = 0;
++
 +            battleStance = true;
 +            defensiveStance = false;
 +            berserkerStance = false;
@@ -11040,7 +11101,9 @@ index 0000000..eb54353
 +/*else*/uint32 regen_cd, sweeping_strikes_cd, deathwish_cd, uber_cd, berserkerRage_cd, pummel_cd, 
 +            bloodrage_cd, taunt_cd, sunder_cd;
 +/*tmrs*/uint32 stancetimer, ragetimer, ragetimer2;
-+/*misc*/uint32 rage; float rageIncomeMult, rageLossMult;
++/*misc*/uint64 rendTarget;
++/*misc*/uint32 rage;
++/*misc*/float rageIncomeMult, rageLossMult;
 +/*Chck*/bool battleStance, defensiveStance, berserkerStance, SS, UNRELENTING_ASSAULT;
 +
 +        enum WarriorBaseSpells
