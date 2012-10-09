@@ -1,6 +1,6 @@
-From 971ef7c0e2de358c6ba545882c836887fe688a56 Mon Sep 17 00:00:00 2001
+From 3d41c4001b588d0b01771e26757a6800e597f1a7 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Fri, 5 Oct 2012 23:39:57 +0700
+Date: Tue, 9 Oct 2012 10:35:58 +0700
 Subject: [PATCH] AllBots
 
 ---
@@ -11,11 +11,11 @@ Subject: [PATCH] AllBots
  src/server/game/AI/NpcBots/bot_ai.h                |  785 ++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1071 ++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  320 +
- src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  855 ++
+ src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  857 ++
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  933 ++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  839 ++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  879 ++
- src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  358 +
+ src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  369 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  435 +
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1113 ++
  src/server/game/AI/NpcBots/botcommands.cpp         |  795 ++
@@ -60,7 +60,7 @@ Subject: [PATCH] AllBots
  src/server/game/Server/WorldSession.h              |   36 +
  src/server/scripts/Spells/spell_priest.cpp         |    4 +
  src/server/worldserver/worldserver.conf.dist       |  188 +
- 56 files changed, 34323 insertions(+), 0 deletions(-)
+ 56 files changed, 34336 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -430,7 +430,7 @@ index 0000000..5b00cdc
 +
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..ef085ce
+index 0000000..de0ef2a
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
 @@ -0,0 +1,3049 @@
@@ -694,7 +694,7 @@ index 0000000..ef085ce
 +{
 +    if (st == COMMAND_FOLLOW && ((!me->isMoving() && !IsCasting() && master->isAlive()) || force))
 +    {
-+        if (CCed(me)/* || master->HasUnitState(UNIT_STATE_FLEEING)*/) return;
++        if (CCed(me, true)/* || master->HasUnitState(UNIT_STATE_FLEEING)*/) return;
 +        if (!newpos)
 +            CalculatePos(pos);
 +        else
@@ -723,7 +723,7 @@ index 0000000..ef085ce
 +{
 +    if (st == COMMAND_FOLLOW && ((!me->isMoving() && !IsCasting() && master->isAlive()) || force))
 +    {
-+        if (CCed(me)) return;
++        if (CCed(me, true)) return;
 +        Unit* followtarget = m_creatureOwner;
 +        if (CCed(m_creatureOwner))
 +            followtarget = master;
@@ -3282,7 +3282,7 @@ index 0000000..ef085ce
 +            if (creature->isInCombat())
 +            {
 +                player->CLOSE_GOSSIP_MENU();
-+                return false;
++                break;
 +            }
 +            player->ADD_GOSSIP_ITEM(0, "I need food", 6001, GOSSIP_ACTION_INFO_DEF + 1);
 +            player->ADD_GOSSIP_ITEM(0, "I need drink", 6001, GOSSIP_ACTION_INFO_DEF + 2);
@@ -5681,10 +5681,10 @@ index 0000000..d3dd34b
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_mage_ai.cpp b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 new file mode 100644
-index 0000000..641cd73
+index 0000000..e27f6e3
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
-@@ -0,0 +1,855 @@
+@@ -0,0 +1,857 @@
 +#include "bot_ai.h"
 +/*
 +Mage NpcBot (reworked by Graff onlysuffering@mail.ru)
@@ -6151,7 +6151,8 @@ index 0000000..641cd73
 +                            pPlayer->getClass() == CLASS_PRIEST || 
 +                            pPlayer->getClass() == CLASS_SHAMAN || 
 +                            pPlayer->getClass() == CLASS_DRUID || 
-+                            pPlayer->getClass() == CLASS_PALADIN) && 
++                            pPlayer->getClass() == CLASS_PALADIN || 
++                            pPlayer->getClass() == CLASS_WARLOCK) && 
 +                            !pPlayer->HasAura(FOCUSMAGIC) && me->GetExactDist(pPlayer) < 30)
 +                        {
 +                            target = pPlayer;
@@ -6172,7 +6173,8 @@ index 0000000..641cd73
 +                                if ((cre->GetBotClass() == CLASS_MAGE || 
 +                                    cre->GetBotClass() == CLASS_PRIEST || 
 +                                    cre->GetBotClass() == CLASS_SHAMAN || 
-+                                    cre->GetBotClass() == CLASS_DRUID) && 
++                                    cre->GetBotClass() == CLASS_DRUID || 
++                                    cre->GetBotClass() == CLASS_WARLOCK) && 
 +                                    !cre->HasAura(FOCUSMAGIC) && me->GetExactDist(cre) < 30)
 +                                {
 +                                    target = cre;
@@ -9211,10 +9213,10 @@ index 0000000..6d394b2
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_shaman_ai.cpp b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 new file mode 100644
-index 0000000..0254f77
+index 0000000..7c2f907
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
-@@ -0,0 +1,358 @@
+@@ -0,0 +1,369 @@
 +#include "bot_ai.h"
 +/*
 +Shaman NpcBot (reworked by Graff onlysuffering@mail.ru)
@@ -9284,12 +9286,12 @@ index 0000000..0254f77
 +                return;
 +            if (me->isInCombat())
 +            {
-+                if (!HasAuraName(master, WINDFURY_TOTEM))
++                if (WINDFURY_TOTEM && !HasAuraName(master, WINDFURY_TOTEM))
 +                {
 +                    if (doCast(me, WINDFURY_TOTEM))
 +                        return;
 +                }
-+                else if (!HasAuraName(master, STONESKIN_AURA))
++                else if (STONESKIN_TOTEM && !HasAuraName(master, STONESKIN_AURA))
 +                {
 +                    if (doCast(me, STONESKIN_TOTEM))
 +                        return;
@@ -9297,22 +9299,31 @@ index 0000000..0254f77
 +
 +                if (Unit* u = me->getVictim())
 +                {
-+                    if (me->GetExactDist(u) < (25 - 15*u->isMoving()))
-+                        if (doCast(me, SEARING_TOTEM))
-+                            return;
++                    if (SEARING_TOTEM && Searing_Totem_Timer <= diff)
++                    {
++                        if (me->GetExactDist(u) < (u->isMoving() ? 10 : 25))
++                        {
++                            if (doCast(me, SEARING_TOTEM))
++                            {
++                                Searing_Totem_Timer = 30000;
++                                return;
++                            }
++                        }
++                    }
 +                }
 +            }
 +            else if (!me->isMoving() && !master->isMoving())
 +            {
 +                uint8 manapct = GetManaPCT(master);
 +                uint8 hppct = GetHealthPCT(master);
-+                if ((master->getPowerType() != POWER_MANA || hppct < 25 || manapct > hppct) && hppct < 98 &&
-+                    !HasAuraName(master, HEALINGSTREAM_AURA))
++                if (HEALINGSTREAM_TOTEM &&
++                    (master->getPowerType() != POWER_MANA || hppct < 25 || manapct > hppct) &&
++                    hppct < 98 && !HasAuraName(master, HEALINGSTREAM_AURA))
 +                {
 +                    if (doCast(me, HEALINGSTREAM_TOTEM))
 +                        return;
 +                }
-+                else if (manapct < 98 && !HasAuraName(master, MANASPRING_AURA))
++                else if (MANASPRING_TOTEM && manapct < 98 && !HasAuraName(master, MANASPRING_AURA))
 +                {
 +                    if (doCast(me, MANASPRING_TOTEM))
 +                        return;
@@ -9490,6 +9501,7 @@ index 0000000..0254f77
 +            Heal_Timer = 0;
 +            Shock_Timer = 0;
 +            Lightning_Bolt_Timer = 0;
++            Searing_Totem_Timer = 0;
 +
 +            if (master)
 +            {
@@ -9505,6 +9517,7 @@ index 0000000..0254f77
 +            if (Heal_Timer > diff)              Heal_Timer -= diff;
 +            if (Shock_Timer > diff)             Shock_Timer -= diff;
 +            if (Lightning_Bolt_Timer > diff)    Lightning_Bolt_Timer -= diff;
++            if (Searing_Totem_Timer > diff)     Searing_Totem_Timer -= diff;
 +        }
 +
 +        bool CanRespawn()
@@ -9537,7 +9550,7 @@ index 0000000..0254f77
 +            FLAME_SHOCK, EARTH_SHOCK, LIGHTNING_BOLT, LIGHTNING_SHIELD,
 +            STONESKIN_TOTEM, HEALINGSTREAM_TOTEM, MANASPRING_TOTEM, SEARING_TOTEM, WINDFURY_TOTEM;
 +        //Timers
-+        uint32 Heal_Timer, Shock_Timer, Lightning_Bolt_Timer;
++        uint32 Heal_Timer, Shock_Timer, Lightning_Bolt_Timer, Searing_Totem_Timer;
 +
 +        enum ShamanBaseSpells
 +        {
@@ -9575,7 +9588,7 @@ index 0000000..0254f77
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warlock_ai.cpp b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 new file mode 100644
-index 0000000..e4c0b7c
+index 0000000..e972c30
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 @@ -0,0 +1,435 @@
@@ -9888,13 +9901,13 @@ index 0000000..e4c0b7c
 +            return true;
 +        }
 +
-+        void MoveInLineOfSight(Unit *) { }
-+        void KilledUnit(Unit *) { }
++        void MoveInLineOfSight(Unit*) { }
++        void KilledUnit(Unit*) { }
 +        void EnterEvadeMode() { }
 +        void EnterCombat(Unit*) { }
-+        void JustDied(Unit *) { }
-+        void Aggro(Unit *) { }
-+        void AttackStart(Unit *) { }
++        void JustDied(Unit*) { m_creatureOwner->SetBotsPetDied(); }
++        void Aggro(Unit*) { }
++        void AttackStart(Unit*) { }
 +
 +        void DoNonCombatActions()
 +        {}
