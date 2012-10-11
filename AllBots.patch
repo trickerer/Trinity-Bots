@@ -1,23 +1,23 @@
-From 0929a4e8cfa2c8d20ca0e70cf6bbf82a4ae9726f Mon Sep 17 00:00:00 2001
+From 6cca58979aed3c2db174fdda50d919b35ae0f48b Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Tue, 9 Oct 2012 15:31:22 +0700
+Date: Thu, 11 Oct 2012 21:54:59 +0700
 Subject: [PATCH] AllBots
 
 ---
  sql/Bots/character_NPC_bots.sql                    |   10 +
  sql/Bots/world.bots.sql                            |  292 +
  sql/Bots/world.script_bot_giver.sql                |    7 +
- src/server/game/AI/NpcBots/bot_ai.cpp              | 3049 +++++
- src/server/game/AI/NpcBots/bot_ai.h                |  785 ++
- src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1071 ++
- src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  320 +
- src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  857 ++
- src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  933 ++
- src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  839 ++
- src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  881 ++
- src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  373 +
- src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  435 +
- src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1170 ++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 3119 +++++
+ src/server/game/AI/NpcBots/bot_ai.h                |  798 ++
+ src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1084 ++
+ src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  333 +
+ src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  870 ++
+ src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  946 ++
+ src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  852 ++
+ src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  894 ++
+ src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  386 +
+ src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  453 +
+ src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1183 ++
  src/server/game/AI/NpcBots/botcommands.cpp         |  795 ++
  src/server/game/AI/NpcBots/botgiver.cpp            |  337 +
  src/server/game/AI/PlayerBots/PlayerbotAI.cpp      |11974 ++++++++++++++++++++
@@ -43,12 +43,12 @@ Subject: [PATCH] AllBots
  .../game/AI/PlayerBots/PlayerbotWarriorAI.cpp      |  353 +
  src/server/game/AI/PlayerBots/PlayerbotWarriorAI.h |  103 +
  src/server/game/CMakeLists.txt                     |    2 +
- src/server/game/Entities/Creature/Creature.cpp     |  120 +
+ src/server/game/Entities/Creature/Creature.cpp     |  121 +
  src/server/game/Entities/Creature/Creature.h       |   34 +
  .../game/Entities/Creature/TemporarySummon.cpp     |    7 +
  src/server/game/Entities/Player/Player.cpp         |  646 ++
  src/server/game/Entities/Player/Player.h           |   66 +
- src/server/game/Entities/Unit/Unit.cpp             |  204 +
+ src/server/game/Entities/Unit/Unit.cpp             |  210 +
  src/server/game/Groups/Group.cpp                   |   13 +
  src/server/game/Groups/Group.h                     |    3 +
  src/server/game/Handlers/CharacterHandler.cpp      |  148 +
@@ -60,7 +60,7 @@ Subject: [PATCH] AllBots
  src/server/game/Server/WorldSession.h              |   36 +
  src/server/scripts/Spells/spell_priest.cpp         |    4 +
  src/server/worldserver/worldserver.conf.dist       |  188 +
- 56 files changed, 34399 insertions(+), 0 deletions(-)
+ 56 files changed, 34611 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -430,10 +430,10 @@ index 0000000..5b00cdc
 +
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..3905a4b
+index 0000000..241a99d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,3049 @@
+@@ -0,0 +1,3119 @@
 +#include "bot_ai.h"
 +#include "Config.h"
 +#include "Chat.h"
@@ -645,7 +645,8 @@ index 0000000..3905a4b
 +        myangle = angle;
 +    else
 +        angle = myangle;
-+    mydist += followdist > 10 ? float(followdist - 10)/4.f : 0;
++    mydist += followdist > 10 ? float(followdist - 10)/4.f : 0.f;
++    mydist = std::min<float>(mydist, 35.f);
 +    angle += followTarget->GetOrientation();
 +    float x(0),y(0),z(0);
 +    float size = me->GetObjectSize()/3.f;
@@ -692,6 +693,8 @@ index 0000000..3905a4b
 +// Movement set
 +void bot_minion_ai::SetBotCommandState(CommandStates st, bool force, Position* newpos)
 +{
++    if (me->isDead())
++        return;
 +    if (st == COMMAND_FOLLOW && ((!me->isMoving() && !IsCasting() && master->isAlive()) || force))
 +    {
 +        if (CCed(me, true)/* || master->HasUnitState(UNIT_STATE_FLEEING)*/) return;
@@ -721,6 +724,8 @@ index 0000000..3905a4b
 +
 +void bot_pet_ai::SetBotCommandState(CommandStates st, bool force, Position* /*newpos*/)
 +{
++    if (me->isDead())
++        return;
 +    if (st == COMMAND_FOLLOW && ((!me->isMoving() && !IsCasting() && master->isAlive()) || force))
 +    {
 +        if (CCed(me, true)) return;
@@ -1014,7 +1019,7 @@ index 0000000..3905a4b
 +    if (me->GetDistance(target) > 30) return false;
 +    if (!IsInBotParty(target)) return false;
 +
-+    SpellInfo const *info = sSpellMgr->GetSpellInfo(cureSpell);
++    SpellInfo const* info = sSpellMgr->GetSpellInfo(cureSpell);
 +    if (!info) return false;
 +
 +    uint32 dispelMask = 0;
@@ -1035,7 +1040,7 @@ index 0000000..3905a4b
 +bool bot_ai::HasAuraName(Unit* unit, uint32 spellId, uint64 casterGuid, bool exclude) const
 +{
 +    if (!spellId) return false;
-+    SpellInfo const *pSpellInfo = sSpellMgr->GetSpellInfo(spellId);
++    SpellInfo const* pSpellInfo = sSpellMgr->GetSpellInfo(spellId);
 +    if (!pSpellInfo) return false;
 +
 +    uint8 loc = master->GetSession()->GetSessionDbcLocale();
@@ -1055,7 +1060,7 @@ index 0000000..3905a4b
 +    Unit::AuraMap const &vAuras = unit->GetOwnedAuras();
 +    for (Unit::AuraMap::const_iterator itr = vAuras.begin(); itr != vAuras.end(); ++itr)
 +    {
-+        SpellInfo const *spellInfo = itr->second->GetSpellInfo();
++        SpellInfo const* spellInfo = itr->second->GetSpellInfo();
 +        const std::string name = spellInfo->SpellName[loc];
 +        if (spell == name)
 +            if (casterGuid == 0 || (casterGuid != 0 && exclude == (casterGuid != itr->second->GetCasterGUID())))
@@ -1808,7 +1813,7 @@ index 0000000..3905a4b
 +        return false;
 +    if (!target)
 +        target = me;
-+    SpellInfo const *spellInfo = sSpellMgr->GetSpellInfo(spell);
++    SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spell);
 +    if (!spellInfo)
 +        return false;
 +    //if (!spellInfo->IsPassive())
@@ -1940,17 +1945,18 @@ index 0000000..3905a4b
 +{
 +    if (!target) return false;
 +    uint8 followdist = master->GetBotFollowDist();
-+    float foldist = followdist > 10 ? float(followdist) * 0.67f : 6.7f;
++    float foldist = _getAttackDistance(float(followdist));
 +    return
-+       (target->isAlive() && 
-+       target->IsVisible() && 
-+       (master->isDead() || (target->GetDistance(master) < foldist && me->GetDistance(master) < followdist)) && //if master is killed pursue to the end
-+        target->isTargetableForAttack() && 
-+        !IsInBotParty(target) && 
-+        (target->IsHostileTo(master) || 
-+        (target->GetReactionTo(master) < REP_FRIENDLY && master->getVictim() == target && (master->isInCombat() || target->isInCombat())) || //master has pointed this target
-+        target->IsHostileTo(me)) && //if master is controlled
-+        //target->IsWithinLOSInMap(me) && 
++       (target->isAlive() &&
++       target->IsVisible() &&
++       (master->isDead() || target->GetTypeId() == TYPEID_PLAYER || target->isPet() ||
++       (target->GetDistance(master) < foldist && me->GetDistance(master) < followdist)) &&//if master is killed pursue to the end
++        target->isTargetableForAttack() &&
++        !IsInBotParty(target) &&
++        (target->IsHostileTo(master) ||
++        (target->GetReactionTo(master) < REP_FRIENDLY && master->getVictim() == target && (master->isInCombat() || target->isInCombat())) ||//master has pointed this target
++        target->IsHostileTo(me)) &&//if master is controlled
++        //target->IsWithinLOSInMap(me) &&
 +        (byspell == -1 || !target->IsImmunedToDamage(byspell ? SPELL_SCHOOL_MASK_MAGIC : SPELL_SCHOOL_MASK_NORMAL)));
 +}
 +//GETTARGET
@@ -1965,14 +1971,14 @@ index 0000000..3905a4b
 +        if (Creature* pet = me->GetBotsPet())
 +            mytar = pet->getVictim();
 +
-+    uint8 followdist = master->GetBotFollowDist();
 +    if (u && u == mytar)
 +    {
 +        //sLog->outError(LOG_FILTER_PLAYER, "bot %s continues attack common target %s", me->GetName(), u->GetName());
 +        return u;//forced
 +    }
 +    //Follow if...
-+    float foldist = followdist > 10 ? float(followdist) * 0.67f : 6.7f;
++    uint8 followdist = master->GetBotFollowDist();
++    float foldist = _getAttackDistance(float(followdist));
 +    if (!u && master->isAlive() && (me->GetDistance(master) > foldist || (mytar && master->GetDistance(mytar) > foldist && me->GetDistance(master) > foldist)))
 +    {
 +        //sLog->outError(LOG_FILTER_PLAYER, "bot %s cannot attack target %s, too far away", me->GetName(), mytar ? mytar->GetName() : "");
@@ -2067,9 +2073,7 @@ index 0000000..3905a4b
 +
 +    //check targets around
 +    Unit* t = NULL;
-+    float maxdist = float(followdist) * (me->IsMounted() ? 0.3f : 1.f);
-+    maxdist += ranged ? float(followdist) * 0.25f : 0.f;
-+    maxdist += master->isDead() ? sWorld->GetMaxVisibleDistanceOnContinents() * 0.5f : 0;//set max dist
++    float maxdist = InitAttackRange(float(followdist), ranged);
 +    //first cycle we search non-cced target, then, if not found, check all
 +    for (uint8 i = 0; i != 2; ++i)
 +    {
@@ -3087,11 +3091,11 @@ index 0000000..3905a4b
 +}
 +//emulates evade mode, removes buggy bots' threat from party, so no 'stuck in combat' bugs form bot mod
 +//optionally interrupts casted spell if target is dead for bot and it's pet
-+void bot_minion_ai::_OnEvade() const
++void bot_minion_ai::_OnEvade()
 +{
 +    if (me->HasUnitState(UNIT_STATE_CASTING))
 +        for (uint8 i = CURRENT_FIRST_NON_MELEE_SPELL; i != CURRENT_AUTOREPEAT_SPELL; ++i)
-+            if (Spell *spell = me->GetCurrentSpell(CurrentSpellTypes(i)))
++            if (Spell* spell = me->GetCurrentSpell(CurrentSpellTypes(i)))
 +                if (!spell->GetSpellInfo()->IsChanneled())
 +                    if (Unit* u = spell->m_targets.GetUnitTarget())
 +                        if (u->isDead() && !IsInBotParty(u))
@@ -3100,7 +3104,7 @@ index 0000000..3905a4b
 +    Creature* m_botsPet = me->GetBotsPet();
 +    if (m_botsPet && m_botsPet->HasUnitState(UNIT_STATE_CASTING))
 +        for (uint8 i = CURRENT_FIRST_NON_MELEE_SPELL; i != CURRENT_AUTOREPEAT_SPELL; ++i)
-+            if (Spell *spell = m_botsPet->GetCurrentSpell(CurrentSpellTypes(i)))
++            if (Spell* spell = m_botsPet->GetCurrentSpell(CurrentSpellTypes(i)))
 +                if (!spell->GetSpellInfo()->IsChanneled())
 +                    if (Unit* u = spell->m_targets.GetUnitTarget())
 +                        if (u->isDead() && !IsInBotParty(u))
@@ -3108,6 +3112,8 @@ index 0000000..3905a4b
 +
 +    if (Rand() > 10) return;
 +    if (!master->isInCombat() && !me->isInCombat() && (!m_botsPet || !m_botsPet->isInCombat())) return;
++    if (CheckAttackTarget(IsPetAI() ? bot_pet_ai::GetPetType(me) : bot_minion_ai::GetBotClassForCreature(me)))
++        return;
 +    //ChatHandler ch(master->GetPlayerbotAI() ? master->GetSession()->m_master : master);
 +    //ch.PSendSysMessage("_OnEvade() by bot %s", me->GetName());
 +    if (master->isInCombat())
@@ -3438,6 +3444,18 @@ index 0000000..3905a4b
 +    m_botsPet->SendUpdateToPlayer(master);
 +}
 +
++uint8 bot_minion_ai::GetBotClassForCreature(Creature* bot)
++{
++    uint8 botClass = bot->GetBotClass();
++    switch (botClass)
++    {
++        case CAT: case BEAR:
++            return CLASS_DRUID;
++        default:
++            return botClass;
++    }
++}
++
 +uint8 bot_pet_ai::GetPetType(Creature* pet)
 +{
 +    switch (pet->GetEntry())
@@ -3472,7 +3490,7 @@ index 0000000..3905a4b
 +
 +void bot_minion_ai::BreakCC(const uint32 diff)
 +{
-+    if (pvpTrinket_cd <= diff && CCed(me, true))
++    if (pvpTrinket_cd <= diff && CCed(me, true) && (me->getVictim() || !me->getAttackers().empty()))
 +    {
 +        temptimer = GC_Timer;
 +        if (doCast(me, PVPTRINKET))
@@ -3483,13 +3501,65 @@ index 0000000..3905a4b
 +        }
 +    }
 +}
++
++float bot_ai::InitAttackRange(float origRange, bool ranged) const
++{
++    if (me->IsMounted())
++        origRange *= 0.2f;
++    else
++    {
++        if (ranged)
++            origRange *= 1.25f;
++        if (master->isDead())
++            origRange += sWorld->GetMaxVisibleDistanceOnContinents();
++    }
++    return origRange;
++}
++
++void bot_minion_ai::OnOwnerDamagedBy(Unit* attacker)
++{
++    if (me->getVictim())
++        return;
++    if (InDuel(attacker))
++        return;
++    bool byspell = false, ranged = false;
++    switch (bot_minion_ai::GetBotClassForCreature(me))
++    {
++        case CLASS_DRUID:
++            byspell = me->GetShapeshiftForm() == FORM_NONE || 
++                me->GetShapeshiftForm() == FORM_TREE || 
++                me->GetShapeshiftForm() == FORM_MOONKIN;
++            ranged = byspell;
++            break;
++        case CLASS_PRIEST:
++        case CLASS_MAGE:
++        case CLASS_WARLOCK:
++        case CLASS_SHAMAN:
++            byspell = true;
++            ranged = true;
++            break;
++        case CLASS_HUNTER:
++            ranged = true;
++            break;
++        default:
++            break;
++    }
++    float maxdist = InitAttackRange(float(master->GetBotFollowDist()), ranged);//use increased range
++    if (!attacker->IsWithinDist(me, maxdist))
++        return;
++    if (!CanBotAttack(attacker, byspell))
++        return;
++
++    m_botCommandState = COMMAND_ABANDON;//reset AttackStart()
++    me->Attack(attacker, !ranged);
++}
 \ No newline at end of file
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..630b318
+index 0000000..6854c75
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,785 @@
+@@ -0,0 +1,798 @@
 +#include "ScriptedCreature.h"
 +#include "ScriptedGossip.h"
 +#include "Group.h"
@@ -3661,6 +3731,7 @@ index 0000000..630b318
 +        virtual void _OnHealthUpdate(uint8 /*myclass*/, uint8 /*mylevel*/) const = 0;
 +        virtual void _OnManaUpdate(uint8 /*myclass*/, uint8 /*mylevel*/) const = 0;
 +        //virtual void _OnMeleeDamageUpdate(uint8 /*myclass*/) const = 0;
++        inline void OnEnterCombat(Unit* enemy) { if (!InDuel(enemy)) master->SetInCombatState(enemy->IsPvP(), enemy); }
 +
 +        //virtual void ReceiveEmote(Player* /*player*/, uint32 /*emote*/) {}
 +        //virtual void CommonTimers(const uint32 diff) = 0;
@@ -3670,6 +3741,7 @@ index 0000000..630b318
 +        virtual bool CureTarget(Unit* /*target*/, uint32 /*cureSpell*/, const uint32 /*diff*/) { return false; }
 +
 +        uint8 GetWait();
++        inline float InitAttackRange(float origRange, bool ranged) const;
 +        inline uint16 Rand() const { return urand(0, 100 + (master->GetNpcBotsCount() - 1) * 10); }
 +        inline uint32 GetLostHP(Unit* unit) const { return unit->GetMaxHealth() - unit->GetHealth(); }
 +        inline uint8 GetHealthPCT(Unit* hTarget) const { if (!hTarget || hTarget->isDead()) return 100; return (hTarget->GetHealth()*100/hTarget->GetMaxHealth()); }
@@ -3698,6 +3770,7 @@ index 0000000..630b318
 +
 +    private:
 +        static Unit* _GetBotGroupMainTank(Group* group);
++        inline float _getAttackDistance(float distance) const { return distance > 0.f ? distance*0.72 : 0.f; }
 +        Unit* extank;
 +        uint64 m_TankGuid;
 +
@@ -3717,10 +3790,15 @@ index 0000000..630b318
 +                    return false;
 +                if (ai->InDuel(u))
 +                    return false;
-+                if (!(ai->IsInBotParty(u->getVictim()) || (u->getThreatManager().getThreat(const_cast<Unit*>(me)) > 0.f && u->HasUnitState(UNIT_STATE_FLEEING))))
-+                    return false;
 +                if (!AttackCCed && CCed(u))
 +                    return false;//do not allow CCed units if checked
++                //if (u->HasUnitState(UNIT_STATE_CASTING) && (u->GetTypeId() == TYPEID_PLAYER || u->isPet()))
++                //    for (uint8 i = 0; i != CURRENT_MAX_SPELL; ++i)
++                //        if (Spell* spell = u->GetCurrentSpell(i))
++                //            if (ai->IsInBotParty(spell->m_targets.GetUnitTarget()))
++                //                return true;
++                if (!(ai->IsInBotParty(u->getVictim()) || (u->getThreatManager().getThreat(const_cast<Unit*>(me)) > 0.f && u->HasUnitState(UNIT_STATE_FLEEING))))
++                    return false;
 +
 +                m_range = me->GetDistance(u);   // use found unit range as new range limit for next check
 +                return true;
@@ -3745,7 +3823,7 @@ index 0000000..630b318
 +        bool IsMinionAI() const { return true; }
 +        bool IsPetAI() const { return false; }
 +        void SummonBotsPet(uint32 entry);
-+        bool IAmDead() const { return (!master || me->isDead()); }
++        inline bool IAmDead() const { return (!master || me->isDead()); }
 +        void SetBotCommandState(CommandStates st, bool force = false, Position* newpos = NULL);
 +        //virtual bool HealTarget(Unit* /*target*/, uint8 /*pct*/, const uint32 /*diff*/) { return false; }
 +        //virtual bool BuffTarget(Unit* /*target*/, const uint32 /*diff*/) { return false; }
@@ -3765,6 +3843,8 @@ index 0000000..630b318
 +        void _OnManaUpdate(uint8 myclass, uint8 mylevel) const;
 +        void _OnMeleeDamageUpdate(uint8 myclass) const;
 +
++        static inline uint8 GetBotClassForCreature(Creature* bot);
++
 +    protected:
 +        void BuffAndHealGroup(Player* gPlayer, const uint32 diff);
 +        void RezGroup(uint32 REZZ, Player* gPlayer);
@@ -3775,7 +3855,10 @@ index 0000000..630b318
 +                (me->isAlive() && (!me->isInCombat() || !opponent) && m_botCommandState != COMMAND_STAY))
 +                SetBotCommandState(COMMAND_FOLLOW, force, newpos);
 +        }
-+        inline void Evade() const { _OnEvade(); }
++
++        void OnOwnerDamagedBy(Unit* attacker);
++
++        inline void Evade() { _OnEvade(); }
 +
 +        virtual void BreakCC(const uint32 diff);
 +
@@ -3808,7 +3891,7 @@ index 0000000..630b318
 +        void UpdateMountedState();
 +        void UpdateStandState() const;
 +        void UpdateRations() const;
-+        void _OnEvade() const;
++        void _OnEvade();
 +        PlayerClassLevelInfo classinfo;
 +        float myangle, armor_mod, haste_mod, dodge_mod, parry_mod;
 +        uint8 rezz_cd;
@@ -4232,7 +4315,7 @@ index 0000000..630b318
 +        Creature* GetCreatureOwner() const { return m_creatureOwner; }
 +        bool IsMinionAI() const { return false; }
 +        bool IsPetAI() const { return true; }
-+        bool IAmDead() const { return (!master || !m_creatureOwner || me->isDead()); }
++        inline bool IAmDead() const { return (!master || !m_creatureOwner || me->isDead()); }
 +        void SetCreatureOwner(Creature* newowner) { m_creatureOwner = newowner; }
 +        void SetBotCommandState(CommandStates st, bool force = false, Position* newpos = NULL);
 +        //virtual bool HealTarget(Unit* /*target*/, uint8 /*pct*/, const uint32 /*diff*/) { return false; }
@@ -4278,10 +4361,10 @@ index 0000000..630b318
 \ No newline at end of file
 diff --git a/src/server/game/AI/NpcBots/bot_druid_ai.cpp b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 new file mode 100644
-index 0000000..8201d5a
+index 0000000..7edd036
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
-@@ -0,0 +1,1071 @@
+@@ -0,0 +1,1084 @@
 +#include "bot_ai.h"
 +/*
 +Druid NpcBot (reworked by Graff onlysuffering@mail.ru)
@@ -4305,7 +4388,9 @@ index 0000000..8201d5a
 +
 +    bool OnGossipSelect(Player* player, Creature* creature, uint32 sender, uint32 action)
 +    {
-+        return creature->GetBotMinionAI()->OnGossipSelect(player, creature, sender, action);
++        if (bot_minion_ai* ai = creature->GetBotMinionAI())
++            return ai->OnGossipSelect(player, creature, sender, action);
++        return true;
 +    }
 +
 +    struct bot_druid_ai : public bot_minion_ai
@@ -4348,7 +4433,7 @@ index 0000000..8201d5a
 +            return result;
 +        }
 +
-+        void EnterCombat(Unit*) { }
++        void EnterCombat(Unit* u) { OnEnterCombat(u); }
 +        void Aggro(Unit*) { }
 +        void AttackStart(Unit*) { }
 +        void KilledUnit(Unit*) { }
@@ -5102,6 +5187,17 @@ index 0000000..8201d5a
 +            OnSpellHit(caster, spell);
 +        }
 +
++        void DamageTaken(Unit* u, uint32& /*damage*/)
++        {
++            OnEnterCombat(u);
++            OnOwnerDamagedBy(u);
++        }
++
++        void OwnerDamagedBy(Unit* u)
++        {
++            OnOwnerDamagedBy(u);
++        }
++
 +        void Reset()
 +        {
 +            Heal_Timer = 0;
@@ -5355,10 +5451,10 @@ index 0000000..8201d5a
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_hunter_ai.cpp b/src/server/game/AI/NpcBots/bot_hunter_ai.cpp
 new file mode 100644
-index 0000000..d3dd34b
+index 0000000..f7535d9
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_hunter_ai.cpp
-@@ -0,0 +1,320 @@
+@@ -0,0 +1,333 @@
 +#include "bot_ai.h"
 +
 +class hunter_bot : public CreatureScript
@@ -5378,7 +5474,9 @@ index 0000000..d3dd34b
 +
 +    bool OnGossipSelect(Player* player, Creature* creature, uint32 sender, uint32 action)
 +    {
-+        return creature->GetBotMinionAI()->OnGossipSelect(player, creature, sender, action);
++        if (bot_minion_ai* ai = creature->GetBotMinionAI())
++            return ai->OnGossipSelect(player, creature, sender, action);
++        return true;
 +    }
 +
 +    struct hunter_botAI : public bot_minion_ai
@@ -5425,12 +5523,12 @@ index 0000000..d3dd34b
 +            return bot_ai::doCast(victim, spellId, triggered);
 +        }
 +
-+        void EnterCombat(Unit*) { }
++        void EnterCombat(Unit* u) { OnEnterCombat(u); }
 +        void Aggro(Unit*) { }
 +        void AttackStart(Unit*) { }
 +        void KilledUnit(Unit*) { }
 +        void EnterEvadeMode() { }
-+        void MoveInLineOfSight(Unit *) { }
++        void MoveInLineOfSight(Unit*) { }
 +        void JustDied(Unit*) { master->SetNpcBotDied(me->GetGUID()); }
 +        void DoNonCombatActions(const uint32 /*diff*/)
 +        {}
@@ -5597,6 +5695,17 @@ index 0000000..d3dd34b
 +            OnSpellHit(caster, spell);
 +        }
 +
++        void DamageTaken(Unit* u, uint32& /*damage*/)
++        {
++            OnEnterCombat(u);
++            OnOwnerDamagedBy(u);
++        }
++
++        void OwnerDamagedBy(Unit* u)
++        {
++            OnOwnerDamagedBy(u);
++        }
++
 +        void Reset()
 +        {
 +            ArcaneShot_cd = 0;
@@ -5681,10 +5790,10 @@ index 0000000..d3dd34b
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_mage_ai.cpp b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 new file mode 100644
-index 0000000..e27f6e3
+index 0000000..2c4c029
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
-@@ -0,0 +1,857 @@
+@@ -0,0 +1,870 @@
 +#include "bot_ai.h"
 +/*
 +Mage NpcBot (reworked by Graff onlysuffering@mail.ru)
@@ -5708,7 +5817,9 @@ index 0000000..e27f6e3
 +
 +    bool OnGossipSelect(Player* player, Creature* creature, uint32 sender, uint32 action)
 +    {
-+        return creature->GetBotMinionAI()->OnGossipSelect(player, creature, sender, action);
++        if (bot_minion_ai* ai = creature->GetBotMinionAI())
++            return ai->OnGossipSelect(player, creature, sender, action);
++        return true;
 +    }
 +
 +    struct mage_botAI : public bot_minion_ai
@@ -5730,7 +5841,7 @@ index 0000000..e27f6e3
 +            return result;
 +        }
 +
-+        void EnterCombat(Unit*) { }
++        void EnterCombat(Unit* u) { OnEnterCombat(u); }
 +        void Aggro(Unit*) { }
 +        void AttackStart(Unit*) { }
 +        void KilledUnit(Unit*) { }
@@ -6080,7 +6191,7 @@ index 0000000..e27f6e3
 +            }
 +            if (GetManaPCT(me) < 35)
 +            {
-+                if (Evocation_cd <= diff && me->getAttackers().empty() && doCast(me, EVOCATION))
++                if (Evocation_cd <= diff && !me->isMoving() && me->getAttackers().empty() && doCast(me, EVOCATION))
 +                    Evocation_cd = 60000;
 +                else if (Potion_cd <= diff)
 +                {
@@ -6263,6 +6374,17 @@ index 0000000..e27f6e3
 +                        break;
 +                }
 +            }
++        }
++
++        void DamageTaken(Unit* u, uint32& /*damage*/)
++        {
++            OnEnterCombat(u);
++            OnOwnerDamagedBy(u);
++        }
++
++        void OwnerDamagedBy(Unit* u)
++        {
++            OnOwnerDamagedBy(u);
 +        }
 +
 +        void Reset()
@@ -6544,10 +6666,10 @@ index 0000000..e27f6e3
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 new file mode 100644
-index 0000000..6950a95
+index 0000000..cbc7450
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
-@@ -0,0 +1,933 @@
+@@ -0,0 +1,946 @@
 +#include "bot_ai.h"
 +#include "SpellAuraEffects.h"
 +/*
@@ -6572,7 +6694,9 @@ index 0000000..6950a95
 +
 +    bool OnGossipSelect(Player* player, Creature* creature, uint32 sender, uint32 action)
 +    {
-+        return creature->GetBotMinionAI()->OnGossipSelect(player, creature, sender, action);
++        if (bot_minion_ai* ai = creature->GetBotMinionAI())
++            return ai->OnGossipSelect(player, creature, sender, action);
++        return true;
 +    }
 +
 +    struct paladin_botAI : public bot_minion_ai
@@ -6871,7 +6995,7 @@ index 0000000..6950a95
 +            GetInPosition(force, false);
 +        }
 +
-+        void EnterCombat(Unit*) { }
++        void EnterCombat(Unit* u) { OnEnterCombat(u); }
 +        void Aggro(Unit*) { }
 +        void AttackStart(Unit*) { }
 +        void KilledUnit(Unit*) { }
@@ -7220,6 +7344,17 @@ index 0000000..6950a95
 +            OnSpellHit(caster, spell);
 +        }
 +
++        void DamageTaken(Unit* u, uint32& /*damage*/)
++        {
++            OnEnterCombat(u);
++            OnOwnerDamagedBy(u);
++        }
++
++        void OwnerDamagedBy(Unit* u)
++        {
++            OnOwnerDamagedBy(u);
++        }
++
 +        void Reset()
 +        {
 +            Crusader_cd = 0;
@@ -7483,10 +7618,10 @@ index 0000000..6950a95
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_priest_ai.cpp b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 new file mode 100644
-index 0000000..56a1998
+index 0000000..95ae350
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
-@@ -0,0 +1,839 @@
+@@ -0,0 +1,852 @@
 +#include "bot_ai.h"
 +/*
 +Priest NpcBot (reworked by Graff onlysuffering@mail.ru)
@@ -7510,7 +7645,9 @@ index 0000000..56a1998
 +
 +    bool OnGossipSelect(Player* player, Creature* creature, uint32 sender, uint32 action)
 +    {
-+        return creature->GetBotMinionAI()->OnGossipSelect(player, creature, sender, action);
++        if (bot_minion_ai* ai = creature->GetBotMinionAI())
++            return ai->OnGossipSelect(player, creature, sender, action);
++        return true;
 +    }
 +
 +    struct priest_botAI : public bot_minion_ai
@@ -7642,7 +7779,7 @@ index 0000000..56a1998
 +            SetBotCommandState(COMMAND_ATTACK);
 +        }
 +
-+        void EnterCombat(Unit*) { }
++        void EnterCombat(Unit* u) { OnEnterCombat(u); }
 +        void Aggro(Unit*) { }
 +        void AttackStart(Unit*) { }
 +        void KilledUnit(Unit*) { }
@@ -8088,6 +8225,17 @@ index 0000000..56a1998
 +            OnSpellHit(caster, spell);
 +        }
 +
++        void DamageTaken(Unit* u, uint32& /*damage*/)
++        {
++            OnEnterCombat(u);
++            OnOwnerDamagedBy(u);
++        }
++
++        void OwnerDamagedBy(Unit* u)
++        {
++            OnOwnerDamagedBy(u);
++        }
++
 +        void Reset()
 +        {
 +            Heal_Timer = 0;
@@ -8328,10 +8476,10 @@ index 0000000..56a1998
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_rogue_ai.cpp b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 new file mode 100644
-index 0000000..89f1ac4
+index 0000000..a35c677
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
-@@ -0,0 +1,881 @@
+@@ -0,0 +1,894 @@
 +#include "bot_ai.h"
 +/*
 +Rogue NpcBot (reworked by Graff onlysuffering@mail.ru)
@@ -8390,7 +8538,9 @@ index 0000000..89f1ac4
 +
 +    bool OnGossipSelect(Player* player, Creature* creature, uint32 sender, uint32 action)
 +    {
-+        return creature->GetBotMinionAI()->OnGossipSelect(player, creature, sender, action);
++        if (bot_minion_ai* ai = creature->GetBotMinionAI())
++            return ai->OnGossipSelect(player, creature, sender, action);
++        return true;
 +    }
 +
 +    struct rogue_botAI : public bot_minion_ai
@@ -8415,7 +8565,7 @@ index 0000000..89f1ac4
 +            GetInPosition(force, false);
 +        }
 +
-+        void EnterCombat(Unit*) { }
++        void EnterCombat(Unit* u) { OnEnterCombat(u); }
 +        void Aggro(Unit*) { }
 +        void AttackStart(Unit*) { }
 +        void KilledUnit(Unit*) { }
@@ -8998,6 +9148,17 @@ index 0000000..89f1ac4
 +                currentSpell = 0;
 +        }
 +
++        void DamageTaken(Unit* u, uint32& /*damage*/)
++        {
++            OnEnterCombat(u);
++            OnOwnerDamagedBy(u);
++        }
++
++        void OwnerDamagedBy(Unit* u)
++        {
++            OnOwnerDamagedBy(u);
++        }
++
 +        void Reset()
 +        {
 +            Mutilate_Timer = 0;
@@ -9215,10 +9376,10 @@ index 0000000..89f1ac4
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_shaman_ai.cpp b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 new file mode 100644
-index 0000000..9751f1e
+index 0000000..6255466
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
-@@ -0,0 +1,373 @@
+@@ -0,0 +1,386 @@
 +#include "bot_ai.h"
 +/*
 +Shaman NpcBot (reworked by Graff onlysuffering@mail.ru)
@@ -9242,7 +9403,9 @@ index 0000000..9751f1e
 +
 +    bool OnGossipSelect(Player* player, Creature* creature, uint32 sender, uint32 action)
 +    {
-+        return creature->GetBotMinionAI()->OnGossipSelect(player, creature, sender, action);
++        if (bot_minion_ai* ai = creature->GetBotMinionAI())
++            return ai->OnGossipSelect(player, creature, sender, action);
++        return true;
 +    }
 +
 +    struct shaman_botAI : public bot_minion_ai
@@ -9274,7 +9437,7 @@ index 0000000..9751f1e
 +            SetBotCommandState(COMMAND_ATTACK);
 +        }
 +
-+        void EnterCombat(Unit*) { }
++        void EnterCombat(Unit* u) { OnEnterCombat(u); }
 +        void Aggro(Unit*) { }
 +        void AttackStart(Unit*) { }
 +        void KilledUnit(Unit*) { }
@@ -9502,6 +9665,17 @@ index 0000000..9751f1e
 +            OnSpellHit(caster, spell);
 +        }
 +
++        void DamageTaken(Unit* u, uint32& /*damage*/)
++        {
++            OnEnterCombat(u);
++            OnOwnerDamagedBy(u);
++        }
++
++        void OwnerDamagedBy(Unit* u)
++        {
++            OnOwnerDamagedBy(u);
++        }
++
 +        void Reset()
 +        {
 +            Heal_Timer = 0;
@@ -9594,10 +9768,10 @@ index 0000000..9751f1e
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warlock_ai.cpp b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 new file mode 100644
-index 0000000..e972c30
+index 0000000..4a510a8
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
-@@ -0,0 +1,435 @@
+@@ -0,0 +1,453 @@
 +#include "bot_ai.h"
 +
 +class warlock_bot : public CreatureScript
@@ -9617,7 +9791,9 @@ index 0000000..e972c30
 +
 +    bool OnGossipSelect(Player* player, Creature* creature, uint32 sender, uint32 action)
 +    {
-+        return creature->GetBotMinionAI()->OnGossipSelect(player, creature, sender, action);
++        if (bot_minion_ai* ai = creature->GetBotMinionAI())
++            return ai->OnGossipSelect(player, creature, sender, action);
++        return true;
 +    }
 +
 +    struct warlock_botAI : public bot_minion_ai
@@ -9631,12 +9807,12 @@ index 0000000..e972c30
 +            return bot_ai::doCast(victim, spellId, triggered);
 +        }
 +
-+        void EnterCombat(Unit*) { }
++        void EnterCombat(Unit* u) { OnEnterCombat(u); }
 +        void Aggro(Unit*) { }
 +        void AttackStart(Unit*) { }
 +        void KilledUnit(Unit*) { }
 +        void EnterEvadeMode() { }
-+        void MoveInLineOfSight(Unit *) { }
++        void MoveInLineOfSight(Unit*) { }
 +        void JustDied(Unit*) { me->SetBotsPetDied(); master->SetNpcBotDied(me->GetGUID()); }
 +        void DoNonCombatActions()
 +        {}
@@ -9796,6 +9972,17 @@ index 0000000..e972c30
 +            OnSpellHit(caster, spell);
 +        }
 +
++        void DamageTaken(Unit* u, uint32& /*damage*/)
++        {
++            OnEnterCombat(u);
++            OnOwnerDamagedBy(u);
++        }
++
++        void OwnerDamagedBy(Unit* u)
++        {
++            OnOwnerDamagedBy(u);
++        }
++
 +        void Reset()
 +        {
 +            Rain_of_fire_cd = 0;
@@ -9907,13 +10094,13 @@ index 0000000..e972c30
 +            return true;
 +        }
 +
-+        void MoveInLineOfSight(Unit*) { }
-+        void KilledUnit(Unit*) { }
-+        void EnterEvadeMode() { }
-+        void EnterCombat(Unit*) { }
-+        void JustDied(Unit*) { m_creatureOwner->SetBotsPetDied(); }
++        void EnterCombat(Unit* u) { OnEnterCombat(u); }
 +        void Aggro(Unit*) { }
 +        void AttackStart(Unit*) { }
++        void KilledUnit(Unit*) { }
++        void EnterEvadeMode() { }
++        void MoveInLineOfSight(Unit*) { }
++        void JustDied(Unit*) { m_creatureOwner->SetBotsPetDied(); }
 +
 +        void DoNonCombatActions()
 +        {}
@@ -9978,6 +10165,11 @@ index 0000000..e972c30
 +            OnSpellHit(caster, spell);
 +        }
 +
++        void DamageTaken(Unit* u, uint32& /*damage*/)
++        {
++            OnEnterCombat(u);
++        }
++
 +        //debug
 +        //void ListSpells(ChatHandler* ch) const
 +        //{
@@ -10035,10 +10227,10 @@ index 0000000..e972c30
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warrior_ai.cpp b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 new file mode 100644
-index 0000000..789cfc7
+index 0000000..d60b38c
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
-@@ -0,0 +1,1170 @@
+@@ -0,0 +1,1183 @@
 +#include "bot_ai.h"
 +#include "SpellAuraEffects.h"
 +/*
@@ -10063,7 +10255,9 @@ index 0000000..789cfc7
 +
 +    bool OnGossipSelect(Player* player, Creature* creature, uint32 sender, uint32 action)
 +    {
-+        return creature->GetBotMinionAI()->OnGossipSelect(player, creature, sender, action);
++        if (bot_minion_ai* ai = creature->GetBotMinionAI())
++            return ai->OnGossipSelect(player, creature, sender, action);
++        return true;
 +    }
 +
 +    struct warrior_botAI : public bot_minion_ai
@@ -10187,7 +10381,7 @@ index 0000000..789cfc7
 +            GetInPosition(force, false);
 +        }
 +
-+        void EnterCombat(Unit*) { }
++        void EnterCombat(Unit* u) { OnEnterCombat(u); }
 +        void Aggro(Unit*) { }
 +        void AttackStart(Unit*) { }
 +        void KilledUnit(Unit*) { }
@@ -10891,6 +11085,17 @@ index 0000000..789cfc7
 +            OnSpellHit(caster, spell);
 +        }
 +
++        void DamageTaken(Unit* u, uint32& /*damage*/)
++        {
++            OnEnterCombat(u);
++            OnOwnerDamagedBy(u);
++        }
++
++        void OwnerDamagedBy(Unit* u)
++        {
++            OnOwnerDamagedBy(u);
++        }
++
 +        void Reset()
 +        {
 +            slam_cd = 0;
@@ -11211,7 +11416,7 @@ index 0000000..789cfc7
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 0000000..c8014ee
+index 0000000..8f224ce
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
 @@ -0,0 +1,795 @@
@@ -11257,7 +11462,7 @@ index 0000000..c8014ee
 +        return commandTable;
 +    }
 +
-+    static bool HandlePlayerbotCommand(ChatHandler* handler, const char *args)
++    static bool HandlePlayerbotCommand(ChatHandler* handler, const char* args)
 +    {
 +        if (!handler->GetSession())
 +        {
@@ -11272,9 +11477,9 @@ index 0000000..c8014ee
 +            handler->SetSentErrorMessage(true);
 +            return false;
 +        }
-+        Player *player = handler->GetSession()->GetPlayer();
++        Player* player = handler->GetSession()->GetPlayer();
 +
-+        char *cmd = strtok ((char*)args, " ");
++        char* cmd = strtok ((char*)args, " ");
 +        if (!cmd)
 +        {
 +            handler->PSendSysMessage("usage: add PLAYERNAME  or  remove PLAYERNAME");
@@ -11293,14 +11498,14 @@ index 0000000..c8014ee
 +            }
 +            for(PlayerBotMap::const_iterator itr = handler->GetSession()->GetPlayerBotsBegin(); itr != handler->GetSession()->GetPlayerBotsEnd(); ++itr)
 +            {
-+                Player *botPlayer = itr->second;
++                Player* botPlayer = itr->second;
 +                if (!botPlayer)
 +                    continue;
 +                botPlayer->TeleportTo(*player);
 +            }
 +            return true;
 +        }
-+        char *charname = strtok (NULL, " ");
++        char* charname = strtok (NULL, " ");
 +        if (!charname)
 +        {
 +            handler->PSendSysMessage("usage: add PLAYERNAME  or  remove PLAYERNAME");
@@ -11337,7 +11542,7 @@ index 0000000..c8014ee
 +        {
 +            if (charnameStr.compare("all") == 0)
 +            {
-+                std::list<std::string> *names;
++                std::list<std::string>* names;
 +                names = handler->GetSession()->GetPlayer()->GetCharacterList();
 +                std::list<std::string>::iterator iter,next;
 +                for (iter = names->begin(); iter != names->end(); iter++)
@@ -11365,7 +11570,7 @@ index 0000000..c8014ee
 +        {
 +            if (charnameStr.compare("all") == 0)
 +            {
-+                std::list<std::string> *names = new std::list<std::string>;
++                std::list<std::string>* names = new std::list<std::string>;
 +                for (PlayerBotMap::const_iterator iter = handler->GetSession()->GetPlayerBotsBegin(); iter != handler->GetSession()->GetPlayerBotsEnd(); ++iter)
 +                {
 +                    names->push_back(iter->second->GetName());
@@ -11395,8 +11600,8 @@ index 0000000..c8014ee
 +        }
 +        else if (cmdStr == "co" || cmdStr == "combatorder")
 +        {
-+            Unit *target = NULL;
-+            char *orderChar = strtok(NULL, " ");
++            Unit* target = NULL;
++            char* orderChar = strtok(NULL, " ");
 +            if (!orderChar || handler->GetSession()->m_playerBots.empty())
 +            {
 +                handler->PSendSysMessage("|cffff0000Syntax error:|cffffffff .bot co <botName> <order=reset|tank|assist|heal|protect> [targetPlayer]");
@@ -11406,7 +11611,7 @@ index 0000000..c8014ee
 +            std::string orderStr = orderChar;
 +            if (orderStr == "protect" || orderStr == "assist")
 +            {
-+                char *targetChar = strtok(NULL, " ");
++                char* targetChar = strtok(NULL, " ");
 +                uint64 targetGUID = handler->GetSession()->GetPlayer()->GetSelection();
 +                if (!targetChar && !targetGUID)
 +                {
@@ -11436,15 +11641,15 @@ index 0000000..c8014ee
 +            //if (mgr)
 +            PlayerBotMap::const_iterator itr;
 +            for (itr = handler->GetSession()->GetPlayerBotsBegin(); itr != handler->GetSession()->GetPlayerBotsEnd(); ++itr)
-+                if (Player *bot = sObjectAccessor->GetPlayer(*player, itr->first))
++                if (Player* bot = sObjectAccessor->GetPlayer(*player, itr->first))
 +                    bot->GetPlayerbotAI()->SetCombatOrderByStr(orderStr, target);
 +        }
 +        return true;
 +    }
 +
-+    static bool HandleMainTankCommand(ChatHandler* handler, const char *args)
++    static bool HandleMainTankCommand(ChatHandler* handler, const char* args)
 +    {
-+        Group *group = handler->GetSession()->GetPlayer()->GetGroup();
++        Group* group = handler->GetSession()->GetPlayer()->GetGroup();
 +        if (!group)
 +        {
 +            handler->PSendSysMessage("Must be in a group to use main tank command.");
@@ -11465,7 +11670,7 @@ index 0000000..c8014ee
 +            {
 +                if (group->IsMember(selection))
 +                {
-+                    if (Unit *u = sObjectAccessor->FindUnit(selection))
++                    if (Unit* u = sObjectAccessor->FindUnit(selection))
 +                    {
 +                        bool isabot = u->GetTypeId() == TYPEID_UNIT && u->ToCreature()->GetIAmABot();
 +                        if (isabot && group->GetMemberSlots().size() < 3 && handler->GetSession()->GetSecurity() == SEC_PLAYER)
@@ -11500,7 +11705,7 @@ index 0000000..c8014ee
 +                            //send result to players and their bots
 +                            if (!IS_PLAYER_GUID(itr->guid))
 +                                continue;
-+                            if (Player *player = sObjectAccessor->FindPlayer(itr->guid))
++                            if (Player* player = sObjectAccessor->FindPlayer(itr->guid))
 +                            {
 +                                ChatHandler(player).PSendSysMessage("Main tank is set to %s.", u->GetName());
 +                                player->SetBotTank(selection);
@@ -11508,7 +11713,7 @@ index 0000000..c8014ee
 +                                {
 +                                    for (uint8 i = 0; i != player->GetMaxNpcBots(); ++i)
 +                                    {
-+                                        Creature *cre = player->GetBotMap()[i]._Cre();
++                                        Creature* cre = player->GetBotMap()[i]._Cre();
 +                                        if (cre)
 +                                            cre->SetBotTank(u);
 +                                    }
@@ -11521,7 +11726,7 @@ index 0000000..c8014ee
 +                    }
 +                }
 +            }
-+            if (Unit *unit = bot_ai::GetBotGroupMainTank(group))
++            if (Unit* unit = bot_ai::GetBotGroupMainTank(group))
 +            {
 +                bool bot = unit->GetTypeId() == TYPEID_UNIT && unit->ToCreature()->GetIAmABot();
 +                handler->PSendSysMessage("Main tank is %s (%s%s).", unit->GetName(), (bot ? "npcbot" : "player"), (unit->isAlive() ? "" : ", dead"));
@@ -11561,7 +11766,7 @@ index 0000000..c8014ee
 +                    CharacterDatabase.Execute(stmt);
 +                    if (!IS_PLAYER_GUID(itr->guid))
 +                        continue;
-+                    Player *player = sObjectAccessor->FindPlayer(itr->guid);
++                    Player* player = sObjectAccessor->FindPlayer(itr->guid);
 +                    if (!player) continue;
 +                    ChatHandler(player).PSendSysMessage("Main tank has been reset by %s.", handler->GetSession()->GetPlayer()->GetName());
 +                    player->SetBotTank(0);
@@ -11569,7 +11774,7 @@ index 0000000..c8014ee
 +                    {
 +                        for (uint8 i = 0; i != player->GetMaxNpcBots(); ++i)
 +                        {
-+                            Creature *cre = player->GetBotMap()[i]._Cre();
++                            Creature* cre = player->GetBotMap()[i]._Cre();
 +                            if (cre)
 +                                cre->SetBotTank(NULL);
 +                        }
@@ -11609,7 +11814,7 @@ index 0000000..c8014ee
 +        //cycle through
 +        for (std::set<Player*>::const_iterator it = Players.begin(); it != Players.end(); ++it)
 +        {
-+            Player *pl = *it;
++            Player* pl = *it;
 +            if (!pl->HaveBot())
 +            {
 +                handler->PSendSysMessage("%s has no NpcBots!", pl->GetName());
@@ -11624,7 +11829,7 @@ index 0000000..c8014ee
 +                uint8 alivecount = 0;
 +                for (uint8 pos = 0; pos != pl->GetMaxNpcBots(); ++pos)
 +                {
-+                    if (Creature *cre = pl->GetBotMap()[pos]._Cre())
++                    if (Creature* cre = pl->GetBotMap()[pos]._Cre())
 +                    {
 +                        if (cre->GetBotClass() == i)
 +                        {
@@ -11670,38 +11875,38 @@ index 0000000..c8014ee
 +            handler->PSendSysMessage(".npcbot distance");
 +            handler->PSendSysMessage("Sets 'distance to target' at which bots will follow you");
 +            handler->PSendSysMessage("if set to 0, bots will not attack anything unless you point them");
-+            handler->PSendSysMessage("min: 0, max: 50");
++            handler->PSendSysMessage("min: 0, max: 75");
 +            handler->SetSentErrorMessage(true);
 +            return false;
 +        }
-+        char *distance = strtok((char*)args, " ");
++        char* distance = strtok((char*)args, " ");
 +        int8 dist = -1;
 +
 +        if (distance)
 +            dist = (int8)atoi(distance);
 +
-+        if (dist >= 0 && dist <= 50)
++        if (dist >= 0 && dist <= 75)
 +        {
 +            owner->SetBotFollowDist(dist);
 +            if (!owner->isInCombat() && owner->HaveBot())
 +            {
 +                for (uint8 i = 0; i != owner->GetMaxNpcBots(); ++i)
 +                {
-+                    Creature *cre = owner->GetBotMap()[i]._Cre();
++                    Creature* cre = owner->GetBotMap()[i]._Cre();
 +                    if (!cre || !cre->IsInWorld()) continue;
 +                    owner->SendBotCommandState(cre, COMMAND_FOLLOW);
 +                }
 +            }
 +            for (PlayerBotMap::const_iterator itr = handler->GetSession()->GetPlayerBotsBegin(); itr != handler->GetSession()->GetPlayerBotsEnd(); ++itr)
 +            {
-+                if (Player *bot = itr->second)
++                if (Player* bot = itr->second)
 +                {
 +                    bot->SetBotFollowDist(dist);
 +                    if (!bot->isInCombat() && bot->HaveBot())
 +                    {
 +                        for (uint8 i = 0; i != bot->GetMaxNpcBots(); ++i)
 +                        {
-+                            Creature *cre = bot->GetBotMap()[i]._Cre();
++                            Creature* cre = bot->GetBotMap()[i]._Cre();
 +                            if (!cre || !cre->IsInWorld()) continue;
 +                            bot->SendBotCommandState(cre, COMMAND_FOLLOW);
 +                        }
@@ -11727,7 +11932,7 @@ index 0000000..c8014ee
 +        Player* master = owner->GetSelectedPlayer();
 +        if (!master || (master && master != owner && master->GetSession()->m_master != owner))
 +            master = owner;
-+        char *command = strtok((char*)args, " ");
++        char* command = strtok((char*)args, " ");
 +        int8 state = -1;
 +        if (!strncmp(command, "s", 2) || !strncmp(command, "st", 3) || !strncmp(command, "stay", 5) || !strncmp(command, "stand", 6))
 +            state = COMMAND_STAY;
@@ -11737,7 +11942,7 @@ index 0000000..c8014ee
 +        {
 +            for (uint8 i = 0; i != master->GetMaxNpcBots(); ++i)
 +            {
-+                Creature *cre = master->GetBotMap()[i]._Cre();
++                Creature* cre = master->GetBotMap()[i]._Cre();
 +                if (!cre || !cre->IsInWorld()) continue;
 +                master->SendBotCommandState(cre, CommandStates(state));
 +            }
@@ -11757,7 +11962,7 @@ index 0000000..c8014ee
 +            handler->SetSentErrorMessage(true);
 +            return false;
 +        }
-+        Player *master = sObjectAccessor->GetPlayer(*owner, guid);
++        Player* master = sObjectAccessor->GetPlayer(*owner, guid);
 +        if (master)
 +        {
 +            if (master != owner && master->GetSession()->m_master != owner)
@@ -11786,7 +11991,7 @@ index 0000000..c8014ee
 +            handler->SetSentErrorMessage(true);
 +            return false;
 +        }
-+        Creature *cre = sObjectAccessor->GetCreature(*owner, guid);
++        Creature* cre = sObjectAccessor->GetCreature(*owner, guid);
 +        if (cre && cre->GetIAmABot())
 +        {
 +            master = cre->GetBotOwner();
@@ -11833,7 +12038,7 @@ index 0000000..c8014ee
 +        }
 +        if (IS_CREATURE_GUID(guid))
 +        {
-+            if (Creature *cre = sObjectAccessor->GetCreature(*owner, guid))
++            if (Creature* cre = sObjectAccessor->GetCreature(*owner, guid))
 +                master = cre->GetBotOwner();
 +        }
 +        if (master && (master == owner || master->GetSession()->m_master == owner))
@@ -11900,7 +12105,7 @@ index 0000000..c8014ee
 +        {
 +            for (uint8 i = 0; i != owner->GetMaxNpcBots(); ++i)
 +            {
-+                Creature *bot = owner->GetBotMap()[i]._Cre();
++                Creature* bot = owner->GetBotMap()[i]._Cre();
 +                if (!bot) continue;
 +                if (bot->isDead())
 +                {
@@ -11957,7 +12162,7 @@ index 0000000..c8014ee
 +            return false;
 +        }
 +
-+        char *bclass = strtok((char*)args, " ");
++        char* bclass = strtok((char*)args, " ");
 +        uint8 botclass = CLASS_NONE;
 +
 +        if (!strncmp(bclass, "deathknight", 12) || !strncmp(bclass, "dk", 3) || !strncmp(bclass, "de", 3))
@@ -33077,7 +33282,7 @@ index 68ae2d8..a286b44 100644
    ${CMAKE_CURRENT_SOURCE_DIR}/AI/EventAI
    ${CMAKE_CURRENT_SOURCE_DIR}/AI/ScriptedAI
 diff --git a/src/server/game/Entities/Creature/Creature.cpp b/src/server/game/Entities/Creature/Creature.cpp
-index b92c304..3b0baec 100755
+index b92c304..6e88b69 100755
 --- a/src/server/game/Entities/Creature/Creature.cpp
 +++ b/src/server/game/Entities/Creature/Creature.cpp
 @@ -52,6 +52,9 @@
@@ -33112,7 +33317,7 @@ index b92c304..3b0baec 100755
  
      m_corpseRemoveTime = time(NULL);
      setDeathState(DEAD);
-@@ -2536,3 +2547,112 @@ bool Creature::SetHover(bool enable)
+@@ -2536,3 +2547,113 @@ bool Creature::SetHover(bool enable)
      SendMessageToSet(&data, false);
      return true;
  }
@@ -33121,8 +33326,9 @@ index b92c304..3b0baec 100755
 +{
 +    if (!bot)
 +    {
++        IsAIEnabled = false;
 +        bot_AI = NULL;
-+        SetUInt64Value(UNIT_FIELD_CREATEDBY, NULL);
++        SetUInt64Value(UNIT_FIELD_CREATEDBY, 0);
 +    }
 +}
 +
@@ -33132,7 +33338,7 @@ index b92c304..3b0baec 100755
 +        return;
 +    m_bots_pet->SetCharmerGUID(0);
 +    //m_bots_pet->SetBotOwner(NULL);
-+    m_bots_pet->GetBotPetAI()->SetCreatureOwner(NULL);
++    //m_bots_pet->GetBotPetAI()->SetCreatureOwner(NULL);
 +    m_bots_pet->SetIAmABot(false);
 +    m_bot_owner->SetMinion((Minion*)m_bots_pet, false);
 +    m_bots_pet->CleanupsBeforeDelete();
@@ -33142,7 +33348,7 @@ index b92c304..3b0baec 100755
 +
 +void Creature::SetBotTank(Unit* newtank)
 +{
-+    if (!bot_AI)
++    if (!bot_AI || !IsAIEnabled)
 +        return;
 +    uint64 tankGuid = bot_AI->GetBotTankGuid();
 +    if (newtank && newtank->GetGUID() == tankGuid) return;
@@ -33177,23 +33383,23 @@ index b92c304..3b0baec 100755
 +
 +void Creature::SetBotCommandState(CommandStates st, bool force)
 +{
-+    if (bot_AI)
++    if (bot_AI && IsAIEnabled)
 +        bot_AI->SetBotCommandState(st, force);
 +}
 +//Bot damage mods
 +void Creature::ApplyBotDamageMultiplierMelee(uint32& damage, CalcDamageInfo& damageinfo) const
 +{
-+    if (bot_AI)
++    if (bot_AI && IsAIEnabled)
 +        bot_AI->ApplyBotDamageMultiplierMelee(damage, damageinfo);
 +}
 +void Creature::ApplyBotDamageMultiplierMelee(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool& crit) const
 +{
-+    if (bot_AI)
++    if (bot_AI && IsAIEnabled)
 +        bot_AI->ApplyBotDamageMultiplierMelee(damage, damageinfo, spellInfo, attackType, crit);
 +}
 +void Creature::ApplyBotDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool& crit) const
 +{
-+    if (bot_AI)
++    if (bot_AI && IsAIEnabled)
 +        bot_AI->ApplyBotDamageMultiplierSpell(damage, damageinfo, spellInfo, attackType, crit);
 +}
 +
@@ -33209,12 +33415,12 @@ index b92c304..3b0baec 100755
 +
 +bot_minion_ai* Creature::GetBotMinionAI() const
 +{
-+    return bot_AI && bot_AI->IsMinionAI() ? const_cast<bot_minion_ai*>(bot_AI->GetMinionAI()) : NULL;
++    return IsAIEnabled && bot_AI && bot_AI->IsMinionAI() ? const_cast<bot_minion_ai*>(bot_AI->GetMinionAI()) : NULL;
 +}
 +
 +bot_pet_ai* Creature::GetBotPetAI() const
 +{
-+    return bot_AI && bot_AI->IsPetAI() ? const_cast<bot_pet_ai*>(bot_AI->GetPetAI()) : NULL;
++    return IsAIEnabled && bot_AI && bot_AI->IsPetAI() ? const_cast<bot_pet_ai*>(bot_AI->GetPetAI()) : NULL;
 +}
 +
 +void Creature::InitBotAI(bool asPet)
@@ -34107,10 +34313,23 @@ index 0decacd..dcc7473 100755
          InventoryResult CanStoreItem_InSpecificSlot(uint8 bag, uint8 slot, ItemPosCountVec& dest, ItemTemplate const* pProto, uint32& count, bool swap, Item* pSrcItem) const;
          InventoryResult CanStoreItem_InBag(uint8 bag, ItemPosCountVec& dest, ItemTemplate const* pProto, uint32& count, bool merge, bool non_specialized, Item* pSrcItem, uint8 skip_bag, uint8 skip_slot) const;
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index 6e9ebb3..1242d9c 100755
+index 6e9ebb3..c4a552a 100755
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
-@@ -967,6 +967,14 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
+@@ -559,6 +559,12 @@ uint32 Unit::DealDamage(Unit* victim, uint32 damage, CleanDamage const* cleanDam
+ 
+         if (pet && pet->isAlive())
+             pet->AI()->OwnerDamagedBy(this);
++
++        // NpcBot mod: also signal owned npcbots
++        for (ControlList::const_iterator itr = victim->ToPlayer()->m_Controlled.begin(); itr != victim->ToPlayer()->m_Controlled.end(); ++itr)
++            if (Creature* cre = (*itr)->ToCreature())
++                if (cre->GetIAmABot() && cre->IsAIEnabled)
++                    cre->AI()->OwnerDamagedBy(this);
+     }
+ 
+     if (damagetype != NODAMAGE)
+@@ -967,6 +973,14 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
          case SPELL_DAMAGE_CLASS_RANGED:
          case SPELL_DAMAGE_CLASS_MELEE:
          {
@@ -34125,7 +34344,7 @@ index 6e9ebb3..1242d9c 100755
              // Physical Damage
              if (damageSchoolMask & SPELL_SCHOOL_MASK_NORMAL)
              {
-@@ -1024,6 +1032,14 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
+@@ -1024,6 +1038,14 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
          case SPELL_DAMAGE_CLASS_NONE:
          case SPELL_DAMAGE_CLASS_MAGIC:
          {
@@ -34140,7 +34359,7 @@ index 6e9ebb3..1242d9c 100755
              // If crit add critical bonus
              if (crit)
              {
-@@ -1134,6 +1150,14 @@ void Unit::CalculateMeleeDamage(Unit* victim, uint32 damage, CalcDamageInfo* dam
+@@ -1134,6 +1156,14 @@ void Unit::CalculateMeleeDamage(Unit* victim, uint32 damage, CalcDamageInfo* dam
      damage = MeleeDamageBonusDone(damageInfo->target, damage, damageInfo->attackType);
      damage = damageInfo->target->MeleeDamageBonusTaken(this, damage, damageInfo->attackType);
  
@@ -34155,7 +34374,7 @@ index 6e9ebb3..1242d9c 100755
      // Calculate armor reduction
      if (IsDamageReducedByArmor((SpellSchoolMask)(damageInfo->damageSchoolMask)))
      {
-@@ -10867,6 +10891,7 @@ bool Unit::isSpellCrit(Unit* victim, SpellInfo const* spellProto, SpellSchoolMas
+@@ -10867,6 +10897,7 @@ bool Unit::isSpellCrit(Unit* victim, SpellInfo const* spellProto, SpellSchoolMas
      //! Mobs can't crit with spells. Player Totems can
      //! Fire Elemental (from totem) can too - but this part is a hack and needs more research
      if (IS_CREATURE_GUID(GetGUID()) && !(isTotem() && IS_PLAYER_GUID(GetOwnerGUID())) && GetEntry() != 15438)
@@ -34163,7 +34382,7 @@ index 6e9ebb3..1242d9c 100755
          return false;
  
      // not critting spell
-@@ -16662,6 +16687,8 @@ uint32 Unit::GetCombatRatingDamageReduction(CombatRating cr, float rate, float c
+@@ -16662,6 +16693,8 @@ uint32 Unit::GetCombatRatingDamageReduction(CombatRating cr, float rate, float c
  
  uint32 Unit::GetModelForForm(ShapeshiftForm form)
  {
@@ -34172,7 +34391,7 @@ index 6e9ebb3..1242d9c 100755
      switch (form)
      {
          case FORM_CAT:
-@@ -16833,6 +16860,183 @@ uint32 Unit::GetModelForForm(ShapeshiftForm form)
+@@ -16833,6 +16866,183 @@ uint32 Unit::GetModelForForm(ShapeshiftForm form)
          default:
              break;
      }
