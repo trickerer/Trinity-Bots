@@ -1,26 +1,26 @@
-From 6cca58979aed3c2db174fdda50d919b35ae0f48b Mon Sep 17 00:00:00 2001
+From fd143598fbc2d3b7cc6d33b8606467c9346aca58 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Thu, 11 Oct 2012 21:54:59 +0700
+Date: Fri, 12 Oct 2012 17:26:01 +0700
 Subject: [PATCH] AllBots
 
 ---
  sql/Bots/character_NPC_bots.sql                    |   10 +
  sql/Bots/world.bots.sql                            |  292 +
  sql/Bots/world.script_bot_giver.sql                |    7 +
- src/server/game/AI/NpcBots/bot_ai.cpp              | 3119 +++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 3118 +++++
  src/server/game/AI/NpcBots/bot_ai.h                |  798 ++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1084 ++
- src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  333 +
+ src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  337 +
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  870 ++
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  946 ++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  852 ++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  894 ++
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  386 +
- src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  453 +
+ src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  458 +
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1183 ++
  src/server/game/AI/NpcBots/botcommands.cpp         |  795 ++
  src/server/game/AI/NpcBots/botgiver.cpp            |  337 +
- src/server/game/AI/PlayerBots/PlayerbotAI.cpp      |11974 ++++++++++++++++++++
+ src/server/game/AI/PlayerBots/PlayerbotAI.cpp      |11972 ++++++++++++++++++++
  src/server/game/AI/PlayerBots/PlayerbotAI.h        | 2113 ++++
  .../game/AI/PlayerBots/PlayerbotDeathKnightAI.cpp  |  499 +
  .../game/AI/PlayerBots/PlayerbotDeathKnightAI.h    |  100 +
@@ -60,7 +60,7 @@ Subject: [PATCH] AllBots
  src/server/game/Server/WorldSession.h              |   36 +
  src/server/scripts/Spells/spell_priest.cpp         |    4 +
  src/server/worldserver/worldserver.conf.dist       |  188 +
- 56 files changed, 34611 insertions(+), 0 deletions(-)
+ 56 files changed, 34617 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -430,10 +430,10 @@ index 0000000..5b00cdc
 +
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..241a99d
+index 0000000..04ec3e0
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,3119 @@
+@@ -0,0 +1,3118 @@
 +#include "bot_ai.h"
 +#include "Config.h"
 +#include "Chat.h"
@@ -442,16 +442,15 @@ index 0000000..241a99d
 +#include "CellImpl.h"
 +#include "SpellAuraEffects.h"
 +/*
-+NpcBot System by Graff (onlysuffering@mail.ru)
-+Original patch from: LordPsyan http://bitbucket.org/lordpsyan/trinitycore-patches/
++NpcBot System by Graff (onlysuffering@gmail.com)
++Original patch (npcbot part only) from: LordPsyan https://bitbucket.org/lordpsyan/trinitycore-patches/src/3b8b9072280e/Individual/11185-BOTS-NPCBots.patch
 +TODO:
-+Convert doCast events (cd etc.) into SpellHit()- and SpellHitTarget()-based
++Convert doCast events (CD etc.) into SpellHit()- and SpellHitTarget()-based
 +Implement heal/tank/DD modes
 +Implement Racial Abilities
 +Implement Equipment Change (maybe)
 +I NEED MORE
 +*/
-+//Need to replace it with something better
 +const uint8 GroupIconsFlags[TARGETICONCOUNT] =
 +{
 +    /*STAR        = */0x001,
@@ -3112,7 +3111,7 @@ index 0000000..241a99d
 +
 +    if (Rand() > 10) return;
 +    if (!master->isInCombat() && !me->isInCombat() && (!m_botsPet || !m_botsPet->isInCombat())) return;
-+    if (CheckAttackTarget(IsPetAI() ? bot_pet_ai::GetPetType(me) : bot_minion_ai::GetBotClassForCreature(me)))
++    if (CheckAttackTarget(GetBotClassForCreature(me))
 +        return;
 +    //ChatHandler ch(master->GetPlayerbotAI() ? master->GetSession()->m_master : master);
 +    //ch.PSendSysMessage("_OnEvade() by bot %s", me->GetName());
@@ -3523,7 +3522,7 @@ index 0000000..241a99d
 +    if (InDuel(attacker))
 +        return;
 +    bool byspell = false, ranged = false;
-+    switch (bot_minion_ai::GetBotClassForCreature(me))
++    switch (GetBotClassForCreature(me))
 +    {
 +        case CLASS_DRUID:
 +            byspell = me->GetShapeshiftForm() == FORM_NONE || 
@@ -4361,13 +4360,13 @@ index 0000000..6854c75
 \ No newline at end of file
 diff --git a/src/server/game/AI/NpcBots/bot_druid_ai.cpp b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 new file mode 100644
-index 0000000..7edd036
+index 0000000..171fd82
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 @@ -0,0 +1,1084 @@
 +#include "bot_ai.h"
 +/*
-+Druid NpcBot (reworked by Graff onlysuffering@mail.ru)
++Druid NpcBot (reworked by Graff onlysuffering@gmail.com)
 +Complete - Maybe 30%
 +TODO: Feral Spells (from scratch), More Forms, Balance Spells + treants...
 +*/
@@ -5451,12 +5450,16 @@ index 0000000..7edd036
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_hunter_ai.cpp b/src/server/game/AI/NpcBots/bot_hunter_ai.cpp
 new file mode 100644
-index 0000000..f7535d9
+index 0000000..90d15c3
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_hunter_ai.cpp
-@@ -0,0 +1,333 @@
+@@ -0,0 +1,337 @@
 +#include "bot_ai.h"
-+
++/*
++Hunter NpcBot (reworked by Graff onlysuffering@gmail.com)
++Complete - 1%
++TODO:
++*/
 +class hunter_bot : public CreatureScript
 +{
 +public:
@@ -5790,13 +5793,13 @@ index 0000000..f7535d9
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_mage_ai.cpp b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 new file mode 100644
-index 0000000..2c4c029
+index 0000000..52ba63a
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 @@ -0,0 +1,870 @@
 +#include "bot_ai.h"
 +/*
-+Mage NpcBot (reworked by Graff onlysuffering@mail.ru)
++Mage NpcBot (reworked by Graff onlysuffering@gmail.com)
 +Complete - Around 45%
 +TODO: Ice Lance, Deep Freeze, Mana Gems, Pet etc...
 +*/
@@ -6666,14 +6669,14 @@ index 0000000..2c4c029
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 new file mode 100644
-index 0000000..cbc7450
+index 0000000..4d2826d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 @@ -0,0 +1,946 @@
 +#include "bot_ai.h"
 +#include "SpellAuraEffects.h"
 +/*
-+Paladin NpcBot (reworked by Graff onlysuffering@mail.ru)
++Paladin NpcBot (reworked by Graff onlysuffering@gmail.com)
 +Complete - Around 45-50%
 +TODO: Repentance Work Improve, Tanking, Shield Abilities, Auras
 +*/
@@ -7618,13 +7621,13 @@ index 0000000..cbc7450
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_priest_ai.cpp b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 new file mode 100644
-index 0000000..95ae350
+index 0000000..15f426f
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 @@ -0,0 +1,852 @@
 +#include "bot_ai.h"
 +/*
-+Priest NpcBot (reworked by Graff onlysuffering@mail.ru)
++Priest NpcBot (reworked by Graff onlysuffering@gmail.com)
 +Complete - Around 50%
 +TODO: maybe remove Divine Spirit or so, too much buffs
 +*/
@@ -8476,13 +8479,13 @@ index 0000000..95ae350
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_rogue_ai.cpp b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 new file mode 100644
-index 0000000..a35c677
+index 0000000..1328f04
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 @@ -0,0 +1,894 @@
 +#include "bot_ai.h"
 +/*
-+Rogue NpcBot (reworked by Graff onlysuffering@mail.ru)
++Rogue NpcBot (reworked by Graff onlysuffering@gmail.com)
 +Complete - 25% maybe...
 +TODO:
 +*/
@@ -9376,13 +9379,13 @@ index 0000000..a35c677
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_shaman_ai.cpp b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 new file mode 100644
-index 0000000..6255466
+index 0000000..1e72ff8
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 @@ -0,0 +1,386 @@
 +#include "bot_ai.h"
 +/*
-+Shaman NpcBot (reworked by Graff onlysuffering@mail.ru)
++Shaman NpcBot (reworked by Graff onlysuffering@gmail.com)
 +Complete - 1%
 +TODO:
 +*/
@@ -9768,12 +9771,17 @@ index 0000000..6255466
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warlock_ai.cpp b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 new file mode 100644
-index 0000000..4a510a8
+index 0000000..3fb9ad6
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
-@@ -0,0 +1,453 @@
+@@ -0,0 +1,458 @@
 +#include "bot_ai.h"
-+
++/*
++Warlock NpcBot (reworked by Graff onlysuffering@gmail.com)
++Voidwalker pet AI included
++Complete - 3%
++TODO:
++*/
 +class warlock_bot : public CreatureScript
 +{
 +public:
@@ -10227,14 +10235,14 @@ index 0000000..4a510a8
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warrior_ai.cpp b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 new file mode 100644
-index 0000000..d60b38c
+index 0000000..b068ac3
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 @@ -0,0 +1,1183 @@
 +#include "bot_ai.h"
 +#include "SpellAuraEffects.h"
 +/*
-+Warrior NpcBot (reworked by Graff onlysuffering@mail.ru)
++Warrior NpcBot (reworked by Graff onlysuffering@gmail.com)
 +Complete - Around 50-55%
 +TODO: Solve 'DeathWish + Enrage', Thunder Clap, Piercing Howl, Challenging Shout, other tanking stuff
 +*/
@@ -12560,18 +12568,16 @@ index 0000000..cf4c43b
 +}
 diff --git a/src/server/game/AI/PlayerBots/PlayerbotAI.cpp b/src/server/game/AI/PlayerBots/PlayerbotAI.cpp
 new file mode 100644
-index 0000000..5243565
+index 0000000..c3ae4b4
 --- /dev/null
 +++ b/src/server/game/AI/PlayerBots/PlayerbotAI.cpp
-@@ -0,0 +1,11974 @@
+@@ -0,0 +1,11972 @@
 +/*
-+Name:       PlayerBot AI Core by Graff (onlysuffering@mail.ru)
++Name:       PlayerBot AI Core by Graff (onlysuffering@gmail.com)
 +Converted:  from original blueboy's Playerbots: https://github.com/blueboy/portal/
 +Revision:   bbbd930771eb48804f96651f5e15a098b2cecb43
-+Merged with:
-+xx-xx-xxxx LordPsyan's Playerbots: http://207.223.240.182/lordpsyan/trinitycore-patches/
++last merge:
 +09-08-2012 blueBoy's Playerbots: e13fb1bd41111f99ad39aa54a0b28751efb4f2cd
-+Notes:      Just converted, needs major cleanup and changes
 +*/
 +#include "PlayerbotAI.h"
 +#include "Config.h"
