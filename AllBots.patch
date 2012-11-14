@@ -1,6 +1,6 @@
-From 0c268fec688f927e08f9593c8972906674416e8d Mon Sep 17 00:00:00 2001
+From c737543264e38ea1fd8533549fbe734652f0fe65 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Tue, 13 Nov 2012 13:45:37 +0700
+Date: Wed, 14 Nov 2012 09:30:18 +0700
 Subject: [PATCH] AllBots
 
 ---
@@ -20,7 +20,7 @@ Subject: [PATCH] AllBots
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1180 ++
  src/server/game/AI/NpcBots/botcommands.cpp         |  798 ++
  src/server/game/AI/NpcBots/botgiver.cpp            |  337 +
- src/server/game/AI/PlayerBots/PlayerbotAI.cpp      |11716 ++++++++++++++++++++
+ src/server/game/AI/PlayerBots/PlayerbotAI.cpp      |11724 ++++++++++++++++++++
  src/server/game/AI/PlayerBots/PlayerbotAI.h        | 2282 ++++
  .../game/AI/PlayerBots/PlayerbotDeathKnightAI.cpp  |  499 +
  .../game/AI/PlayerBots/PlayerbotDeathKnightAI.h    |  100 +
@@ -53,14 +53,14 @@ Subject: [PATCH] AllBots
  src/server/game/Groups/Group.h                     |    3 +
  src/server/game/Handlers/CharacterHandler.cpp      |  148 +
  src/server/game/Handlers/ChatHandler.cpp           |   31 +
- src/server/game/Handlers/GroupHandler.cpp          |   16 +
+ src/server/game/Handlers/GroupHandler.cpp          |   14 +
  src/server/game/Handlers/QuestHandler.cpp          |    8 +
  src/server/game/Scripting/ScriptLoader.cpp         |   24 +
  src/server/game/Server/WorldSession.cpp            |  102 +
  src/server/game/Server/WorldSession.h              |   36 +
  src/server/scripts/Spells/spell_priest.cpp         |    4 +
  src/server/worldserver/worldserver.conf.dist       |  188 +
- 56 files changed, 34635 insertions(+), 0 deletions(-)
+ 56 files changed, 34641 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -12697,10 +12697,10 @@ index 0000000..b269587b6
 +}
 diff --git a/src/server/game/AI/PlayerBots/PlayerbotAI.cpp b/src/server/game/AI/PlayerBots/PlayerbotAI.cpp
 new file mode 100644
-index 0000000..7228f9e
+index 0000000..bc02786
 --- /dev/null
 +++ b/src/server/game/AI/PlayerBots/PlayerbotAI.cpp
-@@ -0,0 +1,11716 @@
+@@ -0,0 +1,11724 @@
 +/*
 +Name:       PlayerBot AI Core by Graff (onlysuffering@gmail.com)
 +Converted:  from original blueboy's Playerbots: https://github.com/blueboy/portal/
@@ -15683,7 +15683,7 @@ index 0000000..7228f9e
 +        !m_targetCombat->IsInWorld() || 
 +        !m_targetCombat->IsVisible() || 
 +        !m_targetCombat->isTargetableForAttack() || 
-+        !m_bot->IsHostileTo(m_targetCombat) || 
++        //!m_bot->IsHostileTo(m_targetCombat) || 
 +        !m_bot->IsInMap(m_targetCombat))
 +    {
 +        m_bot->AttackStop();
@@ -16656,21 +16656,23 @@ index 0000000..7228f9e
 +
 +    if (m_movementOrder == MOVEMENT_FOLLOW)
 +    {
++        // nothing to follow
 +        if (!m_followTarget)
 +            return;
-+
-+        WorldObject* distTarget = m_followTarget;   // target to distance check
-+
++        // don't follow while casting
++        if (m_bot->HasUnitState(UNIT_STATE_CASTING))
++            return;
 +        // don't follow while in combat
-+        if (m_bot->isInCombat())
++        if (m_targetCombat)
 +            return;
 +        // new check bot
 +        if (!m_bot->isAlive() || m_bot->IsBeingTeleported() || m_bot->isInFlight())
 +            return;
 +
-+        Player* pTarget = NULL;                     // target is player
-+        if (m_followTarget->GetTypeId() == TYPEID_PLAYER)
-+            pTarget = m_followTarget->ToPlayer();
++        WorldObject* distTarget = m_followTarget;   // target to distance check
++
++        // target is player ?
++        Player const* pTarget = m_followTarget->ToPlayer();
 +
 +        if (pTarget)
 +        {
@@ -16684,23 +16686,29 @@ index 0000000..7228f9e
 +        }
 +
 +        // is bot too far from the follow target
-+        //if (!m_bot->IsWithinDistInMap(distTarget, 50))
-+        //{
-+        //    //DoTeleport(*m_followTarget);
-+        //    //m_ignoreAIUpdatesUntilTime = time(NULL) + 3;
-+        //    PlayerbotChatHandler ch(m_master);
-+        //    if (!ch.teleport(*m_bot, *m_followTarget))
-+        //    {
-+        //        TellMaster("I cannot be teleported...");
-+        //        // sLog->outDebug(LOG_FILTER_NONE, "[PlayerbotAI]: DoTeleport - %s failed to teleport", m_bot->GetName() );
-+        //    }
-+        //    return;
-+        //}
++        if (m_bot->GetMap() != distTarget->GetMap() || m_bot->GetDistance2d(distTarget) > 50)
++        {
++            //DoTeleport(*m_followTarget);
++            m_ignoreAIUpdatesUntilTime = time(NULL) + 2;
++            PlayerbotChatHandler ch(m_master);
++            if (!ch.teleport(*m_bot, *distTarget))
++            {
++                TellMaster("I cannot be teleported...");
++                // sLog->outDebug(LOG_FILTER_NONE, "[PlayerbotAI]: DoTeleport - %s failed to teleport", m_bot->GetName() );
++                //return;
++            }
++            m_bot->UpdatePosition(*distTarget, true);
++            return;
++        }
 +
-+        float angle = frand(0, float(M_PI));
-+        float dist = frand(m_confFollowDistance[0], m_confFollowDistance[1]);
-+        m_bot->GetMotionMaster()->MoveFollow(m_followTarget, dist, angle);
-+        //m_ignoreAIUpdatesUntilTime = time(NULL) + 1;
++        if (distTarget == m_followTarget)
++        {
++            float angle = frand(0, float(M_PI));
++            float dist = frand(m_confFollowDistance[0], m_confFollowDistance[1]);
++        
++            m_bot->GetMotionMaster()->MoveFollow(m_followTarget, dist, angle);
++            //m_ignoreAIUpdatesUntilTime = time(NULL) + 1;
++        }
 +        if (FollowAutoGo == 5)
 +            FollowAutoGo = 1;
 +    }
@@ -34916,10 +34924,10 @@ index 535fda3..7314806 100755
              ChatHandler::FillMessageData(&data, this, uint8(type), lang, NULL, 0, msg.c_str(), NULL);
              group->BroadcastPacket(&data, false, group->GetMemberGroup(GetPlayer()->GetGUID()));
 diff --git a/src/server/game/Handlers/GroupHandler.cpp b/src/server/game/Handlers/GroupHandler.cpp
-index 223a531..280c026 100755
+index 223a531..29ba100 100755
 --- a/src/server/game/Handlers/GroupHandler.cpp
 +++ b/src/server/game/Handlers/GroupHandler.cpp
-@@ -306,6 +306,14 @@ void WorldSession::HandleGroupUninviteGuidOpcode(WorldPacket & recvData)
+@@ -306,6 +306,13 @@ void WorldSession::HandleGroupUninviteGuidOpcode(WorldPacket & recvData)
  
      if (grp->IsMember(guid))
      {
@@ -34927,14 +34935,13 @@ index 223a531..280c026 100755
 +        if (player && player->GetPlayerbotAI())
 +        {
 +            if (Player* master = player->GetSession()->m_master)
-+                if (master == GetPlayer() || grp->IsLeader(GetPlayer()->GetGUID()))
-+                    master->GetSession()->LogoutPlayerBot(guid);
++                master->GetSession()->LogoutPlayerBot(guid);
 +        }
 +        else
          Player::RemoveFromGroup(grp, guid, GROUP_REMOVEMETHOD_KICK, GetPlayer()->GetGUID(), reason.c_str());
          return;
      }
-@@ -351,6 +359,14 @@ void WorldSession::HandleGroupUninviteOpcode(WorldPacket & recvData)
+@@ -351,6 +358,13 @@ void WorldSession::HandleGroupUninviteOpcode(WorldPacket & recvData)
  
      if (uint64 guid = grp->GetMemberGUID(membername))
      {
@@ -34942,8 +34949,7 @@ index 223a531..280c026 100755
 +        if (player && player->GetPlayerbotAI())
 +        {
 +            if (Player* master = player->GetSession()->m_master)
-+                if (master == GetPlayer() || grp->IsLeader(GetPlayer()->GetGUID()))
-+                    master->GetSession()->LogoutPlayerBot(guid);
++                master->GetSession()->LogoutPlayerBot(guid);
 +        }
 +        else
          Player::RemoveFromGroup(grp, guid, GROUP_REMOVEMETHOD_KICK, GetPlayer()->GetGUID());
