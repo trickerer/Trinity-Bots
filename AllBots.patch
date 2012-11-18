@@ -1,6 +1,6 @@
-From 6bd2af4188c92c43ade4e84e3eb5d120466bf656 Mon Sep 17 00:00:00 2001
+From 700e3643048a5129fd8dc0d9ae49b82673b91459 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Fri, 16 Nov 2012 09:30:55 +0700
+Date: Sun, 18 Nov 2012 22:58:44 +0700
 Subject: [PATCH] AllBots
 
 ---
@@ -8,7 +8,7 @@ Subject: [PATCH] AllBots
  sql/Bots/world.bots.sql                            |  292 +
  sql/Bots/world.script_bot_giver.sql                |    7 +
  src/server/game/AI/NpcBots/bot_ai.cpp              | 3136 ++++++
- src/server/game/AI/NpcBots/bot_ai.h                |  802 ++
+ src/server/game/AI/NpcBots/bot_ai.h                |  803 ++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1084 ++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  337 +
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  931 ++
@@ -18,10 +18,10 @@ Subject: [PATCH] AllBots
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  387 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  449 +
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1180 ++
- src/server/game/AI/NpcBots/botcommands.cpp         |  798 ++
- src/server/game/AI/NpcBots/botgiver.cpp            |  337 +
- src/server/game/AI/PlayerBots/PlayerbotAI.cpp      |11724 ++++++++++++++++++++
- src/server/game/AI/PlayerBots/PlayerbotAI.h        | 2282 ++++
+ src/server/game/AI/NpcBots/botcommands.cpp         |  799 ++
+ src/server/game/AI/NpcBots/botgiver.cpp            |  338 +
+ src/server/game/AI/PlayerBots/PlayerbotAI.cpp      |11722 ++++++++++++++++++++
+ src/server/game/AI/PlayerBots/PlayerbotAI.h        | 2283 ++++
  .../game/AI/PlayerBots/PlayerbotDeathKnightAI.cpp  |  499 +
  .../game/AI/PlayerBots/PlayerbotDeathKnightAI.h    |  100 +
  src/server/game/AI/PlayerBots/PlayerbotDruidAI.cpp |  713 ++
@@ -46,7 +46,7 @@ Subject: [PATCH] AllBots
  src/server/game/Entities/Creature/Creature.cpp     |  121 +
  src/server/game/Entities/Creature/Creature.h       |   34 +
  .../game/Entities/Creature/TemporarySummon.cpp     |    7 +
- src/server/game/Entities/Player/Player.cpp         |  646 ++
+ src/server/game/Entities/Player/Player.cpp         |  654 ++
  src/server/game/Entities/Player/Player.h           |   66 +
  src/server/game/Entities/Unit/Unit.cpp             |  201 +
  src/server/game/Groups/Group.cpp                   |   13 +
@@ -60,7 +60,7 @@ Subject: [PATCH] AllBots
  src/server/game/Server/WorldSession.h              |   36 +
  src/server/scripts/Spells/spell_priest.cpp         |    4 +
  src/server/worldserver/worldserver.conf.dist       |  188 +
- 56 files changed, 34647 insertions(+), 0 deletions(-)
+ 56 files changed, 34657 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -430,7 +430,7 @@ index 0000000..5b00cdc
 +
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..defcd57
+index 0000000..fa00a48
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
 @@ -0,0 +1,3136 @@
@@ -1083,7 +1083,7 @@ index 0000000..defcd57
 +{
 +    if (!IsInBotParty(player)) return;
 +    if (!IsInBotParty(unit)) return;
-+    ChatHandler ch(player);
++    ChatHandler ch(player->GetSession());
 +    std::ostringstream botstring;
 +    if (unit->GetTypeId() == TYPEID_PLAYER)
 +        botstring << "player";
@@ -3573,13 +3573,14 @@ index 0000000..defcd57
 \ No newline at end of file
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..62cce28
+index 0000000..5214455
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,802 @@
+@@ -0,0 +1,803 @@
 +#include "ScriptedCreature.h"
 +#include "ScriptedGossip.h"
 +#include "Group.h"
++#include "Player.h"
 +#include "SpellAuras.h"
 +#include "ScriptMgr.h"
 +
@@ -11556,10 +11557,10 @@ index 0000000..0105484
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 0000000..0230391
+index 0000000..e10de06
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
-@@ -0,0 +1,798 @@
+@@ -0,0 +1,799 @@
 +/*
 +Name: script_bot_commands
 +%Complete: ???
@@ -11572,6 +11573,7 @@ index 0000000..0230391
 +#include "ObjectMgr.h"
 +#include "bot_ai.h"
 +#include "PlayerbotAI.h"
++#include "Player.h"
 +
 +class script_bot_commands : public CommandScript
 +{
@@ -11849,7 +11851,7 @@ index 0000000..0230391
 +                                continue;
 +                            if (Player* player = sObjectAccessor->FindPlayer(itr->guid))
 +                            {
-+                                ChatHandler chp(player);
++                                ChatHandler chp(player->GetSession());
 +                                chp.PSendSysMessage("Main tank is set to %s.", u->GetName().c_str());
 +                                player->SetBotTank(selection);
 +                                if (player->HaveBot())
@@ -11911,7 +11913,7 @@ index 0000000..0230391
 +                        continue;
 +                    Player* player = sObjectAccessor->FindPlayer(itr->guid);
 +                    if (!player) continue;
-+                    ChatHandler(player).PSendSysMessage("Main tank has been reset by %s.", handler->GetSession()->GetPlayer()->GetName().c_str());
++                    ChatHandler(player->GetSession()).PSendSysMessage("Main tank has been reset by %s.", handler->GetSession()->GetPlayer()->GetName().c_str());
 +                    player->SetBotTank(0);
 +                    if (player->HaveBot())
 +                    {
@@ -12360,15 +12362,16 @@ index 0000000..0230391
 +}
 diff --git a/src/server/game/AI/NpcBots/botgiver.cpp b/src/server/game/AI/NpcBots/botgiver.cpp
 new file mode 100644
-index 0000000..b269587b6
+index 0000000..eb22dc9
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botgiver.cpp
-@@ -0,0 +1,337 @@
+@@ -0,0 +1,338 @@
 +#include "ScriptMgr.h"
 +#include "ScriptedGossip.h"
 +#include "ObjectMgr.h"
 +#include "Config.h"
 +#include "Group.h"
++#include "Player.h"
 +/*
 +script_bot_giver (reworked by Graff onlysuffering@mail.ru)
 +Complete - ???
@@ -12703,10 +12706,10 @@ index 0000000..b269587b6
 +}
 diff --git a/src/server/game/AI/PlayerBots/PlayerbotAI.cpp b/src/server/game/AI/PlayerBots/PlayerbotAI.cpp
 new file mode 100644
-index 0000000..bc02786
+index 0000000..f2f0a99
 --- /dev/null
 +++ b/src/server/game/AI/PlayerBots/PlayerbotAI.cpp
-@@ -0,0 +1,11724 @@
+@@ -0,0 +1,11722 @@
 +/*
 +Name:       PlayerBot AI Core by Graff (onlysuffering@gmail.com)
 +Converted:  from original blueboy's Playerbots: https://github.com/blueboy/portal/
@@ -12806,7 +12809,7 @@ index 0000000..bc02786
 +    SetMovementOrder(MOVEMENT_FOLLOW, m_master);
 +
 +    //add bot to group
-+    ChatHandler ch(master);
++    ChatHandler ch(master->GetSession());
 +    if (Group *group = master->GetGroup())
 +    {
 +        if (!group->IsMember(m_bot->GetGUID()))
@@ -13178,7 +13181,7 @@ index 0000000..bc02786
 +            }
 +    }
 +
-+    ChatHandler ch(m_master);
++    ChatHandler ch(m_master->GetSession());
 +    bool bAnyEquippable = false;
 +
 +    const std::string descr[] = { "head", "neck", "shoulders", "body", "chest",
@@ -13230,7 +13233,7 @@ index 0000000..bc02786
 +
 +void PlayerbotAI::AutoUpgradeEquipment(Player& /*player*/) // test for autoequip
 +{
-+    ChatHandler ch(m_master);
++    ChatHandler ch(m_master->GetSession());
 +    std::ostringstream out;
 +    std::ostringstream msg;
 +    uint32 calc = .10;
@@ -14755,15 +14758,13 @@ index 0000000..bc02786
 +            p >> status;
 +            p.resize(4);
 +
-+            //4 == TRADE_STATUS_TRADE_ACCEPT
-+            if (status == 4)
++            if (status == TRADE_STATUS_TRADE_ACCEPT)
 +            {
 +                m_bot->GetSession()->HandleAcceptTradeOpcode(p);  // packet not used
 +                SetQuestNeedItems();
 +            }
 +
-+            //1 == TRADE_STATUS_BEGIN_TRADE
-+            else if (status == 1)
++            else if (status == TRADE_STATUS_BEGIN_TRADE)
 +            {
 +                m_bot->GetSession()->HandleBeginTradeOpcode(p); // packet not used
 +
@@ -14819,7 +14820,7 @@ index 0000000..bc02786
 +                        }
 +                }
 +
-+                ChatHandler ch(m_bot->GetTrader());
++                ChatHandler ch(m_bot->GetTrader()->GetSession());
 +                out.str("");
 +                out << "Items I have but cannot trade:";
 +                uint32 count = 0;
@@ -20184,7 +20185,7 @@ index 0000000..bc02786
 +    Quest const* qInfo = sObjectMgr->GetQuestTemplate(entry);
 +    if (!qInfo)
 +    {
-+        ChatHandler(m_master).PSendSysMessage(LANG_COMMAND_QUEST_NOTFOUND, entry);
++        ChatHandler(m_master->GetSession()).PSendSysMessage(LANG_COMMAND_QUEST_NOTFOUND, entry);
 +        return false;
 +    }
 +
@@ -20414,7 +20415,7 @@ index 0000000..bc02786
 +    uint32 SoldCost = 0;
 +    uint32 SoldQuantity = 0;
 +    std::ostringstream report, goods;
-+    ChatHandler ch(m_master);
++    ChatHandler ch(m_master->GetSession());
 +
 +    // list out items in main backpack
 +    for (uint8 slot = INVENTORY_SLOT_ITEM_START; slot < INVENTORY_SLOT_ITEM_END; ++slot)
@@ -21149,7 +21150,7 @@ index 0000000..bc02786
 +
 +void PlayerbotAI::_HandleCommandMail(std::string &text, Player &fromPlayer)
 +{
-+    ChatHandler ch(&fromPlayer);
++    ChatHandler ch(fromPlayer.GetSession());
 +
 +    if (text == "")
 +    {
@@ -21956,7 +21957,7 @@ index 0000000..bc02786
 +        m_spellsToLearn.clear();
 +        m_bot->skill(m_spellsToLearn);
 +        SendWhisper("I can enchant:\n", fromPlayer);
-+        ChatHandler ch(&fromPlayer);
++        ChatHandler ch(fromPlayer.GetSession());
 +        for (std::list<uint32>::iterator it = m_spellsToLearn.begin(); it != m_spellsToLearn.end(); ++it)
 +        {
 +            SkillLineEntry const *SkillLine = sSkillLineStore.LookupEntry(*it);
@@ -22158,7 +22159,7 @@ index 0000000..bc02786
 +    m_spellsToLearn.clear();
 +    m_bot->skill(m_spellsToLearn);
 +    SendWhisper("I can create:\n", fromPlayer);
-+    ChatHandler ch(&fromPlayer);
++    ChatHandler ch(fromPlayer.GetSession());
 +    for (std::list<uint32>::iterator it = m_spellsToLearn.begin(); it != m_spellsToLearn.end(); ++it)
 +    {
 +        SkillLineEntry const *SkillLine = sSkillLineStore.LookupEntry(*it);
@@ -22456,7 +22457,7 @@ index 0000000..bc02786
 +                       << pSpellInfo->SpellName[loc] << "]|h|r";
 +        }
 +
-+        ChatHandler ch(&fromPlayer);
++        ChatHandler ch(fromPlayer.GetSession());
 +        SendWhisper("Here's my pet's non-attack spells:", fromPlayer);
 +        ch.SendSysMessage(posOut.str().c_str());
 +        SendWhisper("and here's my pet's attack spells:", fromPlayer);
@@ -22542,7 +22543,7 @@ index 0000000..bc02786
 +        negOut << " |cffffffff|Hspell:" << iter->second << "|h[" << iter->first << "]|h|r";
 +    }
 +
-+    ChatHandler ch(&fromPlayer);
++    ChatHandler ch(fromPlayer.GetSession());
 +    SendWhisper("here's my non-attack spells:", fromPlayer);
 +    ch.SendSysMessage(posOut.str().c_str());
 +    SendWhisper("and here's my attack spells:", fromPlayer);
@@ -22915,7 +22916,7 @@ index 0000000..bc02786
 +    uint32 copper = m_bot->GetMoney();
 +    out << "|h|cffffffff item damage & has " << "|r|cff00ff00";
 +    out << Cash(copper);
-+    ChatHandler ch(&fromPlayer);
++    ChatHandler ch(fromPlayer.GetSession());
 +    ch.SendSysMessage(out.str().c_str());
 +}
 +
@@ -22956,7 +22957,7 @@ index 0000000..bc02786
 +
 +void PlayerbotAI::_HandleCommandHelp(std::string &text, Player &fromPlayer)
 +{
-+    ChatHandler ch(&fromPlayer);
++    ChatHandler ch(fromPlayer.GetSession());
 +
 +    // "help help"? Seriously?
 +    if (ExtractCommand("help", text))
@@ -23787,7 +23788,7 @@ index 0000000..bc02786
 +                        return;
 +                    PlayerbotAI* const pBot = pPlayer->GetPlayerbotAI();
 +
-+                    ChatHandler ch(m_master);
++                    ChatHandler ch(m_master->GetSession());
 +                    {
 +                        std::ostringstream out;
 +                        out << "time(0): " << time(0)
@@ -24433,15 +24434,16 @@ index 0000000..bc02786
 +}
 diff --git a/src/server/game/AI/PlayerBots/PlayerbotAI.h b/src/server/game/AI/PlayerBots/PlayerbotAI.h
 new file mode 100644
-index 0000000..4a63a6e
+index 0000000..001407f
 --- /dev/null
 +++ b/src/server/game/AI/PlayerBots/PlayerbotAI.h
-@@ -0,0 +1,2282 @@
+@@ -0,0 +1,2283 @@
 +#ifndef _PLAYERBOTAI_H
 +#define _PLAYERBOTAI_H
 +
 +#include "Group.h"
 +#include "Chat.h"
++#include "Player.h"
 +
 +class PlayerbotAI;
 +class PlayerbotClassAI;
@@ -24452,7 +24454,7 @@ index 0000000..4a63a6e
 +class PlayerbotChatHandler : protected ChatHandler
 +{
 +public:
-+    PlayerbotChatHandler(Player* pMasterPlayer) : ChatHandler(pMasterPlayer) {}
++    PlayerbotChatHandler(Player* pMasterPlayer) : ChatHandler(pMasterPlayer->GetSession()) {}
 +    bool revive(Player& botPlayer) { botPlayer.ResurrectPlayer(1.0f); botPlayer.SpawnCorpseBones(); botPlayer.SaveToDB(); return true; }
 +    bool teleport(const Player &botPlayer){ return HandleSummonCommand(this, botPlayer.GetName().c_str()); }
 +    bool teleport(Player& botPlayer, WorldObject &obj) { botPlayer.Relocate(obj); return true; }
@@ -33331,10 +33333,10 @@ index 0000000..5c003d7
 +
 +#endif
 diff --git a/src/server/game/CMakeLists.txt b/src/server/game/CMakeLists.txt
-index 68ae2d8..a286b44 100644
+index cf71bb1..442cef5 100644
 --- a/src/server/game/CMakeLists.txt
 +++ b/src/server/game/CMakeLists.txt
-@@ -133,6 +133,8 @@ include_directories(
+@@ -127,6 +127,8 @@ include_directories(
    ${CMAKE_CURRENT_SOURCE_DIR}/Achievements
    ${CMAKE_CURRENT_SOURCE_DIR}/Addons
    ${CMAKE_CURRENT_SOURCE_DIR}/AI
@@ -33553,10 +33555,10 @@ index c070319..bf060a7 100755
  
          //WaypointMovementGenerator vars
 diff --git a/src/server/game/Entities/Creature/TemporarySummon.cpp b/src/server/game/Entities/Creature/TemporarySummon.cpp
-index 43b29c6..98ba8c3 100755
+index a6b51a4..572b4ba 100755
 --- a/src/server/game/Entities/Creature/TemporarySummon.cpp
 +++ b/src/server/game/Entities/Creature/TemporarySummon.cpp
-@@ -246,6 +246,13 @@ void TempSummon::UnSummon(uint32 msTime)
+@@ -248,6 +248,13 @@ void TempSummon::UnSummon(uint32 msTime)
      if (owner && owner->GetTypeId() == TYPEID_UNIT && owner->ToCreature()->IsAIEnabled)
          owner->ToCreature()->AI()->SummonedCreatureDespawn(this);
  
@@ -33571,7 +33573,7 @@ index 43b29c6..98ba8c3 100755
  }
  
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index 46110a2..6b1f267 100755
+index 21db9ac..a18c32b 100755
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -78,6 +78,10 @@
@@ -33680,7 +33682,7 @@ index 46110a2..6b1f267 100755
      // preparing unsummon pet if lost (we must get pet before teleportation or will not find it later)
      Pet* pet = GetPet();
  
-@@ -2456,6 +2520,543 @@ void Player::RemoveFromWorld()
+@@ -2456,6 +2520,551 @@ void Player::RemoveFromWorld()
      }
  }
  
@@ -33751,7 +33753,7 @@ index 46110a2..6b1f267 100755
 +{
 +    if (ConfigMgr::GetBoolDefault("Bot.EnableNpcBots", true) == false)
 +    {
-+        ChatHandler ch(this);
++        ChatHandler ch(GetSession());
 +        ch.SendSysMessage("NpcBot system currently disabled. Please contact your administration.");
 +        ClearBotMustBeCreated(0, 0, true);
 +        return;
@@ -33874,19 +33876,25 @@ index 46110a2..6b1f267 100755
 +    }
 +    if (ConfigMgr::GetBoolDefault("Bot.EnableNpcBots", true) == false && revive == false)
 +    {
-+        ChatHandler ch(this);
++        ChatHandler ch(GetSession());
 +        ch.SendSysMessage("NpcBot system currently disabled. Please contact administration.");
++        for (uint8 pos = 0; pos != GetMaxNpcBots(); ++pos)
++            if (m_botmap[pos].m_entry == botentry)
++                ClearBotMustBeCreated(pos, false);
 +        return;
 +    }
 +    if (!botentry || !botrace || !botclass)
 +    {
 +        sLog->outError(LOG_FILTER_PLAYER, "ERROR! CreateBot(): player %s (%u) trying to create bot with entry = %u, race = %u, class = %u, ignored", GetName().c_str(), GetGUIDLow(), botentry, botrace, botclass);
++        for (uint8 pos = 0; pos != GetMaxNpcBots(); ++pos)
++            if (m_botmap[pos].m_entry == botentry)
++                ClearBotMustBeCreated(pos, false);
 +        return;
 +    }
 +    //npcbot counter is already increased in SetBotMustBeCreated()
 +    if (GetNpcBotsCount() > GetMaxNpcBots())
 +    {
-+        ChatHandler ch(this);
++        ChatHandler ch(GetSession());
 +        for (uint8 pos = 0; pos != GetMaxNpcBots(); ++pos)
 +            if (m_botmap[pos].m_entry == botentry)
 +                ClearBotMustBeCreated(pos, false);
@@ -33896,7 +33904,7 @@ index 46110a2..6b1f267 100755
 +    }
 +    if (GetGroup() && GetGroup()->isRaidGroup() && GetGroup()->IsFull())
 +    {
-+        ChatHandler ch(this);
++        ChatHandler ch(GetSession());
 +        ch.PSendSysMessage("Your group is Full!");
 +        ch.SetSentErrorMessage(true);
 +        return;
@@ -34125,7 +34133,7 @@ index 46110a2..6b1f267 100755
 +                ++count;
 +        if (count >= m_MaxClassNpcBots)
 +        {
-+            ChatHandler ch(this);
++            ChatHandler ch(GetSession());
 +            ch.PSendSysMessage("You cannot have more bots of that class! Max: %u", m_MaxClassNpcBots);
 +            ch.SetSentErrorMessage(true);
 +            return;
@@ -34142,7 +34150,7 @@ index 46110a2..6b1f267 100755
 +        bot_class != CLASS_WARLOCK &&
 +        bot_class != CLASS_ROGUE))
 +    {
-+        ChatHandler ch(this);
++        ChatHandler ch(GetSession());
 +        const char* bclass;
 +        switch (bot_class)
 +        {
@@ -34199,12 +34207,14 @@ index 46110a2..6b1f267 100755
 +        uint32 tmp_rand = 0;
 +        do
 +        {
-+            Field* fields = result->Fetch();
-+            entry = fields[0].GetUInt32();
-+            bot_race = fields[1].GetUInt32();
 +            ++tmp_rand;
 +            if (tmp_rand == m_rand)
++            {
++                Field* fields = result->Fetch();
++                entry = fields[0].GetUInt32();
++                bot_race = fields[1].GetUInt8();
 +                break;
++            }
 +        } while (result->NextRow());
 +       // delete result;
 +    }
@@ -34212,7 +34222,7 @@ index 46110a2..6b1f267 100755
 +    {
 +        if (m_botmap[i].m_entry == entry)//do not allow duplicates on every single char
 +        {
-+            ChatHandler ch(this);
++            ChatHandler ch(GetSession());
 +            ch.PSendSysMessage("OOPs! You've rolled a duplicate bot! maybe you should try again?");
 +            ch.SetSentErrorMessage(true);
 +            return;
@@ -34224,7 +34234,7 @@ index 46110a2..6b1f267 100755
  void Player::RegenerateAll()
  {
      //if (m_regenTimer <= 500)
-@@ -2931,6 +3532,48 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
+@@ -2931,6 +3540,48 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
  {
      if (group)
      {
@@ -34273,7 +34283,7 @@ index 46110a2..6b1f267 100755
          group->RemoveMember(guid, method, kicker, reason);
          group = NULL;
      }
-@@ -3113,6 +3756,9 @@ void Player::GiveLevel(uint8 level)
+@@ -3113,6 +3764,9 @@ void Player::GiveLevel(uint8 level)
              }
  
      sScriptMgr->OnPlayerLevelChanged(this, oldLevel);
@@ -34284,10 +34294,10 @@ index 46110a2..6b1f267 100755
  
  void Player::InitTalentForLevel()
 diff --git a/src/server/game/Entities/Player/Player.h b/src/server/game/Entities/Player/Player.h
-index fe1d1a5..0395e81 100755
+index 3b1f47b..d7778b0 100755
 --- a/src/server/game/Entities/Player/Player.h
 +++ b/src/server/game/Entities/Player/Player.h
-@@ -54,6 +54,9 @@ class PlayerSocial;
+@@ -49,6 +49,9 @@ class PlayerSocial;
  class SpellCastTargets;
  class UpdateMask;
  
@@ -34297,7 +34307,7 @@ index fe1d1a5..0395e81 100755
  typedef std::deque<Mail*> PlayerMails;
  
  #define PLAYER_MAX_SKILLS           127
-@@ -2546,6 +2549,53 @@ class Player : public Unit, public GridObject<Player>
+@@ -2521,6 +2524,53 @@ class Player : public Unit, public GridObject<Player>
              }
          }
  
@@ -34351,7 +34361,7 @@ index fe1d1a5..0395e81 100755
      protected:
          // Gamemaster whisper whitelist
          WhisperListContainer WhisperList;
-@@ -2806,6 +2856,22 @@ class Player : public Unit, public GridObject<Player>
+@@ -2781,6 +2831,22 @@ class Player : public Unit, public GridObject<Player>
          uint8 m_grantableLevels;
  
      private:
@@ -34375,7 +34385,7 @@ index fe1d1a5..0395e81 100755
          InventoryResult CanStoreItem_InSpecificSlot(uint8 bag, uint8 slot, ItemPosCountVec& dest, ItemTemplate const* pProto, uint32& count, bool swap, Item* pSrcItem) const;
          InventoryResult CanStoreItem_InBag(uint8 bag, ItemPosCountVec& dest, ItemTemplate const* pProto, uint32& count, bool merge, bool non_specialized, Item* pSrcItem, uint8 skip_bag, uint8 skip_slot) const;
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index f8de93a..21a7bb0 100755
+index c886c04..8c53583 100755
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
 @@ -560,6 +560,12 @@ uint32 Unit::DealDamage(Unit* victim, uint32 damage, CleanDamage const* cleanDam
@@ -34427,7 +34437,7 @@ index f8de93a..21a7bb0 100755
      // Calculate armor reduction
      if (IsDamageReducedByArmor((SpellSchoolMask)(damageInfo->damageSchoolMask)))
      {
-@@ -10884,6 +10905,7 @@ bool Unit::isSpellCrit(Unit* victim, SpellInfo const* spellProto, SpellSchoolMas
+@@ -10887,6 +10908,7 @@ bool Unit::isSpellCrit(Unit* victim, SpellInfo const* spellProto, SpellSchoolMas
      //! Mobs can't crit with spells. Player Totems can
      //! Fire Elemental (from totem) can too - but this part is a hack and needs more research
      if (IS_CREATURE_GUID(GetGUID()) && !(isTotem() && IS_PLAYER_GUID(GetOwnerGUID())) && GetEntry() != 15438)
@@ -34435,7 +34445,7 @@ index f8de93a..21a7bb0 100755
          return false;
  
      // not critting spell
-@@ -16700,6 +16722,8 @@ uint32 Unit::GetCombatRatingDamageReduction(CombatRating cr, float rate, float c
+@@ -16703,6 +16725,8 @@ uint32 Unit::GetCombatRatingDamageReduction(CombatRating cr, float rate, float c
  
  uint32 Unit::GetModelForForm(ShapeshiftForm form)
  {
@@ -34444,7 +34454,7 @@ index f8de93a..21a7bb0 100755
      switch (form)
      {
          case FORM_CAT:
-@@ -16871,6 +16895,183 @@ uint32 Unit::GetModelForForm(ShapeshiftForm form)
+@@ -16874,6 +16898,183 @@ uint32 Unit::GetModelForForm(ShapeshiftForm form)
          default:
              break;
      }
@@ -34683,10 +34693,10 @@ index 45473f7..cfb5b3f 100755
  
          return true;
 diff --git a/src/server/game/Groups/Group.h b/src/server/game/Groups/Group.h
-index a00b7e1..b7082d5 100755
+index b20a1bd..766e820 100755
 --- a/src/server/game/Groups/Group.h
 +++ b/src/server/game/Groups/Group.h
-@@ -308,6 +308,9 @@ class Group
+@@ -306,6 +306,9 @@ class Group
          // FG: evil hacks
          void BroadcastGroupUpdate(void);
  
@@ -34697,7 +34707,7 @@ index a00b7e1..b7082d5 100755
          bool _setMembersGroup(uint64 guid, uint8 group);
          void _homebindIfInstance(Player* player);
 diff --git a/src/server/game/Handlers/CharacterHandler.cpp b/src/server/game/Handlers/CharacterHandler.cpp
-index 258878b..a392a92 100644
+index 8e6cdbc..afda97f 100644
 --- a/src/server/game/Handlers/CharacterHandler.cpp
 +++ b/src/server/game/Handlers/CharacterHandler.cpp
 @@ -45,6 +45,10 @@
@@ -34827,7 +34837,7 @@ index 258878b..a392a92 100644
 +    //has bot already been added?
 +    if (GetPlayerBot(playerGuid) != 0) return;
 +
-+    ChatHandler ch = ChatHandler(GetPlayer());
++    ChatHandler ch = ChatHandler(this);
 +
 +    //check if bots are enabled
 +    if (ConfigMgr::GetBoolDefault("Bot.EnablePlayerBots", true) == false)
@@ -34874,7 +34884,7 @@ index 258878b..a392a92 100644
  {
      uint64 guid;
 diff --git a/src/server/game/Handlers/ChatHandler.cpp b/src/server/game/Handlers/ChatHandler.cpp
-index 535fda3..7314806 100755
+index e498981..a916f12 100755
 --- a/src/server/game/Handlers/ChatHandler.cpp
 +++ b/src/server/game/Handlers/ChatHandler.cpp
 @@ -40,6 +40,9 @@
@@ -35203,7 +35213,7 @@ index 18ff3b3..3a4df9a 100755
      if (_addFriendCallback.IsReady())
      {
 diff --git a/src/server/game/Server/WorldSession.h b/src/server/game/Server/WorldSession.h
-index 7d5dba8..fa5db67 100755
+index 1158559..0bc3e96 100755
 --- a/src/server/game/Server/WorldSession.h
 +++ b/src/server/game/Server/WorldSession.h
 @@ -222,6 +222,28 @@ class CharacterCreateInfo
@@ -35271,10 +35281,10 @@ index 7d5dba8..fa5db67 100755
          // private trade methods
          void moveItems(Item* myItems[], Item* hisItems[]);
 diff --git a/src/server/scripts/Spells/spell_priest.cpp b/src/server/scripts/Spells/spell_priest.cpp
-index aee3889..b20901c 100644
+index a15eb7d..7d5080f 100644
 --- a/src/server/scripts/Spells/spell_priest.cpp
 +++ b/src/server/scripts/Spells/spell_priest.cpp
-@@ -192,6 +192,7 @@ class spell_pri_penance : public SpellScriptLoader
+@@ -193,6 +193,7 @@ class spell_pri_penance : public SpellScriptLoader
  
              bool Load()
              {
@@ -35282,7 +35292,7 @@ index aee3889..b20901c 100644
                  return GetCaster()->GetTypeId() == TYPEID_PLAYER;
              }
  
-@@ -232,6 +233,8 @@ class spell_pri_penance : public SpellScriptLoader
+@@ -233,6 +234,8 @@ class spell_pri_penance : public SpellScriptLoader
              SpellCastResult CheckCast()
              {
                  Player* caster = GetCaster()->ToPlayer();
@@ -35291,7 +35301,7 @@ index aee3889..b20901c 100644
                  if (Unit* target = GetExplTargetUnit())
                      if (!caster->IsFriendlyTo(target) && !caster->IsValidAttackTarget(target))
                          return SPELL_FAILED_BAD_TARGETS;
-@@ -386,6 +389,7 @@ class spell_priest_renew : public SpellScriptLoader
+@@ -387,6 +390,7 @@ class spell_priest_renew : public SpellScriptLoader
  
              bool Load()
              {
