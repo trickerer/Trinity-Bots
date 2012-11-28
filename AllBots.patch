@@ -1,13 +1,13 @@
-From 552eb8f5d491543186cebfd54d32961b27c6b2dc Mon Sep 17 00:00:00 2001
+From 1d99344f95df4443347b2a5b166fba318db3a6b0 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Sun, 25 Nov 2012 17:37:32 +0700
+Date: Wed, 28 Nov 2012 11:05:21 +0700
 Subject: [PATCH] AllBots
 
 ---
  sql/Bots/character_NPC_bots.sql                    |   10 +
  sql/Bots/world.bots.sql                            |  292 +
  sql/Bots/world.script_bot_giver.sql                |    7 +
- src/server/game/AI/NpcBots/bot_ai.cpp              | 3162 ++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 3170 ++++++
  src/server/game/AI/NpcBots/bot_ai.h                |  807 ++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1083 ++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  336 +
@@ -60,7 +60,7 @@ Subject: [PATCH] AllBots
  src/server/game/Server/WorldSession.h              |   35 +
  src/server/scripts/Spells/spell_priest.cpp         |    4 +
  src/server/worldserver/worldserver.conf.dist       |  188 +
- 56 files changed, 34755 insertions(+), 0 deletions(-)
+ 56 files changed, 34763 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -430,10 +430,10 @@ index 0000000..5b00cdc
 +
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..e859403
+index 0000000..f6ff799
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,3162 @@
+@@ -0,0 +1,3170 @@
 +#include "bot_ai.h"
 +#include "Config.h"
 +#include "Chat.h"
@@ -2262,6 +2262,7 @@ index 0000000..e859403
 +//MOUNT SUPPORT
 +void bot_minion_ai::UpdateMountedState()
 +{
++    //DEBUG
 +    if (master->IsMounted() && me->IsMounted())
 +    {
 +        if ((master->HasAuraType(SPELL_AURA_FLY) || master->HasUnitMovementFlag(MOVEMENTFLAG_CAN_FLY) || master->HasUnitMovementFlag(MOVEMENTFLAG_FLYING)))
@@ -2280,6 +2281,7 @@ index 0000000..e859403
 +        me->Dismount();
 +        return;
 +    }
++    //END DEBUG
 +    if (me->isInCombat() || IsCasting() || me->HasUnitMovementFlag(MOVEMENTFLAG_SWIMMING)) //IsInWater() is too much calculations
 +        return;
 +    //fly
@@ -2314,7 +2316,7 @@ index 0000000..e859403
 +    //}
 +    ////ground
 +    /*else */
-+    if (master->IsMounted() && !me->IsMounted() && !master->isInCombat() && !me->isInCombat())
++    if (master->IsMounted() && !me->IsMounted() && !master->isInCombat() && !me->isInCombat() && !me->getVictim())
 +    {
 +        uint32 mount = 0;
 +        Unit::AuraEffectList const &mounts = master->GetAuraEffectsByType(SPELL_AURA_MOUNTED);
@@ -2359,7 +2361,7 @@ index 0000000..e859403
 +
 +    //drink
 +    if (me->getPowerType() == POWER_MANA && !me->IsMounted() && !me->isMoving() && !CCed(me) && 
-+        !me->isInCombat() && !IsCasting() && rand()%100 < 30 && GetManaPCT(me) < 80 && 
++        !me->isInCombat() && !IsCasting() && rand()%100 < 20 && GetManaPCT(me) < 80 && 
 +        !me->HasAura(DRINK))
 +    {
 +        me->CastSpell(me, DRINK);
@@ -2370,7 +2372,7 @@ index 0000000..e859403
 +
 +    //eat
 +    if (!me->IsMounted() && !me->isMoving() && !CCed(me) && 
-+        !me->isInCombat() && !IsCasting() && rand()%100 < 30 && GetHealthPCT(me) < 80 && 
++        !me->isInCombat() && !IsCasting() && rand()%100 < 20 && GetHealthPCT(me) < 80 && 
 +        !me->HasAura(EAT))
 +    {
 +        me->CastSpell(me, EAT);
@@ -3144,36 +3146,76 @@ index 0000000..e859403
 +    //    return;
 +    //ChatHandler ch(master->GetPlayerbotAI() ? master->GetSession()->m_master : master);
 +    //ch.PSendSysMessage("_OnEvade() by bot %s", me->GetName().c_str());
-+    SendPartyEvadeAbort();
-+    HostileRefManager& mgr = master->getHostileRefManager();
-+    if (!mgr.isEmpty())
++    if (master->isInCombat())
 +    {
-+        std::set<Unit*> Set;
-+        HostileReference* ref = mgr.getFirst();
-+        while (ref)
++        HostileRefManager& mgr = master->getHostileRefManager();
++        if (!mgr.isEmpty())
 +        {
-+            if (ref->getSource() && ref->getSource()->getOwner())
-+                Set.insert(ref->getSource()->getOwner());
-+            ref = ref->next();
-+        }
-+        for (std::set<Unit*>::const_iterator i = Set.begin(); i != Set.end(); ++i)
-+        {
-+            Unit* unit = (*i);
-+            if (/*unit->IsFriendlyTo(master)*/IsInBotParty(unit) || !unit->isInCombat())
++            std::set<Unit*> Set;
++            HostileReference* ref = mgr.getFirst();
++            while (ref)
 +            {
-+                //ch.PSendSysMessage("_OnEvade(): %s's hostile reference is removed from %s!", unit->GetName().c_str(), master->GetName().c_str());
-+                mgr.deleteReference(unit);
++                if (ref->getSource() && ref->getSource()->getOwner())
++                    Set.insert(ref->getSource()->getOwner());
++                ref = ref->next();
++            }
++            for (std::set<Unit*>::const_iterator i = Set.begin(); i != Set.end(); ++i)
++            {
++                Unit* unit = (*i);
++                if (/*unit->IsFriendlyTo(master)*/IsInBotParty(unit) || !unit->isInCombat())
++                {
++                    //ch.PSendSysMessage("_OnEvade(): %s's hostile reference is removed from %s!", unit->GetName().c_str(), master->GetName().c_str());
++                    mgr.deleteReference(unit);
++                }
 +            }
 +        }
 +    }
-+    for (uint8 i = 0; i != master->GetMaxNpcBots(); ++i)
++    else
 +    {
-+        Creature* cre = master->GetBotMap(i)->_Cre();
-+        if (!cre) continue;
-+        if (cre->isInCombat())
++        SendPartyEvadeAbort();
++        for (uint8 i = 0; i != master->GetMaxNpcBots(); ++i)
 +        {
-+            cre->DeleteThreatList();
-+            mgr = cre->getHostileRefManager();
++            Creature* cre = master->GetBotMap(i)->_Cre();
++            if (!cre) continue;
++            if (cre->isInCombat())
++            {
++                cre->DeleteThreatList();
++                HostileRefManager& mgr = cre->getHostileRefManager();
++                if (!mgr.isEmpty())
++                {
++                    std::set<Unit*> Set;
++                    HostileReference* ref = mgr.getFirst();
++                    while (ref)
++                    {
++                        if (ref->getSource() && ref->getSource()->getOwner())
++                            Set.insert(ref->getSource()->getOwner());
++                        ref = ref->next();
++                    }
++                    for (std::set<Unit*>::const_iterator i = Set.begin(); i != Set.end(); ++i)
++                    {
++                        Unit* unit = (*i);
++                        if (!unit->InSamePhase(me)) continue;
++                        if (/*unit->IsFriendlyTo(master)*/IsInBotParty(unit) || !unit->isInCombat())
++                        {
++                            //ch.PSendSysMessage("_OnEvade(): %s's hostile reference is removed from %s!", unit->GetName().c_str(), cre->GetName().c_str());
++                            mgr.deleteReference(unit);
++                        }
++                    }
++                }
++                //if (mgr.isEmpty())// has empty threat list and no hostile refs - we have all rights to stop combat
++                //{
++                //    if (cre->isInCombat())
++                //    {
++                //        //ch.PSendSysMessage("_OnEvade(): %s's HostileRef is empty! Combatstop!", cre->GetName().c_str());
++                //        cre->ClearInCombat();
++                //    }
++                //}
++            }
++
++            Creature* m_botsPet = cre->GetBotsPet();
++            if (!m_botsPet || !m_botsPet->isInCombat()) continue;
++            m_botsPet->DeleteThreatList();
++            HostileRefManager& mgr = m_botsPet->getHostileRefManager();
 +            if (!mgr.isEmpty())
 +            {
 +                std::set<Unit*> Set;
@@ -3190,54 +3232,20 @@ index 0000000..e859403
 +                    if (!unit->InSamePhase(me)) continue;
 +                    if (/*unit->IsFriendlyTo(master)*/IsInBotParty(unit) || !unit->isInCombat())
 +                    {
-+                        //ch.PSendSysMessage("_OnEvade(): %s's hostile reference is removed from %s!", unit->GetName().c_str(), cre->GetName().c_str());
++                        //ch.PSendSysMessage("_OnEvade(): %s's hostile reference is removed from %s!", unit->GetName().c_str(), m_botsPet->GetName().c_str());
 +                        mgr.deleteReference(unit);
 +                    }
 +                }
 +            }
 +            //if (mgr.isEmpty())// has empty threat list and no hostile refs - we have all rights to stop combat
 +            //{
-+            //    if (cre->isInCombat())
++            //    if (m_botsPet->isInCombat())
 +            //    {
-+            //        //ch.PSendSysMessage("_OnEvade(): %s's HostileRef is empty! Combatstop!", cre->GetName().c_str());
-+            //        cre->ClearInCombat();
++            //        //ch.PSendSysMessage("_OnEvade(): %s's HostileRef is empty! Combatstop!", pet->GetName().c_str());
++            //        m_botsPet->ClearInCombat();
 +            //    }
 +            //}
 +        }
-+
-+        Creature* m_botsPet = cre->GetBotsPet();
-+        if (!m_botsPet || !m_botsPet->isInCombat()) continue;
-+        m_botsPet->DeleteThreatList();
-+        HostileRefManager& mgr = m_botsPet->getHostileRefManager();
-+        if (!mgr.isEmpty())
-+        {
-+            std::set<Unit*> Set;
-+            HostileReference* ref = mgr.getFirst();
-+            while (ref)
-+            {
-+                if (ref->getSource() && ref->getSource()->getOwner())
-+                    Set.insert(ref->getSource()->getOwner());
-+                ref = ref->next();
-+            }
-+            for (std::set<Unit*>::const_iterator i = Set.begin(); i != Set.end(); ++i)
-+            {
-+                Unit* unit = (*i);
-+                if (!unit->InSamePhase(me)) continue;
-+                if (/*unit->IsFriendlyTo(master)*/IsInBotParty(unit) || !unit->isInCombat())
-+                {
-+                    //ch.PSendSysMessage("_OnEvade(): %s's hostile reference is removed from %s!", unit->GetName().c_str(), m_botsPet->GetName().c_str());
-+                    mgr.deleteReference(unit);
-+                }
-+            }
-+        }
-+        //if (mgr.isEmpty())// has empty threat list and no hostile refs - we have all rights to stop combat
-+        //{
-+        //    if (m_botsPet->isInCombat())
-+        //    {
-+        //        //ch.PSendSysMessage("_OnEvade(): %s's HostileRef is empty! Combatstop!", pet->GetName().c_str());
-+        //        m_botsPet->ClearInCombat();
-+        //    }
-+        //}
 +    }
 +}
 +//SpellHit()... OnSpellHit()
@@ -34476,7 +34484,7 @@ index 3ff70e7..575c599 100755
          InventoryResult CanStoreItem_InSpecificSlot(uint8 bag, uint8 slot, ItemPosCountVec& dest, ItemTemplate const* pProto, uint32& count, bool swap, Item* pSrcItem) const;
          InventoryResult CanStoreItem_InBag(uint8 bag, ItemPosCountVec& dest, ItemTemplate const* pProto, uint32& count, bool merge, bool non_specialized, Item* pSrcItem, uint8 skip_bag, uint8 skip_slot) const;
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index 64a47c4..81613be 100755
+index 64a47c4..340d331 100755
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
 @@ -354,6 +354,17 @@ void Unit::Update(uint32 p_time)
@@ -34484,7 +34492,7 @@ index 64a47c4..81613be 100755
          }
      }
 +    // update combat timer also for npcbots
-+    if (isInCombat() && GetTypeId() == TYPEID_UNIT && (ToCreature()->GetIAmABot() || ToCreature()->GetIAmABotsPet()))
++    if (isInCombat() && GetTypeId() == TYPEID_UNIT && !getVictim() && (ToCreature()->GetIAmABot() || ToCreature()->GetIAmABotsPet()))
 +    {
 +        if (m_HostileRefManager.isEmpty())
 +        {
