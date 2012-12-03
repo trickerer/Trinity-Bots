@@ -1,14 +1,14 @@
-From b3df68be1cb4f341f7238471cb6dfec337ed9b98 Mon Sep 17 00:00:00 2001
+From cd1db15a7da9ba898cb6fe640f6d3e2633d9db23 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Sun, 2 Dec 2012 22:32:49 +0700
+Date: Mon, 3 Dec 2012 13:10:04 +0700
 Subject: [PATCH] NPCBots
 
 ---
  sql/Bots/character_NPC_bots.sql                    |   10 +
  sql/Bots/world.bots.sql                            |  292 ++
  sql/Bots/world.script_bot_giver.sql                |    7 +
- src/server/game/AI/NpcBots/bot_ai.cpp              | 3135 ++++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |  805 +++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 3141 ++++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |  806 +++++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1081 +++++++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  337 +++
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  931 ++++++
@@ -23,7 +23,7 @@ Subject: [PATCH] NPCBots
  src/server/game/CMakeLists.txt                     |    1 +
  src/server/game/Entities/Creature/Creature.cpp     |  127 +
  src/server/game/Entities/Creature/Creature.h       |   35 +
- .../game/Entities/Creature/TemporarySummon.cpp     |    7 +
+ .../game/Entities/Creature/TemporarySummon.cpp     |    8 +
  src/server/game/Entities/Player/Player.cpp         |  620 ++++
  src/server/game/Entities/Player/Player.h           |   46 +
  src/server/game/Entities/Unit/Unit.cpp             |  214 ++
@@ -35,7 +35,7 @@ Subject: [PATCH] NPCBots
  src/server/game/Server/WorldSession.h              |   19 +
  src/server/scripts/Spells/spell_priest.cpp         |    4 +
  src/server/worldserver/worldserver.conf.dist       |   83 +
- 31 files changed, 13385 insertions(+), 0 deletions(-)
+ 31 files changed, 13393 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -383,10 +383,10 @@ index 0000000..5b00cdc
 +
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..4bc3508
+index 0000000..96f6177
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,3135 @@
+@@ -0,0 +1,3141 @@
 +#include "bot_ai.h"
 +#include "Config.h"
 +#include "Chat.h"
@@ -1794,7 +1794,13 @@ index 0000000..4bc3508
 +                }
 +            }
 +        }
-+        setStats(me->GetBotClass(), me->getRace(), master->getLevel());
++        if (shouldUpdateStats)
++            setStats(me->GetBotClass(), me->getRace(), master->getLevel());
++        else
++        {
++            UpdateHealth();
++            UpdateMana();
++        }
 +        if (rezz_cd > 0)
 +            --rezz_cd;
 +        if (clear_cd > 0)
@@ -3350,7 +3356,7 @@ index 0000000..4bc3508
 +    uint32 armor = 0;
 +    float x(0),y(0),z(0);
 +    me->GetClosePoint(x, y, z, me->GetObjectSize());
-+    m_botsPet = me->SummonCreature(entry, x, y, z);
++    m_botsPet = me->SummonCreature(entry, x, y, z, 0, TEMPSUMMON_DEAD_DESPAWN);
 +
 +    if (!m_botsPet)
 +    {
@@ -3367,14 +3373,14 @@ index 0000000..4bc3508
 +    if (result)
 +    {
 +        Field* fields = result->Fetch();
-+        uint32 hp = fields[0].GetUInt32();
-+        uint32 mana = fields[1].GetUInt32();
++        uint32 hp = fields[0].GetUInt16();
++        uint32 mana = fields[1].GetUInt16();
 +        armor = fields[2].GetUInt32();
-+        uint32 str = fields[3].GetUInt32();
-+        uint32 agi = fields[4].GetUInt32();
-+        uint32 sta = fields[5].GetUInt32();
-+        uint32 inte = fields[6].GetUInt32();
-+        uint32 spi = fields[7].GetUInt32();
++        uint32 str = fields[3].GetUInt16();
++        uint32 agi = fields[4].GetUInt16();
++        uint32 sta = fields[5].GetUInt16();
++        uint32 inte = fields[6].GetUInt16();
++        uint32 spi = fields[7].GetUInt16();
 +
 +        m_botsPet->SetCreateHealth(hp);
 +        m_botsPet->SetMaxHealth(hp);
@@ -3524,10 +3530,10 @@ index 0000000..4bc3508
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..c7cea84
+index 0000000..e6bf99e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,805 @@
+@@ -0,0 +1,806 @@
 +#include "ScriptedCreature.h"
 +#include "Group.h"
 +#include "Player.h"
@@ -3649,6 +3655,7 @@ index 0000000..c7cea84
 +        inline void SendPartyEvadeAbort() const;
 +        inline void SetShouldUpdateStats() { shouldUpdateStats = true; }
 +        inline void UpdateHealth() { doHealth = true; }
++        inline void UpdateMana() { doMana = true; }
 +        inline void SetBotTank(Unit* newtank) { tank = newtank; m_TankGuid = newtank ? newtank->GetGUID() : 0; }
 +        static Unit* GetBotGroupMainTank(Group* group) { return _GetBotGroupMainTank(group); }
 +        inline float GetManaRegen() const { return regen_mp5; }
@@ -9866,7 +9873,7 @@ index 0000000..b7e4282
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warlock_ai.cpp b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 new file mode 100644
-index 0000000..4bc1d86
+index 0000000..8ddd44e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 @@ -0,0 +1,451 @@
@@ -9944,10 +9951,10 @@ index 0000000..4bc1d86
 +            if (CCed(me)) return;
 +
 +            //if pet is dead or unreachable
-+            //Creature* m_botsPet = me->GetBotsPet();
-+            //if (!m_botsPet || m_botsPet->GetMap() != master->GetMap() || (me->GetDistance2d(m_botsPet) > sWorld->GetMaxVisibleDistanceOnContinents() - 20.f))
-+            //    if (master->getLevel() >= 10 && !me->isInCombat() && !IsCasting() && !me->IsMounted())
-+            //        SummonBotsPet(PET_VOIDWALKER);
++            Creature* m_botsPet = me->GetBotsPet();
++            if (!m_botsPet || m_botsPet->GetMap() != master->GetMap() || (me->GetDistance2d(m_botsPet) > sWorld->GetMaxVisibleDistanceOnContinents() - 20.f))
++                if (master->getLevel() >= 10 && !me->isInCombat() && !IsCasting() && !me->IsMounted())
++                    SummonBotsPet(PET_VOIDWALKER);
 +
 +            //TODO: implement healthstone
 +            if (GetHealthPCT(me) < 50 && Potion_cd <= diff)
@@ -10065,17 +10072,17 @@ index 0000000..4bc1d86
 +            if (feartarget && doCast(feartarget, FEAR)) {}
 +        }
 +
-+        void SummonedCreatureDies(Creature* summon, Unit* /*killer*/)
-+        {
-+            if (summon == me->GetBotsPet())
-+                me->SetBotsPetDied();
-+        }
++        //void SummonedCreatureDies(Creature* summon, Unit* /*killer*/)
++        //{
++        //    if (summon == me->GetBotsPet())
++        //        me->SetBotsPetDied();
++        //}
 +
-+        void SummonedCreatureDespawn(Creature* summon)
-+        {
-+            if (summon == me->GetBotsPet())
-+                me->SetBotsPet(NULL);
-+        }
++        //void SummonedCreatureDespawn(Creature* summon)
++        //{
++        //    if (summon == me->GetBotsPet())
++        //        me->SetBotsPet(NULL);
++        //}
 +
 +        void SpellHit(Unit* caster, SpellInfo const* spell)
 +        {
@@ -12311,7 +12318,7 @@ index cf71bb1..deb62d8 100644
    ${CMAKE_CURRENT_SOURCE_DIR}/AI/EventAI
    ${CMAKE_CURRENT_SOURCE_DIR}/AI/ScriptedAI
 diff --git a/src/server/game/Entities/Creature/Creature.cpp b/src/server/game/Entities/Creature/Creature.cpp
-index 911ccd2..a38664a 100644
+index 911ccd2..dacc2b1 100644
 --- a/src/server/game/Entities/Creature/Creature.cpp
 +++ b/src/server/game/Entities/Creature/Creature.cpp
 @@ -54,6 +54,9 @@
@@ -12363,7 +12370,7 @@ index 911ccd2..a38664a 100644
 +
 +void Creature::SetBotsPetDied()
 +{
-+    if (!m_bots_pet || !m_bots_pet->IsInWorld())
++    if (!m_bots_pet)
 +        return;
 +    m_bots_pet->SetCharmerGUID(0);
 +    //m_bots_pet->SetBotOwner(NULL);
@@ -12527,19 +12534,20 @@ index f9b6823..8120f74 100644
  
          //WaypointMovementGenerator vars
 diff --git a/src/server/game/Entities/Creature/TemporarySummon.cpp b/src/server/game/Entities/Creature/TemporarySummon.cpp
-index a6b51a4..572b4ba 100644
+index a6b51a4..b4e3954 100644
 --- a/src/server/game/Entities/Creature/TemporarySummon.cpp
 +++ b/src/server/game/Entities/Creature/TemporarySummon.cpp
-@@ -248,6 +248,13 @@ void TempSummon::UnSummon(uint32 msTime)
+@@ -248,6 +248,14 @@ void TempSummon::UnSummon(uint32 msTime)
      if (owner && owner->GetTypeId() == TYPEID_UNIT && owner->ToCreature()->IsAIEnabled)
          owner->ToCreature()->AI()->SummonedCreatureDespawn(this);
  
 +//npcbot
-+    if (GetIAmABot())
++    if (GetIAmABot() || GetIAmABotsPet())
 +    {
 +        //sLog->outError("TempSummon::UnSummon(): Trying to unsummon Bot %s(owner: %s). Aborted", GetName(), GetBotOwner()->GetName());
 +        return;
 +    }
++//end npcbots
 +
      AddObjectToRemoveList();
  }
