@@ -1,6 +1,6 @@
-From e063ed500b1bebb9325105d09055f2a22f874d21 Mon Sep 17 00:00:00 2001
+From a5d887ce6e75903ff912cd6ea097236d46f6189f Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Fri, 21 Dec 2012 11:07:30 +0700
+Date: Fri, 21 Dec 2012 11:58:04 +0700
 Subject: [PATCH] NPCBots
 
 ---
@@ -51,8 +51,8 @@ Subject: [PATCH] NPCBots
  src/server/game/Entities/Creature/Creature.cpp     |  128 +
  src/server/game/Entities/Creature/Creature.h       |   38 +
  .../game/Entities/Creature/TemporarySummon.cpp     |    8 +
- src/server/game/Entities/Player/Player.cpp         |  723 +++++
- src/server/game/Entities/Player/Player.h           |   81 +
+ src/server/game/Entities/Player/Player.cpp         |  746 +++++
+ src/server/game/Entities/Player/Player.h           |   83 +
  src/server/game/Entities/Unit/Unit.cpp             |  214 ++
  src/server/game/Groups/Group.cpp                   |   10 +
  src/server/game/Groups/Group.h                     |    3 +
@@ -63,8 +63,8 @@ Subject: [PATCH] NPCBots
  src/server/game/Server/WorldSession.cpp            |   97 +
  src/server/game/Server/WorldSession.h              |   24 +
  src/server/scripts/Spells/spell_priest.cpp         |    4 +
- src/server/worldserver/worldserver.conf.dist       |  179 ++
- 60 files changed, 26361 insertions(+), 0 deletions(-)
+ src/server/worldserver/worldserver.conf.dist       |  186 ++
+ 60 files changed, 26393 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -25312,7 +25312,7 @@ index a6b51a4..b4e3954 100644
  }
  
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index 3a562ca..fea0eef 100644
+index 3a562ca..1759c57 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -79,6 +79,11 @@
@@ -25346,7 +25346,7 @@ index 3a562ca..fea0eef 100644
          // 4.2.3. Give XP to player.
          player->GiveXP(xp, _victim, _groupRate);
          if (Pet* pet = player->GetPet())
-@@ -858,6 +875,29 @@ Player::Player(WorldSession* session): Unit(true)
+@@ -858,6 +875,31 @@ Player::Player(WorldSession* session): Unit(true)
  
      m_ChampioningFaction = 0;
  
@@ -25369,6 +25369,8 @@ index 3a562ca..fea0eef 100644
 +    m_enableNpcBotsBGs = ConfigMgr::GetBoolDefault("Bot.EnableInBGs", true);
 +    m_enableNpcBotsDungeons = ConfigMgr::GetBoolDefault("Bot.EnableInDungeons", true);
 +    m_enableNpcBotsRaids = ConfigMgr::GetBoolDefault("Bot.EnableInRaids", true);
++    m_limitNpcBotsDungeons = ConfigMgr::GetBoolDefault("Bot.InstanceLimit.Dungeons", false);
++    m_limitNpcBotsRaids = ConfigMgr::GetBoolDefault("Bot.InstanceLimit.Raids", false);
 +    for (uint8 i = 0; i != GetMaxNpcBots(); ++i)
 +        m_botmap[i] = new NpcBotMap();
 +    ///////////////////// End Bot System ////////////////////////
@@ -25376,7 +25378,7 @@ index 3a562ca..fea0eef 100644
      for (uint8 i = 0; i < MAX_POWERS; ++i)
          m_powerFraction[i] = 0;
  
-@@ -910,6 +950,22 @@ Player::~Player()
+@@ -910,6 +952,22 @@ Player::~Player()
      delete m_achievementMgr;
      delete m_reputationMgr;
  
@@ -25399,7 +25401,7 @@ index 3a562ca..fea0eef 100644
      sWorld->DecreasePlayerCount();
  }
  
-@@ -1832,6 +1888,23 @@ void Player::Update(uint32 p_time)
+@@ -1832,6 +1890,23 @@ void Player::Update(uint32 p_time)
      //because we don't want player's ghost teleported from graveyard
      if (IsHasDelayedTeleport() && isAlive())
          TeleportTo(m_teleport_dest, m_teleport_options);
@@ -25423,7 +25425,7 @@ index 3a562ca..fea0eef 100644
  }
  
  void Player::setDeathState(DeathState s)
-@@ -2101,6 +2174,18 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
+@@ -2101,6 +2176,18 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
          return false;
      }
  
@@ -25442,7 +25444,7 @@ index 3a562ca..fea0eef 100644
      // preparing unsummon pet if lost (we must get pet before teleportation or will not find it later)
      Pet* pet = GetPet();
  
-@@ -2460,6 +2545,571 @@ void Player::RemoveFromWorld()
+@@ -2460,6 +2547,592 @@ void Player::RemoveFromWorld()
      }
  }
  
@@ -25696,6 +25698,27 @@ index 3a562ca..fea0eef 100644
 +        ch.PSendSysMessage("Youre exceed max npcbots");
 +        ch.SetSentErrorMessage(true);
 +        return;
++    }
++    //instance limit check
++    if ((m_limitNpcBotsDungeons && GetMap()->IsNonRaidDungeon()) || (m_limitNpcBotsRaids && GetMap()->IsRaid()))
++    {
++        InstanceMap* map = (InstanceMap*)GetMap();
++        uint32 count = 0;
++        Map::PlayerList const& plMap = map->GetPlayers();
++        for (Map::PlayerList::const_iterator itr = plMap.begin(); itr != plMap.end(); ++itr)
++            if (Player* player = itr->getSource())
++                count += (1 + player->GetNpcBotsCount());
++
++        if (count >= map->GetMaxPlayers())
++        {
++            ChatHandler ch(GetSession());
++            for (uint8 pos = 0; pos != GetMaxNpcBots(); ++pos)
++                if (m_botmap[pos]->m_entry == botentry)
++                    ClearBotMustBeCreated(pos, false);
++            ch.PSendSysMessage("Instance players limit exceed");
++            ch.SetSentErrorMessage(true);
++            return;
++        }
 +    }
 +    if (GetGroup() && GetGroup()->isRaidGroup() && GetGroup()->IsFull())
 +    {
@@ -26014,7 +26037,7 @@ index 3a562ca..fea0eef 100644
  void Player::RegenerateAll()
  {
      //if (m_regenTimer <= 500)
-@@ -2935,6 +3585,73 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
+@@ -2935,6 +3608,73 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
  {
      if (group)
      {
@@ -26088,7 +26111,7 @@ index 3a562ca..fea0eef 100644
          group->RemoveMember(guid, method, kicker, reason);
          group = NULL;
      }
-@@ -3117,6 +3834,9 @@ void Player::GiveLevel(uint8 level)
+@@ -3117,6 +3857,9 @@ void Player::GiveLevel(uint8 level)
              }
  
      sScriptMgr->OnPlayerLevelChanged(this, oldLevel);
@@ -26098,7 +26121,7 @@ index 3a562ca..fea0eef 100644
  }
  
  void Player::InitTalentForLevel()
-@@ -4983,6 +5703,9 @@ void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmC
+@@ -4983,6 +5726,9 @@ void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmC
              trans->Append(stmt);
  
              CharacterDatabase.CommitTransaction(trans);
@@ -26109,7 +26132,7 @@ index 3a562ca..fea0eef 100644
          }
          // The character gets unlinked from the account, the name gets freed up and appears as deleted ingame
 diff --git a/src/server/game/Entities/Player/Player.h b/src/server/game/Entities/Player/Player.h
-index 4cd90f2..01f5fe5 100644
+index 4cd90f2..4348d50 100644
 --- a/src/server/game/Entities/Player/Player.h
 +++ b/src/server/game/Entities/Player/Player.h
 @@ -52,6 +52,13 @@ class PlayerSocial;
@@ -26182,7 +26205,7 @@ index 4cd90f2..01f5fe5 100644
      protected:
          // Gamemaster whisper whitelist
          WhisperListContainer WhisperList;
-@@ -2777,6 +2833,31 @@ class Player : public Unit, public GridObject<Player>
+@@ -2777,6 +2833,33 @@ class Player : public Unit, public GridObject<Player>
          uint8 m_grantableLevels;
  
      private:
@@ -26205,6 +26228,8 @@ index 4cd90f2..01f5fe5 100644
 +        bool m_enableNpcBotsBGs;
 +        bool m_enableNpcBotsDungeons;
 +        bool m_enableNpcBotsRaids;
++        bool m_limitNpcBotsDungeons;
++        bool m_limitNpcBotsRaids;
 +        uint32 m_botTimer;
 +        NpcBotMap* m_botmap[MAX_NPCBOTS];
 +        /*********************************************************/
@@ -27040,10 +27065,10 @@ index a15eb7d..7d5080f 100644
              }
  
 diff --git a/src/server/worldserver/worldserver.conf.dist b/src/server/worldserver/worldserver.conf.dist
-index fafc136..63b99c9 100644
+index fafc136..156e8cb 100644
 --- a/src/server/worldserver/worldserver.conf.dist
 +++ b/src/server/worldserver/worldserver.conf.dist
-@@ -2834,3 +2834,182 @@ Loggers=Root Chat DBErrors GM RA Warden Character Load WorldServer Opcodes
+@@ -2834,3 +2834,189 @@ Loggers=Root Chat DBErrors GM RA Warden Character Load WorldServer Opcodes
  
  #
  ###################################################################################################
@@ -27215,6 +27240,13 @@ index fafc136..63b99c9 100644
 +Bot.EnableInBGs = 1
 +Bot.EnableInDungeons = 1
 +Bot.EnableInRaids = 1
++
++#    Bot.InstanceLimit... Dungeons/Raids
++#        If set to 1 will apply instance players limitation to bots
++#        Default: false for all
++
++Bot.InstanceLimit.Dungeons = 0
++Bot.InstanceLimit.Raids = 0
 +
 +#    Bot.AllowAllClasses
 +#        If set to 0 will not allow to create bots (through command) with classes which not yet implemented (in development)
