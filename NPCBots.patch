@@ -1,6 +1,6 @@
-From d630fffad5ff0950a52188fb972945aaf9507b92 Mon Sep 17 00:00:00 2001
+From cffab57e53d7a3c96b3375e2892773e36f1e8a67 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Mon, 24 Dec 2012 13:26:18 +0700
+Date: Sat, 5 Jan 2013 17:14:31 +0700
 Subject: [PATCH] NPCBots
 
 ---
@@ -20,7 +20,7 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  458 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1185 ++++++++
  src/server/game/AI/NpcBots/botcommands.cpp         |  837 ++++++
- src/server/game/AI/NpcBots/botgiver.cpp            |  384 +++
+ src/server/game/AI/NpcBots/botgiver.cpp            |  404 +++
  src/server/game/AI/PlayerBots/bp_ai.cpp            | 1788 +++++++++++
  src/server/game/AI/PlayerBots/bp_ai.h              |  608 ++++
  src/server/game/AI/PlayerBots/bp_cai.cpp           |   14 +
@@ -51,8 +51,8 @@ Subject: [PATCH] NPCBots
  src/server/game/Entities/Creature/Creature.cpp     |  128 +
  src/server/game/Entities/Creature/Creature.h       |   38 +
  .../game/Entities/Creature/TemporarySummon.cpp     |    8 +
- src/server/game/Entities/Player/Player.cpp         |  747 +++++
- src/server/game/Entities/Player/Player.h           |   83 +
+ src/server/game/Entities/Player/Player.cpp         |  837 ++++++
+ src/server/game/Entities/Player/Player.h           |   86 +
  src/server/game/Entities/Unit/Unit.cpp             |  214 ++
  src/server/game/Groups/Group.cpp                   |   10 +
  src/server/game/Groups/Group.h                     |    3 +
@@ -64,8 +64,8 @@ Subject: [PATCH] NPCBots
  src/server/game/Server/WorldSession.cpp            |   97 +
  src/server/game/Server/WorldSession.h              |   24 +
  src/server/scripts/Spells/spell_priest.cpp         |    4 +
- src/server/worldserver/worldserver.conf.dist       |  186 ++
- 61 files changed, 26397 insertions(+), 0 deletions(-)
+ src/server/worldserver/worldserver.conf.dist       |  193 ++
+ 61 files changed, 26517 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -12510,10 +12510,10 @@ index 0000000..f83e55b
 +}
 diff --git a/src/server/game/AI/NpcBots/botgiver.cpp b/src/server/game/AI/NpcBots/botgiver.cpp
 new file mode 100644
-index 0000000..4d4ba60
+index 0000000..9a499e0
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botgiver.cpp
-@@ -0,0 +1,384 @@
+@@ -0,0 +1,404 @@
 +#include "bp_mgr.h"
 +#include "Config.h"
 +#include "Group.h"
@@ -12538,6 +12538,22 @@ index 0000000..4d4ba60
 +    /*CROSS       = */0x040,
 +    /*SKULL       = */0x080,
 +};
++
++enum GossipActions
++{
++    CREATE_NBOT_MENU        = 1,
++    CREATE_NBOT             = 2,
++    CREATE_PBOT_MENU        = 3,
++    CREATE_PBOT             = 4,
++
++    REMOVE_PBOT_MENU        = 5,
++    REMOVE_PBOT             = 6,
++    REMOVE_NBOT_MENU        = 7,
++    REMOVE_NBOT             = 8,
++
++    INFO_WHISPER            = 9
++};
++
 +class script_bot_giver : public CreatureScript
 +{
 +public:
@@ -12547,17 +12563,17 @@ index 0000000..4d4ba60
 +    {
 +        switch (sender)
 +        {
-+            case 6006: SendCreateNPCBotMenu(player, creature, action); break;
-+            case 6001: SendCreateNPCBot(player, creature, action); break;
-+            case 6002: SendCreatePlayerBotMenu(player, creature, action); break;
-+            case 6003: SendCreatePlayerBot(player, creature, action); break;
++            case CREATE_NBOT_MENU:  SendCreateNPCBotMenu(player, creature, action);     break;
++            case CREATE_NBOT:       SendCreateNPCBot(player, creature, action);         break;
++            case CREATE_PBOT_MENU:  SendCreatePlayerBotMenu(player, creature, action);  break;
++            case CREATE_PBOT:       SendCreatePlayerBot(player, creature, action);      break;
 +
-+            case 6004: SendRemovePlayerBotMenu(player, creature, action); break;
-+            case 6005: SendRemovePlayerBot(player, creature, action); break;
-+            case 6007: SendRemoveNPCBotMenu(player, creature, action); break;
-+            case 6008: SendRemoveNPCBot(player, creature, action); break;
++            case REMOVE_PBOT_MENU:  SendRemovePlayerBotMenu(player, creature, action);  break;
++            case REMOVE_PBOT:       SendRemovePlayerBot(player, creature, action);      break;
++            case REMOVE_NBOT_MENU:  SendRemoveNPCBotMenu(player, creature, action);     break;
++            case REMOVE_NBOT:       SendRemoveNPCBot(player, creature, action);         break;
 +
-+            case 6009: SendBotHelpWhisper(player, creature, action); break;
++            case INFO_WHISPER:      SendBotHelpWhisper(player, creature, action);       break;
 +        }
 +        return true;
 +    }
@@ -12574,26 +12590,26 @@ index 0000000..4d4ba60
 +            for (PlayerBotMap::const_iterator itr = mgr->GetPlayerBotsBegin(); itr != mgr->GetPlayerBotsEnd(); ++itr)
 +            {
 +                if (count == 0)
-+                    player->ADD_GOSSIP_ITEM(0, "Abandon my Player", 6004, GOSSIP_ACTION_INFO_DEF + 100);
++                    player->ADD_GOSSIP_ITEM(0, "Abandon my Player", REMOVE_PBOT_MENU, GOSSIP_ACTION_INFO_DEF + 100);
 +                ++count;
 +            }
 +        }
 +        if (count < maxcount && allowPBots)
-+            player->ADD_GOSSIP_ITEM(0, "Recruit a Player", 6002, GOSSIP_ACTION_INFO_DEF + 1);
++            player->ADD_GOSSIP_ITEM(0, "Recruit a Player", CREATE_PBOT_MENU, GOSSIP_ACTION_INFO_DEF + 1);
 +
 +        maxcount = player->GetMaxNpcBots();
 +        if (player->HaveBot())
 +        {
 +            count = player->GetNpcBotsCount();
 +            if (count > 0)
-+                player->ADD_GOSSIP_ITEM(0, "Abandon my Minion", 6007, GOSSIP_ACTION_INFO_DEF + 101);
++                player->ADD_GOSSIP_ITEM(0, "Abandon my Minion", REMOVE_NBOT_MENU, GOSSIP_ACTION_INFO_DEF + 101);
 +            if (count < maxcount && allowNBots)
-+                player->ADD_GOSSIP_ITEM(0, "Recruit a Minion", 6006, GOSSIP_ACTION_INFO_DEF + 2);
++                player->ADD_GOSSIP_ITEM(0, "Recruit a Minion", CREATE_NBOT_MENU, GOSSIP_ACTION_INFO_DEF + 2);
 +        }
 +        else if (allowNBots)
-+            player->ADD_GOSSIP_ITEM(0, "Recruit a Minion", 6006, GOSSIP_ACTION_INFO_DEF + 2);
++            player->ADD_GOSSIP_ITEM(0, "Recruit a Minion", CREATE_NBOT_MENU, GOSSIP_ACTION_INFO_DEF + 2);
 +
-+        player->ADD_GOSSIP_ITEM(0, "Tell me about these bots", 6009, GOSSIP_ACTION_INFO_DEF + 200);
++        player->ADD_GOSSIP_ITEM(0, "Tell me about these bots", INFO_WHISPER, GOSSIP_ACTION_INFO_DEF + 200);
 +
 +        player->PlayerTalkClass->SendGossipMenu(8446, creature->GetGUID());
 +        return true;
@@ -12681,12 +12697,12 @@ index 0000000..4d4ba60
 +        }
 +
 +        player->PlayerTalkClass->ClearMenus();
-+        player->ADD_GOSSIP_ITEM(9, "ADD ALL" , 6003, GOSSIP_ACTION_INFO_DEF + 1);
++        player->ADD_GOSSIP_ITEM(9, "ADD ALL" , CREATE_PBOT, GOSSIP_ACTION_INFO_DEF + 1);
 +        int8 x = 2;
 +
 +        for (std::list<std::string>::iterator iter = names->begin(); iter != names->end(); iter++)
 +        {
-+            player->ADD_GOSSIP_ITEM(9, (*iter).c_str() , 6003, GOSSIP_ACTION_INFO_DEF + x);
++            player->ADD_GOSSIP_ITEM(9, (*iter).c_str() , CREATE_PBOT, GOSSIP_ACTION_INFO_DEF + x);
 +            ++x;
 +        }
 +        player->PlayerTalkClass->SendGossipMenu(8446, creature->GetGUID());
@@ -12700,28 +12716,6 @@ index 0000000..4d4ba60
 +        {
 +            SendRemovePlayerBot(player, creature, GOSSIP_ACTION_INFO_DEF + 2);
 +        }
-+    }
-+
-+    static void SendRemoveNPCBot(Player* player, Creature*  /*creature*/, uint32 action)
-+    {
-+        int8 x = action - GOSSIP_ACTION_INFO_DEF - 1;
-+        if (x == 0)
-+        {
-+            player->CLOSE_GOSSIP_MENU();
-+            for (uint8 i = 0; i != player->GetMaxNpcBots(); ++i)
-+                player->RemoveBot(player->GetBotMap(i)->_Guid(), true);
-+            return;
-+        }
-+        for (uint8 i = 0; i != player->GetMaxNpcBots(); ++i)
-+        {
-+            if (x == 1 && player->GetBotMap(i)->_Cre())
-+            {
-+                player->RemoveBot(player->GetBotMap(i)->_Guid(), true);
-+                break;
-+            }
-+            --x;
-+        }
-+        player->CLOSE_GOSSIP_MENU();
 +    }
 +
 +    static void SendRemovePlayerBot(Player* player, Creature* creature, uint32 action)
@@ -12752,7 +12746,7 @@ index 0000000..4d4ba60
 +    static void SendRemovePlayerBotMenu(Player* player, Creature* creature, uint32 /*action*/)
 +    {
 +        player->PlayerTalkClass->ClearMenus();
-+        player->ADD_GOSSIP_ITEM(9, "REMOVE ALL", 6005, GOSSIP_ACTION_INFO_DEF + 1);
++        player->ADD_GOSSIP_ITEM(9, "REMOVE ALL", REMOVE_PBOT, GOSSIP_ACTION_INFO_DEF + 1);
 +
 +        uint8 x = 2;
 +        if (PlayerbotMgr* mgr = player->GetPlayerbotMgr())
@@ -12760,12 +12754,36 @@ index 0000000..4d4ba60
 +            for (PlayerBotMap::const_iterator itr = mgr->GetPlayerBotsBegin(); itr != mgr->GetPlayerBotsEnd(); ++itr)
 +            {
 +                Player* bot = itr->second;
-+                player->ADD_GOSSIP_ITEM(9, bot->GetName(), 6005, GOSSIP_ACTION_INFO_DEF + x);
++                player->ADD_GOSSIP_ITEM(9, bot->GetName(), REMOVE_PBOT, GOSSIP_ACTION_INFO_DEF + x);
 +                ++x;
 +            }
 +        }
 +        player->PlayerTalkClass->SendGossipMenu(8446, creature->GetGUID());
 +    } //end SendRemovePlayerBotMenu
++
++    static void SendRemoveNPCBot(Player* player, Creature*  /*creature*/, uint32 action)
++    {
++        int8 x = action - GOSSIP_ACTION_INFO_DEF;
++        if (x == 1)
++        {
++            player->CLOSE_GOSSIP_MENU();
++            for (uint8 i = 0; i != player->GetMaxNpcBots(); ++i)
++                player->RemoveBot(player->GetBotMap(i)->_Guid(), true);
++            return;
++        }
++        for (uint8 i = 0; i != player->GetMaxNpcBots(); ++i)
++        {
++            if (!player->GetBotMap(i)->_Cre())
++                continue;
++            if (x == 2)
++            {
++                player->RemoveBot(player->GetBotMap(i)->_Guid(), true);
++                break;
++            }
++            --x;
++        }
++        player->CLOSE_GOSSIP_MENU();
++    }
 +
 +    static void SendRemoveNPCBotMenu(Player* player, Creature* creature, uint32 /*action*/)
 +    {
@@ -12777,14 +12795,14 @@ index 0000000..4d4ba60
 +            player->CLOSE_GOSSIP_MENU();
 +            return;
 +        }
-+        player->ADD_GOSSIP_ITEM(9, "REMOVE ALL", 6008, GOSSIP_ACTION_INFO_DEF + 1);
++        player->ADD_GOSSIP_ITEM(9, "REMOVE ALL", REMOVE_NBOT, GOSSIP_ACTION_INFO_DEF + 1);
 +
 +        uint8 x = 2;
 +        for (uint8 i = 0; i != player->GetMaxNpcBots(); ++i)
 +        {
 +            Creature* bot = player->GetBotMap(i)->_Cre();
 +            if (!bot) continue;
-+            player->ADD_GOSSIP_ITEM(9, bot->GetName(), 6008, GOSSIP_ACTION_INFO_DEF + x);
++            player->ADD_GOSSIP_ITEM(9, bot->GetName(), REMOVE_NBOT, GOSSIP_ACTION_INFO_DEF + x);
 +            ++x;
 +        }
 +        player->PlayerTalkClass->SendGossipMenu(8446, creature->GetGUID());
@@ -12827,17 +12845,19 @@ index 0000000..4d4ba60
 +
 +    static void SendCreateNPCBotMenu(Player* player, Creature* creature, uint32 /*action*/)
 +    {
++        std::string str = player->GetNpcBotCostStr();
++
 +        player->PlayerTalkClass->ClearMenus();
-+        player->ADD_GOSSIP_ITEM(9, "Recruit a Warrior", 6001, GOSSIP_ACTION_INFO_DEF + 2);
-+        //player->ADD_GOSSIP_ITEM(9, "Recruit a Hunter", 6001, GOSSIP_ACTION_INFO_DEF + 3);
-+        player->ADD_GOSSIP_ITEM(9, "Recruit a Paladin", 6001, GOSSIP_ACTION_INFO_DEF + 4);
-+        //player->ADD_GOSSIP_ITEM(9, "Recruit a Shaman", 6001, GOSSIP_ACTION_INFO_DEF + 5);
-+        player->ADD_GOSSIP_ITEM(9, "Recruit a Rogue", 6001, GOSSIP_ACTION_INFO_DEF + 6);
-+        player->ADD_GOSSIP_ITEM(3, "Recruit a Druid", 6001, GOSSIP_ACTION_INFO_DEF + 7);
-+        player->ADD_GOSSIP_ITEM(3, "Recruit a Mage", 6001, GOSSIP_ACTION_INFO_DEF + 8);
-+        player->ADD_GOSSIP_ITEM(3, "Recruit a Priest", 6001, GOSSIP_ACTION_INFO_DEF + 9);
-+        player->ADD_GOSSIP_ITEM(3, "Recruit a Warlock", 6001, GOSSIP_ACTION_INFO_DEF + 10);
-+        //player->ADD_GOSSIP_ITEM(9, "Recruit a Death Knight", 1, GOSSIP_ACTION_INFO_DEF + 11);
++        player->ADD_GOSSIP_ITEM(9, "Recruit a Warrior " + str, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 2);
++        //player->ADD_GOSSIP_ITEM(9, "Recruit a Hunter " + str, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 3);
++        player->ADD_GOSSIP_ITEM(9, "Recruit a Paladin " + str, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 4);
++        //player->ADD_GOSSIP_ITEM(9, "Recruit a Shaman " + str, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 5);
++        player->ADD_GOSSIP_ITEM(9, "Recruit a Rogue " + str, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 6);
++        player->ADD_GOSSIP_ITEM(3, "Recruit a Druid " + str, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 7);
++        player->ADD_GOSSIP_ITEM(3, "Recruit a Mage " + str, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 8);
++        player->ADD_GOSSIP_ITEM(3, "Recruit a Priest " + str, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 9);
++        player->ADD_GOSSIP_ITEM(3, "Recruit a Warlock " + str, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 10);
++        //player->ADD_GOSSIP_ITEM(9, "Recruit a Death Knight " + str, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 11);
 +        player->PlayerTalkClass->SendGossipMenu(8446, creature->GetGUID());
 +    }
 +
@@ -21583,7 +21603,7 @@ index 0000000..07dc796
 +#endif
 diff --git a/src/server/game/AI/PlayerBots/bp_sha_ai.cpp b/src/server/game/AI/PlayerBots/bp_sha_ai.cpp
 new file mode 100644
-index 0000000..1e2bb78
+index 0000000..1f12e4b
 --- /dev/null
 +++ b/src/server/game/AI/PlayerBots/bp_sha_ai.cpp
 @@ -0,0 +1,1660 @@
@@ -23156,7 +23176,7 @@ index 0000000..1e2bb78
 +    //1 Shaman specific
 +    //1.1 item enchancements
 +    //casts are instant so check even in combat
-+    //1.1.1 maainhand
++    //1.1.1 mainhand
 +    Item* weapon = me->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_MAINHAND);
 +    if (weapon && !weapon->GetEnchantmentId(TEMP_ENCHANTMENT_SLOT))
 +    {
@@ -25313,7 +25333,7 @@ index a6b51a4..b4e3954 100644
  }
  
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index 3a562ca..e52a823 100644
+index 3a562ca..26767f4 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -79,6 +79,11 @@
@@ -25347,7 +25367,7 @@ index 3a562ca..e52a823 100644
          // 4.2.3. Give XP to player.
          player->GiveXP(xp, _victim, _groupRate);
          if (Pet* pet = player->GetPet())
-@@ -858,6 +875,31 @@ Player::Player(WorldSession* session): Unit(true)
+@@ -858,6 +875,32 @@ Player::Player(WorldSession* session): Unit(true)
  
      m_ChampioningFaction = 0;
  
@@ -25372,6 +25392,7 @@ index 3a562ca..e52a823 100644
 +    m_enableNpcBotsRaids = ConfigMgr::GetBoolDefault("Bot.EnableInRaids", true);
 +    m_limitNpcBotsDungeons = ConfigMgr::GetBoolDefault("Bot.InstanceLimit.Dungeons", false);
 +    m_limitNpcBotsRaids = ConfigMgr::GetBoolDefault("Bot.InstanceLimit.Raids", false);
++    m_NpcBotsCost = ConfigMgr::GetIntDefault("Bot.Cost", 0);
 +    for (uint8 i = 0; i != GetMaxNpcBots(); ++i)
 +        m_botmap[i] = new NpcBotMap();
 +    ///////////////////// End Bot System ////////////////////////
@@ -25379,7 +25400,7 @@ index 3a562ca..e52a823 100644
      for (uint8 i = 0; i < MAX_POWERS; ++i)
          m_powerFraction[i] = 0;
  
-@@ -910,6 +952,22 @@ Player::~Player()
+@@ -910,6 +953,22 @@ Player::~Player()
      delete m_achievementMgr;
      delete m_reputationMgr;
  
@@ -25402,7 +25423,7 @@ index 3a562ca..e52a823 100644
      sWorld->DecreasePlayerCount();
  }
  
-@@ -1832,6 +1890,23 @@ void Player::Update(uint32 p_time)
+@@ -1832,6 +1891,23 @@ void Player::Update(uint32 p_time)
      //because we don't want player's ghost teleported from graveyard
      if (IsHasDelayedTeleport() && isAlive())
          TeleportTo(m_teleport_dest, m_teleport_options);
@@ -25426,14 +25447,15 @@ index 3a562ca..e52a823 100644
  }
  
  void Player::setDeathState(DeathState s)
-@@ -2101,6 +2176,18 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
+@@ -2101,6 +2177,19 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
          return false;
      }
  
 +    //Playerbot mod: tell bots to stop following master
 +    //so they don't try to follow the master after he teleports
-+    if (GetPlayerbotMgr())
-+        GetPlayerbotMgr()->Stay();
++    //TODO: this should be deleted after pointed movement implementation
++    if (m_playerbotMgr != NULL)
++        m_playerbotMgr->Stay();
 +
 +    //Npcbot mod: prevent crash on InstanceMap::DestroyInstance()... Unit::RemoveFromWorld()
 +    //if last player being kicked out of instance while having npcbots
@@ -25445,7 +25467,7 @@ index 3a562ca..e52a823 100644
      // preparing unsummon pet if lost (we must get pet before teleportation or will not find it later)
      Pet* pet = GetPet();
  
-@@ -2460,6 +2547,593 @@ void Player::RemoveFromWorld()
+@@ -2460,6 +2549,681 @@ void Player::RemoveFromWorld()
      }
  }
  
@@ -25926,6 +25948,31 @@ index 3a562ca..e52a823 100644
 +        (!m_enableNpcBotsRaids && GetMap()->IsRaid());
 +}
 +
++uint32 Player::GetNpcBotCost() const
++{
++    return m_NpcBotsCost ? uint32((m_NpcBotsCost / 80.f) * getLevel()) : 0;
++}
++
++std::string Player::GetNpcBotCostStr() const
++{
++    std::ostringstream money;
++
++    if (uint32 cost = GetNpcBotCost())
++    {
++        uint32 gold = uint32(cost / 10000);
++        cost -= (gold * 10000);
++        uint32 silver = uint32(cost / 100);
++        cost -= (silver * 100);
++
++        if (gold != 0)
++            money << gold << " |TInterface\\Icons\\INV_Misc_Coin_01:8|t";
++        if (silver != 0)
++            money << silver << " |TInterface\\Icons\\INV_Misc_Coin_03:8|t";
++        money << cost << " |TInterface\\Icons\\INV_Misc_Coin_05:8|t";
++    }
++    return money.str();
++}
++
 +//NPCbot base setup
 +void Player::CreateNPCBot(uint8 bot_class)
 +{
@@ -25944,7 +25991,8 @@ index 3a562ca..e52a823 100644
 +            return;
 +        }
 +    }
-+    //check if not allowed class chosen (exclude warlock)
++
++    //check if not allowed class is chosen
 +    bool allow = m_enableAllNpcBots;
 +    if (!allow && 
 +        (bot_class != CLASS_WARRIOR &&
@@ -25970,8 +26018,18 @@ index 3a562ca..e52a823 100644
 +        return;
 +    }
 +
-+    uint32 entry = 0;
-+    uint32 bot_race = 0;
++    //check if player cannot afford a bot
++    uint32 cost = GetNpcBotCost();
++    if (GetMoney() < cost)
++    {
++        ChatHandler ch(GetSession());
++        std::string str = "You don't have enough money (";
++        str += GetNpcBotCostStr();
++        str += ")!";
++        ch.SendSysMessage(str.c_str());
++        ch.SetSentErrorMessage(true);
++        return;
++    }
 +
 +    QueryResult result;
 +
@@ -26005,41 +26063,93 @@ index 3a562ca..e52a823 100644
 +        break;
 +    }
 +
-+    //randomly select one of NPCs
++    uint32 entry = 0;
++    uint32 bot_race = 0;
++
++    //find a bot to add
++    //first check randomly selected bot, second check any bot we can add
 +    if (result)
 +    {
-+        uint32 m_rand = urand(1, uint32(result->GetRowCount()));
-+        uint32 tmp_rand = 0;
++        std::set<std::pair<uint32, uint8>> npcBotsData;
 +        do
 +        {
-+            ++tmp_rand;
-+            if (tmp_rand == m_rand)
-+            {
-+                Field* fields = result->Fetch();
-+                entry = fields[0].GetUInt32();
-+                bot_race = fields[1].GetUInt8();
-+                break;
-+            }
++            Field* fields = result->Fetch();
++            uint32 temp_entry = fields[0].GetUInt32();
++            uint32 temp_race = fields[1].GetUInt8();
++            npcBotsData.insert(std::make_pair<uint32, uint8>(temp_entry, temp_race));
 +        } while (result->NextRow());
-+       // delete result;
-+    }
-+    for (uint8 i = 0; i != GetMaxNpcBots(); ++i)
-+    {
-+        if (m_botmap[i]->m_entry == entry)//do not allow duplicates on every single char
++
++        uint32 m_rand = urand(1, uint32(result->GetRowCount()));
++        uint32 tmp_rand = 1;
++        std::set<std::pair<uint32, uint8>>::const_iterator itr = npcBotsData.begin();
++        bool haveSameBot = false;
++        bool moveback = false;
++        bool forcedCheck = false;
++        bool secondCheck = false;
++        while (true)
 +        {
-+            ChatHandler ch(GetSession());
-+            ch.PSendSysMessage("OOPs! You've rolled a duplicate bot! maybe you should try again?");
-+            ch.SetSentErrorMessage(true);
-+            return;
++            if (itr == npcBotsData.end()) //end of list is reached (selected bot is checked)
++            {
++                moveback = true;
++                --itr; //tmp_rand is not needed anymore
++                continue;
++            }
++            if (moveback && itr == npcBotsData.begin()) //search is finished, nothing found
++                break;
++            if (tmp_rand == m_rand || haveSameBot)
++            {
++                bool canAdd = true;
++                for (uint8 i = 0; i != GetMaxNpcBots(); ++i)
++                {
++                    if (m_botmap[i]->m_entry == (*itr).first)
++                    {
++                        haveSameBot = true;
++                        canAdd = false;
++                        if (!secondCheck)
++                            forcedCheck = true;
++                        secondCheck = true;
++                        break;
++                    }
++                }
++                if (canAdd)
++                {
++                    entry = (*itr).first;
++                    bot_race = (*itr).second;
++                    break;
++                }
++                if (forcedCheck)
++                {
++                    itr = npcBotsData.begin(); //reset searcher pos
++                    forcedCheck = false;
++                    continue;
++                }
++            }
++            //move through
++            if (moveback)
++                --itr;
++            else
++            {
++                ++itr;
++                ++tmp_rand;
++            }
 +        }
 +    }
++    if (!entry || !bot_race)
++    {
++        ChatHandler ch(GetSession());
++        ch.SendSysMessage("No more bots of this class available");
++        ch.SetSentErrorMessage(true);
++        return;
++    }
 +    SetBotMustBeCreated(entry, bot_race, bot_class);
++    if (cost)
++        ModifyMoney(-(int32(cost)));
 +}
 +
  void Player::RegenerateAll()
  {
      //if (m_regenTimer <= 500)
-@@ -2935,6 +3609,73 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
+@@ -2935,6 +3699,73 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
  {
      if (group)
      {
@@ -26113,7 +26223,7 @@ index 3a562ca..e52a823 100644
          group->RemoveMember(guid, method, kicker, reason);
          group = NULL;
      }
-@@ -3117,6 +3858,9 @@ void Player::GiveLevel(uint8 level)
+@@ -3117,6 +3948,9 @@ void Player::GiveLevel(uint8 level)
              }
  
      sScriptMgr->OnPlayerLevelChanged(this, oldLevel);
@@ -26123,7 +26233,7 @@ index 3a562ca..e52a823 100644
  }
  
  void Player::InitTalentForLevel()
-@@ -4983,6 +5727,9 @@ void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmC
+@@ -4983,6 +5817,9 @@ void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmC
              trans->Append(stmt);
  
              CharacterDatabase.CommitTransaction(trans);
@@ -26134,7 +26244,7 @@ index 3a562ca..e52a823 100644
          }
          // The character gets unlinked from the account, the name gets freed up and appears as deleted ingame
 diff --git a/src/server/game/Entities/Player/Player.h b/src/server/game/Entities/Player/Player.h
-index 4cd90f2..4348d50 100644
+index 4cd90f2..ffcbd67 100644
 --- a/src/server/game/Entities/Player/Player.h
 +++ b/src/server/game/Entities/Player/Player.h
 @@ -52,6 +52,13 @@ class PlayerSocial;
@@ -26151,7 +26261,7 @@ index 4cd90f2..4348d50 100644
  typedef std::deque<Mail*> PlayerMails;
  
  #define PLAYER_MAX_SKILLS           127
-@@ -2517,6 +2524,55 @@ class Player : public Unit, public GridObject<Player>
+@@ -2517,6 +2524,57 @@ class Player : public Unit, public GridObject<Player>
              }
          }
  
@@ -26200,6 +26310,8 @@ index 4cd90f2..4348d50 100644
 +        uint8 GetMaxNpcBots() const;
 +        uint8 GetNpcBotXpReduction() const { return m_xpReductionNpcBots; }
 +        bool RestrictBots() const;
++        uint32 GetNpcBotCost() const;
++        std::string GetNpcBotCostStr() const;
 +        /*********************************************************/
 +        /***                 END BOT SYSTEM                    ***/
 +        /*********************************************************/
@@ -26207,7 +26319,7 @@ index 4cd90f2..4348d50 100644
      protected:
          // Gamemaster whisper whitelist
          WhisperListContainer WhisperList;
-@@ -2777,6 +2833,33 @@ class Player : public Unit, public GridObject<Player>
+@@ -2777,6 +2835,34 @@ class Player : public Unit, public GridObject<Player>
          uint8 m_grantableLevels;
  
      private:
@@ -26232,6 +26344,7 @@ index 4cd90f2..4348d50 100644
 +        bool m_enableNpcBotsRaids;
 +        bool m_limitNpcBotsDungeons;
 +        bool m_limitNpcBotsRaids;
++        uint32 m_NpcBotsCost;
 +        uint32 m_botTimer;
 +        NpcBotMap* m_botmap[MAX_NPCBOTS];
 +        /*********************************************************/
@@ -27082,10 +27195,10 @@ index a15eb7d..7d5080f 100644
              }
  
 diff --git a/src/server/worldserver/worldserver.conf.dist b/src/server/worldserver/worldserver.conf.dist
-index fafc136..156e8cb 100644
+index fafc136..0f355f1 100644
 --- a/src/server/worldserver/worldserver.conf.dist
 +++ b/src/server/worldserver/worldserver.conf.dist
-@@ -2834,3 +2834,189 @@ Loggers=Root Chat DBErrors GM RA Warden Character Load WorldServer Opcodes
+@@ -2834,3 +2834,196 @@ Loggers=Root Chat DBErrors GM RA Warden Character Load WorldServer Opcodes
  
  #
  ###################################################################################################
@@ -27264,6 +27377,13 @@ index fafc136..156e8cb 100644
 +
 +Bot.InstanceLimit.Dungeons = 0
 +Bot.InstanceLimit.Raids = 0
++
++#    Bot.Cost
++#        Bot recruitment cost (in copper)
++#        Note: this value is set for lvl 80 characters. Cost will be reduced for lower levels
++#        Default: 0
++
++Bot.Cost = 0
 +
 +#    Bot.AllowAllClasses
 +#        If set to 0 will not allow to create bots (through command) with classes which not yet implemented (in development)
