@@ -1,6 +1,6 @@
-From cffab57e53d7a3c96b3375e2892773e36f1e8a67 Mon Sep 17 00:00:00 2001
+From 54bf0449dca531658db1a01d0d19fe7edb9a047b Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Sat, 5 Jan 2013 17:14:31 +0700
+Date: Tue, 8 Jan 2013 14:13:29 +0700
 Subject: [PATCH] NPCBots
 
 ---
@@ -61,11 +61,11 @@ Subject: [PATCH] NPCBots
  src/server/game/Handlers/QuestHandler.cpp          |    8 +
  src/server/game/Maps/Map.cpp                       |    3 +
  src/server/game/Scripting/ScriptLoader.cpp         |   24 +
- src/server/game/Server/WorldSession.cpp            |   97 +
+ src/server/game/Server/WorldSession.cpp            |  100 +
  src/server/game/Server/WorldSession.h              |   24 +
  src/server/scripts/Spells/spell_priest.cpp         |    4 +
  src/server/worldserver/worldserver.conf.dist       |  193 ++
- 61 files changed, 26517 insertions(+), 0 deletions(-)
+ 61 files changed, 26520 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -26948,7 +26948,7 @@ index b794d45..ae53a4c 100644
  #endif
  }
 diff --git a/src/server/game/Server/WorldSession.cpp b/src/server/game/Server/WorldSession.cpp
-index 0185d4a..15b66c5 100644
+index 0185d4a..258f9b6 100644
 --- a/src/server/game/Server/WorldSession.cpp
 +++ b/src/server/game/Server/WorldSession.cpp
 @@ -45,6 +45,10 @@
@@ -27051,33 +27051,36 @@ index 0185d4a..15b66c5 100644
      //check if we are safe to proceed with logout
      //logout procedure should happen only in World::UpdateSessions() method!!!
      if (updater.ProcessLogout())
-@@ -397,6 +453,25 @@ bool WorldSession::Update(uint32 diff, PacketFilter& updater)
+@@ -397,6 +453,28 @@ bool WorldSession::Update(uint32 diff, PacketFilter& updater)
  /// %Log the player out
  void WorldSession::LogoutPlayer(bool Save)
  {
-+    //log out all player bots owned by this toon
-+    if (_player->HavePBot())
-+        _player->GetPlayerbotMgr()->LogoutAllBots();
-+    //logout playerbot properly (logout can be called from elsewhere)
-+    //bot will be erased from botmap before second logout call
-+    else if (_player->IsPlayerBot() && m_master && m_master->GetPlayerbotMgr()->GetPlayerBot(_player->GetGUID()))
-+        m_master->GetPlayerbotMgr()->LogoutPlayerBot(_player->GetGUID());
-+
-+    //remove npcbots but do not delete from DB so it can be reaccured on next login
 +    uint8 nBotCount = 0;
-+    for (uint8 i = 0; i != _player->GetMaxNpcBots(); ++i)
++    if (_player)
 +    {
-+        if (_player->GetBotMap(i)->_Guid())
++        //log out all player bots owned by this toon
++        if (_player->HavePBot())
++            _player->GetPlayerbotMgr()->LogoutAllBots();
++        //logout playerbot properly (logout can be called from elsewhere)
++        //bot will be erased from botmap before second logout call
++        else if (_player->IsPlayerBot() && m_master && m_master->GetPlayerbotMgr()->GetPlayerBot(_player->GetGUID()))
++            m_master->GetPlayerbotMgr()->LogoutPlayerBot(_player->GetGUID());
++
++        //remove npcbots but do not delete from DB so it can be reaccured on next login
++        for (uint8 i = 0; i != _player->GetMaxNpcBots(); ++i)
 +        {
-+            _player->RemoveBot(_player->GetBotMap(i)->_Guid(), true, false);
-+            ++nBotCount;
++            if (_player->GetBotMap(i)->_Guid())
++            {
++                _player->RemoveBot(_player->GetBotMap(i)->_Guid(), true, false);
++                ++nBotCount;
++            }
 +        }
 +    }
 +
      // finish pending transfers before starting the logout
      while (_player && _player->IsBeingTeleportedFar())
          HandleMoveWorldportAckOpcode();
-@@ -520,6 +595,9 @@ void WorldSession::LogoutPlayer(bool Save)
+@@ -520,6 +598,9 @@ void WorldSession::LogoutPlayer(bool Save)
          // remove player from the group if he is:
          // a) in group; b) not in raid group; c) logging out normally (not being kicked or disconnected)
          if (_player->GetGroup() && !_player->GetGroup()->isRaidGroup() && m_Socket)
@@ -27087,7 +27090,7 @@ index 0185d4a..15b66c5 100644
              _player->RemoveFromGroup();
  
          //! Send update to group and reset stored max enchanting level
-@@ -555,9 +633,14 @@ void WorldSession::LogoutPlayer(bool Save)
+@@ -555,9 +636,14 @@ void WorldSession::LogoutPlayer(bool Save)
          sLog->outDebug(LOG_FILTER_NETWORKIO, "SESSION: Sent SMSG_LOGOUT_COMPLETE Message");
  
          //! Since each account can only have one online character at any given time, ensure all characters for active account are marked as offline
@@ -27102,7 +27105,7 @@ index 0185d4a..15b66c5 100644
      }
  
      m_playerLogout = false;
-@@ -1113,6 +1196,20 @@ void WorldSession::ProcessQueryCallbacks()
+@@ -1113,6 +1199,20 @@ void WorldSession::ProcessQueryCallbacks()
          _charLoginCallback.cancel();
      }
  
