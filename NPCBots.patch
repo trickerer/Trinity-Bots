@@ -1,6 +1,6 @@
-From eccc09424344d3cc98519cdab80a5403ee4fbd8d Mon Sep 17 00:00:00 2001
+From c81517ef3edfe33dc22c0a05fc357c52b6ce8404 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Sun, 10 Mar 2013 15:24:27 +0700
+Date: Sat, 16 Mar 2013 23:18:42 +0700
 Subject: [PATCH] NPCBots
 
 ---
@@ -19,8 +19,8 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  390 +++
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  458 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1185 ++++++++
- src/server/game/AI/NpcBots/botcommands.cpp         |  837 ++++++
- src/server/game/AI/NpcBots/botgiver.cpp            |  404 +++
+ src/server/game/AI/NpcBots/botcommands.cpp         |  838 ++++++
+ src/server/game/AI/NpcBots/botgiver.cpp            |  436 +++
  src/server/game/AI/PlayerBots/bp_ai.cpp            | 1788 +++++++++++
  src/server/game/AI/PlayerBots/bp_ai.h              |  608 ++++
  src/server/game/AI/PlayerBots/bp_cai.cpp           |   14 +
@@ -65,7 +65,7 @@ Subject: [PATCH] NPCBots
  src/server/game/Server/WorldSession.h              |   24 +
  src/server/scripts/Spells/spell_priest.cpp         |    4 +
  src/server/worldserver/worldserver.conf.dist       |  193 ++
- 61 files changed, 26522 insertions(+), 0 deletions(-)
+ 61 files changed, 26555 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world.bots.sql
  create mode 100644 sql/Bots/world.script_bot_giver.sql
@@ -11667,10 +11667,10 @@ index 0000000..d664897
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 0000000..f83e55b
+index 0000000..b2e93f8
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
-@@ -0,0 +1,837 @@
+@@ -0,0 +1,838 @@
 +/*
 +Name: script_bot_commands
 +%Complete: ???
@@ -11824,7 +11824,8 @@ index 0000000..f83e55b
 +                    {
 +                        Field* fields = results->Fetch();
 +                        plName = fields[0].GetString();
-+                        if (sObjectAccessor->FindPlayerByName(plName)) continue;
++                        if (sObjectAccessor->FindPlayerByName(plName))
++                            continue;
 +                        names->insert(names->end(), plName);
 +                    } while(results->NextRow());
 +                }
@@ -12510,10 +12511,10 @@ index 0000000..f83e55b
 +}
 diff --git a/src/server/game/AI/NpcBots/botgiver.cpp b/src/server/game/AI/NpcBots/botgiver.cpp
 new file mode 100644
-index 0000000..9a499e0
+index 0000000..6df80a5
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botgiver.cpp
-@@ -0,0 +1,404 @@
+@@ -0,0 +1,436 @@
 +#include "bp_mgr.h"
 +#include "Config.h"
 +#include "Group.h"
@@ -12556,6 +12557,12 @@ index 0000000..9a499e0
 +
 +class script_bot_giver : public CreatureScript
 +{
++    uint8 maxPBcount;
++    uint8 maxNBcount;
++
++    bool allowPBots;
++    bool allowNBots;
++
 +public:
 +    script_bot_giver() : CreatureScript("script_bot_giver") { }
 +
@@ -12581,9 +12588,12 @@ index 0000000..9a499e0
 +    bool OnGossipHello(Player* player, Creature* creature)
 +    {
 +        uint8 count = 0;
-+        uint8 maxcount = ConfigMgr::GetIntDefault("Bot.MaxPlayerbots", 9);
-+        bool allowPBots = ConfigMgr::GetBoolDefault("Bot.EnablePlayerBots", false);
-+        bool allowNBots = ConfigMgr::GetBoolDefault("Bot.EnableNpcBots", true) && !player->RestrictBots();
++
++        maxPBcount = ConfigMgr::GetIntDefault("Bot.MaxPlayerbots", 9);
++        maxNBcount = player->GetMaxNpcBots();
++
++        allowPBots = ConfigMgr::GetBoolDefault("Bot.EnablePlayerBots", false);
++        allowNBots = ConfigMgr::GetBoolDefault("Bot.EnableNpcBots", true) && !player->RestrictBots();
 +
 +        if (PlayerbotMgr* mgr = player->GetPlayerbotMgr())
 +        {
@@ -12594,19 +12604,18 @@ index 0000000..9a499e0
 +                ++count;
 +            }
 +        }
-+        if (count < maxcount && allowPBots)
++        if (count < maxPBcount && allowPBots)
 +            player->ADD_GOSSIP_ITEM(0, "Recruit a Player", CREATE_PBOT_MENU, GOSSIP_ACTION_INFO_DEF + 1);
 +
-+        maxcount = player->GetMaxNpcBots();
 +        if (player->HaveBot())
 +        {
 +            count = player->GetNpcBotsCount();
 +            if (count > 0)
 +                player->ADD_GOSSIP_ITEM(0, "Abandon my Minion", REMOVE_NBOT_MENU, GOSSIP_ACTION_INFO_DEF + 101);
-+            if (count < maxcount && allowNBots)
++            if (count < maxNBcount && allowNBots)
 +                player->ADD_GOSSIP_ITEM(0, "Recruit a Minion", CREATE_NBOT_MENU, GOSSIP_ACTION_INFO_DEF + 2);
 +        }
-+        else if (allowNBots)
++        else if (allowNBots && maxNBcount != 0)
 +            player->ADD_GOSSIP_ITEM(0, "Recruit a Minion", CREATE_NBOT_MENU, GOSSIP_ACTION_INFO_DEF + 2);
 +
 +        player->ADD_GOSSIP_ITEM(0, "Tell me about these bots", INFO_WHISPER, GOSSIP_ACTION_INFO_DEF + 200);
@@ -12615,7 +12624,7 @@ index 0000000..9a499e0
 +        return true;
 +    }
 +
-+    static void SendCreatePlayerBot(Player* player, Creature*  /*creature*/, uint32 action)
++    static void SendCreatePlayerBot(Player* player, Creature* /*creature*/, uint32 action)
 +    {
 +        std::string plName;
 +        std::list<std::string>* names = new std::list<std::string>;
@@ -12627,13 +12636,15 @@ index 0000000..9a499e0
 +            {
 +                Field* fields = results->Fetch();
 +                plName = fields[0].GetString();
-+                if (sObjectAccessor->FindPlayerByName(plName)) continue;
++                if (sObjectAccessor->FindPlayerByName(plName))
++                    continue;
 +                names->insert(names->end(), plName);
-+            } while(results->NextRow());
++            } while (results->NextRow());
 +        }
 +
 +        if (names->empty())
 +        {
++            delete names;
 +            player->CLOSE_GOSSIP_MENU();
 +            return;
 +        }
@@ -12653,7 +12664,7 @@ index 0000000..9a499e0
 +            {
 +                uint64 guid = sObjectMgr->GetPlayerGUIDByName((*iter).c_str());
 +                if (mgr->GetPlayerBot(guid) != NULL)
-+                    return;
++                    continue;
 +                mgr->AddPlayerBot(guid);
 +            }
 +            else
@@ -12662,7 +12673,7 @@ index 0000000..9a499e0
 +                {
 +                    uint64 guid = sObjectMgr->GetPlayerGUIDByName((*iter).c_str());
 +                    if (mgr->GetPlayerBot(guid) != NULL)
-+                        return;
++                        break;
 +                    mgr->AddPlayerBot(guid);
 +                    break;
 +                }
@@ -12673,7 +12684,7 @@ index 0000000..9a499e0
 +        delete names;
 +    }
 +
-+    static void SendCreatePlayerBotMenu(Player* player, Creature* creature, uint32 /*action*/)
++    void SendCreatePlayerBotMenu(Player* player, Creature* creature, uint32 /*action*/)
 +    {
 +        std::string plName;
 +        std::list<std::string>* names = new std::list<std::string>;
@@ -12685,26 +12696,40 @@ index 0000000..9a499e0
 +            {
 +                Field* fields = results->Fetch();
 +                plName = fields[0].GetString();
-+                if (sObjectAccessor->FindPlayerByName(plName)) continue;
++                if (sObjectAccessor->FindPlayerByName(plName))
++                    continue;
 +                names->insert(names->end(), plName);
-+            } while(results->NextRow());
++            } while (results->NextRow());
 +        }
 +
 +        if (names->empty())
 +        {
++            delete names;
 +            player->CLOSE_GOSSIP_MENU();
 +            return;
 +        }
 +
 +        player->PlayerTalkClass->ClearMenus();
-+        player->ADD_GOSSIP_ITEM(9, "ADD ALL" , CREATE_PBOT, GOSSIP_ACTION_INFO_DEF + 1);
++        PlayerbotMgr* mgr = player->GetPlayerbotMgr();
++        uint8 bots = !mgr ? 0 : mgr->GetPlayerBotsCount();
++        uint32 freePBSlots = maxPBcount - bots;
++        if (freePBSlots != 1 && freePBSlots >= names->size())
++            player->ADD_GOSSIP_ITEM(9, "ADD ALL" , CREATE_PBOT, GOSSIP_ACTION_INFO_DEF + 1);
++        
 +        int8 x = 2;
-+
 +        for (std::list<std::string>::iterator iter = names->begin(); iter != names->end(); iter++)
 +        {
 +            player->ADD_GOSSIP_ITEM(9, (*iter).c_str() , CREATE_PBOT, GOSSIP_ACTION_INFO_DEF + x);
 +            ++x;
 +        }
++        std::ostringstream buff;
++        if (freePBSlots != 0)
++            buff << freePBSlots;
++        else
++            buff << "no";
++        buff << (bots == 0 ? "" : " more") << ((freePBSlots == 1) ? " bot" : " bots") << " available";
++        player->ADD_GOSSIP_ITEM(0, buff.str().c_str(), CREATE_PBOT_MENU, GOSSIP_ACTION_INFO_DEF + 1);
++
 +        player->PlayerTalkClass->SendGossipMenu(8446, creature->GetGUID());
 +
 +        delete names;
@@ -12713,9 +12738,7 @@ index 0000000..9a499e0
 +    static void SendRemovePlayerBotAll(Player* player, Creature* creature)
 +    {
 +        for (int8 x = 2; x<=10; x++ )
-+        {
 +            SendRemovePlayerBot(player, creature, GOSSIP_ACTION_INFO_DEF + 2);
-+        }
 +    }
 +
 +    static void SendRemovePlayerBot(Player* player, Creature* creature, uint32 action)
@@ -12746,17 +12769,16 @@ index 0000000..9a499e0
 +    static void SendRemovePlayerBotMenu(Player* player, Creature* creature, uint32 /*action*/)
 +    {
 +        player->PlayerTalkClass->ClearMenus();
-+        player->ADD_GOSSIP_ITEM(9, "REMOVE ALL", REMOVE_PBOT, GOSSIP_ACTION_INFO_DEF + 1);
++        PlayerbotMgr* mgr = player->GetPlayerbotMgr();
++        if (mgr->GetPlayerBotsCount() != 1)
++            player->ADD_GOSSIP_ITEM(9, "REMOVE ALL", REMOVE_PBOT, GOSSIP_ACTION_INFO_DEF + 1);
 +
 +        uint8 x = 2;
-+        if (PlayerbotMgr* mgr = player->GetPlayerbotMgr())
++        for (PlayerBotMap::const_iterator itr = mgr->GetPlayerBotsBegin(); itr != mgr->GetPlayerBotsEnd(); ++itr)
 +        {
-+            for (PlayerBotMap::const_iterator itr = mgr->GetPlayerBotsBegin(); itr != mgr->GetPlayerBotsEnd(); ++itr)
-+            {
-+                Player* bot = itr->second;
-+                player->ADD_GOSSIP_ITEM(9, bot->GetName(), REMOVE_PBOT, GOSSIP_ACTION_INFO_DEF + x);
-+                ++x;
-+            }
++            Player* bot = itr->second;
++            player->ADD_GOSSIP_ITEM(9, bot->GetName(), REMOVE_PBOT, GOSSIP_ACTION_INFO_DEF + x);
++            ++x;
 +        }
 +        player->PlayerTalkClass->SendGossipMenu(8446, creature->GetGUID());
 +    } //end SendRemovePlayerBotMenu
@@ -12843,21 +12865,32 @@ index 0000000..9a499e0
 +        return;
 +    }
 +
-+    static void SendCreateNPCBotMenu(Player* player, Creature* creature, uint32 /*action*/)
++    void SendCreateNPCBotMenu(Player* player, Creature* creature, uint32 /*action*/)
 +    {
-+        std::string str = player->GetNpcBotCostStr();
++        std::string cost = player->GetNpcBotCostStr();
 +
 +        player->PlayerTalkClass->ClearMenus();
-+        player->ADD_GOSSIP_ITEM(9, "Recruit a Warrior " + str, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 2);
-+        //player->ADD_GOSSIP_ITEM(9, "Recruit a Hunter " + str, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 3);
-+        player->ADD_GOSSIP_ITEM(9, "Recruit a Paladin " + str, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 4);
-+        //player->ADD_GOSSIP_ITEM(9, "Recruit a Shaman " + str, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 5);
-+        player->ADD_GOSSIP_ITEM(9, "Recruit a Rogue " + str, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 6);
-+        player->ADD_GOSSIP_ITEM(3, "Recruit a Druid " + str, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 7);
-+        player->ADD_GOSSIP_ITEM(3, "Recruit a Mage " + str, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 8);
-+        player->ADD_GOSSIP_ITEM(3, "Recruit a Priest " + str, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 9);
-+        player->ADD_GOSSIP_ITEM(3, "Recruit a Warlock " + str, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 10);
-+        //player->ADD_GOSSIP_ITEM(9, "Recruit a Death Knight " + str, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 11);
++        player->ADD_GOSSIP_ITEM(9, "Recruit a Warrior " + cost, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 2);
++        //player->ADD_GOSSIP_ITEM(9, "Recruit a Hunter " + cost, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 3);
++        player->ADD_GOSSIP_ITEM(9, "Recruit a Paladin " + cost, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 4);
++        //player->ADD_GOSSIP_ITEM(9, "Recruit a Shaman " + cost, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 5);
++        player->ADD_GOSSIP_ITEM(9, "Recruit a Rogue " + cost, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 6);
++        player->ADD_GOSSIP_ITEM(3, "Recruit a Druid " + cost, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 7);
++        player->ADD_GOSSIP_ITEM(3, "Recruit a Mage " + cost, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 8);
++        player->ADD_GOSSIP_ITEM(3, "Recruit a Priest " + cost, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 9);
++        player->ADD_GOSSIP_ITEM(3, "Recruit a Warlock " + cost, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 10);
++        //player->ADD_GOSSIP_ITEM(9, "Recruit a Death Knight " + cost, CREATE_NBOT, GOSSIP_ACTION_INFO_DEF + 11);
++
++        std::ostringstream buff;
++        uint8 bots = player->GetNpcBotsCount();
++        uint32 freeNBSlots = maxNBcount - bots;
++        if (freeNBSlots != 0)
++            buff << freeNBSlots;
++        else
++            buff << "no";
++        buff << (bots == 0 ? "" : " more") << (freeNBSlots == 1 ? " bot" : " bots") << " available";
++        player->ADD_GOSSIP_ITEM(0, buff.str().c_str(), CREATE_NBOT_MENU, GOSSIP_ACTION_INFO_DEF + 2);
++
 +        player->PlayerTalkClass->SendGossipMenu(8446, creature->GetGUID());
 +    }
 +
