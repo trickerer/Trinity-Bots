@@ -1,6 +1,6 @@
-From 4681cf35d348959a0911ada43893797e87d722c9 Mon Sep 17 00:00:00 2001
+From b4d85884258d1dd842997c5aed555bcd74abff81 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Wed, 20 Mar 2013 13:24:43 +0700
+Date: Thu, 21 Mar 2013 22:31:43 +0700
 Subject: [PATCH] NPCBots
 
 ---
@@ -11,7 +11,7 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  462 +++
  src/server/game/AI/NpcBots/bot_ai.cpp              | 3185 ++++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |  355 +++
- src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1086 +++++++
+ src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1092 +++++++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  340 +++
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  935 ++++++
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      | 1014 +++++++
@@ -19,10 +19,10 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  894 ++++++
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  390 +++
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  458 +++
- src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1185 ++++++++
+ src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1192 ++++++++
  src/server/game/AI/NpcBots/botcommands.cpp         |  851 ++++++
  src/server/game/AI/NpcBots/botgiver.cpp            |  643 ++++
- src/server/game/AI/PlayerBots/bp_ai.cpp            | 1790 +++++++++++
+ src/server/game/AI/PlayerBots/bp_ai.cpp            | 1791 +++++++++++
  src/server/game/AI/PlayerBots/bp_ai.h              |  608 ++++
  src/server/game/AI/PlayerBots/bp_cai.cpp           |   14 +
  src/server/game/AI/PlayerBots/bp_cai.h             |  118 +
@@ -52,7 +52,7 @@ Subject: [PATCH] NPCBots
  src/server/game/Entities/Creature/Creature.cpp     |  128 +
  src/server/game/Entities/Creature/Creature.h       |   38 +
  .../game/Entities/Creature/TemporarySummon.cpp     |    8 +
- src/server/game/Entities/Player/Player.cpp         |  924 ++++++
+ src/server/game/Entities/Player/Player.cpp         |  937 ++++++
  src/server/game/Entities/Player/Player.h           |   86 +
  src/server/game/Entities/Unit/Unit.cpp             |  214 ++
  src/server/game/Groups/Group.cpp                   |   10 +
@@ -70,7 +70,7 @@ Subject: [PATCH] NPCBots
  .../Database/Implementation/WorldDatabase.cpp      |    4 +
  .../shared/Database/Implementation/WorldDatabase.h |    4 +
  src/server/worldserver/worldserver.conf.dist       |  193 ++
- 66 files changed, 27228 insertions(+), 0 deletions(-)
+ 66 files changed, 27255 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world_bot_giver_locales_gossip_menu_option.sql
  create mode 100644 sql/Bots/world_bots.sql
@@ -1251,7 +1251,7 @@ index 0000000..c2dda46
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..1edbc17
+index 0000000..72c4c73
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
 @@ -0,0 +1,3185 @@
@@ -1650,13 +1650,13 @@ index 0000000..1edbc17
 +            Group::MemberSlotList const &members = group->GetMemberSlots();
 +            for (Group::MemberSlotList::const_iterator itr = members.begin(); itr != members.end(); ++itr)
 +                if (GUID_LOPART(itr->guid) == lowGuid)
-+                    unit = sObjectAccessor->FindUnit(itr->guid);
++                    unit = ObjectAccessor::FindUnit(itr->guid);
 +        }
 +    } while (result->NextRow() && !unit);
 +    return unit;
 +}
 +// Buffs And Heal (really)
-+void bot_minion_ai::BuffAndHealGroup(Player* gPlayer, uint32 const diff)
++void bot_minion_ai::BuffAndHealGroup(Player* gPlayer, uint32 diff)
 +{
 +    if (GC_Timer > diff) return;
 +    if (me->IsMounted()) return;
@@ -1808,7 +1808,7 @@ index 0000000..1edbc17
 +}
 +// CURES
 +//cycle through the group sending members for cure
-+void bot_minion_ai::CureGroup(Player* pTarget, uint32 cureSpell, uint32 const diff)
++void bot_minion_ai::CureGroup(Player* pTarget, uint32 cureSpell, uint32 diff)
 +{
 +    if (!cureSpell || GC_Timer > diff) return;
 +    if (me->getLevel() < 10 || pTarget->getLevel() < 10) return;
@@ -1862,12 +1862,12 @@ index 0000000..1edbc17
 +    }
 +}
 +
-+bool bot_minion_ai::CureTarget(Unit* target, uint32 cureSpell, uint32 const diff)
++bool bot_minion_ai::CureTarget(Unit* target, uint32 cureSpell, uint32 diff)
 +{
 +    return CanCureTarget(target, cureSpell, diff) ? doCast(target, cureSpell) : false;
 +}
 +// determines if unit has something to cure
-+bool bot_minion_ai::CanCureTarget(Unit* target, uint32 cureSpell, uint32 const diff) const
++bool bot_minion_ai::CanCureTarget(Unit* target, uint32 cureSpell, uint32 diff) const
 +{
 +    if (!cureSpell || GC_Timer > diff) return false;
 +    if (!target || target->isDead()) return false;
@@ -3182,7 +3182,7 @@ index 0000000..1edbc17
 +
 +    //drink
 +    if (me->getPowerType() == POWER_MANA && !me->IsMounted() && !me->isMoving() && !CCed(me) && 
-+        !me->isInCombat() && !IsCasting() && rand()%100 < 20 && GetManaPCT(me) < 80 && 
++        !me->isInCombat() && !IsCasting() && urand(0, 100) < 20 && GetManaPCT(me) < 80 && 
 +        !me->HasAura(DRINK))
 +    {
 +        me->CastSpell(me, DRINK);
@@ -3193,7 +3193,7 @@ index 0000000..1edbc17
 +
 +    //eat
 +    if (!me->IsMounted() && !me->isMoving() && !CCed(me) && 
-+        !me->isInCombat() && !IsCasting() && rand()%100 < 20 && GetHealthPCT(me) < 80 && 
++        !me->isInCombat() && !IsCasting() && urand(0, 100) < 20 && GetHealthPCT(me) < 80 && 
 +        !me->HasAura(EAT))
 +    {
 +        me->CastSpell(me, EAT);
@@ -3630,7 +3630,7 @@ index 0000000..1edbc17
 +    return spell;//max rank, use this
 +}
 +//Health magement for minions
-+//Including health cals, set and regeneration
++//Including health calcs, set and regeneration
 +void bot_minion_ai::_OnHealthUpdate(uint8 myclass, uint8 mylevel) const
 +{
 +    //sLog->outError(LOG_FILTER_PLAYER, "_OnHealthUpdate(): updating bot %s", me->GetName().c_str());
@@ -4371,7 +4371,7 @@ index 0000000..1edbc17
 +    }
 +}
 +//PvP trinket for minions
-+void bot_minion_ai::BreakCC(uint32 const diff)
++void bot_minion_ai::BreakCC(uint32 diff)
 +{
 +    if (pvpTrinket_cd <= diff && CCed(me, true) && (me->getVictim() || !me->getAttackers().empty()))
 +    {
@@ -4442,7 +4442,7 @@ index 0000000..1edbc17
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..467ac87
+index 0000000..35976e1
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
 @@ -0,0 +1,355 @@
@@ -4593,7 +4593,7 @@ index 0000000..467ac87
 +        //everything cast-related
 +        bool doCast(Unit* victim, uint32 spellId, bool triggered = false, uint64 originalCaster = 0);
 +        SpellCastResult checkBotCast(Unit* victim, uint32 spellId, uint8 botclass) const;
-+        virtual void removeFeralForm(bool /*force*/ = false, bool /*init*/ = true, uint32 const /*diff*/ = 0) {}
++        virtual void removeFeralForm(bool /*force*/ = false, bool /*init*/ = true, uint32 /*diff*/ = 0) {}
 +
 +        inline bool Feasting() const { return (me->HasAura(EAT) || me->HasAura(DRINK)); }
 +        inline bool isMeleeClass(uint8 m_class) const { return (m_class == CLASS_WARRIOR || m_class == CLASS_ROGUE || m_class == CLASS_PALADIN || m_class == CLASS_DEATH_KNIGHT || m_class == BEAR); }
@@ -4609,9 +4609,9 @@ index 0000000..467ac87
 +        virtual void ApplyClassDamageMultiplierMelee(uint32& /*damage*/, CalcDamageInfo& /*damageinfo*/) const {}
 +        virtual void ApplyClassDamageMultiplierMelee(int32& /*damage*/, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* /*spellInfo*/, WeaponAttackType /*attackType*/, bool& /*crit*/) const {}
 +        virtual void ApplyClassDamageMultiplierSpell(int32& /*damage*/, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* /*spellInfo*/, WeaponAttackType /*attackType*/, bool& /*crit*/) const {}
-+        virtual void CureGroup(Player* /*pTarget*/, uint32 /*cureSpell*/, uint32 const /*diff*/) {}
++        virtual void CureGroup(Player* /*pTarget*/, uint32 /*cureSpell*/, uint32 /*diff*/) {}
 +        virtual void CheckAuras(bool /*force*/ = false) {}
-+        virtual void BuffAndHealGroup(Player* /*gPlayer*/, uint32 const /*diff*/) {}
++        virtual void BuffAndHealGroup(Player* /*gPlayer*/, uint32 /*diff*/) {}
 +        virtual void RezGroup(uint32 /*REZZ*/, Player* /*gPlayer*/) {}
 +        //virtual void DoNonCombatActions(uint32 const /*diff*/) {}
 +        //virtual void StartAttack(Unit* /*u*/, bool /*force*/ = false) {}
@@ -4621,18 +4621,18 @@ index 0000000..467ac87
 +        //virtual void _OnMeleeDamageUpdate(uint8 /*myclass*/) const = 0;
 +
 +        //virtual void ReceiveEmote(Player* /*player*/, uint32 /*emote*/) {}
-+        //virtual void CommonTimers(uint32 const diff) = 0;
++        //virtual void CommonTimers(uint32 diff) = 0;
 +
-+        virtual bool HealTarget(Unit* /*target*/, uint8 /*pct*/, uint32 const /*diff*/) { return false; }
-+        virtual bool BuffTarget(Unit* /*target*/, uint32 const /*diff*/) { return false; }
-+        virtual bool CureTarget(Unit* /*target*/, uint32 /*cureSpell*/, uint32 const /*diff*/) { return false; }
++        virtual bool HealTarget(Unit* /*target*/, uint8 /*pct*/, uint32 /*diff*/) { return false; }
++        virtual bool BuffTarget(Unit* /*target*/, uint32 /*diff*/) { return false; }
++        virtual bool CureTarget(Unit* /*target*/, uint32 /*cureSpell*/, uint32 /*diff*/) { return false; }
 +
 +        uint8 GetWait();
 +        inline float InitAttackRange(float origRange, bool ranged) const;
 +        uint16 Rand() const;
-+        inline uint32 GetLostHP(Unit* unit) const { return unit->GetMaxHealth() - unit->GetHealth(); }
-+        inline uint8 GetHealthPCT(Unit* hTarget) const { if (!hTarget || hTarget->isDead()) return 100; return (hTarget->GetHealth()*100/hTarget->GetMaxHealth()); }
-+        inline uint8 GetManaPCT(Unit* hTarget) const { if (!hTarget || hTarget->isDead() || hTarget->getPowerType() != POWER_MANA) return 100; return (hTarget->GetPower(POWER_MANA)*100/hTarget->GetMaxPower(POWER_MANA)); }
++        static inline uint32 GetLostHP(Unit* unit) { return unit->GetMaxHealth() - unit->GetHealth(); }
++        static inline uint8 GetHealthPCT(Unit* hTarget) { if (!hTarget || hTarget->isDead()) return 100; return (hTarget->GetHealth()*100/hTarget->GetMaxHealth()); }
++        static inline uint8 GetManaPCT(Unit* hTarget) { if (!hTarget || hTarget->isDead() || hTarget->getPowerType() != POWER_MANA) return 100; return (hTarget->GetPower(POWER_MANA)*100/hTarget->GetMaxPower(POWER_MANA)); }
 +
 +        Unit* getTarget(bool byspell, bool ranged, bool &reset) const;
 +
@@ -4677,8 +4677,8 @@ index 0000000..467ac87
 +        //virtual bool HealTarget(Unit* /*target*/, uint8 /*pct*/, uint32 const /*diff*/) { return false; }
 +        //virtual bool BuffTarget(Unit* /*target*/, uint32 const /*diff*/) { return false; }
 +        //virtual bool doCast(Unit*  /*victim*/, uint32 /*spellId*/, bool /*triggered*/ = false) { return false; }
-+        void CureGroup(Player* pTarget, uint32 cureSpell, uint32 const diff);
-+        bool CureTarget(Unit* target, uint32 cureSpell, uint32 const diff);
++        void CureGroup(Player* pTarget, uint32 cureSpell, uint32 diff);
++        bool CureTarget(Unit* target, uint32 cureSpell, uint32 diff);
 +        void CheckAuras(bool force = false);
 +        //virtual void DoNonCombatActions(uint32 const /*diff*/) {}
 +        //virtual void StartAttack(Unit* /*u*/, bool /*force*/ = false) {}
@@ -4699,7 +4699,7 @@ index 0000000..467ac87
 +        static inline uint8 GetBotClassForCreature(Creature* bot);
 +
 +    protected:
-+        void BuffAndHealGroup(Player* gPlayer, uint32 const diff);
++        void BuffAndHealGroup(Player* gPlayer, uint32 diff);
 +        void RezGroup(uint32 REZZ, Player* gPlayer);
 +
 +        void Follow(bool force = false, Position* newpos = NULL)
@@ -4711,9 +4711,9 @@ index 0000000..467ac87
 +
 +        inline void Evade() { _OnEvade(); }
 +
-+        virtual void BreakCC(uint32 const diff);
++        virtual void BreakCC(uint32 diff);
 +
-+        void CommonTimers(uint32 const diff)
++        void CommonTimers(uint32 diff)
 +        {
 +            if (pvpTrinket_cd > diff)       pvpTrinket_cd -= diff;
 +            if (Potion_cd > diff)           Potion_cd -= diff;
@@ -4738,7 +4738,7 @@ index 0000000..467ac87
 +        uint32 Potion_cd, pvpTrinket_cd;
 +
 +    private:
-+        bool CanCureTarget(Unit* target, uint32 cureSpell, uint32 const diff) const;
++        bool CanCureTarget(Unit* target, uint32 cureSpell, uint32 diff) const;
 +        void CalculatePos(Position& pos);
 +        void UpdateMountedState();
 +        void UpdateStandState() const;
@@ -4787,7 +4787,7 @@ index 0000000..467ac87
 +        void SetBaseArmor(uint32 armor) { basearmor = armor; }
 +
 +    protected:
-+        void CommonTimers(uint32 const diff)
++        void CommonTimers(uint32 diff)
 +        {
 +            if (GC_Timer > diff)            GC_Timer -= diff;
 +            if (temptimer > diff)           temptimer -= diff;
@@ -4803,10 +4803,10 @@ index 0000000..467ac87
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_druid_ai.cpp b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 new file mode 100644
-index 0000000..3b5b3f9
+index 0000000..71e8328
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
-@@ -0,0 +1,1086 @@
+@@ -0,0 +1,1092 @@
 +#include "bot_ai.h"
 +#include "Group.h"
 +#include "Player.h"
@@ -4888,7 +4888,7 @@ index 0000000..3b5b3f9
 +        void MoveInLineOfSight(Unit*) { }
 +        void JustDied(Unit*) { removeFeralForm(true, false); master->SetNpcBotDied(me->GetGUID()); }
 +
-+        void warstomp(uint32 const diff)
++        void warstomp(uint32 diff)
 +        {
 +            if (me->getRace() != RACE_TAUREN) return;
 +            if (Warstomp_Timer > diff) return;
@@ -4968,7 +4968,7 @@ index 0000000..3b5b3f9
 +            return true;*/
 +        }
 +
-+        void removeFeralForm(bool force = false, bool init = true, uint32 const diff = 0)
++        void removeFeralForm(bool force = false, bool init = true, uint32 diff = 0)
 +        {
 +            if (!force && formtimer > diff) return;
 +            ShapeshiftForm form = me->GetShapeshiftForm();
@@ -4999,7 +4999,7 @@ index 0000000..3b5b3f9
 +            GetInPosition(force, me->GetShapeshiftForm() == FORM_NONE);
 +        }
 +
-+        void doBearActions(uint32 const diff)
++        void doBearActions(uint32 diff)
 +        {
 +            if (me->getPowerType() != POWER_RAGE) return;
 +
@@ -5025,7 +5025,7 @@ index 0000000..3b5b3f9
 +
 +        }//end doBearActions
 +
-+        void doCatActions(uint32 const diff)
++        void doCatActions(uint32 diff)
 +        {
 +            if (GetHealthPCT(me) < 75)
 +                HealTarget(me, GetHealthPCT(me), diff);
@@ -5055,7 +5055,7 @@ index 0000000..3b5b3f9
 +                Claw_Timer = GC_Timer;
 +        }//end doCatActions
 +
-+        void doBalanceActions(uint32 const diff)
++        void doBalanceActions(uint32 diff)
 +        {
 +            removeFeralForm(true, true);
 +            opponent = me->getVictim();
@@ -5106,7 +5106,7 @@ index 0000000..3b5b3f9
 +            }
 +        }
 +
-+        bool MassGroupHeal(Player* gPlayer, uint32 const diff)
++        bool MassGroupHeal(Player* gPlayer, uint32 diff)
 +        {
 +            if (!gPlayer || GC_Timer > diff) return false;
 +            if (!TRANQUILITY && !WILD_GROWTH) return false;
@@ -5311,7 +5311,7 @@ index 0000000..3b5b3f9
 +            }
 +        }
 +
-+        bool HealTarget(Unit* target, uint8 hp, uint32 const diff)
++        bool HealTarget(Unit* target, uint8 hp, uint32 diff)
 +        {
 +            if (hp > 95) return false;
 +            if (!target || target->isDead()) return false;
@@ -5358,15 +5358,21 @@ index 0000000..3b5b3f9
 +            {
 +                switch (urand(1,3))
 +                {
-+                case 1:
-+                case 2:
-+                    if (doCast(target, NOURISH))
-+                    { Heal_Timer = 3000; return true; }
-+                    break;
-+                case 3:
-+                    if (doCast(target, HEALING_TOUCH))
-+                    { Heal_Timer = 3000; return true; }
-+                    break;
++                    case 1:
++                    case 2:
++                        if (doCast(target, NOURISH))
++                        {
++                            Heal_Timer = 3000;
++                            return true;
++                        }
++                        break;
++                    case 3:
++                        if (doCast(target, HEALING_TOUCH))
++                        {
++                            Heal_Timer = 3000;
++                            return true;
++                        }
++                        break;
 +                }
 +            }
 +            //maintain HoTs
@@ -5412,7 +5418,7 @@ index 0000000..3b5b3f9
 +            return false;
 +        }
 +
-+        bool BuffTarget(Unit* target, uint32 const diff)
++        bool BuffTarget(Unit* target, uint32 diff)
 +        {
 +            if (GC_Timer > diff || Rand() > 40) return false;
 +            if (me->isInCombat() && !master->GetMap()->IsRaid()) return false;
@@ -5428,7 +5434,7 @@ index 0000000..3b5b3f9
 +            return false;
 +        }
 +
-+        void DoNonCombatActions(uint32 const diff)
++        void DoNonCombatActions(uint32 diff)
 +        {
 +            //if eating or drinking don't do anything
 +            if (GC_Timer > diff || me->IsMounted()) return;
@@ -5515,7 +5521,7 @@ index 0000000..3b5b3f9
 +            }
 +        }
 +
-+        void CheckRoots(uint32 const diff)
++        void CheckRoots(uint32 diff)
 +        {
 +            if (!ENTANGLING_ROOTS || GC_Timer > diff) return;
 +            if (me->GetShapeshiftForm() != FORM_NONE) return;
@@ -5525,7 +5531,7 @@ index 0000000..3b5b3f9
 +                    return;
 +        }
 +
-+        void CheckBattleRez(uint32 const diff)
++        void CheckBattleRez(uint32 diff)
 +        {
 +            if (!REBIRTH || Rebirth_Timer > diff || Rand() > 10 || IsCasting() || me->IsMounted()) return;
 +            Group* gr = master->GetGroup();
@@ -5582,48 +5588,48 @@ index 0000000..3b5b3f9
 +
 +        void SetStats(uint8 form, bool init = true)
 +        {
-+            switch(form)
++            switch (form)
 +            {
-+            case BEAR:
-+                me->SetBotClass(BEAR);
-+                if (me->getPowerType() != POWER_RAGE)
-+                {
-+                    me->setPowerType(POWER_RAGE);
-+                    me->SetMaxPower(POWER_RAGE, 1000);
-+                }
-+                if (me->getLevel() >= 15)
-+                    me->SetPower(POWER_RAGE, 200);
-+                else
-+                    me->SetPower(POWER_RAGE, 0);
-+                if (me->getLevel() >= 40 && !me->HasAura(LEADER_OF_THE_PACK))
-+                    RefreshAura(LEADER_OF_THE_PACK);
-+                setStats(BEAR, me->getRace(), master->getLevel());
-+                break;
-+            case CAT:
-+                me->SetBotClass(CAT);
-+                if (me->getPowerType() != POWER_ENERGY)
-+                {
-+                    me->setPowerType(POWER_ENERGY);
-+                    me->SetMaxPower(POWER_ENERGY, 100);
-+                    me->SetPower(POWER_ENERGY, 0);
-+                }
-+                if (me->getLevel() >= 15)
-+                    me->SetPower(POWER_ENERGY, 60);
-+                else
-+                    me->SetPower(POWER_ENERGY, 0);
-+                if (me->getLevel() >= 40 && !me->HasAura(LEADER_OF_THE_PACK))
-+                    RefreshAura(LEADER_OF_THE_PACK);
-+                RefreshAura(ENERGIZE, me->getLevel()/40 + master->Has310Flyer(false));
-+                setStats(CAT, me->getRace(), master->getLevel());
-+                break;
-+            case CLASS_DRUID:
-+                me->SetBotClass(CLASS_DRUID);
-+                if (me->getPowerType() != POWER_MANA)
-+                    me->setPowerType(POWER_MANA);
-+                if (init)
-+                    me->SetPower(POWER_MANA, mana);
-+                setStats(CLASS_DRUID, me->getRace(), master->getLevel());
-+                break;
++                case BEAR:
++                    me->SetBotClass(BEAR);
++                    if (me->getPowerType() != POWER_RAGE)
++                    {
++                        me->setPowerType(POWER_RAGE);
++                        me->SetMaxPower(POWER_RAGE, 1000);
++                    }
++                    if (me->getLevel() >= 15)
++                        me->SetPower(POWER_RAGE, 200);
++                    else
++                        me->SetPower(POWER_RAGE, 0);
++                    if (me->getLevel() >= 40 && !me->HasAura(LEADER_OF_THE_PACK))
++                        RefreshAura(LEADER_OF_THE_PACK);
++                    setStats(BEAR, me->getRace(), master->getLevel());
++                    break;
++                case CAT:
++                    me->SetBotClass(CAT);
++                    if (me->getPowerType() != POWER_ENERGY)
++                    {
++                        me->setPowerType(POWER_ENERGY);
++                        me->SetMaxPower(POWER_ENERGY, 100);
++                        me->SetPower(POWER_ENERGY, 0);
++                    }
++                    if (me->getLevel() >= 15)
++                        me->SetPower(POWER_ENERGY, 60);
++                    else
++                        me->SetPower(POWER_ENERGY, 0);
++                    if (me->getLevel() >= 40 && !me->HasAura(LEADER_OF_THE_PACK))
++                        RefreshAura(LEADER_OF_THE_PACK);
++                    RefreshAura(ENERGIZE, me->getLevel()/40 + master->Has310Flyer(false));
++                    setStats(CAT, me->getRace(), master->getLevel());
++                    break;
++                case CLASS_DRUID:
++                    me->SetBotClass(CLASS_DRUID);
++                    if (me->getPowerType() != POWER_MANA)
++                        me->setPowerType(POWER_MANA);
++                    if (init)
++                        me->SetPower(POWER_MANA, mana);
++                    setStats(CLASS_DRUID, me->getRace(), master->getLevel());
++                    break;
 +            }
 +        }
 +
@@ -5682,7 +5688,7 @@ index 0000000..3b5b3f9
 +            }
 +        }
 +
-+        void ReduceCD(uint32 const diff)
++        void ReduceCD(uint32 diff)
 +        {
 +            CommonTimers(diff);
 +            if (MangleB_Timer > diff)               MangleB_Timer -= diff;
@@ -5895,7 +5901,7 @@ index 0000000..3b5b3f9
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_hunter_ai.cpp b/src/server/game/AI/NpcBots/bot_hunter_ai.cpp
 new file mode 100644
-index 0000000..b9dc09b
+index 0000000..ef321bb
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_hunter_ai.cpp
 @@ -0,0 +1,340 @@
@@ -6051,7 +6057,7 @@ index 0000000..b9dc09b
 +            //}
 +        }
 +
-+        void DoNormalAttack(uint32 const diff)
++        void DoNormalAttack(uint32 diff)
 +        {
 +            AttackerSet m_attackers = master->getAttackers();
 +            if (!opponent || opponent->isDead()) return;
@@ -6173,7 +6179,7 @@ index 0000000..b9dc09b
 +             }
 +        }
 +
-+        void ReduceCD(uint32 const diff)
++        void ReduceCD(uint32 diff)
 +        {
 +            CommonTimers(diff);
 +            if (ArcaneShot_cd > diff)               ArcaneShot_cd -= diff;
@@ -6241,7 +6247,7 @@ index 0000000..b9dc09b
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_mage_ai.cpp b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 new file mode 100644
-index 0000000..e87c43e
+index 0000000..1288f4d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 @@ -0,0 +1,935 @@
@@ -6346,7 +6352,7 @@ index 0000000..e87c43e
 +            }
 +        }
 +
-+        void CheckSpellSteal(uint32 const diff)
++        void CheckSpellSteal(uint32 diff)
 +        {
 +            if (!SPELLSTEAL || Rand() > 25 || GC_Timer > diff || IsCasting()) return;
 +            Unit* target = FindHostileDispelTarget(30, true);
@@ -6354,7 +6360,7 @@ index 0000000..e87c43e
 +                GC_Timer = 800;
 +        }
 +
-+        void DoNonCombatActions(uint32 const diff)
++        void DoNonCombatActions(uint32 diff)
 +        {
 +            if (GC_Timer > diff || me->IsMounted()) return;
 +            if (Feasting()) return;
@@ -6368,7 +6374,7 @@ index 0000000..e87c43e
 +            { /*GC_Timer = 800;*/ return; }
 +        }
 +
-+        bool BuffTarget(Unit* target, uint32 const diff)
++        bool BuffTarget(Unit* target, uint32 diff)
 +        {
 +            if (GC_Timer > diff || !target || target->isDead() || Rand() > 50) return false;
 +            if (me->isInCombat() && !master->GetMap()->IsRaid()) return false;
@@ -6430,7 +6436,7 @@ index 0000000..e87c43e
 +            DoNormalAttack(diff);
 +        }
 +
-+        void DoNormalAttack(uint32 const diff)
++        void DoNormalAttack(uint32 diff)
 +        {
 +            opponent = me->getVictim();
 +            if (opponent)
@@ -6612,7 +6618,7 @@ index 0000000..e87c43e
 +                return;
 +        }
 +
-+        void CheckPoly(uint32 const diff)
++        void CheckPoly(uint32 diff)
 +        {
 +            if (polyCheckTimer <= diff)
 +            {
@@ -6636,7 +6642,7 @@ index 0000000..e87c43e
 +            }
 +        }
 +
-+        void CheckPots(uint32 const diff)
++        void CheckPots(uint32 diff)
 +        {
 +            if (GetHealthPCT(me) < 70 && Potion_cd <= diff)
 +            {
@@ -6659,7 +6665,7 @@ index 0000000..e87c43e
 +            }
 +        }
 +
-+        void CheckBlink(uint32 const diff)
++        void CheckBlink(uint32 diff)
 +        {
 +            if (GetBotCommandState() == COMMAND_STAY || me->IsMounted()) return;
 +            if (Blink_cd > diff || me->getLevel() < 20 || IsCasting()) return;
@@ -6690,7 +6696,7 @@ index 0000000..e87c43e
 +            }
 +        }
 +
-+        void FocusMagic(uint32 const diff)
++        void FocusMagic(uint32 diff)
 +        {
 +            if (!FOCUSMAGIC || me->getLevel() < 20 || fmCheckTimer > diff || GC_Timer > diff || Rand() < 50 || IsCasting())
 +                return;
@@ -6932,7 +6938,7 @@ index 0000000..e87c43e
 +           }
 +        }
 +
-+        void ReduceCD(uint32 const diff)
++        void ReduceCD(uint32 diff)
 +        {
 +            CommonTimers(diff);
 +            if (Pyroblast_cd > diff)            Pyroblast_cd -= diff;
@@ -7182,7 +7188,7 @@ index 0000000..e87c43e
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 new file mode 100644
-index 0000000..815b557
+index 0000000..9bc0ffa
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 @@ -0,0 +1,1014 @@
@@ -7230,7 +7236,7 @@ index 0000000..815b557
 +            return bot_ai::doCast(victim, spellId, triggered);
 +        }
 +
-+        void HOFGroup(Player* pTarget, uint32 const diff)
++        void HOFGroup(Player* pTarget, uint32 diff)
 +        {
 +            if (!HOF || HOF_Timer > diff || GC_Timer > diff || Rand() > 60) return;
 +            if (IsCasting()) return;//I'm busy
@@ -7259,7 +7265,7 @@ index 0000000..815b557
 +            }
 +        }
 +
-+        bool HOFTarget(Unit* target, uint32 const diff)
++        bool HOFTarget(Unit* target, uint32 diff)
 +        {
 +            if (!HOF || HOF_Timer > diff || GC_Timer > diff) return false;
 +            if (!target || target->isDead()) return false;
@@ -7311,7 +7317,7 @@ index 0000000..815b557
 +            return false;
 +        }
 +
-+        void HOSGroup(Player* hTarget, uint32 const diff)
++        void HOSGroup(Player* hTarget, uint32 diff)
 +        {
 +            if (!HOS || HOS_Timer > diff || GC_Timer > diff || Rand() > 30) return;
 +            if (IsCasting()) return;
@@ -7376,7 +7382,7 @@ index 0000000..815b557
 +            }//end if
 +        }
 +
-+        bool HOSTarget(Unit* target, uint32 const diff)
++        bool HOSTarget(Unit* target, uint32 diff)
 +        {
 +            if (!target || target->isDead()) return false;
 +            if (!HOS || HOS_Timer > diff || GC_Timer > diff || Rand() > 50) return false;
@@ -7411,7 +7417,7 @@ index 0000000..815b557
 +            return false;
 +        }
 +        //Holy_Shock setup (Modify HERE)
-+        bool HS(Unit* target, uint32 const diff)
++        bool HS(Unit* target, uint32 diff)
 +        {
 +            if (!target || target->isDead()) return false;
 +            if (!HOLY_SHOCK || HS_Timer > diff || GC_Timer > diff) return false;
@@ -7427,7 +7433,7 @@ index 0000000..815b557
 +            return false;
 +        }
 +
-+        bool HealTarget(Unit* target, uint8 hp, uint32 const diff)
++        bool HealTarget(Unit* target, uint8 hp, uint32 diff)
 +        {
 +            if (!target || target->isDead()) return false;
 +            if (hp > 97) return false;
@@ -7595,7 +7601,7 @@ index 0000000..815b557
 +            DoNormalAttack(diff);
 +        }
 +
-+        void DoNonCombatActions(uint32 const diff)
++        void DoNonCombatActions(uint32 diff)
 +        {
 +            if (GC_Timer > diff || me->IsMounted()) return;
 +
@@ -7640,7 +7646,7 @@ index 0000000..815b557
 +            }
 +        }
 +
-+        bool BuffTarget(Unit* target, uint32 const diff)
++        bool BuffTarget(Unit* target, uint32 diff)
 +        {
 +            if (!target || target->isDead() || GC_Timer > diff || Rand() > 30) return false;
 +            if (me->isInCombat() && !master->GetMap()->IsRaid()) return false;
@@ -7702,7 +7708,7 @@ index 0000000..815b557
 +            return false;
 +        }
 +
-+        void Repentance(uint32 const diff, Unit* target = NULL)
++        void Repentance(uint32 diff, Unit* target = NULL)
 +        {
 +            if (target && Repentance_Timer < 25000 && doCast(target, REPENTANCE))
 +            {
@@ -7719,7 +7725,7 @@ index 0000000..815b557
 +            }
 +        }
 +
-+        void Counter(uint32 const diff)
++        void Counter(uint32 diff)
 +        {
 +            if (Rand() > 60 || IsCasting()) return;
 +            Unit* target = Repentance_Timer < 25000 ? FindCastingTarget(20, false, REPENTANCE) : NULL;
@@ -7749,7 +7755,7 @@ index 0000000..815b557
 +            }
 +        }
 +
-+        void TurnEvil(uint32 const diff)
++        void TurnEvil(uint32 diff)
 +        {
 +            if (!TURN_EVIL || Turn_Evil_Timer > diff || GC_Timer > diff || Rand() > 50 || 
 +                FindAffectedTarget(TURN_EVIL, me->GetGUID(), 50))
@@ -7771,7 +7777,7 @@ index 0000000..815b557
 +                Turn_Evil_Timer = 3000;
 +        }
 +
-+        void Wrath(uint32 const diff)
++        void Wrath(uint32 diff)
 +        {
 +            if (!HOLY_WRATH || Holy_Wrath_Timer > diff || GC_Timer > diff || Rand() > 50)
 +                return;
@@ -7786,7 +7792,7 @@ index 0000000..815b557
 +            }
 +        }
 +
-+        void DoNormalAttack(uint32 const diff)
++        void DoNormalAttack(uint32 diff)
 +        {
 +            opponent = me->getVictim();
 +            if (opponent)
@@ -7971,7 +7977,7 @@ index 0000000..815b557
 +            }
 +        }
 +
-+        void ReduceCD(uint32 const diff)
++        void ReduceCD(uint32 diff)
 +        {
 +            CommonTimers(diff);
 +            if (HOW_Timer > diff)                   HOW_Timer -= diff;
@@ -8202,7 +8208,7 @@ index 0000000..815b557
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_priest_ai.cpp b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 new file mode 100644
-index 0000000..0c45f1f
+index 0000000..f47aa65
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 @@ -0,0 +1,859 @@
@@ -8250,7 +8256,7 @@ index 0000000..0c45f1f
 +            return bot_ai::doCast(victim, spellId, triggered);
 +        }
 +
-+        bool MassGroupHeal(Player* player, uint32 const diff)
++        bool MassGroupHeal(Player* player, uint32 diff)
 +        {
 +            if (!PRAYER_OF_HEALING && !DIVINE_HYMN) return false;
 +            if (!player->GetGroup()) return false;
@@ -8339,7 +8345,7 @@ index 0000000..0c45f1f
 +            return false;
 +        }//end MassGroupHeal
 +
-+        bool ShieldTarget(Unit* target, uint32 const diff)
++        bool ShieldTarget(Unit* target, uint32 diff)
 +        {
 +            if (PWS_Timer > diff || Rand() > 50 || IsCasting()) return false;
 +            if (target->HasAura(WEAKENED_SOUL)) return false;
@@ -8500,7 +8506,7 @@ index 0000000..0c45f1f
 +            }
 +        }//end UpdateAI
 +
-+        bool HealTarget(Unit* target, uint8 hp, uint32 const diff)
++        bool HealTarget(Unit* target, uint8 hp, uint32 diff)
 +        {
 +            if (hp > 98) return false;
 +            if (!target || target->isDead() || me->GetExactDist(target) > 40)
@@ -8598,7 +8604,7 @@ index 0000000..0c45f1f
 +            return false;
 +        }
 +
-+        bool BuffTarget(Unit* target, uint32 const diff)
++        bool BuffTarget(Unit* target, uint32 diff)
 +        {
 +            if (GC_Timer > diff || Rand() > 60) return false;
 +            if (!target || target->isDead() || me->GetExactDist(target) > 30) return false;
@@ -8644,7 +8650,7 @@ index 0000000..0c45f1f
 +            return false;
 +        }
 +
-+        void DoNonCombatActions(uint32 const diff)
++        void DoNonCombatActions(uint32 diff)
 +        {
 +            if (Rand() > 50 || GC_Timer > diff || me->IsMounted()) return;
 +
@@ -8658,7 +8664,7 @@ index 0000000..0c45f1f
 +                return;
 +        }
 +
-+        void CheckDispel(uint32 const diff)
++        void CheckDispel(uint32 diff)
 +        {
 +            if (CheckDispelTimer > diff || Rand() > 25 || IsCasting())
 +                return;
@@ -8671,7 +8677,7 @@ index 0000000..0c45f1f
 +            CheckDispelTimer = 1000;
 +        }
 +
-+        void CheckShackles(uint32 const diff)
++        void CheckShackles(uint32 diff)
 +        {
 +            if (!SHACKLE_UNDEAD || ShackleTimer > diff || GC_Timer > diff || IsCasting())
 +                return;
@@ -8685,7 +8691,7 @@ index 0000000..0c45f1f
 +            }
 +        }
 +
-+        void CheckSilence(uint32 const diff)
++        void CheckSilence(uint32 diff)
 +        {
 +            if (IsCasting()) return;
 +            temptimer = GC_Timer;
@@ -8704,7 +8710,7 @@ index 0000000..0c45f1f
 +            GC_Timer = temptimer;
 +        }
 +
-+        void doDefend(uint32 const diff)
++        void doDefend(uint32 diff)
 +        {
 +            AttackerSet m_attackers = master->getAttackers();
 +            AttackerSet b_attackers = me->getAttackers();
@@ -8785,7 +8791,7 @@ index 0000000..0c45f1f
 +            }
 +        }
 +
-+        void DoDevCheck(uint32 const diff)
++        void DoDevCheck(uint32 diff)
 +        {
 +            if (DevcheckTimer <= diff)
 +            {
@@ -8794,7 +8800,7 @@ index 0000000..0c45f1f
 +            }
 +        }
 +
-+        void Disperse(uint32 const diff)
++        void Disperse(uint32 diff)
 +        {
 +            if (!DISPERSION || GC_Timer > diff || Dispersion_Timer > diff || IsCasting()) return;
 +            //attackers case
@@ -8857,7 +8863,7 @@ index 0000000..0c45f1f
 +            }
 +        }
 +
-+        void ReduceCD(uint32 const diff)
++        void ReduceCD(uint32 diff)
 +        {
 +            CommonTimers(diff);
 +            if (Heal_Timer > diff)                 Heal_Timer -= diff;
@@ -9967,7 +9973,7 @@ index 0000000..2f50009
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_shaman_ai.cpp b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 new file mode 100644
-index 0000000..2266179
+index 0000000..f9e7e8b
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 @@ -0,0 +1,390 @@
@@ -10040,7 +10046,7 @@ index 0000000..2266179
 +        void MoveInLineOfSight(Unit*) { }
 +        void JustDied(Unit*) { master->SetNpcBotDied(me->GetGUID()); }
 +
-+        void CheckTotems(uint32 const diff)
++        void CheckTotems(uint32 diff)
 +        {
 +            if (GC_Timer > diff || Rand() > 50 || IsCasting() || me->GetDistance(master) > 20 || Feasting())
 +                return;
@@ -10136,7 +10142,7 @@ index 0000000..2266179
 +        void Counter(uint32 const /*diff*/)
 +        {}
 +
-+        void DoNormalAttack(uint32 const diff)
++        void DoNormalAttack(uint32 diff)
 +        {
 +            opponent = me->getVictim();
 +            if (opponent)
@@ -10187,7 +10193,7 @@ index 0000000..2266179
 +            }
 +        }
 +
-+        void DoNonCombatActions(uint32 const diff)
++        void DoNonCombatActions(uint32 diff)
 +        {
 +            if (GC_Timer > diff || Rand() > 50 || me->IsMounted()) return;
 +
@@ -10196,7 +10202,7 @@ index 0000000..2266179
 +           // CureGroup(master, diff);
 +        }
 +
-+        bool HealTarget(Unit* target, uint8 hp, uint32 const diff)
++        bool HealTarget(Unit* target, uint8 hp, uint32 diff)
 +        {
 +            if (hp > 95) return false;
 +            if (!target || target->isDead() || me->GetExactDist(target) > 40)
@@ -10286,7 +10292,7 @@ index 0000000..2266179
 +            }
 +        }
 +
-+        void ReduceCD(uint32 const diff)
++        void ReduceCD(uint32 diff)
 +        {
 +            CommonTimers(diff);
 +            if (Heal_Timer > diff)              Heal_Timer -= diff;
@@ -10363,7 +10369,7 @@ index 0000000..2266179
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warlock_ai.cpp b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 new file mode 100644
-index 0000000..ccff806
+index 0000000..b5fc80b
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 @@ -0,0 +1,458 @@
@@ -10474,7 +10480,7 @@ index 0000000..ccff806
 +            DoNormalAttack(diff);
 +        }
 +
-+        void DoNormalAttack(uint32 const diff)
++        void DoNormalAttack(uint32 diff)
 +        {
 +            opponent = me->getVictim();
 +            if (opponent)
@@ -10610,7 +10616,7 @@ index 0000000..ccff806
 +            }
 +        }
 +
-+        void ReduceCD(uint32 const diff)
++        void ReduceCD(uint32 diff)
 +        {
 +            CommonTimers(diff);
 +            if (Rain_of_fire_cd > diff)     Rain_of_fire_cd -= diff;
@@ -10732,7 +10738,7 @@ index 0000000..ccff806
 +            DoNormalAttack(diff);
 +        }
 +
-+        void DoNormalAttack(uint32 const diff)
++        void DoNormalAttack(uint32 diff)
 +        {
 +            opponent = me->getVictim();
 +            if (opponent)
@@ -10788,7 +10794,7 @@ index 0000000..ccff806
 +            }
 +        }
 +
-+        void ReduceCD(uint32 const diff)
++        void ReduceCD(uint32 diff)
 +        {
 +            CommonTimers(diff);
 +            if (Torment_cd > diff)              Torment_cd -= diff;
@@ -10827,10 +10833,10 @@ index 0000000..ccff806
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warrior_ai.cpp b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 new file mode 100644
-index 0000000..d664897
+index 0000000..e54ddce
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
-@@ -0,0 +1,1185 @@
+@@ -0,0 +1,1192 @@
 +#include "bot_ai.h"
 +#include "Group.h"
 +#include "Player.h"
@@ -11015,7 +11021,7 @@ index 0000000..d664897
 +            return rage;
 +        }
 +
-+        void BreakCC(uint32 const diff)
++        void BreakCC(uint32 diff)
 +        {
 +            if (me->HasAuraWithMechanic((1<<MECHANIC_FEAR)|(1<<MECHANIC_SAPPED)|(1<<MECHANIC_DISORIENTED)))
 +            {
@@ -11031,7 +11037,7 @@ index 0000000..d664897
 +            bot_minion_ai::BreakCC(diff);
 +        }
 +
-+        void Attack(uint32 const diff)
++        void Attack(uint32 diff)
 +        {
 +            opponent = me->getVictim();
 +            if (opponent)
@@ -11421,7 +11427,7 @@ index 0000000..d664897
 +            }*/
 +        }//end Attack
 +
-+        void CheckIntervene(uint32 const diff)
++        void CheckIntervene(uint32 diff)
 +        {
 +            if (INTERVENE && intervene_cd <= diff && getrage() > 100 && Rand() < ((tank == me) ? 80 : 30) && 
 +                (defensiveStance == true || (stancetimer <= diff && !SS)))
@@ -11555,20 +11561,27 @@ index 0000000..d664897
 +            }
 +        }
 +
-+        bool stanceChange(uint32 const diff, uint8 stance)
++        bool stanceChange(uint32 diff, uint8 stance)
 +        {
-+            if (!(stancetimer <= diff) || !stance) return false;
++            if (!(stancetimer <= diff) || !stance)
++                return false;
 +
 +            if (stance == 5)
 +            {
 +                switch (urand(0,1))
 +                {
-+                case 0: stance = 1; break;
-+                case 1: if (me->getLevel() < 30) stance = 1; else stance = 3; break;
++                    case 0:
++                        stance = 1;
++                        break;
++                    case 1:
++                        stance = me->getLevel() < 30 ? 1 : 3;
++                        break;
 +                }
 +            }
-+            if (stance == 2 && (me->getLevel() < 10 || SS)) return false;
-+            if (stance == 3 && me->getLevel() < 30) return false;
++            if (stance == 2 && (me->getLevel() < 10 || SS))
++                return false;
++            if (stance == 3 && me->getLevel() < 30)
++                return false;
 +
 +            temptimer = GC_Timer;
 +            uint32 temprage = 0;
@@ -11577,55 +11590,55 @@ index 0000000..d664897
 +                temprage = myrage > 250 ? 250 : myrage;
 +            else if (me->getLevel() >= 10)
 +                temprage = myrage > 100 ? 100 : myrage;
-+            switch(stance)
++            switch (stance)
 +            {
-+            case 1:
-+                if (doCast(me, BATTLESTANCE))
-+                {
-+                    if (me->HasAura(BATTLESTANCE)) 
++                case 1:
++                    if (doCast(me, BATTLESTANCE))
 +                    {
-+                        battleStance = true;
-+                        defensiveStance = false;
-+                        berserkerStance = false;
-+                        me->SetPower(POWER_RAGE, temprage);
-+                        stancetimer = 2100 - me->getLevel()*20;//2100-1600 on 80
-+                        GC_Timer = temptimer;
-+                        return true;
++                        if (me->HasAura(BATTLESTANCE)) 
++                        {
++                            battleStance = true;
++                            defensiveStance = false;
++                            berserkerStance = false;
++                            me->SetPower(POWER_RAGE, temprage);
++                            stancetimer = 2100 - me->getLevel()*20;//2100-1600 on 80
++                            GC_Timer = temptimer;
++                            return true;
++                        }
 +                    }
-+                }
-+                break;
-+            case 2:
-+                if (doCast(me, DEFENSIVESTANCE))
-+                {
-+                    if (me->HasAura(DEFENSIVESTANCE))
++                    break;
++                case 2:
++                    if (doCast(me, DEFENSIVESTANCE))
 +                    {
-+                        defensiveStance = true;
-+                        battleStance = false;
-+                        berserkerStance = false;
-+                        me->SetPower(POWER_RAGE, temprage);
-+                        stancetimer = 2100 - me->getLevel()*20;//2100-1600 on 80
-+                        GC_Timer = temptimer;
-+                        return true;
++                        if (me->HasAura(DEFENSIVESTANCE))
++                        {
++                            defensiveStance = true;
++                            battleStance = false;
++                            berserkerStance = false;
++                            me->SetPower(POWER_RAGE, temprage);
++                            stancetimer = 2100 - me->getLevel()*20;//2100-1600 on 80
++                            GC_Timer = temptimer;
++                            return true;
++                        }
 +                    }
-+                }
-+                break;
-+            case 3:
-+                if (doCast(me, BERSERKERSTANCE))
-+                {
-+                    if (me->HasAura(BERSERKERSTANCE))
++                    break;
++                case 3:
++                    if (doCast(me, BERSERKERSTANCE))
 +                    {
-+                        berserkerStance = true;
-+                        battleStance = false;
-+                        defensiveStance = false;
-+                        me->SetPower(POWER_RAGE, temprage);
-+                        stancetimer = 2100 - me->getLevel()*20;//2100-1600 on 80
-+                        GC_Timer = temptimer;
-+                        return true;
++                        if (me->HasAura(BERSERKERSTANCE))
++                        {
++                            berserkerStance = true;
++                            battleStance = false;
++                            defensiveStance = false;
++                            me->SetPower(POWER_RAGE, temprage);
++                            stancetimer = 2100 - me->getLevel()*20;//2100-1600 on 80
++                            GC_Timer = temptimer;
++                            return true;
++                        }
 +                    }
-+                }
-+                break;
-+            default:
-+                break;
++                    break;
++                default:
++                    break;
 +            }
 +            GC_Timer = temptimer;
 +            return false;
@@ -11746,7 +11759,7 @@ index 0000000..d664897
 +            }
 +        }
 +
-+        void ReduceCD(uint32 const diff)
++        void ReduceCD(uint32 diff)
 +        {
 +            CommonTimers(diff);
 +            if (regen_cd > diff)                    regen_cd -= diff;
@@ -13524,10 +13537,10 @@ index 0000000..10185e2
 +}
 diff --git a/src/server/game/AI/PlayerBots/bp_ai.cpp b/src/server/game/AI/PlayerBots/bp_ai.cpp
 new file mode 100644
-index 0000000..a922e72
+index 0000000..aeba316
 --- /dev/null
 +++ b/src/server/game/AI/PlayerBots/bp_ai.cpp
-@@ -0,0 +1,1790 @@
+@@ -0,0 +1,1791 @@
 +/*
 +Playerbot System by Graff (onlysuffering@gmail.com)
 +Original source: https://github.com/blueboy/portal/commits/new-ai
@@ -13857,14 +13870,15 @@ index 0000000..a922e72
 +    //init motion
 +    AddBotState(BOTSTATE_FOLLOW);
 +    //init group (temp)
-+    if (me->GetTeamId() != GetMaster()->GetTeamId())
-+        me->setFaction(GetMaster()->getFaction());
++    //if (me->GetTeamId() != GetMaster()->GetTeamId())
++    //    me->setFaction(GetMaster()->getFaction());
 +    _InviteToMastersGroup();
 +}
 +
 +PlayerbotAI::~PlayerbotAI()
 +{
 +    if (_classAI) delete _classAI;
++    if (_afterCast) delete _afterCast;
 +}
 +
 +void PlayerbotAI::ReloadClassAI()
@@ -14688,12 +14702,12 @@ index 0000000..a922e72
 +    return InitSpell(caster, next);
 +}
 +
-+bool PlayerbotAI::CastSpell(Unit* victim, uint32 spellId)
++bool PlayerbotAI::CastSpell(Unit* victim, uint32 spellId) const
 +{
 +    return CastSpell(victim, sSpellMgr->GetSpellInfo(spellId));
 +}
 +
-+bool PlayerbotAI::CastSpell(Unit* victim, SpellInfo const* spellInfo)
++bool PlayerbotAI::CastSpell(Unit* victim, SpellInfo const* spellInfo) const
 +{
 +    ASSERT(victim);
 +
@@ -14777,12 +14791,12 @@ index 0000000..a922e72
 +    return false;
 +}
 +
-+bool PlayerbotAI::CastSpell(Item* item, uint32 spellId)
++bool PlayerbotAI::CastSpell(Item* item, uint32 spellId) const
 +{
 +    return CastSpell(item, sSpellMgr->GetSpellInfo(spellId));
 +}
 +
-+bool PlayerbotAI::CastSpell(Item* item, SpellInfo const* spellInfo)
++bool PlayerbotAI::CastSpell(Item* item, SpellInfo const* spellInfo) const
 +{
 +    ASSERT(item);
 +
@@ -14889,7 +14903,7 @@ index 0000000..a922e72
 +    _cureTimer = 2000;
 +}
 +
-+inline bool PlayerbotAI::_CureTarget(Unit* target, SpellInfo const* spellInfo)
++inline bool PlayerbotAI::_CureTarget(Unit* target, SpellInfo const* spellInfo) const
 +{
 +    return _CanCureTarget(target, spellInfo) ? CastSpell(target, spellInfo) : false;
 +}
@@ -15320,7 +15334,7 @@ index 0000000..a922e72
 +}
 diff --git a/src/server/game/AI/PlayerBots/bp_ai.h b/src/server/game/AI/PlayerBots/bp_ai.h
 new file mode 100644
-index 0000000..148727f
+index 0000000..aeb77d2
 --- /dev/null
 +++ b/src/server/game/AI/PlayerBots/bp_ai.h
 @@ -0,0 +1,608 @@
@@ -15446,15 +15460,15 @@ index 0000000..148727f
 +
 +        //casts
 +        // units
-+        bool CastSpell(Unit* victim, uint32 spellId);
-+        bool CastSpell(Unit* victim, SpellInfo const* spellInfo);
++        bool CastSpell(Unit* victim, uint32 spellId) const;
++        bool CastSpell(Unit* victim, SpellInfo const* spellInfo) const;
 +        // items
-+        bool CastSpell(Item* item, uint32 spellId);
-+        bool CastSpell(Item* item, SpellInfo const* spellInfo);
++        bool CastSpell(Item* item, uint32 spellId) const;
++        bool CastSpell(Item* item, SpellInfo const* spellInfo) const;
 +        //  cures
 +        void CureGroup(Player* player, uint32 cureSpell, const uint32 diff);
 +    private:
-+        inline bool _CureTarget(Unit* target, SpellInfo const* spellInfo);
++        inline bool _CureTarget(Unit* target, SpellInfo const* spellInfo) const;
 +        bool _CanCureTarget(Unit* target, SpellInfo const* spellInfo) const;
 +    public:
 +
@@ -25941,7 +25955,7 @@ index eb7c0e7..4efa8dc 100644
  }
  
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index 195a911..b980f93 100644
+index 195a911..cf57f86 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -79,6 +79,11 @@
@@ -26938,6 +26952,38 @@ index 195a911..b980f93 100644
              CharacterDatabase.CommitTransaction(trans);
              break;
          }
+@@ -6914,6 +7838,15 @@ uint32 Player::TeamForRace(uint8 race)
+ 
+ void Player::setFactionForRace(uint8 race)
+ {
++    //Playerbot
++    if (GetSession()->m_master != NULL)
++    {
++        m_team = GetSession()->m_master->GetTeam();
++        setFaction(GetSession()->m_master->getFaction());
++        return;
++    }
++    //end Playerbot
++
+     m_team = TeamForRace(race);
+ 
+     ChrRacesEntry const* rEntry = sChrRacesStore.LookupEntry(race);
+@@ -11938,11 +12871,15 @@ InventoryResult Player::CanUseItem(ItemTemplate const* proto) const
+ 
+     if (proto)
+     {
++        //Playerbot
++        if (GetSession()->m_master == NULL)
++        {
+         if ((proto->Flags2 & ITEM_FLAGS_EXTRA_HORDE_ONLY) && GetTeam() != HORDE)
+             return EQUIP_ERR_YOU_CAN_NEVER_USE_THAT_ITEM;
+ 
+         if ((proto->Flags2 & ITEM_FLAGS_EXTRA_ALLIANCE_ONLY) && GetTeam() != ALLIANCE)
+             return EQUIP_ERR_YOU_CAN_NEVER_USE_THAT_ITEM;
++        }
+ 
+         if ((proto->AllowableClass & getClassMask()) == 0 || (proto->AllowableRace & getRaceMask()) == 0)
+             return EQUIP_ERR_YOU_CAN_NEVER_USE_THAT_ITEM;
 diff --git a/src/server/game/Entities/Player/Player.h b/src/server/game/Entities/Player/Player.h
 index a95c81f..353ad02 100644
 --- a/src/server/game/Entities/Player/Player.h
