@@ -1,6 +1,6 @@
-From feea0b630f6b4eafe071375857ef7735290237bd Mon Sep 17 00:00:00 2001
+From 4681cf35d348959a0911ada43893797e87d722c9 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Wed, 20 Mar 2013 09:29:10 +0700
+Date: Wed, 20 Mar 2013 13:24:43 +0700
 Subject: [PATCH] NPCBots
 
 ---
@@ -9,7 +9,7 @@ Subject: [PATCH] NPCBots
  sql/Bots/world_bots.sql                            |  524 ++++
  sql/Bots/world_script_bot_giver.sql                |   13 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  462 +++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 3177 ++++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 3185 ++++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |  355 +++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1086 +++++++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  340 +++
@@ -20,9 +20,9 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  390 +++
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  458 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1185 ++++++++
- src/server/game/AI/NpcBots/botcommands.cpp         |  838 ++++++
- src/server/game/AI/NpcBots/botgiver.cpp            |  635 ++++
- src/server/game/AI/PlayerBots/bp_ai.cpp            | 1788 +++++++++++
+ src/server/game/AI/NpcBots/botcommands.cpp         |  851 ++++++
+ src/server/game/AI/NpcBots/botgiver.cpp            |  643 ++++
+ src/server/game/AI/PlayerBots/bp_ai.cpp            | 1790 +++++++++++
  src/server/game/AI/PlayerBots/bp_ai.h              |  608 ++++
  src/server/game/AI/PlayerBots/bp_cai.cpp           |   14 +
  src/server/game/AI/PlayerBots/bp_cai.h             |  118 +
@@ -52,7 +52,7 @@ Subject: [PATCH] NPCBots
  src/server/game/Entities/Creature/Creature.cpp     |  128 +
  src/server/game/Entities/Creature/Creature.h       |   38 +
  .../game/Entities/Creature/TemporarySummon.cpp     |    8 +
- src/server/game/Entities/Player/Player.cpp         |  837 ++++++
+ src/server/game/Entities/Player/Player.cpp         |  924 ++++++
  src/server/game/Entities/Player/Player.h           |   86 +
  src/server/game/Entities/Unit/Unit.cpp             |  214 ++
  src/server/game/Groups/Group.cpp                   |   10 +
@@ -65,8 +65,12 @@ Subject: [PATCH] NPCBots
  src/server/game/Server/WorldSession.cpp            |  100 +
  src/server/game/Server/WorldSession.h              |   24 +
  src/server/scripts/Spells/spell_priest.cpp         |    4 +
+ .../Database/Implementation/CharacterDatabase.cpp  |    8 +
+ .../Database/Implementation/CharacterDatabase.h    |    8 +
+ .../Database/Implementation/WorldDatabase.cpp      |    4 +
+ .../shared/Database/Implementation/WorldDatabase.h |    4 +
  src/server/worldserver/worldserver.conf.dist       |  193 ++
- 62 files changed, 27086 insertions(+), 0 deletions(-)
+ 66 files changed, 27228 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world_bot_giver_locales_gossip_menu_option.sql
  create mode 100644 sql/Bots/world_bots.sql
@@ -1247,10 +1251,10 @@ index 0000000..c2dda46
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..1404fdc
+index 0000000..1edbc17
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,3177 @@
+@@ -0,0 +1,3185 @@
 +/*
 +NpcBot System by Graff (onlysuffering@gmail.com)
 +Original patch (npcbot part only) from: LordPsyan https://bitbucket.org/lordpsyan/trinitycore-patches/src/3b8b9072280e/Individual/11185-BOTS-NPCBots.patch
@@ -1628,7 +1632,11 @@ index 0000000..1404fdc
 +{
 +    if (!group)
 +        return NULL;
-+    QueryResult result = CharacterDatabase.PQuery("SELECT memberGuid, memberFlags FROM `group_member` WHERE `guid`='%u'", group->GetGUID());
++
++    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_MAINTANK);
++    stmt->setUInt32(0, group->GetGUID());
++    PreparedQueryResult result = CharacterDatabase.Query(stmt);
++    //QueryResult result = CharacterDatabase.PQuery("SELECT memberGuid, memberFlags FROM `group_member` WHERE `guid`='%u'", group->GetGUID());
 +    if (!result)
 +        return NULL;
 +    Unit* unit = NULL;
@@ -4262,7 +4270,11 @@ index 0000000..1404fdc
 +    //if (!name.empty())
 +    //    m_botsPet->SetName(name);
 +
-+    QueryResult result = WorldDatabase.PQuery("SELECT hp, mana, armor, str, agi, sta, inte, spi FROM `pet_levelstats` WHERE `creature_entry` = '%u' AND `level` = '%u'", originalentry, mylevel);
++    PreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_SEL_NPCBOT_PET_LEVELSTATS);
++    stmt->setUInt32(0, originalentry);
++    stmt->setUInt8(1, mylevel);
++    PreparedQueryResult result = WorldDatabase.Query(stmt);
++    //QueryResult result = WorldDatabase.PQuery("SELECT hp, mana, armor, str, agi, sta, inte, spi FROM `pet_levelstats` WHERE `creature_entry` = '%u' AND `level` = '%u'", originalentry, mylevel);
 +
 +    if (result)
 +    {
@@ -12006,10 +12018,10 @@ index 0000000..d664897
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 0000000..b2e93f8
+index 0000000..0fff14e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
-@@ -0,0 +1,838 @@
+@@ -0,0 +1,851 @@
 +/*
 +Name: script_bot_commands
 +%Complete: ???
@@ -12043,6 +12055,7 @@ index 0000000..b2e93f8
 +            { "reset",          SEC_PLAYER,         false, &HandleNpcBotResetCommand,                   "", NULL },
 +            { "command",        SEC_PLAYER,         false, &HandleNpcBotCommandCommand,                 "", NULL },
 +            { "distance",       SEC_PLAYER,         false, &HandleNpcBotDistanceCommand,                "", NULL },
++            //{ "reloadequips",   SEC_ADMINISTRATOR,  false, &HandleReloadEquipsCommand,                  "", NULL },
 +            { NULL,             0,                  false, NULL,                                        "", NULL }
 +        };
 +        static ChatCommand commandTable[] =
@@ -12055,6 +12068,14 @@ index 0000000..b2e93f8
 +        };
 +        return commandTable;
 +    }
++
++    //static bool HandleReloadEquipsCommand(ChatHandler* handler, const char* /*args*/)
++    //{
++    //    sLog->outInfo(LOG_FILTER_GENERAL, "Re-Loading Creature Equips...");
++    //    sObjectMgr->LoadEquipmentTemplates();
++    //    handler->SendGlobalGMSysMessage("DB table `creature_equip_template` (creature equipment) reloaded.");
++    //    return true;
++    //}
 +
 +    static bool HandlePlayerbotCommand(ChatHandler* handler, const char* args)
 +    {
@@ -12156,7 +12177,11 @@ index 0000000..b2e93f8
 +                std::string plName;
 +                std::list<std::string>* names = new std::list<std::string>;
 +                uint32 accId = player->GetSession()->GetAccountId();
-+                QueryResult results = CharacterDatabase.PQuery("SELECT name FROM characters WHERE account = '%u' AND guid != '%u'", accId, player->GetGUIDLow());
++                PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_PLAYERBOTS);
++                stmt->setUInt32(0, accId);
++                stmt->setUInt32(1, player->GetGUIDLow());
++                PreparedQueryResult results = CharacterDatabase.Query(stmt);
++                //CharacterDatabase.PQuery("SELECT name FROM characters WHERE account = '%u' AND guid != '%u'", accId, player->GetGUIDLow());
 +                if (results)
 +                {
 +                    do
@@ -12850,10 +12875,10 @@ index 0000000..b2e93f8
 +}
 diff --git a/src/server/game/AI/NpcBots/botgiver.cpp b/src/server/game/AI/NpcBots/botgiver.cpp
 new file mode 100644
-index 0000000..19f6920
+index 0000000..10185e2
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botgiver.cpp
-@@ -0,0 +1,635 @@
+@@ -0,0 +1,643 @@
 +#include "bp_mgr.h"
 +#include "Config.h"
 +#include "Group.h"
@@ -13022,12 +13047,17 @@ index 0000000..19f6920
 +        return true;
 +    }
 +
++private:
 +    static void SendCreatePlayerBot(Player* player, Creature* /*creature*/, uint32 action)
 +    {
 +        std::string plName;
 +        std::list<std::string>* names = new std::list<std::string>;
 +        uint32 accId = player->GetSession()->GetAccountId();
-+        QueryResult results = CharacterDatabase.PQuery("SELECT name FROM characters WHERE account = '%u' AND guid != '%u'", accId, player->GetGUIDLow());
++        PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_PLAYERBOTS);
++        stmt->setUInt32(0, accId);
++        stmt->setUInt32(1, player->GetGUIDLow());
++        PreparedQueryResult results = CharacterDatabase.Query(stmt);
++        //QueryResult results = CharacterDatabase.PQuery("SELECT name FROM characters WHERE account = '%u' AND guid != '%u'", accId, player->GetGUIDLow());
 +        if (results)
 +        {
 +            do
@@ -13087,7 +13117,11 @@ index 0000000..19f6920
 +        std::string plName;
 +        std::list<std::string>* names = new std::list<std::string>;
 +        uint32 accId = player->GetSession()->GetAccountId();
-+        QueryResult results = CharacterDatabase.PQuery("SELECT name FROM characters WHERE account = '%u' AND guid != '%u'", accId, player->GetGUIDLow());
++        PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_PLAYERBOTS);
++        stmt->setUInt32(0, accId);
++        stmt->setUInt32(1, player->GetGUIDLow());
++        PreparedQueryResult results = CharacterDatabase.Query(stmt);
++        //QueryResult results = CharacterDatabase.PQuery("SELECT name FROM characters WHERE account = '%u' AND guid != '%u'", accId, player->GetGUIDLow());
 +        if (results)
 +        {
 +            do
@@ -13456,7 +13490,6 @@ index 0000000..19f6920
 +        }
 +    }
 +
-+private:
 +    static std::string GetLocaleStringForTextID(std::string& textValue, uint32 textId, uint32 botgiverEntry, int32 localeIdx)
 +    {
 +        if (textId >= MAX_STRINGS)
@@ -13491,10 +13524,10 @@ index 0000000..19f6920
 +}
 diff --git a/src/server/game/AI/PlayerBots/bp_ai.cpp b/src/server/game/AI/PlayerBots/bp_ai.cpp
 new file mode 100644
-index 0000000..75ef438
+index 0000000..a922e72
 --- /dev/null
 +++ b/src/server/game/AI/PlayerBots/bp_ai.cpp
-@@ -0,0 +1,1788 @@
+@@ -0,0 +1,1790 @@
 +/*
 +Playerbot System by Graff (onlysuffering@gmail.com)
 +Original source: https://github.com/blueboy/portal/commits/new-ai
@@ -13824,6 +13857,8 @@ index 0000000..75ef438
 +    //init motion
 +    AddBotState(BOTSTATE_FOLLOW);
 +    //init group (temp)
++    if (me->GetTeamId() != GetMaster()->GetTeamId())
++        me->setFaction(GetMaster()->getFaction());
 +    _InviteToMastersGroup();
 +}
 +
@@ -25906,7 +25941,7 @@ index eb7c0e7..4efa8dc 100644
  }
  
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index 195a911..0a69e33 100644
+index 195a911..b980f93 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -79,6 +79,11 @@
@@ -26040,7 +26075,7 @@ index 195a911..0a69e33 100644
      // preparing unsummon pet if lost (we must get pet before teleportation or will not find it later)
      Pet* pet = GetPet();
  
-@@ -2461,6 +2550,681 @@ void Player::RemoveFromWorld()
+@@ -2461,6 +2550,764 @@ void Player::RemoveFromWorld()
      }
  }
  
@@ -26235,7 +26270,13 @@ index 195a911..0a69e33 100644
 +        {
 +            ClearBotMustBeCreated(guid);
 +            if (eraseFromDB)//by command
-+                CharacterDatabase.PExecute("DELETE FROM `character_npcbot` WHERE `owner` = '%u' AND `entry` = '%u'", GetGUIDLow(), m_bot->GetEntry());
++            {
++                PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_NPCBOT);
++                stmt->setUInt32(0, GetGUIDLow());
++                stmt->setUInt32(1, m_bot->GetEntry());
++                CharacterDatabase.Execute(stmt);
++                //CharacterDatabase.PExecute("DELETE FROM `character_npcbot` WHERE `owner` = '%u' AND `entry` = '%u'", GetGUIDLow(), m_bot->GetEntry());
++            }
 +        }
 +        else
 +        {
@@ -26372,10 +26413,25 @@ index 195a911..0a69e33 100644
 +    m_bot->InitBotAI();
 +    m_bot->SetBotCommandState(COMMAND_FOLLOW, true);
 +
-+    //entry is unique for each master's bot so clean it up just in case 
-+    CharacterDatabase.PExecute("DELETE FROM `character_npcbot` WHERE `owner` = '%u' AND `entry` = '%u'", GetGUIDLow(), botentry);
++    SQLTransaction trans = CharacterDatabase.BeginTransaction();
++    //entry is unique for each master's bot so clean it up just in case
++    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_NPCBOT);
++    stmt->setUInt32(0, GetGUIDLow());
++    stmt->setUInt32(1, botentry);
++    trans->Append(stmt);
++    //CharacterDatabase.Execute(stmt);
++    //CharacterDatabase.PExecute("DELETE FROM `character_npcbot` WHERE `owner` = '%u' AND `entry` = '%u'", GetGUIDLow(), botentry);
 +    //add the new entry
-+    CharacterDatabase.PExecute("INSERT INTO `character_npcbot` (owner,entry,race,class,istank) VALUES ('%u','%u','%u','%u','%u')", GetGUIDLow(), m_bot->GetEntry(), botrace, botclass, uint8(istank));
++    stmt = CharacterDatabase.GetPreparedStatement(CHAR_INS_NPCBOT);
++    stmt->setUInt32(0, GetGUIDLow());
++    stmt->setUInt32(1, botentry);
++    stmt->setUInt8(2, botrace);
++    stmt->setUInt8(3, botclass);
++    stmt->setUInt8(4, uint8(istank));
++    trans->Append(stmt);
++    CharacterDatabase.CommitTransaction(trans);
++    //CharacterDatabase.Execute(stmt);
++    //CharacterDatabase.PExecute("INSERT INTO `character_npcbot` (owner,entry,race,class,istank) VALUES ('%u','%u','%u','%u','%u')", GetGUIDLow(), botentry, botrace, botclass, uint8(istank));
 +    //If we have a group, just add bot
 +    if (Group* gr = GetGroup())
 +    {
@@ -26465,13 +26521,18 @@ index 195a911..0a69e33 100644
 +void Player::SetBotTank(uint64 guid)
 +{
 +    m_botTankGuid = guid;
-+    if (guid == 0 || !IS_CREATURE_GUID(guid))
++    if (guid == 0 || !IS_CREATURE_GUID(guid)) //reset tank or set player - remove from all npcbots
 +    {
 +        for (uint8 i = 0; i != GetMaxNpcBots(); ++i)
 +        {
 +            if (m_botmap[i]->tank == true)
 +            {
-+                CharacterDatabase.PExecute("UPDATE `character_npcbot` SET `istank` = '0' WHERE `owner` = '%u' AND `entry` = '%u'", GetGUIDLow(), m_botmap[i]->m_entry);
++                PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_NPCBOT_TANK);
++                stmt->setUInt8(0, uint8(0));
++                stmt->setUInt32(1, GetGUIDLow());
++                stmt->setUInt32(2, m_botmap[i]->m_entry);
++                CharacterDatabase.Execute(stmt);
++                //CharacterDatabase.PExecute("UPDATE `character_npcbot` SET `istank` = '0' WHERE `owner` = '%u' AND `entry` = '%u'", GetGUIDLow(), m_botmap[i]->m_entry);
 +                m_botmap[i]->tank = false;
 +            }
 +        }
@@ -26479,13 +26540,29 @@ index 195a911..0a69e33 100644
 +    }
 +    for (uint8 i = 0; i != GetMaxNpcBots(); ++i)
 +    {
-+        if (m_botmap[i]->tank == true && m_botmap[i]->m_guid != guid)
-+            CharacterDatabase.PExecute("UPDATE `character_npcbot` SET `istank` = '0' WHERE `owner` = '%u' AND `entry` = '%u'", GetGUIDLow(), m_botmap[i]->m_entry);
-+        m_botmap[i]->tank = false;
-+        if (m_botmap[i]->m_guid == guid)
++        if (m_botmap[i]->tank == true)
++        {
++            if (m_botmap[i]->m_guid != guid)
++            {
++                m_botmap[i]->tank = false;
++                PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_NPCBOT_TANK);
++                stmt->setUInt8(0, uint8(0));
++                stmt->setUInt32(1, GetGUIDLow());
++                stmt->setUInt32(2, m_botmap[i]->m_entry);
++                CharacterDatabase.Execute(stmt);
++                //CharacterDatabase.PExecute("UPDATE `character_npcbot` SET `istank` = '0' WHERE `owner` = '%u' AND `entry` = '%u'", GetGUIDLow(), m_botmap[i]->m_entry);
++            }
++        }
++        else if (m_botmap[i]->m_guid == guid)
 +        {
 +            m_botmap[i]->tank = true;
-+            CharacterDatabase.PExecute("UPDATE `character_npcbot` SET `istank` = '1' WHERE `owner` = '%u' AND `entry` = '%u'", GetGUIDLow(), m_botmap[i]->m_entry);
++            PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_NPCBOT_TANK);
++            stmt->setUInt8(0, uint8(1));
++            stmt->setUInt32(1, GetGUIDLow());
++            stmt->setUInt32(2, m_botmap[i]->m_entry);
++            CharacterDatabase.Execute(stmt);
++            //CharacterDatabase.PExecute("UPDATE `character_npcbot` SET `istank` = '1' WHERE `owner` = '%u' AND `entry` = '%u'", GetGUIDLow(), m_botmap[i]->m_entry);
++            break;
 +        }
 +    }
 +}
@@ -26604,36 +26681,77 @@ index 195a911..0a69e33 100644
 +        return;
 +    }
 +
-+    QueryResult result;
++
++    PreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_SEL_NPCBOT_TEMPLATE);
++    
++    std::ostringstream classStr;
++    switch (bot_class)
++    {
++        case CLASS_ROGUE:
++            classStr << "rogue_bot";    break;
++        case CLASS_PRIEST:
++            classStr << "priest_bot";   break;
++        case CLASS_DRUID:
++            classStr << "druid_bot";    break;
++        case CLASS_SHAMAN:
++            classStr << "shaman_bot";   break;
++        case CLASS_MAGE:
++            classStr << "mage_bot";     break;
++        case CLASS_WARLOCK:
++            classStr << "warlock_bot";  break;
++        case CLASS_WARRIOR:
++            classStr << "warrior_bot";  break;
++        case CLASS_PALADIN:
++            classStr << "paladin_bot";  break;
++        case CLASS_HUNTER:
++            classStr << "hunter_bot";   break;
++        //case CLASS_DEATH_KNIGHT:
++        //    classStr << "dk_bot";       break;
++        default:
++            ChatHandler ch(GetSession());
++            ch.PSendSysMessage("ERROR! unknown bot_class %u", bot_class);
++            ch.SetSentErrorMessage(true);
++            sLog->outError(LOG_FILTER_PLAYER, "Player::CreateNPCBot() player %u(%s) tried to create bot of unknown/unsupported class %u!", GetGUIDLow(), GetName().c_str(), bot_class);
++            return;
++    }
++
++    stmt->setString(0, classStr.str());
++    stmt->setUInt8(1, bot_class);
 +
 +    //maybe we should remove this check? ;Ü
 +    switch (getRace())
 +    {
-+    case RACE_NONE: case RACE_HUMAN: case RACE_DWARF: case RACE_NIGHTELF: case RACE_GNOME: case RACE_DRAENEI:
-+        if (bot_class == CLASS_ROGUE) result = WorldDatabase.PQuery("SELECT entry,trainer_race FROM creature_template WHERE scriptname='rogue_bot' and trainer_class=%u and trainer_race IN(1,3,4,7,11)", bot_class);
-+        else if (bot_class == CLASS_PRIEST) result = WorldDatabase.PQuery("SELECT entry,trainer_race FROM creature_template WHERE scriptname='priest_bot' and trainer_class=%u and trainer_race IN(1,3,4,7,11)", bot_class);
-+        else if (bot_class == CLASS_DRUID) result = WorldDatabase.PQuery("SELECT entry,trainer_race FROM creature_template WHERE scriptname='druid_bot' and trainer_class=%u and trainer_race IN(1,3,4,7,11)", bot_class);
-+        else if (bot_class == CLASS_SHAMAN) result = WorldDatabase.PQuery("SELECT entry,trainer_race FROM creature_template WHERE scriptname='shaman_bot' and trainer_class=%u and trainer_race IN(1,3,4,7,11)", bot_class);
-+        else if (bot_class == CLASS_MAGE) result = WorldDatabase.PQuery("SELECT entry,trainer_race FROM creature_template WHERE scriptname='mage_bot' and trainer_class=%u and trainer_race IN(1,3,4,7,11)", bot_class);
-+        else if (bot_class == CLASS_WARLOCK) result = WorldDatabase.PQuery("SELECT entry,trainer_race FROM creature_template WHERE scriptname='warlock_bot' and trainer_class=%u and trainer_race IN(1,3,4,7,11)", bot_class);
-+        else if (bot_class == CLASS_WARRIOR) result = WorldDatabase.PQuery("SELECT entry,trainer_race FROM creature_template WHERE scriptname='warrior_bot' and trainer_class=%u and trainer_race IN(1,3,4,7,11)", bot_class);
-+        else if (bot_class == CLASS_PALADIN) result = WorldDatabase.PQuery("SELECT entry,trainer_race FROM creature_template WHERE scriptname='paladin_bot' and trainer_class=%u and trainer_race IN(1,3,4,7,11)", bot_class);
-+        else if (bot_class == CLASS_HUNTER) result = WorldDatabase.PQuery("SELECT entry,trainer_race FROM creature_template WHERE scriptname='hunter_bot' and trainer_class=%u and trainer_race IN(1,3,4,7,11)", bot_class);
-+        else result = WorldDatabase.PQuery("SELECT entry,trainer_race FROM creature_template WHERE scriptname='script_bot' and trainer_class=%u and trainer_race IN(1,3,4,7,11)", bot_class);
-+        break;
++        case RACE_NONE:
++        case RACE_HUMAN:
++        case RACE_DWARF:
++        case RACE_NIGHTELF:
++        case RACE_GNOME:
++        case RACE_DRAENEI:
++            stmt->setUInt8(2, uint8(1));
++            stmt->setUInt8(3, uint8(3));
++            stmt->setUInt8(4, uint8(4));
++            stmt->setUInt8(5, uint8(7));
++            stmt->setUInt8(6, uint8(11));
++            break;
 +
-+    case RACE_ORC: case RACE_UNDEAD_PLAYER: case RACE_TAUREN: case RACE_TROLL: case RACE_BLOODELF:
-+        if (bot_class == CLASS_ROGUE) result = WorldDatabase.PQuery("SELECT entry,trainer_race FROM creature_template WHERE scriptname='rogue_bot' and trainer_class=%u and trainer_race IN(2,5,6,8,10)", bot_class);
-+        else if (bot_class == CLASS_PRIEST) result = WorldDatabase.PQuery("SELECT entry,trainer_race FROM creature_template WHERE scriptname='priest_bot' and trainer_class=%u and trainer_race IN(2,5,6,8,10)", bot_class);
-+        else if (bot_class == CLASS_SHAMAN) result = WorldDatabase.PQuery("SELECT entry,trainer_race FROM creature_template WHERE scriptname='shaman_bot' and trainer_class=%u and trainer_race IN(2,5,6,8,10)", bot_class);
-+        else if (bot_class == CLASS_MAGE) result = WorldDatabase.PQuery("SELECT entry,trainer_race FROM creature_template WHERE scriptname='mage_bot' and trainer_class=%u and trainer_race IN(2,5,6,8,10)", bot_class);
-+        else if (bot_class == CLASS_WARLOCK) result = WorldDatabase.PQuery("SELECT entry,trainer_race FROM creature_template WHERE scriptname='warlock_bot' and trainer_class=%u and trainer_race IN(2,5,6,8,10)", bot_class);
-+        else if (bot_class == CLASS_WARRIOR) result = WorldDatabase.PQuery("SELECT entry,trainer_race FROM creature_template WHERE scriptname='warrior_bot' and trainer_class=%u and trainer_race IN(2,5,6,8,10)", bot_class);
-+        else if (bot_class == CLASS_DRUID) result = WorldDatabase.PQuery("SELECT entry,trainer_race FROM creature_template WHERE scriptname='druid_bot' and trainer_class=%u and trainer_race IN(2,5,6,8,10)", bot_class);
-+        else if (bot_class == CLASS_PALADIN) result = WorldDatabase.PQuery("SELECT entry,trainer_race FROM creature_template WHERE scriptname='paladin_bot' and trainer_class=%u and trainer_race IN(2,5,6,8,10)", bot_class);
-+        else if (bot_class == CLASS_HUNTER) result = WorldDatabase.PQuery("SELECT entry,trainer_race FROM creature_template WHERE scriptname='hunter_bot' and trainer_class=%u and trainer_race IN(2,5,6,8,10)", bot_class);
-+        else result = WorldDatabase.PQuery("SELECT entry,trainer_race FROM creature_template WHERE scriptname='script_bot' and trainer_class=%u and trainer_race IN(2,5,6,8,10)", bot_class);
-+        break;
++        case RACE_ORC:
++        case RACE_UNDEAD_PLAYER:
++        case RACE_TAUREN:
++        case RACE_TROLL:
++        case RACE_BLOODELF:
++            stmt->setUInt8(2, uint8(2));
++            stmt->setUInt8(3, uint8(5));
++            stmt->setUInt8(4, uint8(6));
++            stmt->setUInt8(5, uint8(8));
++            stmt->setUInt8(6, uint8(10));
++            break;
++    }
++
++    PreparedQueryResult result = WorldDatabase.Query(stmt);
++    if (!result)
++    {
++        sLog->outFatal(LOG_FILTER_PLAYER, "Player::CreateNPCBot() CANNOT create bot  of class %u, not found in DB", bot_class);
++        return;
 +    }
 +
 +    uint32 entry = 0;
@@ -26641,72 +26759,70 @@ index 195a911..0a69e33 100644
 +
 +    //find a bot to add
 +    //first check randomly selected bot, second check any bot we can add
-+    if (result)
++    std::set<std::pair<uint32, uint8> > npcBotsData;
++    do
 +    {
-+        std::set<std::pair<uint32, uint8> > npcBotsData;
-+        do
-+        {
-+            Field* fields = result->Fetch();
-+            uint32 temp_entry = fields[0].GetUInt32();
-+            uint32 temp_race = fields[1].GetUInt8();
-+            npcBotsData.insert(std::make_pair<uint32, uint8>(temp_entry, temp_race));
-+        } while (result->NextRow());
++        Field* fields = result->Fetch();
++        uint32 temp_entry = fields[0].GetUInt32();
++        uint32 temp_race = fields[1].GetUInt8();
++        npcBotsData.insert(std::make_pair<uint32, uint8>(temp_entry, temp_race));
++    } while (result->NextRow());
 +
-+        uint32 m_rand = urand(1, uint32(result->GetRowCount()));
-+        uint32 tmp_rand = 1;
-+        std::set<std::pair<uint32, uint8> >::const_iterator itr = npcBotsData.begin();
-+        bool haveSameBot = false;
-+        bool moveback = false;
-+        bool forcedCheck = false;
-+        bool secondCheck = false;
-+        while (true)
++    uint32 m_rand = urand(1, uint32(result->GetRowCount()));
++    uint32 tmp_rand = 1;
++    std::set<std::pair<uint32, uint8> >::const_iterator itr = npcBotsData.begin();
++    bool haveSameBot = false;
++    bool moveback = false;
++    bool forcedCheck = false;
++    bool secondCheck = false;
++    while (true)
++    {
++        if (itr == npcBotsData.end()) //end of list is reached (selected bot is checked)
 +        {
-+            if (itr == npcBotsData.end()) //end of list is reached (selected bot is checked)
++            moveback = true;
++            --itr; //tmp_rand is not needed anymore
++            continue;
++        }
++        if (moveback && itr == npcBotsData.begin()) //search is finished, nothing found
++            break;
++        if (tmp_rand == m_rand || haveSameBot)
++        {
++            bool canAdd = true;
++            for (uint8 i = 0; i != GetMaxNpcBots(); ++i)
 +            {
-+                moveback = true;
-+                --itr; //tmp_rand is not needed anymore
-+                continue;
-+            }
-+            if (moveback && itr == npcBotsData.begin()) //search is finished, nothing found
-+                break;
-+            if (tmp_rand == m_rand || haveSameBot)
-+            {
-+                bool canAdd = true;
-+                for (uint8 i = 0; i != GetMaxNpcBots(); ++i)
++                if (m_botmap[i]->m_entry == (*itr).first)
 +                {
-+                    if (m_botmap[i]->m_entry == (*itr).first)
-+                    {
-+                        haveSameBot = true;
-+                        canAdd = false;
-+                        if (!secondCheck)
-+                            forcedCheck = true;
-+                        secondCheck = true;
-+                        break;
-+                    }
-+                }
-+                if (canAdd)
-+                {
-+                    entry = (*itr).first;
-+                    bot_race = (*itr).second;
++                    haveSameBot = true;
++                    canAdd = false;
++                    if (!secondCheck)
++                        forcedCheck = true;
++                    secondCheck = true;
 +                    break;
 +                }
-+                if (forcedCheck)
-+                {
-+                    itr = npcBotsData.begin(); //reset searcher pos
-+                    forcedCheck = false;
-+                    continue;
-+                }
 +            }
-+            //move through
-+            if (moveback)
-+                --itr;
-+            else
++            if (canAdd)
 +            {
-+                ++itr;
-+                ++tmp_rand;
++                entry = (*itr).first;
++                bot_race = (*itr).second;
++                break;
++            }
++            if (forcedCheck)
++            {
++                itr = npcBotsData.begin(); //reset searcher pos
++                forcedCheck = false;
++                continue;
 +            }
 +        }
++        //move through
++        if (moveback)
++            --itr;
++        else
++        {
++            ++itr;
++            ++tmp_rand;
++        }
 +    }
++
 +    if (!entry || !bot_race)
 +    {
 +        ChatHandler ch(GetSession());
@@ -26714,7 +26830,9 @@ index 195a911..0a69e33 100644
 +        ch.SetSentErrorMessage(true);
 +        return;
 +    }
++
 +    SetBotMustBeCreated(entry, bot_race, bot_class);
++
 +    if (cost)
 +        ModifyMoney(-(int32(cost)));
 +}
@@ -26722,7 +26840,7 @@ index 195a911..0a69e33 100644
  void Player::RegenerateAll()
  {
      //if (m_regenTimer <= 500)
-@@ -2941,6 +3705,73 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
+@@ -2941,6 +3788,73 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
  {
      if (group)
      {
@@ -26796,7 +26914,7 @@ index 195a911..0a69e33 100644
          group->RemoveMember(guid, method, kicker, reason);
          group = NULL;
      }
-@@ -3123,6 +3954,9 @@ void Player::GiveLevel(uint8 level)
+@@ -3123,6 +4037,9 @@ void Player::GiveLevel(uint8 level)
              }
  
      sScriptMgr->OnPlayerLevelChanged(this, oldLevel);
@@ -26806,16 +26924,20 @@ index 195a911..0a69e33 100644
  }
  
  void Player::InitTalentForLevel()
-@@ -4986,6 +5820,9 @@ void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmC
+@@ -4985,6 +5902,13 @@ void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmC
+             stmt->setUInt32(0, guid);
              trans->Append(stmt);
  
-             CharacterDatabase.CommitTransaction(trans);
 +            //npcbot - erase npcbots
-+            CharacterDatabase.PExecute("DELETE FROM `character_npcbot` WHERE `owner` = '%u'", guid);
++            stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_NPCBOTS);
++            stmt->setUInt32(0, guid);
++            trans->Append(stmt);
++            //CharacterDatabase.PExecute("DELETE FROM `character_npcbot` WHERE `owner` = '%u'", guid);
 +            //end npcbot
++
+             CharacterDatabase.CommitTransaction(trans);
              break;
          }
-         // The character gets unlinked from the account, the name gets freed up and appears as deleted ingame
 diff --git a/src/server/game/Entities/Player/Player.h b/src/server/game/Entities/Player/Player.h
 index a95c81f..353ad02 100644
 --- a/src/server/game/Entities/Player/Player.h
@@ -27769,6 +27891,70 @@ index 4e86a89..fc24a20 100644
 +                if (GetCaster() && GetCaster()->GetTypeId() == TYPEID_UNIT && GetCaster()->ToCreature()->GetIAmABot()) return true;
                  return GetCaster() && GetCaster()->GetTypeId() == TYPEID_PLAYER;
              }
+ 
+diff --git a/src/server/shared/Database/Implementation/CharacterDatabase.cpp b/src/server/shared/Database/Implementation/CharacterDatabase.cpp
+index 6b26492..441b041 100644
+--- a/src/server/shared/Database/Implementation/CharacterDatabase.cpp
++++ b/src/server/shared/Database/Implementation/CharacterDatabase.cpp
+@@ -585,4 +585,12 @@ void CharacterDatabaseConnection::DoPrepareStatements()
+     PrepareStatement(CHAR_UPD_CHAR_PET_SLOT_BY_ID, "UPDATE character_pet SET slot = ? WHERE owner = ? AND id = ?", CONNECTION_ASYNC);
+     PrepareStatement(CHAR_DEL_CHAR_PET_BY_ID, "DELETE FROM character_pet WHERE id = ?", CONNECTION_ASYNC);
+     PrepareStatement(CHAR_DEL_CHAR_PET_BY_SLOT, "DELETE FROM character_pet WHERE owner = ? AND (slot = ? OR slot > ?)", CONNECTION_ASYNC);
++
++    // Bot
++    PrepareStatement(CHAR_SEL_PLAYERBOTS, "SELECT name FROM characters WHERE account = ? AND guid != ?", CONNECTION_SYNCH);
++    PrepareStatement(CHAR_DEL_NPCBOT, "DELETE FROM character_npcbot WHERE owner = ? AND entry = ?", CONNECTION_ASYNC);
++    PrepareStatement(CHAR_DEL_NPCBOTS, "DELETE FROM character_npcbot WHERE owner = ?", CONNECTION_ASYNC);
++    PrepareStatement(CHAR_INS_NPCBOT, "INSERT INTO character_npcbot (owner, entry, race, class, istank) VALUES (?, ?, ?, ?, ?)", CONNECTION_ASYNC);
++    PrepareStatement(CHAR_SEL_MAINTANK, "SELECT memberGuid, memberFlags FROM group_member WHERE guid = ?", CONNECTION_SYNCH);
++    PrepareStatement(CHAR_UPD_NPCBOT_TANK, "UPDATE character_npcbot SET istank = ? WHERE owner = ? AND entry = ?", CONNECTION_ASYNC);
+ }
+diff --git a/src/server/shared/Database/Implementation/CharacterDatabase.h b/src/server/shared/Database/Implementation/CharacterDatabase.h
+index ae15ddb..087b7f0 100644
+--- a/src/server/shared/Database/Implementation/CharacterDatabase.h
++++ b/src/server/shared/Database/Implementation/CharacterDatabase.h
+@@ -521,6 +521,14 @@ enum CharacterDatabaseStatements
+     CHAR_DEL_ITEMCONTAINER_MONEY,
+     CHAR_INS_ITEMCONTAINER_MONEY,
+ 
++    // Bot
++    CHAR_SEL_PLAYERBOTS,
++    CHAR_DEL_NPCBOT,
++    CHAR_DEL_NPCBOTS,
++    CHAR_INS_NPCBOT,
++    CHAR_SEL_MAINTANK,
++    CHAR_UPD_NPCBOT_TANK,
++
+     MAX_CHARACTERDATABASE_STATEMENTS
+ };
+ 
+diff --git a/src/server/shared/Database/Implementation/WorldDatabase.cpp b/src/server/shared/Database/Implementation/WorldDatabase.cpp
+index 89f3cf8..f768146 100644
+--- a/src/server/shared/Database/Implementation/WorldDatabase.cpp
++++ b/src/server/shared/Database/Implementation/WorldDatabase.cpp
+@@ -92,4 +92,8 @@ void WorldDatabaseConnection::DoPrepareStatements()
+     PrepareStatement(WORLD_INS_DISABLES, "INSERT INTO disables (entry, sourceType, flags, comment) VALUES (?, ?, ?, ?)", CONNECTION_ASYNC);
+     PrepareStatement(WORLD_SEL_DISABLES, "SELECT entry FROM disables WHERE entry = ? AND sourceType = ?", CONNECTION_SYNCH);
+     PrepareStatement(WORLD_DEL_DISABLES, "DELETE FROM disables WHERE entry = ? AND sourceType = ?", CONNECTION_ASYNC);
++
++    // Bot
++    PrepareStatement(WORLD_SEL_NPCBOT_TEMPLATE, "SELECT entry, trainer_race FROM creature_template WHERE scriptname = ? and trainer_class = ? and trainer_race IN (?, ?, ?, ?, ?)", CONNECTION_SYNCH);
++    PrepareStatement(WORLD_SEL_NPCBOT_PET_LEVELSTATS, "SELECT hp, mana, armor, str, agi, sta, inte, spi FROM pet_levelstats WHERE creature_entry = ? AND level = ?", CONNECTION_SYNCH);
+ }
+diff --git a/src/server/shared/Database/Implementation/WorldDatabase.h b/src/server/shared/Database/Implementation/WorldDatabase.h
+index 032baf2..6464084 100644
+--- a/src/server/shared/Database/Implementation/WorldDatabase.h
++++ b/src/server/shared/Database/Implementation/WorldDatabase.h
+@@ -114,6 +114,10 @@ enum WorldDatabaseStatements
+     WORLD_INS_DISABLES,
+     WORLD_DEL_DISABLES,
+ 
++    // Bot
++    WORLD_SEL_NPCBOT_TEMPLATE,
++    WORLD_SEL_NPCBOT_PET_LEVELSTATS,
++
+     MAX_WORLDDATABASE_STATEMENTS
+ };
  
 diff --git a/src/server/worldserver/worldserver.conf.dist b/src/server/worldserver/worldserver.conf.dist
 index 0802aca..4ec064f 100644
