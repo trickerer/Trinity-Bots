@@ -1,6 +1,6 @@
-From 118b00dba02e06b955e94dbd855bc4317f465ef4 Mon Sep 17 00:00:00 2001
+From ce93f3d7456f57147b1abce63bd7a5de5bb7eb22 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@mail.ru>
-Date: Thu, 28 Mar 2013 17:44:32 +0700
+Date: Thu, 4 Apr 2013 17:59:34 +0700
 Subject: [PATCH] NPCBots
 
 ---
@@ -22,7 +22,7 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1192 ++++++++
  src/server/game/AI/NpcBots/botcommands.cpp         |  851 ++++++
  src/server/game/AI/NpcBots/botgiver.cpp            |  643 ++++
- src/server/game/AI/PlayerBots/bp_ai.cpp            | 1889 ++++++++++++
+ src/server/game/AI/PlayerBots/bp_ai.cpp            | 1888 ++++++++++++
  src/server/game/AI/PlayerBots/bp_ai.h              |  611 ++++
  src/server/game/AI/PlayerBots/bp_cai.cpp           |   14 +
  src/server/game/AI/PlayerBots/bp_cai.h             |  118 +
@@ -34,7 +34,7 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/PlayerBots/bp_hun_ai.h          |  122 +
  src/server/game/AI/PlayerBots/bp_mag_ai.cpp        |  356 +++
  src/server/game/AI/PlayerBots/bp_mag_ai.h          |  165 +
- src/server/game/AI/PlayerBots/bp_mgr.cpp           | 1132 +++++++
+ src/server/game/AI/PlayerBots/bp_mgr.cpp           | 1136 +++++++
  src/server/game/AI/PlayerBots/bp_mgr.h             |   64 +
  src/server/game/AI/PlayerBots/bp_pal_ai.cpp        |  673 +++++
  src/server/game/AI/PlayerBots/bp_pal_ai.h          |  208 ++
@@ -52,7 +52,7 @@ Subject: [PATCH] NPCBots
  src/server/game/Entities/Creature/Creature.cpp     |  128 +
  src/server/game/Entities/Creature/Creature.h       |   38 +
  .../game/Entities/Creature/TemporarySummon.cpp     |    8 +
- src/server/game/Entities/Player/Player.cpp         |  935 ++++++
+ src/server/game/Entities/Player/Player.cpp         |  937 ++++++
  src/server/game/Entities/Player/Player.h           |   86 +
  src/server/game/Entities/Unit/Unit.cpp             |  214 ++
  src/server/game/Groups/Group.cpp                   |   10 +
@@ -70,7 +70,7 @@ Subject: [PATCH] NPCBots
  .../Database/Implementation/WorldDatabase.cpp      |    4 +
  .../shared/Database/Implementation/WorldDatabase.h |    4 +
  src/server/worldserver/worldserver.conf.dist       |  193 ++
- 66 files changed, 27355 insertions(+), 0 deletions(-)
+ 66 files changed, 27360 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world_bot_giver_locales_gossip_menu_option.sql
  create mode 100644 sql/Bots/world_bots.sql
@@ -9073,7 +9073,7 @@ index 0000000..f47aa65
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_rogue_ai.cpp b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 new file mode 100644
-index 0000000..2f50009
+index 0000000..daa7b10
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 @@ -0,0 +1,894 @@
@@ -9583,7 +9583,7 @@ index 0000000..2f50009
 +                                    if (MIND_NUMBING_POISON)
 +                                    {
 +                                        currentSpell = MIND_NUMBING_POISON;
-+                                        DoCast(opponent, MIND_NUMBING_POISON, true);
++                                        DoCast(victim, MIND_NUMBING_POISON, true);
 +                                    }
 +                                    break;
 +                            }
@@ -12888,7 +12888,7 @@ index 0000000..bc106d6
 +}
 diff --git a/src/server/game/AI/NpcBots/botgiver.cpp b/src/server/game/AI/NpcBots/botgiver.cpp
 new file mode 100644
-index 0000000..daf0b0f
+index 0000000..7fe13f8
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botgiver.cpp
 @@ -0,0 +1,643 @@
@@ -13316,7 +13316,7 @@ index 0000000..daf0b0f
 +        player->PlayerTalkClass->SendGossipMenu(8446, creature->GetGUID());
 +    }
 +
-+    static void SendCreateNPCBot(Player* player, Creature*  /*creature*/, uint32 action)
++    static void SendCreateNPCBot(Player* player, Creature* /*creature*/, uint32 action)
 +    {
 +        uint8 bot_class = 0;
 +        if (action == GOSSIP_ACTION_INFO_DEF + 1)//"Back"
@@ -13537,10 +13537,10 @@ index 0000000..daf0b0f
 +}
 diff --git a/src/server/game/AI/PlayerBots/bp_ai.cpp b/src/server/game/AI/PlayerBots/bp_ai.cpp
 new file mode 100644
-index 0000000..d6732d3
+index 0000000..ea78334
 --- /dev/null
 +++ b/src/server/game/AI/PlayerBots/bp_ai.cpp
-@@ -0,0 +1,1889 @@
+@@ -0,0 +1,1888 @@
 +/*
 +Playerbot System by Graff (onlysuffering@gmail.com)
 +Original source: https://github.com/blueboy/portal/commits/new-ai
@@ -13810,7 +13810,7 @@ index 0000000..d6732d3
 +    }
 +};
 +
-+PlayerbotAI::PlayerbotAI(PlayerbotMgr* const mgr, Player* const bot) : _mgr(mgr), me(bot)
++PlayerbotAI::PlayerbotAI(PlayerbotMgr* const mgr, Player* const bot) : _mgr(mgr), me(bot), _classAI(NULL)
 +//m_combatOrder(ORDERS_NONE), m_ScenarioType(SCENARIO_PVE),
 +//m_TimeDoneEating(0), m_TimeDoneDrinking(0),
 +//m_CurrentlyCastingSpellId(0), 
@@ -13872,7 +13872,6 @@ index 0000000..d6732d3
 +    _canSelfRes = false;
 +
 +    //get class specific ai
-+    _classAI = NULL;
 +    ReloadClassAI();
 +    //init motion
 +    AddBotState(BOTSTATE_FOLLOW);
@@ -19010,10 +19009,10 @@ index 0000000..7a2a17d
 +#endif
 diff --git a/src/server/game/AI/PlayerBots/bp_mgr.cpp b/src/server/game/AI/PlayerBots/bp_mgr.cpp
 new file mode 100644
-index 0000000..97cd392
+index 0000000..b0e4d7c
 --- /dev/null
 +++ b/src/server/game/AI/PlayerBots/bp_mgr.cpp
-@@ -0,0 +1,1132 @@
+@@ -0,0 +1,1136 @@
 +//#include "Config/Config.h"
 +#include "Common.h"
 +#include "Config.h"
@@ -19919,7 +19918,11 @@ index 0000000..97cd392
 +        botWorldSession->LogoutPlayer(true);    //this will delete the bot Player object and PlayerbotAI (along with class AI) object
 +        delete botWorldSession;                 //finally delete the bot's WorldSession
 +        botWorldSession = NULL;
++        return;
 +    }
++    std::string name;
++    sObjectMgr->GetPlayerNameByGUID(guid, name);
++    sLog->outFatal(LOG_FILTER_PLAYER, "PlayerbotMgr:: Trying to logout playerbot (%s, guid %u) which does not exist!!!", name.c_str(), GUID_LOPART(guid));
 +}
 +
 +// Playerbot mod: Gets a player bot Player object for this WorldSession master
@@ -26057,7 +26060,7 @@ index d23af7e..805b6ad 100644
  }
  
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index 49d210f..ca24129 100644
+index 49d210f..4038490 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -79,6 +79,11 @@
@@ -26191,7 +26194,7 @@ index 49d210f..ca24129 100644
      // preparing unsummon pet if lost (we must get pet before teleportation or will not find it later)
      Pet* pet = GetPet();
  
-@@ -2461,6 +2550,762 @@ void Player::RemoveFromWorld()
+@@ -2461,6 +2550,764 @@ void Player::RemoveFromWorld()
      }
  }
  
@@ -26751,8 +26754,9 @@ index 49d210f..ca24129 100644
 +                ++count;
 +        if (count >= m_maxClassNpcBots)
 +        {
++            SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, 0, 0, 0);
 +            ChatHandler ch(GetSession());
-+            ch.PSendSysMessage("You cannot have more bots of that class! Max: %u", m_maxClassNpcBots);
++            ch.PSendSysMessage("You cannot have more bots of that class! %u of %u", count, m_maxClassNpcBots);
 +            ch.SetSentErrorMessage(true);
 +            return;
 +        }
@@ -26873,18 +26877,19 @@ index 49d210f..ca24129 100644
 +
 +    //find a bot to add
 +    //first check randomly selected bot, second check any bot we can add
-+    std::set<std::pair<uint32, uint8> > npcBotsData;
++    typedef std::list< std::pair<uint32, uint8> > NpcBotsDataTemplate;
++    NpcBotsDataTemplate npcBotsData;
 +    do
 +    {
 +        Field* fields = result->Fetch();
 +        uint32 temp_entry = fields[0].GetUInt32();
-+        uint32 temp_race = fields[1].GetUInt8();
-+        npcBotsData.insert(std::make_pair<uint32, uint8>(temp_entry, temp_race));
++        uint8 temp_race = fields[1].GetUInt8();
++        npcBotsData.push_back(std::pair<uint32, uint8>(temp_entry, temp_race));
 +    } while (result->NextRow());
 +
 +    uint32 m_rand = urand(1, uint32(result->GetRowCount()));
 +    uint32 tmp_rand = 1;
-+    std::set<std::pair<uint32, uint8> >::const_iterator itr = npcBotsData.begin();
++    std::list< std::pair<uint32, uint8> >::const_iterator itr = npcBotsData.begin();
 +    bool haveSameBot = false;
 +    bool moveback = false;
 +    bool forcedCheck = false;
@@ -26904,7 +26909,7 @@ index 49d210f..ca24129 100644
 +            bool canAdd = true;
 +            for (uint8 i = 0; i != GetMaxNpcBots(); ++i)
 +            {
-+                if (m_botmap[i]->m_entry == (*itr).first)
++                if (m_botmap[i]->m_entry == itr->first)
 +                {
 +                    haveSameBot = true;
 +                    canAdd = false;
@@ -26916,8 +26921,8 @@ index 49d210f..ca24129 100644
 +            }
 +            if (canAdd)
 +            {
-+                entry = (*itr).first;
-+                bot_race = (*itr).second;
++                entry = itr->first;
++                bot_race = itr->second;
 +                break;
 +            }
 +            if (forcedCheck)
@@ -26954,7 +26959,7 @@ index 49d210f..ca24129 100644
  void Player::RegenerateAll()
  {
      //if (m_regenTimer <= 500)
-@@ -2941,6 +3786,73 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
+@@ -2941,6 +3788,73 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
  {
      if (group)
      {
@@ -27028,7 +27033,7 @@ index 49d210f..ca24129 100644
          group->RemoveMember(guid, method, kicker, reason);
          group = NULL;
      }
-@@ -3123,6 +4035,9 @@ void Player::GiveLevel(uint8 level)
+@@ -3123,6 +4037,9 @@ void Player::GiveLevel(uint8 level)
              }
  
      sScriptMgr->OnPlayerLevelChanged(this, oldLevel);
@@ -27038,7 +27043,7 @@ index 49d210f..ca24129 100644
  }
  
  void Player::InitTalentForLevel()
-@@ -4985,6 +5900,13 @@ void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmC
+@@ -4985,6 +5902,13 @@ void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmC
              stmt->setUInt32(0, guid);
              trans->Append(stmt);
  
@@ -27052,7 +27057,7 @@ index 49d210f..ca24129 100644
              CharacterDatabase.CommitTransaction(trans);
              break;
          }
-@@ -6914,6 +7836,15 @@ uint32 Player::TeamForRace(uint8 race)
+@@ -6914,6 +7838,15 @@ uint32 Player::TeamForRace(uint8 race)
  
  void Player::setFactionForRace(uint8 race)
  {
@@ -27068,7 +27073,7 @@ index 49d210f..ca24129 100644
      m_team = TeamForRace(race);
  
      ChrRacesEntry const* rEntry = sChrRacesStore.LookupEntry(race);
-@@ -11938,11 +12869,15 @@ InventoryResult Player::CanUseItem(ItemTemplate const* proto) const
+@@ -11938,11 +12871,15 @@ InventoryResult Player::CanUseItem(ItemTemplate const* proto) const
  
      if (proto)
      {
