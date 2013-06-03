@@ -1,6 +1,6 @@
-From b4cac9a6adcd2b40c69661a1bce870aa0088a7f0 Mon Sep 17 00:00:00 2001
+From 7cdb734be499b053034648517673c13782022717 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Mon, 3 Jun 2013 15:47:30 +0700
+Date: Mon, 3 Jun 2013 18:33:57 +0700
 Subject: [PATCH] NPCBots
 
 ---
@@ -8,12 +8,12 @@ Subject: [PATCH] NPCBots
  ...world_bot_helper_locales_gossip_menu_option.sql |   92 +
  sql/Bots/world_bots.sql                            |  524 ++++
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  461 +++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 3184 ++++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |  355 +++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 3214 ++++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |  356 +++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1092 +++++++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  340 +++
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  935 ++++++
- src/server/game/AI/NpcBots/bot_paladin_ai.cpp      | 1014 +++++++
+ src/server/game/AI/NpcBots/bot_paladin_ai.cpp      | 1014 ++++++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  859 ++++++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  894 ++++++
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  390 +++
@@ -44,7 +44,7 @@ Subject: [PATCH] NPCBots
  .../Database/Implementation/WorldDatabase.cpp      |    4 +
  .../shared/Database/Implementation/WorldDatabase.h |    4 +
  src/server/worldserver/worldserver.conf.dist       |  106 +
- 40 files changed, 14477 insertions(+), 0 deletions(-)
+ 40 files changed, 14508 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world_bot_helper_locales_gossip_menu_option.sql
  create mode 100644 sql/Bots/world_bots.sql
@@ -1179,10 +1179,10 @@ index 0000000..c868f8f
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..10e9633
+index 0000000..9fc7211
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,3184 @@
+@@ -0,0 +1,3214 @@
 +/*
 +NpcBot System by Graff (onlysuffering@gmail.com)
 +Original patch (npcbot part only) from: LordPsyan https://bitbucket.org/lordpsyan/trinitycore-patches/src/3b8b9072280e/Individual/11185-BOTS-NPCBots.patch
@@ -1810,7 +1810,8 @@ index 0000000..10e9633
 +    if (!IsInBotParty(target)) return false;
 +
 +    SpellInfo const* info = sSpellMgr->GetSpellInfo(cureSpell);
-+    if (!info) return false;
++    if (!info)
++        return false;
 +
 +    uint32 dispelMask = 0;
 +    for (uint8 i = 0; i != MAX_SPELL_EFFECTS; ++i)
@@ -1821,9 +1822,38 @@ index 0000000..10e9633
 +        return false;
 +
 +    DispelChargesList dispel_list;
-+    target->GetDispellableAuraList(me, dispelMask, dispel_list);
++    GetBotDispellableAuraList(target, me, dispelMask, dispel_list);
 +
 +    return !(dispel_list.empty());
++}
++
++void bot_minion_ai::GetBotDispellableAuraList(Unit* target, Unit* caster, uint32 dispelMask, DispelChargesList& dispelList) const
++{
++    if (dispelMask & (1 << DISPEL_DISEASE) && target->HasAura(50536))
++        dispelMask &= ~(1 << DISPEL_DISEASE);
++
++    Unit::AuraMap const& auras = target->GetOwnedAuras();
++    for (Unit::AuraMap::const_iterator itr = auras.begin(); itr != auras.end(); ++itr)
++    {
++        Aura* aura = itr->second;
++
++        if (aura->IsPassive())
++            continue;
++
++        AuraApplication* aurApp = aura->GetApplicationOfTarget(target->GetGUID());
++        if (!aurApp)
++            continue;
++
++        if (aura->GetSpellInfo()->GetDispelMask() & dispelMask)
++        {
++            if (aurApp->IsPositive() == target->IsFriendlyTo(caster))
++                continue;
++
++            uint8 charges = (aura->GetSpellInfo()->AttributesEx7 & SPELL_ATTR7_DISPEL_CHARGES) ? aura->GetCharges() : aura->GetStackAmount();
++            if (charges > 0)
++                dispelList.push_back(std::make_pair(aura, charges));
++        }
++    }
 +}
 +
 +bool bot_ai::HasAuraName(Unit* unit, uint32 spellId, uint64 casterGuid, bool exclude) const
@@ -4369,10 +4399,10 @@ index 0000000..10e9633
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..2770d27
+index 0000000..c21517c
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,355 @@
+@@ -0,0 +1,356 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -4666,6 +4696,7 @@ index 0000000..2770d27
 +
 +    private:
 +        bool CanCureTarget(Unit* target, uint32 cureSpell, uint32 diff) const;
++        void GetBotDispellableAuraList(Unit* target, Unit* caster, uint32 dispelMask, DispelChargesList& dispelList) const;
 +        void CalculatePos(Position& pos);
 +        void UpdateMountedState();
 +        void UpdateStandState() const;
@@ -11958,7 +11989,7 @@ index 0000000..e54ddce
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 0000000..fd6c025
+index 0000000..8580eda
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
 @@ -0,0 +1,633 @@
@@ -12288,7 +12319,7 @@ index 0000000..fd6c025
 +                }
 +            }
 +            Group* gr = owner->GetGroup();
-+            if (gr && /*gr->isRaidGroup() &&*/ gr->IsLeader(owner->GetGUID()))
++            if (gr && owner->GetMap()->Instanceable() && /*gr->isRaidGroup() &&*/ gr->IsLeader(owner->GetGUID()))
 +            {
 +                for (GroupReference* itr = gr->GetFirstMember(); itr != NULL; itr = itr->next())
 +                {
