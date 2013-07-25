@@ -1,6 +1,6 @@
-From b3e5957e8a396cd15901306510db9d2eb7a52a04 Mon Sep 17 00:00:00 2001
+From 3353c5cf824c2bb45e5d2df19fe44380228abfc8 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Sun, 21 Jul 2013 12:24:18 +0700
+Date: Thu, 25 Jul 2013 11:04:25 +0700
 Subject: [PATCH] NPCBots
 
 ---
@@ -9,25 +9,27 @@ Subject: [PATCH] NPCBots
  sql/Bots/world_bots.sql                            |  524 ++++
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  461 +++
  src/server/game/AI/NpcBots/bot_ai.cpp              | 3214 ++++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |  356 +++
+ src/server/game/AI/NpcBots/bot_ai.h                |  359 +++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1092 +++++++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  340 +++
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  935 ++++++
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      | 1014 ++++++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  859 ++++++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  894 ++++++
- src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  390 +++
+ src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  474 +++
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  458 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1192 ++++++++
  src/server/game/AI/NpcBots/botcommands.cpp         |  633 ++++
  src/server/game/AI/NpcBots/bothelper.cpp           |  421 +++
  src/server/game/AI/NpcBots/bothelper.h             |   32 +
  src/server/game/CMakeLists.txt                     |    1 +
- src/server/game/Entities/Creature/Creature.cpp     |  128 +
- src/server/game/Entities/Creature/Creature.h       |   38 +
+ src/server/game/Entities/Creature/Creature.cpp     |  134 +
+ src/server/game/Entities/Creature/Creature.h       |   39 +
  .../game/Entities/Creature/TemporarySummon.cpp     |    8 +
+ src/server/game/Entities/Object/Object.cpp         |   11 +
  src/server/game/Entities/Player/Player.cpp         |  853 ++++++
  src/server/game/Entities/Player/Player.h           |   63 +
+ src/server/game/Entities/Unit/StatSystem.cpp       |    4 +
  src/server/game/Entities/Unit/Unit.cpp             |  214 ++
  src/server/game/Groups/Group.cpp                   |   12 +
  src/server/game/Groups/Group.h                     |    3 +
@@ -44,7 +46,7 @@ Subject: [PATCH] NPCBots
  .../Database/Implementation/WorldDatabase.cpp      |    4 +
  .../shared/Database/Implementation/WorldDatabase.h |    4 +
  src/server/worldserver/worldserver.conf.dist       |  106 +
- 40 files changed, 14508 insertions(+), 0 deletions(-)
+ 42 files changed, 14617 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world_bot_helper_locales_gossip_menu_option.sql
  create mode 100644 sql/Bots/world_bots.sql
@@ -4399,10 +4401,10 @@ index 0000000..42d7366
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..4d74dd9
+index 0000000..bcd0c73
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,356 @@
+@@ -0,0 +1,359 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -4529,6 +4531,9 @@ index 0000000..4d74dd9
 +        inline uint64 GetBotTankGuid() const { return m_TankGuid; }
 +        inline int32 GetSpellPower() const { return m_spellpower; }
 +        inline uint8 GetHaste() const { return haste; }
++
++        virtual void OnBotSummon(Creature* /*summon*/) {}
++        virtual void UnsummonAll() {}
 +
 +        void ReceiveEmote(Player* player, uint32 emote);
 +        void ApplyPassives(uint8 botOrPetType) const;
@@ -8166,7 +8171,7 @@ index 0000000..8d83da3
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_priest_ai.cpp b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 new file mode 100644
-index 0000000..577c2f2
+index 0000000..9c7aa1b
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 @@ -0,0 +1,859 @@
@@ -8378,10 +8383,10 @@ index 0000000..577c2f2
 +                CheckDispel(diff);
 +                CheckSilence(diff);
 +            }
++
 +            if (me->IsInCombat())
 +                CheckShackles(diff);
-+
-+            if (!me->IsInCombat())
++            else
 +                DoNonCombatActions(diff);
 +
 +            if (!CheckAttackTarget(CLASS_PRIEST))
@@ -9931,20 +9936,29 @@ index 0000000..b3c5158
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_shaman_ai.cpp b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 new file mode 100644
-index 0000000..e4cb195
+index 0000000..cbe11fa
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
-@@ -0,0 +1,390 @@
+@@ -0,0 +1,474 @@
 +#include "bot_ai.h"
-+//#include "Group.h"
 +#include "Player.h"
 +#include "ScriptMgr.h"
 +#include "SpellAuras.h"
++#include "Totem.h"
 +/*
 +Shaman NpcBot (reworked by Graff onlysuffering@gmail.com)
 +Complete - 1%
 +TODO:
 +*/
++enum TotemSlot
++{
++    T_FIRE  = 0,
++    T_WATER = 1,
++    T_EARTH = 2,
++    T_AIR   = 3,
++    MAX_TOTEMS
++};
++typedef std::pair<uint64, Position> BotTotem;
 +class shaman_bot : public CreatureScript
 +{
 +public:
@@ -9978,13 +9992,7 @@ index 0000000..e4cb195
 +        {
 +            if (checkBotCast(victim, spellId, CLASS_SHAMAN) != SPELL_CAST_OK)
 +                return false;
-+            uint64 originalCaster = 0;
-+            if (spellId == STONESKIN_TOTEM ||
-+                spellId == SEARING_TOTEM ||
-+                spellId == WINDFURY_TOTEM ||
-+                spellId == HEALINGSTREAM_TOTEM ||
-+                spellId == MANASPRING_TOTEM)
-+                originalCaster = master->GetGUID();
++            uint64 originalCaster = me->GetGUID();
 +            return bot_ai::doCast(victim, spellId, triggered, originalCaster);
 +        }
 +
@@ -10006,16 +10014,37 @@ index 0000000..e4cb195
 +
 +        void CheckTotems(uint32 diff)
 +        {
-+            if (GC_Timer > diff || Rand() > 50 || IsCasting() || me->GetDistance(master) > 20 || Feasting())
++            //update rate
++            if (Rand() > 50)
 +                return;
++            //Unsummon
++            for (uint8 i = 0; i != MAX_TOTEMS; ++i)
++            {
++                if (_totems[i].first != 0 && me->GetDistance(_totems[i].second) > 18)
++                {
++                    Unit* to = sObjectAccessor->FindUnit(_totems[i].first);
++                    //reset
++                    _totems[i].first = 0;
++                    if (!to)
++                    {
++                        TC_LOG_ERROR(LOG_FILTER_PLAYER, "%s has lost totem in slot %u! Despawned normally?", me->GetName().c_str(), i);
++                        continue;
++                    }
++                    to->ToTotem()->UnSummon();
++                }
++            }
++            if (GC_Timer > diff || IsCasting() || me->GetDistance(master) > 15 || Feasting())
++                return;
++            //Summon
++            //TODO: role-based totems (attack/heal)
 +            if (me->IsInCombat())
 +            {
-+                if (WINDFURY_TOTEM && !HasAuraName(master, WINDFURY_TOTEM))
++                if (WINDFURY_TOTEM && !_totems[T_AIR].first)
 +                {
 +                    if (doCast(me, WINDFURY_TOTEM))
 +                        return;
 +                }
-+                else if (STONESKIN_TOTEM && !HasAuraName(master, STONESKIN_AURA))
++                else if (STONESKIN_TOTEM && !_totems[T_EARTH].first)
 +                {
 +                    if (doCast(me, STONESKIN_TOTEM))
 +                        return;
@@ -10038,19 +10067,22 @@ index 0000000..e4cb195
 +            }
 +            else if (!me->isMoving() && !master->isMoving())
 +            {
-+                uint8 manapct = GetManaPCT(master);
-+                uint8 hppct = GetHealthPCT(master);
-+                if (HEALINGSTREAM_TOTEM &&
-+                    (master->getPowerType() != POWER_MANA || hppct < 25 || manapct > hppct) &&
-+                    hppct < 98 && !HasAuraName(master, HEALINGSTREAM_AURA))
++                if (!_totems[T_WATER].first)
 +                {
-+                    if (doCast(me, HEALINGSTREAM_TOTEM))
-+                        return;
-+                }
-+                else if (MANASPRING_TOTEM && manapct < 98 && !HasAuraName(master, MANASPRING_AURA))
-+                {
-+                    if (doCast(me, MANASPRING_TOTEM))
-+                        return;
++                    uint8 manapct = GetManaPCT(master);
++                    uint8 hppct = GetHealthPCT(master);
++                    if (HEALINGSTREAM_TOTEM &&
++                        (master->getPowerType() != POWER_MANA || !MANASPRING_TOTEM || hppct < 25 || manapct > hppct) &&
++                        hppct < 98)
++                    {
++                        if (doCast(me, HEALINGSTREAM_TOTEM))
++                            return;
++                    }
++                    else if (MANASPRING_TOTEM && manapct < 98)
++                    {
++                        if (doCast(me, MANASPRING_TOTEM))
++                            return;
++                    }
 +                }
 +            }
 +        }
@@ -10156,8 +10188,10 @@ index 0000000..e4cb195
 +            if (GC_Timer > diff || Rand() > 50 || me->IsMounted()) return;
 +
 +            RezGroup(ANCESTRAL_SPIRIT, master);
++
++            //if (Feasting()) return;
 +            //BuffAndHealGroup(master, diff);
-+           // CureGroup(master, diff);
++            //CureGroup(master, diff);
 +        }
 +
 +        bool HealTarget(Unit* target, uint8 hp, uint32 diff)
@@ -10220,6 +10254,43 @@ index 0000000..e4cb195
 +        {
 +        }
 +
++        void OnBotSummon(Creature* summon)
++        {
++            TempSummon* totem = summon->ToTempSummon();
++            if (!totem)
++            {
++                TC_LOG_ERROR(LOG_FILTER_PLAYER, "shaman bot %s summoned creature %s which is not a temp summon...");
++                return;
++            }
++
++            int8 slot = -1;
++            switch (totem->m_Properties->Id)
++            {
++                case SUMMON_TYPE_TOTEM_FIRE:
++                    slot = T_FIRE;
++                    break;
++                case SUMMON_TYPE_TOTEM_EARTH:
++                    slot = T_EARTH;
++                    break;
++                case SUMMON_TYPE_TOTEM_WATER:
++                    slot = T_WATER;
++                    break;
++                case SUMMON_TYPE_TOTEM_AIR:
++                    slot = T_AIR;
++                    break;
++                default:
++                    TC_LOG_ERROR(LOG_FILTER_PLAYER, "unknown totem type %u", totem->m_Properties->Id);
++                    return;
++            }
++            _totems[slot].first = summon->GetGUID();
++            _totems[slot].second.Relocate(*summon);
++            //TC_LOG_ERROR(LOG_FILTER_PLAYER, "shaman bot: summoned %s (type %u) at x='%f', y='%f', z='%f'",
++            //    summon->GetName().c_str(), slot, _totems[slot].second.GetPositionX(), _totems[slot].second.GetPositionY(), _totems[slot].second.GetPositionZ());
++
++            summon->SetDisplayId(me->GetModelForTotem(PlayerTotemType(totem->m_Properties->Id)));
++            //summon->SetDisplayId(summon->GetNativeDisplayId());
++        }
++
 +        void SpellHit(Unit* caster, SpellInfo const* spell)
 +        {
 +            OnSpellHit(caster, spell);
@@ -10233,6 +10304,23 @@ index 0000000..e4cb195
 +        void OwnerAttackedBy(Unit* u)
 +        {
 +            OnOwnerDamagedBy(u);
++        }
++
++        void UnsummonAll()
++        {
++            for (uint8 i = 0; i != MAX_TOTEMS; ++i)
++            {
++                if (_totems[i].first != 0)
++                {
++                    Unit* to = sObjectAccessor->FindUnit(_totems[i].first);
++                    if (!to)
++                    {
++                        TC_LOG_ERROR(LOG_FILTER_PLAYER, "%s has no totem in slot %u during remove!", me->GetName().c_str(), i);
++                        continue;
++                    }
++                    to->ToTotem()->UnSummon();
++                }
++            }
 +        }
 +
 +        void Reset()
@@ -10284,6 +10372,7 @@ index 0000000..e4cb195
 +        }
 +
 +    private:
++        BotTotem _totems[MAX_TOTEMS];
 +        uint32
 +            CHAIN_HEAL, LESSER_HEAL, ANCESTRAL_SPIRIT,
 +            FLAME_SHOCK, EARTH_SHOCK, LIGHTNING_BOLT, LIGHTNING_SHIELD,
@@ -13104,7 +13193,7 @@ index f455610..e49ba96 100644
    ${CMAKE_CURRENT_SOURCE_DIR}/AI/EventAI
    ${CMAKE_CURRENT_SOURCE_DIR}/AI/ScriptedAI
 diff --git a/src/server/game/Entities/Creature/Creature.cpp b/src/server/game/Entities/Creature/Creature.cpp
-index b46ee47..e93b85c 100644
+index b46ee47..944c656 100644
 --- a/src/server/game/Entities/Creature/Creature.cpp
 +++ b/src/server/game/Entities/Creature/Creature.cpp
 @@ -54,6 +54,9 @@
@@ -13140,7 +13229,7 @@ index b46ee47..e93b85c 100644
  
      m_corpseRemoveTime = time(NULL);
      setDeathState(DEAD);
-@@ -2635,3 +2647,119 @@ void Creature::SetDisplayId(uint32 modelId)
+@@ -2635,3 +2647,125 @@ void Creature::SetDisplayId(uint32 modelId)
          SetFloatValue(UNIT_FIELD_COMBATREACH, minfo->combat_reach * GetFloatValue(OBJECT_FIELD_SCALE_X));
      }
  }
@@ -13149,6 +13238,7 @@ index b46ee47..e93b85c 100644
 +{
 +    if (!bot)
 +    {
++        bot_AI->UnsummonAll();
 +        IsAIEnabled = false;
 +        bot_AI = NULL;
 +        SetUInt64Value(UNIT_FIELD_CREATEDBY, 0);
@@ -13260,8 +13350,13 @@ index b46ee47..e93b85c 100644
 +{
 +    if (bot_AI) bot_AI->SetShouldUpdateStats();
 +}
++
++void Creature::OnBotSummon(Creature* summon)
++{
++    if (bot_AI) bot_AI->OnBotSummon(summon);
++}
 diff --git a/src/server/game/Entities/Creature/Creature.h b/src/server/game/Entities/Creature/Creature.h
-index 34084dd..6737aeb 100644
+index 34084dd..bf25feb 100644
 --- a/src/server/game/Entities/Creature/Creature.h
 +++ b/src/server/game/Entities/Creature/Creature.h
 @@ -37,6 +37,11 @@ class Player;
@@ -13276,7 +13371,7 @@ index 34084dd..6737aeb 100644
  enum CreatureFlagsExtra
  {
      CREATURE_FLAG_EXTRA_INSTANCE_BIND   = 0x00000001,       // creature kill bind instance with killer and killer's group
-@@ -703,6 +708,31 @@ class Creature : public Unit, public GridObject<Creature>, public MapCreature
+@@ -703,6 +708,32 @@ class Creature : public Unit, public GridObject<Creature>, public MapCreature
  
          bool m_isTempWorldObject; //true when possessed
  
@@ -13303,12 +13398,13 @@ index 34084dd..6737aeb 100644
 +        void ApplyBotDamageMultiplierMelee(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool& crit) const;
 +        void ApplyBotDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool& crit) const;
 +        void SetBotShouldUpdateStats();
++        void OnBotSummon(Creature* summon);
 +        //Bot commands
 +
      protected:
          bool CreateFromProto(uint32 guidlow, uint32 Entry, uint32 vehId, uint32 team, const CreatureData* data = NULL);
          bool InitEntry(uint32 entry, uint32 team=ALLIANCE, const CreatureData* data=NULL);
-@@ -753,6 +783,14 @@ class Creature : public Unit, public GridObject<Creature>, public MapCreature
+@@ -753,6 +784,14 @@ class Creature : public Unit, public GridObject<Creature>, public MapCreature
          bool IsInvisibleDueToDespawn() const;
          bool CanAlwaysSee(WorldObject const* obj) const;
      private:
@@ -13342,6 +13438,35 @@ index 05bedf9..99f959f 100644
      AddObjectToRemoveList();
  }
  
+diff --git a/src/server/game/Entities/Object/Object.cpp b/src/server/game/Entities/Object/Object.cpp
+index ec6a3e5..81a0622 100644
+--- a/src/server/game/Entities/Object/Object.cpp
++++ b/src/server/game/Entities/Object/Object.cpp
+@@ -2225,6 +2225,11 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
+             summon = new Puppet(properties, summoner);
+             break;
+         case UNIT_MASK_TOTEM:
++            //npcbot: totem emul step 1
++            if (summoner && summoner->GetTypeId() == TYPEID_UNIT && summoner->ToCreature()->GetIAmABot())
++                summon = new Totem(properties, summoner->ToCreature()->GetBotOwner());
++            else
++            //end npcbot
+             summon = new Totem(properties, summoner);
+             break;
+         case UNIT_MASK_MINION:
+@@ -2248,6 +2253,12 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
+     AddToMap(summon->ToCreature());
+     summon->InitSummon();
+ 
++    //npcbot: totem emul step 2
++    if (mask == UNIT_MASK_TOTEM)
++        if (summoner && summoner->GetTypeId() == TYPEID_UNIT && summoner->ToCreature()->GetIAmABot())
++            summoner->ToCreature()->OnBotSummon(summon);
++    //end npcbot
++
+     //ObjectAccessor::UpdateObjectVisibility(summon);
+ 
+     return summon;
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
 index 358f941..ebb7762 100644
 --- a/src/server/game/Entities/Player/Player.cpp
@@ -14350,6 +14475,21 @@ index 7500755..89b2ddd 100644
          // internal common parts for CanStore/StoreItem functions
          InventoryResult CanStoreItem_InSpecificSlot(uint8 bag, uint8 slot, ItemPosCountVec& dest, ItemTemplate const* pProto, uint32& count, bool swap, Item* pSrcItem) const;
          InventoryResult CanStoreItem_InBag(uint8 bag, ItemPosCountVec& dest, ItemTemplate const* pProto, uint32& count, bool merge, bool non_specialized, Item* pSrcItem, uint8 skip_bag, uint8 skip_slot) const;
+diff --git a/src/server/game/Entities/Unit/StatSystem.cpp b/src/server/game/Entities/Unit/StatSystem.cpp
+index 7651297..289c717 100644
+--- a/src/server/game/Entities/Unit/StatSystem.cpp
++++ b/src/server/game/Entities/Unit/StatSystem.cpp
+@@ -181,6 +181,10 @@ bool Player::UpdateAllStats()
+     for (int i = SPELL_SCHOOL_NORMAL; i < MAX_SPELL_SCHOOL; ++i)
+         UpdateResistances(i);
+ 
++    for (uint8 i = 0; i != GetMaxNpcBots(); ++i)
++        if (Creature* bot = GetBotMap(i)->_Cre())
++            bot->SetBotShouldUpdateStats();
++
+     return true;
+ }
+ 
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
 index 021b86d..5f2dfc9 100644
 --- a/src/server/game/Entities/Unit/Unit.cpp
