@@ -1,6 +1,6 @@
-From 05995c6deb1dcc34cb4d80ecf9d038164a459a3a Mon Sep 17 00:00:00 2001
+From 8514950a0e4334d0d0ea2cbd6ccb123363dcff7d Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Thu, 8 Aug 2013 17:52:09 +0700
+Date: Fri, 9 Aug 2013 12:44:14 +0700
 Subject: [PATCH] NPCBots_434
 
 ---
@@ -17,7 +17,7 @@ Subject: [PATCH] NPCBots_434
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  894 ++++++
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  474 +++
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  458 +++
- src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1104 +++++++
+ src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1102 +++++++
  src/server/game/AI/NpcBots/botcommands.cpp         |  633 ++++
  src/server/game/AI/NpcBots/bothelper.cpp           |  421 +++
  src/server/game/AI/NpcBots/bothelper.h             |   32 +
@@ -26,7 +26,7 @@ Subject: [PATCH] NPCBots_434
  src/server/game/Entities/Creature/Creature.h       |   39 +
  .../game/Entities/Creature/TemporarySummon.cpp     |    8 +
  src/server/game/Entities/Object/Object.cpp         |   11 +
- src/server/game/Entities/Player/Player.cpp         |  855 ++++++
+ src/server/game/Entities/Player/Player.cpp         |  857 ++++++
  src/server/game/Entities/Player/Player.h           |   63 +
  src/server/game/Entities/Unit/StatSystem.cpp       |    4 +
  src/server/game/Entities/Unit/Unit.cpp             |  214 ++
@@ -4297,7 +4297,7 @@ index 0000000..b7495cf
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..026ae32
+index 0000000..eee5731
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
 @@ -0,0 +1,367 @@
@@ -4392,13 +4392,13 @@ index 0000000..026ae32
 +enum WarlockBotPets
 +{
 +    //PET_IMP                     = ,
-+    PET_VOIDWALKER              = 60237,
++    PET_VOIDWALKER              = 70237,
 +    //PET_SUCCUBUS                = 
 +};
 +
 +enum HunterBotPets
 +{
-+    PET_VULTURE                 = 60238
++    PET_VULTURE                 = 70238
 +};
 +
 +enum BotPetsOriginalEntries
@@ -10784,10 +10784,10 @@ index 0000000..9060024
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warrior_ai.cpp b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 new file mode 100644
-index 0000000..d64f8c6
+index 0000000..d986d5e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
-@@ -0,0 +1,1104 @@
+@@ -0,0 +1,1102 @@
 +#include "bot_ai.h"
 +#include "Group.h"
 +#include "Player.h"
@@ -10885,11 +10885,11 @@ index 0000000..d64f8c6
 +                return;
 +            }
 +
-+            if (Rand() < 30 && battleShout_cd <= diff && GC_Timer <= diff && me->GetDistance(master) < 30 &&
++            if (Rand() < 30 && batcomShout_cd <= diff && GC_Timer <= diff && me->GetDistance(master) < 30 &&
 +                !HasAuraName(master, BATTLESHOUT) &&
 +                master->IsWithinLOSInMap(me) &&
 +                doCast(me, BATTLESHOUT))
-+                battleShout_cd = SHOUT_CD;
++                batcomShout_cd = SHOUT_CD;
 +
 +            if (Rand() < 20 && BLOODRAGE && bloodrage_cd <= diff && me->IsInCombat() && getrage() < 600)
 +            {
@@ -11279,12 +11279,10 @@ index 0000000..d64f8c6
 +            }
 +            //PUMMEL
 +            if (PUMMEL && Rand() < 80 && pummel_cd <= diff && getrage() > 100 && meleedist <= 5 &&
-+                opponent->IsNonMeleeSpellCasted(false) &&
-+                (berserkerStance || stancetimer <= diff))
++                opponent->IsNonMeleeSpellCasted(false))
 +            {
 +                temptimer = GC_Timer;
-+                if ((berserkerStance || stanceChange(diff, 3)) &&
-+                    doCast(opponent, PUMMEL))
++                if (doCast(opponent, PUMMEL))
 +                {
 +                    pummel_cd = PUMMEL_CD;
 +                    GC_Timer = temptimer;
@@ -11452,7 +11450,7 @@ index 0000000..d64f8c6
 +                case 50622: //whirlwind (bladestorm)
 +                case 44949: //whirlwind off-hand
 +                    //Warrior T13 Arms and Fury 4P Bonus (Colossus Smash)
-+                    if (urand(1, 100) <= 18)
++                    if (me->getLevel() >= 50 && urand(1, 100) <= 18)
 +                        me->CastSpell(target, COLOSSUS_SMASH_EFFECT, true);
 +                    break;
 +                default:
@@ -11636,7 +11634,7 @@ index 0000000..d64f8c6
 +            mortalStrike_cd = 0;
 +            uber_cd = 10000;
 +            berserkerRage_cd = 0;
-+            battleShout_cd = 0;
++            batcomShout_cd = 0;
 +            intercept_cd = 0;
 +            intimidatingShout_cd = 0;
 +            pummel_cd = 0;
@@ -11672,7 +11670,7 @@ index 0000000..d64f8c6
 +            CommonTimers(diff);
 +            if (regen_cd > diff)                    regen_cd -= diff;
 +            if (slam_cd > diff)                     slam_cd -= diff;
-+            if (battleShout_cd > diff)              battleShout_cd -= diff;
++            if (batcomShout_cd > diff)              batcomShout_cd -= diff;
 +            if (sweeping_strikes_cd > diff)         sweeping_strikes_cd -= diff;
 +            if (deathwish_cd > diff)                deathwish_cd -= diff;
 +            if (mortalStrike_cd > diff)             mortalStrike_cd -= diff;
@@ -11789,7 +11787,7 @@ index 0000000..d64f8c6
 +        BERSERKERRAGE, HAMSTRING, PUMMEL, SUNDER, SWEEPING_STRIKES;
 +
 +        //CDs/Timers/misc
-+/*shts*/uint32 battleShout_cd, intimidatingShout_cd;
++/*shts*/uint32 batcomShout_cd, intimidatingShout_cd;
 +/*chrg*/uint32 charge_cd, intercept_cd, intervene_cd;
 + /*Dmg*/uint32 mortalStrike_cd, slam_cd, whirlwind_cd, cleave_cd, bladestorm_cd;
 +/*else*/uint32 regen_cd, sweeping_strikes_cd, deathwish_cd, uber_cd, berserkerRage_cd, pummel_cd, 
@@ -12533,7 +12531,7 @@ index 0000000..f8dbfc6
 +}
 diff --git a/src/server/game/AI/NpcBots/bothelper.cpp b/src/server/game/AI/NpcBots/bothelper.cpp
 new file mode 100644
-index 0000000..f9e401d
+index 0000000..d5e322b
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bothelper.cpp
 @@ -0,0 +1,421 @@
@@ -12580,7 +12578,7 @@ index 0000000..f9e401d
 +{
 +    ABANDON_MINION                                              = 3,
 +    RECRUIT_MINION                                              = 4,
-+    ABOUT_STR                                                   = 5,
++    HELP_STR                                                    = 5,
 +    ADD_ALL                                                     = 6,
 +    REMOVE_ALL                                                  = 7,
 +    RECRUIT_WARRIOR                                             = 8,
@@ -12688,8 +12686,8 @@ index 0000000..f9e401d
 +        player->PlayerTalkClass->GetGossipMenu().AddMenuItem(2, 0, GetLocaleStringForTextID(tempstr, RECRUIT_MINION, player->GetSession()->GetSessionDbLocaleIndex()), SENDER_CREATE_NBOT_MENU, GOSSIP_ACTION_INFO_DEF + 2, "", 0);
 +    }
 +
-+    tempstr = "Tell me about these bots";
-+    player->PlayerTalkClass->GetGossipMenu().AddMenuItem(6, 0, GetLocaleStringForTextID(tempstr, ABOUT_STR, player->GetSession()->GetSessionDbLocaleIndex()), SENDER_INFO_WHISPER, GOSSIP_ACTION_INFO_DEF + 6, "", 0);
++    tempstr = "Help";
++    player->PlayerTalkClass->GetGossipMenu().AddMenuItem(6, 0, GetLocaleStringForTextID(tempstr, HELP_STR, player->GetSession()->GetSessionDbLocaleIndex()), SENDER_INFO_WHISPER, GOSSIP_ACTION_INFO_DEF + 6, "", 0);
 +
 +    player->PlayerTalkClass->SendGossipMenu(8446, player->GetGUID());
 +    return true;
@@ -13284,7 +13282,7 @@ index e8bbf09..a0d209a 100644
  
      return summon;
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index 35d1d15..eb7c0f6 100644
+index 35d1d15..3aaeaae 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -81,6 +81,10 @@
@@ -13397,7 +13395,7 @@ index 35d1d15..eb7c0f6 100644
          //I think this always returns true. Correct me if I am wrong.
          // If the map is not created, assume it is possible to enter it.
          // It will be created in the WorldPortAck.
-@@ -2486,6 +2554,766 @@ void Player::RemoveFromWorld()
+@@ -2486,6 +2554,768 @@ void Player::RemoveFromWorld()
      }
  }
  
@@ -13602,6 +13600,8 @@ index 35d1d15..eb7c0f6 100644
 +        }
 +        else
 +        {
++            ModifyMoney(int64(GetNpcBotCost())); //temp restore money before retake
++
 +            for (uint8 pos = 0; pos != GetMaxNpcBots(); ++pos)
 +            {
 +                if (m_botmap[pos]->m_guid == guid)
@@ -14164,7 +14164,7 @@ index 35d1d15..eb7c0f6 100644
  void Player::RegenerateAll()
  {
      //if (m_regenTimer <= 500)
-@@ -3010,6 +3838,26 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
+@@ -3010,6 +3840,26 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
  {
      if (group)
      {
@@ -14191,7 +14191,7 @@ index 35d1d15..eb7c0f6 100644
          group->RemoveMember(guid, method, kicker, reason);
          group = NULL;
      }
-@@ -5037,6 +5885,13 @@ void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmC
+@@ -5037,6 +5887,13 @@ void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmC
              stmt->setUInt32(0, guid);
              trans->Append(stmt);
  
