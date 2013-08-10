@@ -1,18 +1,18 @@
-From e8e36a31d88861d59194cbd1130415ec12fae1ab Mon Sep 17 00:00:00 2001
+From c41e1e0f4c1fa909abf14b20e4693d083e210a55 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Fri, 9 Aug 2013 21:16:42 +0700
+Date: Sat, 10 Aug 2013 16:02:35 +0700
 Subject: [PATCH] NPCBots_434
 
 ---
  sql/Bots/character_NPC_bots.sql                    |   12 +
  sql/Bots/world_bots.sql                            |  524 ++++
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  461 +++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 3210 ++++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |  367 +++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 3196 ++++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |  369 +++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1092 +++++++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  340 +++
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  935 ++++++
- src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  960 ++++++
+ src/server/game/AI/NpcBots/bot_paladin_ai.cpp      | 1048 +++++++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  859 ++++++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  894 ++++++
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  474 +++
@@ -45,7 +45,7 @@ Subject: [PATCH] NPCBots_434
  .../Database/Implementation/WorldDatabase.cpp      |    4 +
  .../shared/Database/Implementation/WorldDatabase.h |    4 +
  src/server/worldserver/worldserver.conf.dist       |  106 +
- 41 files changed, 14389 insertions(+), 0 deletions(-)
+ 41 files changed, 14465 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world_bots.sql
  create mode 100644 src/server/game/AI/NpcBots/bot_GridNotifiers.h
@@ -1081,10 +1081,10 @@ index 0000000..70637f8
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..b7495cf
+index 0000000..3bad90d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,3210 @@
+@@ -0,0 +1,3196 @@
 +/*
 +NpcBot System by Graff (onlysuffering@gmail.com)
 +Original patch from: LordPsyan https://bitbucket.org/lordpsyan/trinitycore-patches/src/3b8b9072280e/Individual/11185-BOTS-NPCBots.patch
@@ -2062,13 +2062,13 @@ index 0000000..b7495cf
 +    for (uint8 i = EQUIPMENT_SLOT_BACK; i < EQUIPMENT_SLOT_END; ++i)
 +        if (Item* item = master->GetItemByPos(0, i))//inventory weapons
 +            if (item->GetTemplate()->ItemLevel >= 277)//bears ICC 25H LK items or Wrathful items
-+                value += 10.f;//only weapons so we can add 1 to 3 stacks (rogue, warr, sham...)
++                value += 9.f;//only weapons so we can add 1 to 3 stacks (rogue, warr, sham...)
 +    value *= haste_mod;
 +    if (isMeleeClass(myclass))
 +        value *= 0.67f;//nerf melee haste by 1/3
-+    value = value/10.f + float(mylevel/39);//get bonus at 78
++    value = value/3.f + float(mylevel/42);//get bonus at 84
 +    if (myclass == CAT)//give cat lots of haste
-+        value += float(mylevel/16);//or 20 (+ 4-5 stacks);
++        value += float(mylevel/17);//or 20 (+ 4-5 stacks);
 +    RefreshAura(HASTE,  uint8(value));//spell haste
 +    RefreshAura(HASTE2, uint8(value) + uint8(myclass == CLASS_ROGUE));//melee haste
 +    haste = uint8(value);//for show only
@@ -2078,17 +2078,18 @@ index 0000000..b7495cf
 +    int32 spell_hit = master->GetTotalAuraModifier(SPELL_AURA_MOD_HIT_CHANCE) + master->GetTotalAuraModifier(SPELL_AURA_MOD_SPELL_HIT_CHANCE);
 +    value = float(melee_hit > spell_hit ? melee_hit : spell_hit)*1.5f;//hightest, buff hit chance for bots
 +    hit = value/3.f;
-+    RefreshAura(PRECISION,  int8(hit) + mylevel/39);//melee
-+    RefreshAura(PRECISION2, int8(hit) + mylevel/39);//spell
++    //RefreshAura(PRECISION,  int8(hit) + mylevel/42);//melee
++    RefreshAura(PRECISION);
++    RefreshAura(PRECISION2, int8(hit) + mylevel/42);//spell
 +
 +    //CRIT
 +    //chose melee or ranged cuz crit rating increases melee/spell, and hunter benefits from agility
 +    value = master->GetUnitCriticalChance((master->getClass() == CLASS_HUNTER ? RANGED_ATTACK : BASE_ATTACK), me);
 +    value = value > 5.f ? value - 5.f : 0.f;//remove base chance if can
 +    value *= crit_mod;
-+    RefreshAura(CRITS, int8(value/5.f) + mylevel/39);
++    RefreshAura(CRITS, int8(value/3.f) + mylevel/42);
 +    if (myclass == CLASS_PRIEST)
-+        RefreshAura(HOLYCRIT, int8(value/7.f));//add holy crit to healers
++        RefreshAura(HOLYCRIT, int8(value/6.f));//add holy crit to healers
 +
 +    //PARRY
 +    value = master->GetFloatValue(PLAYER_PARRY_PERCENTAGE);
@@ -2099,7 +2100,7 @@ index 0000000..b7495cf
 +    if (value > 55.f)
 +        value = 55.f;
 +    float parryAndDodge = value;//set temp value, this is needed to keep total avoidance within 65%
-+    RefreshAura(PARRY, int8(value/5.f));//5% per stack aplied
++    RefreshAura(PARRY, int8(value/6.f));//6% per stack aplied
 +
 +    //DODGE
 +    value = master->GetUnitDodgeChance();
@@ -2331,15 +2332,16 @@ index 0000000..b7495cf
 +
 +    //HIT
 +    hit = m_creatureOwner->GetBotAI()->GetHitRating();
-+    RefreshAura(PRECISION,  int8(hit) + mylevel/39);//melee
-+    RefreshAura(PRECISION2, int8(hit) + mylevel/39);//spell
++    //RefreshAura(PRECISION,  int8(hit) + mylevel/42);//melee
++    RefreshAura(PRECISION);
++    RefreshAura(PRECISION2, int8(hit) + mylevel/42);//spell
 +
 +    //CRIT
 +    //chose melee or ranged cuz crit rating increases melee/spell, and hunter benefits from agility
 +    value = master->GetUnitCriticalChance((master->getClass() == CLASS_HUNTER ? RANGED_ATTACK : BASE_ATTACK), me);
 +    if (crit_mod != 1.0f)
 +        value *= crit_mod;
-+    RefreshAura(CRITS, int8(value/5.f) + mylevel/39);
++    RefreshAura(CRITS, int8(value/3.f) + mylevel/42);
 +
 +    //PARRY
 +    value = master->GetFloatValue(PLAYER_PARRY_PERCENTAGE);
@@ -2348,7 +2350,7 @@ index 0000000..b7495cf
 +    if (value > 65.f)
 +        value = 65.f;
 +    float parryAndDodge = value;//set temp value, this is needed to keep total avoidance within 75%
-+    RefreshAura(PARRY, int8(value/5.f));
++    RefreshAura(PARRY, int8(value/6.f));
 +
 +    //DODGE
 +    value = master->GetUnitDodgeChance();
@@ -3074,31 +3076,15 @@ index 0000000..b7495cf
 +    //me->ApplySpellImmune(0, IMMUNITY_EFFECT, SPELL_EFFECT_ATTACK_ME, true);
 +
 +    //apply +healing taken
-+    if (master->getLevel() >= 60) RefreshAura(BOR);//+40%
-+    if (IsMinionAI())
-+    {
-+        //apply -threat mod
-+        switch (botOrPetType)
-+        {
-+            case CLASS_WARRIOR:
-+                RefreshAura(RCP,1);//-27%
-+                break;
-+            case CLASS_PRIEST:
-+            case CLASS_MAGE:
-+            case CLASS_ROGUE:
-+                RefreshAura(RCP,3);//-87%
-+                break;
-+            default:
-+                RefreshAura(RCP,2);//-54%
-+                break;
-+        }
-+    }
-+    else
++    if (master->getLevel() >= 60)
++        RefreshAura(BOR);//+40%
++
++    if (IsPetAI())
 +    {
 +        switch (botOrPetType)
 +        {
 +            case PET_TYPE_VOIDWALKER:
-+                RefreshAura(DEFENSIVE_STANCE_PASSIVE,2);
++                RefreshAura(DEFENSIVE_STANCE_PASSIVE);
 +                break;
 +            default:
 +                break;
@@ -4297,10 +4283,10 @@ index 0000000..b7495cf
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..eee5731
+index 0000000..e1f4a94
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,367 @@
+@@ -0,0 +1,369 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -4334,20 +4320,22 @@ index 0000000..eee5731
 +    MANAREGEN45                         = 35867,//45 mp5
 +    MANAREGEN100                        = 45216,//100 mp5
 +  //2) Talents
-+    HASTE    /*Gift of the EarthMother*/= 51183,//rank 5 10% spell haste
-+    HASTE2   /*Blood Frenzy - warrior*/ = 29859,//rank 2 10% haste, bonus for rend (warriors only)//13789//rank 3 10% haste 6% dodge
-+    CRITS    /*Thundering Strikes-sham*/= 16305,//rank 5 5% crit
-+    HOLYCRIT /*Holy Spec - priest*/     = 15011,//rank 5 5% holy crit
-+    DODGE    /*Anticipation - paladin*/ = 20100,//rank 5 5% dodge
-+    PARRY    /*Deflection - warrior*/   = 16466,//rank 5 5% parry
-+    PRECISION /*Precision - warrior*/   = 29592,//rank 3 3% melee hit
-+    PRECISION2/*Precision - mage*/      = 29440,//rank 3 3% spell hit
-+    DMG_TAKEN/*Deadened Nerves - rogue*/= 31383,//rank 3 (-6%)
++    HASTE /*Netherwind Presence - mage*/= 44403,//rank 3 3% spell haste
++    HASTE2   /*Serpent Swiftness - pet*/= 61683,//rank 2 10% haste
++    CRITS     /*Acuity - shaman*/       = 17487,//rank 3 3% crit
++    HOLYCRIT  /*Holy Spec (deprecated)*/= 15011,//rank 0 5% holy crit
++    DODGE   /*Bonus Dodge (deprecated)*/= 29045,//rank 0 5% dodge
++    PARRY    /*Deflection (deprecated)*/= 13854,//rank 0 6% parry
++    //PRECISION /*Precision - warrior*/   = 29592,//rank 3 3% melee hit
++    PRECISION /*Precision (passive)*/   = 19155,//rank 0 20% melee hit
++    PRECISION2/*Precision (deprecated)*/= 29440,//rank 0 3% spell hit -3% mana cost
++    DMG_TAKEN/*Deadened Nerves - rogue*/= 31383,//rank 3 (-10%)
++    HEAL_DONETAKEN/*Divinity - paladin*/= 63648,//rank 3 6% healing done 6% healing taken
 +  //3) Pet/Special
-+    THREAT   /*Tank Class Passive*/     = 57339,//+43% threat
++    //THREAT   /*Tank Class Passive*/     = 57339,//+43% threat
 +    BOR      /*Blood of Rhino - pet*/   = 53482,//rank 2 +40% healing taken
-+    RCP      /*Rogue Class Passive*/    = 21184,//-27% threat caused
-+    DEFENSIVE_STANCE_PASSIVE            = 7376, //+threat/damage reduction
++    //RCP      /*Rogue Class Passive*/    = 21184,//-27% threat caused
++    DEFENSIVE_STANCE_PASSIVE            = 7376, //+ 400% threat 10% damage reduction
 +//COMMON GOSSIPS
 +    GOSSIP_SERVE_MASTER                 = 2279  //"I live only to serve the master."
 +};
@@ -7055,10 +7043,10 @@ index 0000000..64bf3a9
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 new file mode 100644
-index 0000000..d0a4a6d
+index 0000000..d898b0d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
-@@ -0,0 +1,960 @@
+@@ -0,0 +1,1048 @@
 +#include "bot_ai.h"
 +#include "Group.h"
 +#include "Player.h"
@@ -7300,7 +7288,8 @@ index 0000000..d0a4a6d
 +
 +            if (doCast(target, HOLY_SHOCK))
 +            {
-+                HS_Timer = target->ToCreature() ? 3500 : 5000;
++                if (urand(1,100) > 20) //Daybreak: 20% to not trigger HS CD, only GCD
++                    HS_Timer = target->ToCreature() ? 3500 : 5000;
 +                return true;
 +            }
 +            return false;
@@ -7544,7 +7533,24 @@ index 0000000..d0a4a6d
 +
 +        void Counter(uint32 diff)
 +        {
-+            if (Rand() > 60 || IsCasting()) return;
++            if (IsCasting())
++                return;
++
++            if (REBUKE && Rand() < 90 && Rebuke_Timer <= diff && me->GetDistance(opponent) < 5 &&
++                opponent->IsNonMeleeSpellCasted(false))
++            {
++                temptimer = GC_Timer;
++                if (doCast(opponent, REBUKE))
++                {
++                    Rebuke_Timer = 8000;
++                    GC_Timer = temptimer;
++                    return;
++                }
++            }
++
++            if (Rand() > 60)
++                return;
++
 +            Unit* target = Repentance_Timer < 25000 ? FindCastingTarget(30, false, REPENTANCE) : NULL;
 +            if (target)
 +                Repentance(diff, target); //first check repentance
@@ -7703,7 +7709,7 @@ index 0000000..d0a4a6d
 +            if (EXORCISM && Exorcism_Timer <= diff && GC_Timer <= diff && me->GetExactDist(opponent) < 30 &&
 +                (tank != me || opponent->GetVictim() == me || opponent->IsVehicle() || opponent->ToPlayer()))
 +            {
-+                if (doCast(opponent, EXORCISM/*, true)*/)) //possible instacast here
++                if (doCast(opponent, EXORCISM, me->HasAura(THE_ART_OF_WAR_BUFF)))
 +                {
 +                    Exorcism_Timer = 7000;
 +                    return;
@@ -7763,6 +7769,14 @@ index 0000000..d0a4a6d
 +            if (lvl >= 10 && spellId == CRUSADER_STRIKE)
 +                pctbonus += 0.3f;
 +
++            //SPECIAL
++            //The Art of War (buff): 100% bonus damage for Exorcism
++            if (lvl >= 33 && spellId == EXORCISM && me->HasAura(THE_ART_OF_WAR_BUFF))
++            {
++                me->RemoveAura(THE_ART_OF_WAR_BUFF);
++                pctbonus += 1.f;
++            }
++
 +            damage = int32(fdamage * (1.0f + pctbonus));
 +        }
 +
@@ -7805,6 +7819,19 @@ index 0000000..d0a4a6d
 +            OnOwnerDamagedBy(u);
 +        }
 +
++        void DamageDealt(Unit* /*victim*/, uint32& /*damage*/, DamageEffectType damageType)
++        {
++            //Custom OnHit() handlers
++
++            if (damageType == DIRECT_DAMAGE)
++            {
++                //The Art of War: 20% on autoattack
++                if (me->getLevel() >= 33)
++                    if (urand(1,100) <= 20)
++                        me->CastSpell(me, THE_ART_OF_WAR_BUFF, true);
++            }
++        }
++
 +        void OwnerAttackedBy(Unit* u)
 +        {
 +            OnOwnerDamagedBy(u);
@@ -7830,6 +7857,7 @@ index 0000000..d0a4a6d
 +            Exorcism_Timer = 0;
 +            Holy_Wrath_Timer = 0;
 +            Turn_Evil_Timer = 0;
++            Rebuke_Timer = 0;
 +
 +            HOFGuid = 0;
 +
@@ -7862,6 +7890,7 @@ index 0000000..d0a4a6d
 +            if (Exorcism_Timer > diff)              Exorcism_Timer -= diff;
 +            if (Holy_Wrath_Timer > diff)            Holy_Wrath_Timer -= diff;
 +            if (Turn_Evil_Timer > diff)             Turn_Evil_Timer -= diff;
++            if (Rebuke_Timer > diff)                Rebuke_Timer -= diff;
 +        }
 +
 +        bool CanRespawn()
@@ -7871,7 +7900,7 @@ index 0000000..d0a4a6d
 +        {
 +            uint8 lvl = me->getLevel();
 +            FLASH_OF_LIGHT                          = InitSpell(me, FLASH_OF_LIGHT_1);
-+            HOLY_LIGHT                              = InitSpell(me, HOLY_LIGHT_1);
++            HOLY_LIGHT                  = lvl <= 61 ? InitSpell(me, HOLY_LIGHT_1) : InitSpell(me, DIVINE_LIGHT_1); //exception
 +            LAY_ON_HANDS                            = InitSpell(me, LAY_ON_HANDS_1);
 +            HOLY_SHOCK                  = lvl >= 10 ? HOLY_SHOCK_1 : 0;
 +            CLEANSE                     = lvl >= 34 ? CLEANSE_1 : 0;
@@ -7897,6 +7926,7 @@ index 0000000..d0a4a6d
 +            HOF  /* Hand of Freedom */              = InitSpell(me, HOF_1);
 +            HOS /*Hand of salvation*/               = InitSpell(me, HOS_1);
 +            HANDOFRECKONING                         = InitSpell(me, HANDOFRECKONING_1);
++            REBUKE                                  = InitSpell(me, REBUKE_1);
 +        }
 +
 +        void ApplyClassPassives()
@@ -7941,14 +7971,47 @@ index 0000000..d0a4a6d
 +                RefreshAura(DIVINE_PURPOSE);
 +            if (level >= 35)
 +                RefreshAura(VINDICATION);
++            //434 new
++            if (level >= 51)
++                RefreshAura(HEAL_DONETAKEN,5); //+30%
++            else if (level >= 41)
++                RefreshAura(HEAL_DONETAKEN,4); //+24%
++            else if (level >= 31)
++                RefreshAura(HEAL_DONETAKEN,3); //+18%
++            else if (level >= 21)
++                RefreshAura(HEAL_DONETAKEN,2); //+12%
++            else if (level >= 11)
++                RefreshAura(HEAL_DONETAKEN); //+6%
++
++            if (level >= 13)
++                RefreshAura(POTI3);
++            else if (level >= 11)
++                RefreshAura(POTI2);
++            else if (level >= 10)
++                RefreshAura(POTI1);
++
++            if (level >= 31)
++                RefreshAura(DENOUNCE);
++
++            if (level >= 43)
++                RefreshAura(SPEED_OF_LIGHT);
++
++            if (level >= 21)
++                RefreshAura(JUST);
++
++            if (level >= 29)
++                RefreshAura(COMMUNION);
++
++            if (level >= 39)
++                RefreshAura(SACRED_SHIELD);
 +        }
 +
 +    private:
 +        uint32
 +   /*Heals*/FLASH_OF_LIGHT, HOLY_LIGHT, HOLY_SHOCK, LAY_ON_HANDS,
-+      /*CC*/HAMMER_OF_JUSTICE, REPENTANCE, TURN_EVIL,
++      /*CC*/HAMMER_OF_JUSTICE, REPENTANCE, TURN_EVIL, REBUKE,
 +  /*Damage*/SEAL_OF_TRUTH, HOLY_WRATH, EXORCISM, CRUSADER_STRIKE, JUDGEMENT,
-+  /*Damage*/CONSECRATION, DIVINE_STORM, AVENGING_WRATH, HOW,//hammer of wrath
++  /*Damage*/CONSECRATION, DIVINE_STORM, AVENGING_WRATH, HOW, //hammer of wrath
 +/*Blessing*/BLESSING_OF_MIGHT, BLESSING_OF_KINGS,
 +   /*Auras*/DEVOTION_AURA, CONCENTRATION_AURA,
 +   /*Hands*/HAND_OF_PROTECTION, HOF, HOS, HANDOFRECKONING,
@@ -7956,11 +8019,14 @@ index 0000000..d0a4a6d
 +        //Timers
 +        uint32 Crusader_cd, Consecration_cd, Exorcism_Timer, Holy_Wrath_Timer, Judge_Timer, HOF_Timer,
 +            HS_Timer, HOW_Timer, DS_Timer, HOS_Timer, Hand_Of_Reckoning_Timer, Turn_Evil_Timer,
-+            LOH_Timer, HOJ_Timer, BOP_Timer, AW_Timer, Divine_Plea_Timer, Repentance_Timer;
++            LOH_Timer, HOJ_Timer, BOP_Timer, AW_Timer, Divine_Plea_Timer, Repentance_Timer,
++            Rebuke_Timer;
 +        uint64 HOFGuid;
 +
 +        enum PaladinBaseSpells// all orignals
 +        {
++            REBUKE_1                            = 96231,
++            DIVINE_LIGHT_1                      = 82326,
 +            FLASH_OF_LIGHT_1                    = 19750,
 +            HOLY_LIGHT_1                        = 635,
 +            LAY_ON_HANDS_1                      = 633,
@@ -7987,23 +8053,31 @@ index 0000000..d0a4a6d
 +            BLESSING_OF_MIGHT_1                 = 19740,
 +            BLESSING_OF_KINGS_1                 = 20217,
 +            DEVOTION_AURA_1                     = 465,
-+            CONCENTRATION_AURA_1                = 19746,
++            CONCENTRATION_AURA_1                = 19746
 +        };
 +        enum PaladinPassives
 +        {
 +        //Talents
 +            DIVINE_PURPOSE                      = 86172,
 +            PURE/*Judgements of the Pure*/      = 54151,
++            JUST/*Judgements of the Just*/      = 53696,//rank 2
 +            VINDICATION                         = 26016,
 +            CONVICTION1                         = 20049,
 +            CONVICTION2                         = 20056,
 +            CONVICTION3                         = 20057,
++            POTI1 /*Protector of the Innocent*/ = 20138,
++            POTI2                               = 20139,
++            POTI3                               = 20140,
++            DENOUNCE                            = 85510,//rank 2
++            SPEED_OF_LIGHT                      = 85499,//rank 3
++            COMMUNION                           = 31876,
++            SACRED_SHIELD                       = 85285,
 +        //Special
 +            SHEATH_OF_LIGHT                     = 53503,//not a talent
 +            WISE/*Judgements of the Wise*/      = 31878,//not a talent
 +        //other
 +            SPELLDMG/*Piercing Ice - mage*/     = 15060,// 3% crit
-+            SPELLDMG2/*Earth and Moon - druid*/ = 48511,// 2% dam
++            SPELLDMG2/*Earth and Moon - druid*/ = 48511 // 2% dam
 +        };
 +
 +        enum PaladinSpecial
@@ -8011,6 +8085,8 @@ index 0000000..d0a4a6d
 +            NOAURA,
 +            DEVOTIONAURA,
 +            CONCENTRATIONAURA,
++
++            THE_ART_OF_WAR_BUFF                 = 59578
 +        };
 +    };
 +};
