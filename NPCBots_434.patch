@@ -1,20 +1,20 @@
-From c41e1e0f4c1fa909abf14b20e4693d083e210a55 Mon Sep 17 00:00:00 2001
+From fa5e4fcc43202090cbbc8de5242e6c69c3746bc8 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Sat, 10 Aug 2013 16:02:35 +0700
+Date: Sun, 11 Aug 2013 18:32:07 +0700
 Subject: [PATCH] NPCBots_434
 
 ---
  sql/Bots/character_NPC_bots.sql                    |   12 +
  sql/Bots/world_bots.sql                            |  524 ++++
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  461 +++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 3196 ++++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |  369 +++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 3206 ++++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |  370 +++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1092 +++++++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  340 +++
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  935 ++++++
- src/server/game/AI/NpcBots/bot_paladin_ai.cpp      | 1048 +++++++
+ src/server/game/AI/NpcBots/bot_paladin_ai.cpp      | 1049 +++++++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  859 ++++++
- src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  894 ++++++
+ src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  872 ++++++
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  474 +++
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  458 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1102 +++++++
@@ -45,7 +45,7 @@ Subject: [PATCH] NPCBots_434
  .../Database/Implementation/WorldDatabase.cpp      |    4 +
  .../shared/Database/Implementation/WorldDatabase.h |    4 +
  src/server/worldserver/worldserver.conf.dist       |  106 +
- 41 files changed, 14465 insertions(+), 0 deletions(-)
+ 41 files changed, 14455 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world_bots.sql
  create mode 100644 src/server/game/AI/NpcBots/bot_GridNotifiers.h
@@ -1081,10 +1081,10 @@ index 0000000..70637f8
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..3bad90d
+index 0000000..6edb4a4
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,3196 @@
+@@ -0,0 +1,3206 @@
 +/*
 +NpcBot System by Graff (onlysuffering@gmail.com)
 +Original patch from: LordPsyan https://bitbucket.org/lordpsyan/trinitycore-patches/src/3b8b9072280e/Individual/11185-BOTS-NPCBots.patch
@@ -1965,7 +1965,14 @@ index 0000000..3bad90d
 +        force = true; //restore powers on lvl update
 +    }
 +    if (force)
++    {
 +        InitSpells();
++        //ApplyPassives(me->GetBotClass());
++
++        //need to find a way to remove all passives before reapply (except levelups)
++        //!!!this is only for gm's (players are not supposed to lower their level)
++        ApplyClassPassives();
++    }
 +
 +    //PHASE
 +    if (!me->InSamePhase(master))
@@ -2513,9 +2520,12 @@ index 0000000..3bad90d
 +    //}
 +    if (target->HasAura(spell))
 +        target->RemoveAurasDueToSpell(spell);
-+    if (count > 0)
-+        for (uint8 i = 0; i < count; ++i)
-+            target->AddAura(spellInfo, MAX_EFFECT_MASK, target);
++
++    if (count > 10)
++        TC_LOG_ERROR(LOG_FILTER_PLAYER, "bot_ai::RefreshAura(): %s's aura count for spell %u (%s) is greater than 10... (%i)", target->GetName().c_str(), spell, spellInfo->SpellName, count);
++
++    for (uint8 i = 0; i < count; ++i)
++        target->AddAura(spellInfo, MAX_EFFECT_MASK, target);
 +    return true;
 +}
 +//CHECKAURAS
@@ -4283,10 +4293,10 @@ index 0000000..3bad90d
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..e1f4a94
+index 0000000..f633296
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,369 @@
+@@ -0,0 +1,370 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -4470,6 +4480,7 @@ index 0000000..e1f4a94
 +        //virtual void DoNonCombatActions(uint32 /*diff*/) {}
 +        //virtual void StartAttack(Unit* /*u*/, bool /*force*/ = false) {}
 +        virtual void InitSpells() {}
++        virtual void ApplyClassPassives() {}
 +        virtual void _OnHealthUpdate(uint8 /*myclass*/, uint8 /*mylevel*/) const = 0;
 +        virtual void _OnManaUpdate(uint8 /*myclass*/, uint8 /*mylevel*/) const = 0;
 +        //virtual void _OnMeleeDamageUpdate(uint8 /*myclass*/) const = 0;
@@ -7043,10 +7054,10 @@ index 0000000..64bf3a9
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 new file mode 100644
-index 0000000..d898b0d
+index 0000000..9a25fe3
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
-@@ -0,0 +1,1048 @@
+@@ -0,0 +1,1049 @@
 +#include "bot_ai.h"
 +#include "Group.h"
 +#include "Player.h"
@@ -7433,7 +7444,7 @@ index 0000000..d898b0d
 +            if (!me->IsInCombat())
 +                DoNonCombatActions(diff);
 +            //buff
-+            if (SEAL_OF_TRUTH && GC_Timer <= diff && !me->HasAura(SEAL_OF_TRUTH) && 
++            if (SEAL_OF_TRUTH && Rand() < 20 && GC_Timer <= diff && !me->HasAura(SEAL_OF_TRUTH) && 
 +                doCast(me, SEAL_OF_TRUTH))
 +                GC_Timer = 500;
 +
@@ -7632,7 +7643,7 @@ index 0000000..d898b0d
 +            if (MoveBehind(*opponent))
 +                wait = 5;
 +
-+            if (HOW && HOW_Timer <= diff && Rand() < 30 && GetHealthPCT(opponent) < 19 &&
++            if (HOW && HOW_Timer <= diff && Rand() < 30 && GetHealthPCT(opponent) < 19 && GC_Timer <= 300 &&// custom GCD check
 +                me->GetExactDist(opponent) < 30)
 +            {
 +                temptimer = GC_Timer;
@@ -7762,29 +7773,18 @@ index 0000000..d898b0d
 +            //Hallowed Ground: 40% bonus damage for Consecration
 +            if (lvl >= 30 && spellId == CONSECRATION)
 +                pctbonus += 0.4f;
-+            //Blazing Light: 20% bonus damage for Exorcism and Holy Shock
-+            if (lvl >= 20 && (spellId == EXORCISM || spellId == HOLY_SHOCK))
-+                pctbonus += 0.2f;
 +            //Crusade (part 1): 30% bonus damage for Crusader Strike etc.
 +            if (lvl >= 10 && spellId == CRUSADER_STRIKE)
 +                pctbonus += 0.3f;
 +
-+            //SPECIAL
-+            //The Art of War (buff): 100% bonus damage for Exorcism
-+            if (lvl >= 33 && spellId == EXORCISM && me->HasAura(THE_ART_OF_WAR_BUFF))
-+            {
-+                me->RemoveAura(THE_ART_OF_WAR_BUFF);
-+                pctbonus += 1.f;
-+            }
-+
 +            damage = int32(fdamage * (1.0f + pctbonus));
 +        }
 +
-+        void ApplyClassDamageMultiplierSpell(int32& /*damage*/, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool& crit) const
++        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool& crit) const
 +        {
 +            uint32 spellId = spellInfo->Id;
 +            uint8 lvl = me->getLevel();
-+            //float fdamage = float(damage);
++            float fdamage = float(damage);
 +            //1) apply additional crit chance. This additional chance roll will replace original (balance safe)
 +            if (!crit)
 +            {
@@ -7801,12 +7801,24 @@ index 0000000..d898b0d
 +            }
 +
 +            //2) apply bonus damage mods
-+            //float pctbonus = 0.0f;
++            float pctbonus = 0.0f;
 +            //if (crit)
 +            //{
 +            //}
 +
-+            //damage = int32(fdamage * (1.0f + pctbonus));
++            //Blazing Light: 20% bonus damage for Exorcism and Holy Shock
++            if (lvl >= 20 && (spellId == EXORCISM || spellId == HOLY_SHOCK))
++                pctbonus += 0.2f;
++
++            //SPECIAL
++            //The Art of War (buff): 100% bonus damage for Exorcism
++            if (lvl >= 33 && spellId == EXORCISM && me->HasAura(THE_ART_OF_WAR_BUFF))
++            {
++                me->RemoveAura(THE_ART_OF_WAR_BUFF);
++                pctbonus += 1.f;
++            }
++
++            damage = int32(fdamage * (1.0f + pctbonus));
 +        }
 +
 +        void SpellHit(Unit* caster, SpellInfo const* spell)
@@ -8036,7 +8048,7 @@ index 0000000..d898b0d
 +            CLEANSE_1                           = 66116,//4987 original spell
 +            HAND_OF_PROTECTION_1                = 1022,
 +            HOS_1 /*Hand of salvation*/         = 1038,
-+            SEAL_OF_TRUTH_1                     = 20375,
++            SEAL_OF_TRUTH_1                     = 31801,
 +            HANDOFRECKONING_1                   = 62124,
 +            DIVINE_PLEA_1                       = 54428,
 +            REPENTANCE_1                        = 20066,
@@ -8962,10 +8974,10 @@ index 0000000..9c7aa1b
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_rogue_ai.cpp b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 new file mode 100644
-index 0000000..b3c5158
+index 0000000..23f1e6c
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
-@@ -0,0 +1,894 @@
+@@ -0,0 +1,872 @@
 +#include "bot_ai.h"
 +//#include "Group.h"
 +#include "Player.h"
@@ -8976,40 +8988,6 @@ index 0000000..b3c5158
 +Complete - 25% maybe...
 +TODO:
 +*/
-+#define DMGMIN              1
-+#define DMGMAX              2
-+#define MAX_COMBO_POINTS    5
-+#define EVISCERATE_MAX_RANK 12
-+const uint32 EVSCRDamage[EVISCERATE_MAX_RANK+1][MAX_COMBO_POINTS+1][DMGMAX+1] = 
-+{
-+    { { 0,0,0 }, { 0,0,0 },     { 0,0,0 },      { 0,0,0 },       { 0,0,0 },       { 0,0,0 }       },
-+    { { 0,0,0 }, { 0,6,11 },    { 0,12,16 },    { 0,17,22 },     { 0,22,28 },     { 0,28,34 }     },
-+    { { 0,0,0 }, { 0,14,23 },   { 0,26,34 },    { 0,37,46 },     { 0,48,58 },     { 0,60,70 }     },
-+    { { 0,0,0 }, { 0,25,49 },   { 0,45,59 },    { 0,64,79 },     { 0,83,99 },     { 0,103,119 }   },
-+    { { 0,0,0 }, { 0,41,62 },   { 0,73,93 },    { 0,104,125 },   { 0,135,157 },   { 0,167,189 }   },
-+    { { 0,0,0 }, { 0,60,91 },   { 0,106,136 },  { 0,151,182 },   { 0,196,228 },   { 0,242,274 }   },
-+    { { 0,0,0 }, { 0,93,138 },  { 0,165,209 },  { 0,236,281 },   { 0,307,353 },   { 0,379,425 }   },
-+    { { 0,0,0 }, { 0,144,213 }, { 0,255,323 },  { 0,365,434 },   { 0,475,545 },   { 0,586,656 }   },
-+    { { 0,0,0 }, { 0,199,296 }, { 0,351,447 },  { 0,502,599 },   { 0,653,751 },   { 0,805,903 }   },
-+    { { 0,0,0 }, { 0,224,333 }, { 0,395,503 },  { 0,565,674 },   { 0,735,845 },   { 0,906,1016 }  },
-+    { { 0,0,0 }, { 0,245,366 }, { 0,431,551 },  { 0,616,737 },   { 0,801,923 },   { 0,987,1109 }  },
-+    { { 0,0,0 }, { 0,405,614 }, { 0,707,915 },  { 0,1008,1217 }, { 0,1309,1519 }, { 0,1611,1821 } },
-+    { { 0,0,0 }, { 0,497,752 }, { 0,868,1122 }, { 0,1238,1493 }, { 0,1608,1864 }, { 0,1979,2235 } }
-+};
-+#define RUPTURE_MAX_RANK    9
-+const uint32 RuptureDamage[RUPTURE_MAX_RANK+1][MAX_COMBO_POINTS+1] = 
-+{
-+    { 0, 0,   0,   0,    0,    0    },
-+    { 0, 41,  61,  86,   114,  147  },
-+    { 0, 61,  91,  128,  170,  219  },
-+    { 0, 89,  131, 182,  240,  307  },
-+    { 0, 129, 186, 254,  331,  419  },
-+    { 0, 177, 256, 350,  457,  579  },
-+    { 0, 273, 381, 506,  646,  803  },
-+    { 0, 325, 461, 620,  800,  1003 },
-+    { 0, 489, 686, 914,  1171, 1459 },
-+    { 0, 581, 816, 1088, 1395, 1739 }
-+};
 +
 +class rogue_bot : public CreatureScript
 +{
@@ -9072,7 +9050,10 @@ index 0000000..b3c5158
 +            if (set && mod < 0)
 +                return;
 +            if (mod < 0 && energy < uint32(abs(mod)))
-+                return;
++            {
++                mod = 0;
++                set = true;
++            }
 +
 +            if (set)
 +                energy = mod;
@@ -9094,8 +9075,6 @@ index 0000000..b3c5158
 +            ReduceCD(diff);
 +            if (KidneyTarget)
 +            {
-+                //kidney shot is casted as rank 1 (1 or 2 secs) so add duration accordingly
-+                //i.e. kedney rank 1, points = 5, we have aura with duration 1 sec so add 4 more secs
 +                //tempComboPoints -= 1;
 +                if (tempComboPoints)
 +                {
@@ -9108,7 +9087,7 @@ index 0000000..b3c5158
 +                            kidney->SetMaxDuration(dur);
 +                        }
 +                    }
-+                    else//spell is failed to hit: restore cp
++                    else //spell is failed to hit: restore cp
 +                    {
 +                        if (comboPoints == 0)
 +                            comboPoints = tempComboPoints;
@@ -9126,12 +9105,13 @@ index 0000000..b3c5158
 +                    {
 +                        if (Aura* rupture = u->GetAura(RUPTURE, me->GetGUID()))
 +                        {
-+                            uint32 dur = rupture->GetDuration() + tempComboPoints*2000;
++                            uint32 dur = rupture->GetDuration() + tempComboPoints*2000; //use cp
++                            dur += 4000; //Glyph of Rupture
 +                            rupture->SetDuration(dur);
 +                            rupture->SetMaxDuration(dur);
 +                        }
 +                    }
-+                    else//spell is failed to hit: restore cp
++                    else //spell is failed to hit: restore cp
 +                    {
 +                        if (comboPoints == 0)
 +                            comboPoints = tempComboPoints;
@@ -9147,7 +9127,10 @@ index 0000000..b3c5158
 +                {
 +                    if (Aura* dice = me->GetAura(SLICE_DICE))
 +                    {
-+                        uint32 dur = (dice->GetDuration()*3)/2 + tempComboPoints*4500;//with Improved Slice and Dice
++                        uint32 dur = dice->GetDuration();
++                        dur += tempComboPoints * 3000; //use cp
++                        dur += 6000; // Glyph of Slice and Dice
++                        dur = (dur * 3) / 2; //Improved Slice and Dice
 +                        dice->SetDuration(dur);
 +                        dice->SetMaxDuration(dur);
 +                    }
@@ -9169,7 +9152,7 @@ index 0000000..b3c5158
 +            BreakCC(diff);
 +            if (CCed(me)) return;
 +
-+            if (GetHealthPCT(me) < 33 && Potion_cd <= diff)
++            if (GetHealthPCT(me) < 67 && Potion_cd <= diff)
 +            {
 +                temptimer = GC_Timer;
 +                if (doCast(me, HEALINGPOTION))
@@ -9205,15 +9188,16 @@ index 0000000..b3c5158
 +            float dist = me->GetExactDist(opponent);
 +            float meleedist = me->GetDistance(opponent);
 +
-+            if (BLADE_FLURRY && Blade_Flurry_Timer <= diff && meleedist <= 5 && 
-+                Rand() < 30 && getenergy() >= 25 && FindSplashTarget(7, opponent))
++            //Blade Flurry (434 deprecated)
++            if (BLADE_FLURRY && Blade_Flurry_Timer <= diff && meleedist <= 5 &&
++                Rand() < 30 && FindSplashTarget(7, opponent))
 +            {
 +                temptimer = GC_Timer;
 +                if (doCast(me, BLADE_FLURRY))
 +                {
-+                    Blade_Flurry_Timer = 90000;
++                    Blade_Flurry_Timer = 75000;
 +                    GC_Timer = temptimer;
-+                    return;//return here to allow cast only on next update
++                    return;
 +                }
 +            }
 +
@@ -9221,13 +9205,13 @@ index 0000000..b3c5158
 +                wait = 5;
 +
 +            //KICK
-+            if (KICK && Kick_Timer <= diff && meleedist <= 5 && Rand() < 80 && getenergy() >= 25 &&
++            if (KICK && Kick_Timer <= diff && meleedist <= 5 && Rand() < 80 && getenergy() >= 15 &&
 +                opponent->IsNonMeleeSpellCasted(false))
 +            {
 +                temptimer = GC_Timer;
 +                if (doCast(opponent, KICK))
 +                {
-+                    Kick_Timer = 8000;//improved
++                    Kick_Timer = 8000; //improved
 +                    GC_Timer = temptimer;
 +                    //return;
 +                }
@@ -9244,10 +9228,9 @@ index 0000000..b3c5158
 +                    GC_Timer = temptimer;
 +                    //return;
 +                }
-+                //doCast(opponent, BACKSTAB, true);
 +            }
 +            //BACKSTAB
-+            if (BACKSTAB && GC_Timer <= diff && meleedist <= 5 && comboPoints < 5 &&
++            if (BACKSTAB && GC_Timer <= diff && meleedist <= 5 && comboPoints < 4 &&
 +                /*Rand() < 90 && */getenergy() >= 60 && !opponent->HasInArc(M_PI, me))
 +            {
 +                if (doCast(opponent, BACKSTAB))
@@ -9262,16 +9245,10 @@ index 0000000..b3c5158
 +            }
 +            //SLICE AND DICE
 +            if (SLICE_DICE && Slice_Dice_Timer <= diff && GC_Timer <= diff && dist < 20 && comboPoints > 1 &&
-+                (b_attackers.size() <= 1 || Blade_Flurry_Timer > 80000) && Rand() < 30 && getenergy() >= 25)
++                (b_attackers.size() <= 1 || Blade_Flurry_Timer > 60000) && Rand() < 30 && getenergy() >= 25)
 +            {
 +                if (doCast(opponent, SLICE_DICE))
-+                {
-+                    //DICE = true;
-+                    //tempDICE = true;
-+                    //tempComboPoints = comboPoints;
-+                    ////comboPoints = 0;
 +                    return;
-+                }
 +            }
 +            //KIDNEY SHOT
 +            if (KIDNEY_SHOT && GC_Timer <= diff && Kidney_Timer <= diff && meleedist <= 5 && comboPoints > 0 &&
@@ -9281,7 +9258,6 @@ index 0000000..b3c5158
 +                {
 +                    KidneyTarget = opponent->GetGUID();
 +                    tempComboPoints = comboPoints;
-+                    //comboPoints = 0;
 +                    Kidney_Timer = 20000;
 +                    return;
 +                }
@@ -9290,17 +9266,11 @@ index 0000000..b3c5158
 +            if (EVISCERATE && GC_Timer <= diff && meleedist <= 5 && comboPoints > 2 &&
 +                getenergy() >= 35 && Rand() < comboPoints*15)
 +            {
-+                SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(EVISCERATE);
-+                uint8 rank = spellInfo->GetRank();
 +                float ap = me->GetTotalAttackPowerValue(BASE_ATTACK);
 +                float combo = float(comboPoints);
-+                int32 damage = int32(urand(EVSCRDamage[rank][comboPoints][DMGMIN], EVSCRDamage[rank][comboPoints][DMGMAX]));//base damage
-+                damage += irand(int32(ap*combo*0.03f), int32(ap*combo*0.07f));//ap bonus
-+
-+                //PlaceHolder::damage bonuses
-+                // Eviscerate and Envenom Bonus Damage (Deathmantle item set effect)
-+                //if (me->HasAura(37169))
-+                //    damage += comboPoints*100;
++                //434 temp formula - placeholder
++                int32 damage = irand(5 + me->getLevel() * 2, 10 + me->getLevel() * 5); //base damage
++                damage += irand(int32(ap*combo*0.03f), int32(ap*combo*0.07f)); //ap bonus (Trinity-based)
 +
 +                currentSpell = EVISCERATE;
 +                me->CastCustomSpell(opponent, EVISCERATE, &damage, NULL, NULL, false);
@@ -9329,41 +9299,32 @@ index 0000000..b3c5158
 +
 +            //RUPTURE
 +            if (RUPTURE && Rupture_Timer <= diff && GC_Timer <= diff && meleedist <= 5 && comboPoints > 2 &&
-+                opponent->GetHealth() > me->GetMaxHealth()/3 && getenergy() >= 25 && Rand() < 50 + 50*opponent->isMoving())
++                opponent->GetHealth() > me->GetMaxHealth()/3 && getenergy() >= 25 && Rand() < 50 + 70*opponent->isMoving())
 +            {
-+                //no damage range for rupture
-+                SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(RUPTURE);
-+                uint8 rank = spellInfo->GetRank();
++                //no damage range for Rupture
 +                float ap = me->GetTotalAttackPowerValue(BASE_ATTACK);
-+                float AP_per_combo[6] = {0.0f, 0.015f, 0.024f, 0.03f, 0.03428571f, 0.0375f};
-+                float divider[6] = {0.0f, 4.f, 5.f, 6.f, 7.f, 8.f};//duration/2 = number of ticks
-+                int32 damage = int32(RuptureDamage[rank][comboPoints]/divider[comboPoints]);//base damage
-+                damage += int32(ap*AP_per_combo[comboPoints]);//ap bonus is strict - applied to every tick
++                //434 temp formula - placeholder
++                float baseDamage = me->getLevel() * 17.25f;
++                float AP_per_combo[6] = { 0.0f, 0.015f, 0.024f, 0.03f, 0.03428571f, 0.0375f }; //Trinity-based
++                float divider[6] = { 0.0f, 4.f, 5.f, 6.f, 7.f, 8.f }; //base duration/2 = number of ticks
++                int32 damage = int32(baseDamage/divider[comboPoints]);//base damage
++                damage += int32(ap*AP_per_combo[comboPoints]); //ap bonus is strict - applied to every tick
 +
 +                currentSpell = RUPTURE;
 +                me->CastCustomSpell(opponent, RUPTURE, &damage, NULL, NULL, false);
 +                return;
-+                //if (doCast(opponent, RUPTURE))
-+                //{
-+                //    RuptureTarget = opponent->GetGUID();
-+                //    tempComboPoints = comboPoints;
-+                //    Rupture_Timer = 6000 + (comboPoints-1)*2000;
-+                //    //comboPoints = 0;
-+                //    return;
-+                //}
 +            }
 +            //DISMANTLE
-+            if (DISMANTLE && Dismantle_Timer <= diff && meleedist <= 5 &&
-+                opponent->GetTypeId() == TYPEID_PLAYER && 
-+                Rand() < 20 && getenergy() >= 25 && !CCed(opponent) &&
-+                !opponent->HasAuraType(SPELL_AURA_MOD_DISARM) && 
-+                opponent->ToPlayer()->GetWeaponForAttack(BASE_ATTACK))
++            if (DISMANTLE && Dismantle_Timer <= diff && meleedist <= 5 && opponent->GetTypeId() == TYPEID_PLAYER &&
++                Rand() < 20 && getenergy() >= 25 && !CCed(opponent) && !opponent->HasAuraType(SPELL_AURA_MOD_DISARM) &&
++                (opponent->ToPlayer()->GetWeaponForAttack(BASE_ATTACK) || opponent->ToPlayer()->GetWeaponForAttack(RANGED_ATTACK)))
 +            {
 +                temptimer = GC_Timer;
 +                if (doCast(opponent, DISMANTLE))
 +                {
 +                    Dismantle_Timer = 60000;
 +                    GC_Timer = temptimer;
++                    return;
 +                }
 +            }
 +        }
@@ -9378,7 +9339,7 @@ index 0000000..b3c5158
 +            {
 +                float aftercrit = 0.f;
 +                //Puncturing Wounds: 30% additional critical chance for Backstab
-+                if (lvl >= 15 && spellId == BACKSTAB)
++                if (lvl >= 20 && spellId == BACKSTAB)
 +                    aftercrit += 30.f;
 +                //Puncturing Wounds: 15% additional critical chance for Mutilate
 +                else if (spellId == MUTILATE)
@@ -9386,9 +9347,9 @@ index 0000000..b3c5158
 +                //Glyph of Eviscerate: 10% additional critical chance for Eviscerate
 +                else if (spellId == EVISCERATE)
 +                    aftercrit += 10.f;
-+                //Improved Ambush: 50% additional critical chance for Ambush
++                //Improved Ambush: 60% additional critical chance for Ambush
 +                //else if (spellId == AMBUSH)
-+                //    crit_chance += 50.f;
++                //    crit_chance += 60.f;
 +                if (lvl >= 50 && spellInfo->HasEffect(SPELL_EFFECT_ADD_COMBO_POINTS) && me->HasAura(TURN_THE_TABLES_EFFECT))
 +                    aftercrit += 6.f;
 +
@@ -9402,9 +9363,9 @@ index 0000000..b3c5158
 +            if (crit)
 +            {
 +                //!!!Melee spell damage is not yet critical, all reduced by half
-+                //Lethality: 30% crit damage bonus for non-stealth combo-generating abilities (on 25 lvl)
-+                if (lvl >= 25 && !(spellInfo->Attributes & SPELL_ATTR0_ONLY_STEALTHED) &&
-+                    spellInfo->HasEffect(SPELL_EFFECT_ADD_COMBO_POINTS))
++                //Lethality: 30% crit damage bonus for Sinister Strike, Backstab, Mutilate and Hemorrhage
++                if (lvl >= 10 &&
++                    (spellId == SINISTER_STRIKE || spellId == BACKSTAB || spellId == MUTILATE/* || spellId == HEMORRHAGE*/))
 +                    pctbonus += 0.15f;
 +            }
 +            //Shadowstep: 20% bonus damage to all abilities once
@@ -9414,32 +9375,27 @@ index 0000000..b3c5158
 +            //    me->RemoveAurasDueToSpell(SHADOWSTEP_EFFECT_DAMAGE);
 +            //    pctbonus += 0.2f;
 +            //}
-+            //Find Weakness: 6% bonus damage to all abilities
-+            if (lvl >= 45)
-+                pctbonus += 0.06f;
 +            //DeathDealer set bonus: 15% damage bonus for Eviscerate
 +            if (lvl >= 60 && spellId == EVISCERATE)
 +                pctbonus += 0.15f;
-+            //Imoroved Eviscerate: 20% damage bonus for Eviscerate
-+            if (spellId == EVISCERATE)
++            //Coup de Grace: 20% damage bonus for Eviscerate and Envenom
++            if (lvl >= 10 &&(spellId == EVISCERATE/* || spellId == ENVENOM*/))
 +                pctbonus += 0.2f;
-+            //Opportunity: 20% damage bonus for Backstab, Mutilate, Garrote and Ambush
-+            if (spellId == BACKSTAB || spellId == MUTILATE/* || 
-+                spellId == GARROTE || spellId == AMBUSH*/)
++            //Opportunity: 30% damage bonus for Backstab, Mutilate, Garrote and Ambush
++            if (lvl >= 20 && (spellId == BACKSTAB || spellId == MUTILATE/* || 
++                spellId == GARROTE || spellId == AMBUSH*/))
++                pctbonus += 0.3f;
++            //Aggression: 20% damage bonus for Sinister Strike, Backstab and Eviscerate
++            if (lvl >= 20 && (spellId == SINISTER_STRIKE || spellId == BACKSTAB || spellId == EVISCERATE))
 +                pctbonus += 0.2f;
-+            //Aggression: 15% damage bonus for Sinister Strike, Backstab and Eviscerate
-+            if (lvl >= 30 && (spellId == SINISTER_STRIKE || spellId == BACKSTAB || spellId == EVISCERATE))
-+                pctbonus += 0.15f;
-+            //Blood Spatter: 30% bonus damage for Rupture and Garrote
-+            if (lvl >= 15 && (spellId == RUPTURE/* || spellId == GARROTE*/))
-+                pctbonus += 0.3f;
-+            //Serrated Blades: 30% bonus damage for Rupture
-+            if (lvl >= 20 && spellId == RUPTURE)
-+                pctbonus += 0.3f;
-+            //Surprise Attacks: 10% bonus damage for Sinister Strike, Backstab, Shiv, Hemmorhage and Gouge
-+            if (lvl >= 50 && (spellId == SINISTER_STRIKE || spellId == BACKSTAB/* ||
-+                spellId == SHIV || spellId == HEMMORHAGE || spellId == GOUGE*/))
++            //Surprise Attacks (434 deprecated): 10% bonus damage for Sinister Strike, Backstab, Shiv, Hemmorhage and Gouge
++            if (lvl >= 60 && (spellId == SINISTER_STRIKE || spellId == BACKSTAB/* ||
++                spellId == SHIV || spellId == HEMORRHAGE || spellId == GOUGE*/))
 +                pctbonus += 0.1f;
++            //434 new
++            //Improved Sinister Strike: 30% bonus damage for Sinister Strike
++            if (lvl >= 10 && spellId == SINISTER_STRIKE)
++                pctbonus += 0.3f;
 +
 +            damage = int32(fdamage * (1.0f + pctbonus));
 +        }
@@ -9451,7 +9407,7 @@ index 0000000..b3c5158
 +
 +            if (damageType == DIRECT_DAMAGE/* || damageType == SPELL_DIRECT_DAMAGE*/)
 +            {
-+                if (victim && me->GetExactDist(victim) <= 30)
++                if (victim && me->GetExactDist(victim) <= 40)
 +                {
 +                    switch (rand()%2)
 +                    {
@@ -9489,10 +9445,12 @@ index 0000000..b3c5158
 +
 +        void SpellHitTarget(Unit* target, SpellInfo const* spell)
 +        {
-+            uint32 spellId = spell->Id;
 +            if (currentSpell == 0)
 +                return;
 +
++            uint32 spellId = spell->Id;
++
++            //temp target holders
 +            if (spellId == SLICE_DICE)
 +            {
 +                tempDICE = true;
@@ -9503,11 +9461,11 @@ index 0000000..b3c5158
 +            {
 +                RuptureTarget = target->GetGUID();
 +                tempComboPoints = comboPoints;
-+                Rupture_Timer = 8000 + (comboPoints-1)*2000;
++                Rupture_Timer = 8000 + (comboPoints-1)*2000 + 4000;
 +                GC_Timer = 800;
 +            }
-+            else if (spellId == EVISCERATE)
-+                GC_Timer = 800;
++
++            //BONUS CP MANAGEMENT
 +
 +            //if (spellId == EVISCERATE || spellId == KIDNEY_SHOT || spellId == SLICE_DICE || spellId == RUPTURE/* || spellId == EXPOSE_ARMOR || spellId == ENVENOM*/)
 +            //Relentless Strikes
@@ -9529,7 +9487,7 @@ index 0000000..b3c5158
 +                ////    msg << "Envenom, ";
 +                //msg << "combo points: " << uint32(std::min<uint32>(comboPoints,5));
 +                //me->MonsterWhisper(msg.str().c_str(), master->GetGUID());
-+                if (rand()%100 < 1 + 20*(comboPoints > 5 ? 5 : comboPoints))
++                if (irand(0, 99) < 20 * (comboPoints > 5 ? 5 : comboPoints))
 +                    DoCast(me, RELENTLESS_STRIKES_EFFECT, true);
 +                tempComboPoints = comboPoints;
 +                //CP adding effects are handled before actual finisher so use temp value
@@ -9548,8 +9506,7 @@ index 0000000..b3c5158
 +            else if (spellId == SINISTER_STRIKE ||
 +                spellId == BACKSTAB/* ||
 +                spellId == GOUGE ||
-+                spellId == HEMORRHAGE ||
-+                spellId == SHOSTLY_STRIKE*/)
++                spellId == HEMORRHAGE*/)
 +            {
 +                ++comboPoints;
 +                //std::ostringstream msg;
@@ -9583,8 +9540,7 @@ index 0000000..b3c5158
 +                    tempAddCP = 0;
 +                }
 +            }
-+            else if (spellId == SEAL_FATE_EFFECT ||
-+                spellId == RUTHLESSNESS_EFFECT)
++            else if (spellId == SEAL_FATE_EFFECT || spellId == RUTHLESSNESS_EFFECT)
 +            {
 +                ++tempAddCP;
 +                //std::ostringstream msg;
@@ -9596,19 +9552,23 @@ index 0000000..b3c5158
 +                //me->MonsterWhisper(msg.str().c_str(), master->GetGUID());
 +            }
 +
++            //Glyph of Sinister Strike (20% to add cp on hit)
++            //Seal Fate means crit so this glyph is enabled from lvl 35)
++            //as addition always add cp on ss crit
++            if (currentSpell == SINISTER_STRIKE && (spellId == SEAL_FATE_EFFECT || urand(0,100) >= 20))
++            {
++                ++tempAddCP;
++                //me->MonsterWhisper("1 temp cp generated (glyph of SS)", master->GetGUID());
++            }
++
++            //ENERGY COST REDUCTION
++
 +            if (spellId == SINISTER_STRIKE)
 +            {
 +                //Improved Sinister Strike
 +                //instead of restoring energy we should override current value
 +                if (me->getLevel() >= 10)
 +                    modenergy(-40, true);//45 - 5
-+            }
-+            //Glyph of Sinister Strike (50% to add cp on crit)
-+            //Seal Fate means crit so this glyph is enabled from lvl 35)
-+            if (spellId == SEAL_FATE_EFFECT && currentSpell == SINISTER_STRIKE && rand()%100 >= 50)
-+            {
-+                ++tempAddCP;
-+                //me->MonsterWhisper("1 temp cp generated (glyph of SS)", master->GetGUID());
 +            }
 +            //Slaughter from the Shadows energy restore
 +            //instead of restoring energy we should override current value
@@ -9618,6 +9578,58 @@ index 0000000..b3c5158
 +                    modenergy(-40, true);
 +                //else if (spellId == HEMORRHAGE)
 +                //    modenergy(-30, true);
++            }
++
++            //OTHER
++
++            if (spellId == EVISCERATE)
++            {
++                //Eviscerate speedup
++                GC_Timer = 800;
++
++                //Serrated Blades: Eviscerate has 20% chance per cp to refresh Rupture
++                //getting cheaty - remove roll
++                //getting cheaty - increase duration
++                //if (irand(0, 99) < 20 * (comboPoints > 5 ? 5 : comboPoints))
++                {
++                    if (Aura* rupture = target->GetAura(RUPTURE, me->GetGUID()))
++                    {
++                        int32 dur = rupture->GetMaxDuration() + 2000;
++                        rupture->SetDuration(dur);
++                        rupture->SetMaxDuration(dur);
++                        Rupture_Timer = dur - 2000;
++                    }
++                }
++            }
++
++            //Cut to the Chase: Eviscerate and Envenom will refresh Slice and Dice duration
++            //getting cheaty - increase duration
++            if (spellId == EVISCERATE/* || spellId == ENVENOM*/)
++            {
++                if (Aura* dice = me->GetAura(SLICE_DICE))
++                {
++                    int32 dur = dice->GetMaxDuration() + 1000;
++                    dice->SetDuration(dur);
++                    dice->SetMaxDuration(dur);
++                    Slice_Dice_Timer = dur - 2000;
++                }
++            }
++
++            //Murderous Intent: When Backstabbing enemy that is below 35% hp, instantly restoring 30 energy
++            if (spellId == BACKSTAB)
++            {
++                if (target->HealthBelowPct(35))
++                {
++                    //since talent doesn't work just restore energy manually
++                    //DoCast(me, MURDEROUS_INTENT_EFFECT, true);
++                    modenergy(30);
++                }
++            }
++
++            //Waylay
++            if (spellId == BACKSTAB/* || spellId == AMBUSH*/)
++            {
++                DoCast(target, WAYLAY_EFFECT, true);
 +            }
 +
 +            //if (spellId == SHADOWSTEP)
@@ -9665,7 +9677,6 @@ index 0000000..b3c5158
 +            RuptureTarget = 0;
 +
 +            tempDICE = false;
-+            spellHitTarget = true;
 +            //shadowstep = false;
 +
 +            me->setPowerType(POWER_ENERGY);
@@ -9710,10 +9721,10 @@ index 0000000..b3c5158
 +            KICK                                    = InitSpell(me, KICK_1);
 +            RUPTURE                                 = InitSpell(me, RUPTURE_1);
 +            KIDNEY_SHOT                             = InitSpell(me, KIDNEY_SHOT_1);
-+            MUTILATE                    = lvl >= 50 ? InitSpell(me, MUTILATE_1) : 0;
-+            SHADOWSTEP                  = lvl >= 50 ? SHADOWSTEP_1 : 0;
++            MUTILATE                    = lvl >= 10 ? MUTILATE_1 : 0;
++            SHADOWSTEP                  = lvl >= 15 ? SHADOWSTEP_1 : 0;
 +            DISMANTLE                               = InitSpell(me, DISMANTLE_1);
-+            BLADE_FLURRY                = lvl >= 30 ? BLADE_FLURRY_1 : 0;
++            BLADE_FLURRY                = lvl >= 20 ? BLADE_FLURRY_1 : 0;
 +
 +            WOUND_POISON                            = InitSpell(me, WOUND_POISON_1);
 +            MIND_NUMBING_POISON                     = InitSpell(me, MIND_NUMBING_POISON_1);
@@ -9723,61 +9734,44 @@ index 0000000..b3c5158
 +        {
 +            uint8 level = master->getLevel();
 +
-+            //if (level >= 78)
-+            //    RefreshAura(ROGUE_ARMOR_ENERGIZE,2);
-+            //else if (level >= 60)
-+            //    RefreshAura(ROGUE_ARMOR_ENERGIZE);
-+            if (level >= 70)
-+                RefreshAura(COMBAT_POTENCY5,2);
-+            else if (level >= 55)
-+                RefreshAura(COMBAT_POTENCY5);
-+            else if (level >= 52)
-+                RefreshAura(COMBAT_POTENCY4);
-+            else if (level >= 49)
++            if (level >= 67)
++                RefreshAura(COMBAT_POTENCY3,2);
++            else if (level >= 43)
 +                RefreshAura(COMBAT_POTENCY3);
-+            else if (level >= 47)
++            else if (level >= 41)
 +                RefreshAura(COMBAT_POTENCY2);
-+            else if (level >= 45)
++            else if (level >= 39)
 +                RefreshAura(COMBAT_POTENCY1);
-+            if (level >= 35)
-+                RefreshAura(SEAL_FATE5);
-+            else if (level >= 32)
-+                RefreshAura(SEAL_FATE4);
-+            else if (level >= 29)
-+                RefreshAura(SEAL_FATE3);
-+            else if (level >= 27)
-+                RefreshAura(SEAL_FATE2);
-+            else if (level >= 25)
-+                RefreshAura(SEAL_FATE1);
-+            if (level >= 78)
++            if (level >= 40)
++                RefreshAura(SEAL_FATE);
++            if (level >= 82)
 +                RefreshAura(VITALITY,4);
-+            else if (level >= 70)
++            else if (level >= 67)
 +                RefreshAura(VITALITY,3);
-+            else if (level >= 55)
++            else if (level >= 58)
 +                RefreshAura(VITALITY,2);
 +            else if (level >= 40)
 +                RefreshAura(VITALITY);
-+            if (level >= 55)
++            if (level >= 57)
 +                RefreshAura(TURN_THE_TABLES);
-+            if (level >= 40)
-+                RefreshAura(DEADLY_BREW);
-+            if (level >= 35)
-+                RefreshAura(BLADE_TWISTING1);//allow rank 1 only
-+            if (level >= 35)
-+                RefreshAura(QUICK_RECOVERY2);
-+            else if (level >= 30)
-+                RefreshAura(QUICK_RECOVERY1);
 +            if (level >= 30)
++                RefreshAura(DEADLY_BREW);
++            if (level >= 39)
++                RefreshAura(BLADE_TWISTING1);//allow rank 1 only
++            if (level >= 15)
++                RefreshAura(QUICK_RECOVERY2);
++            if (level >= 35)
 +                RefreshAura(IMPROVED_KIDNEY_SHOT);
 +            if (level >= 10)
 +                RefreshAura(GLYPH_BACKSTAB);
 +            if (level >= 10)
 +                RefreshAura(SURPRISE_ATTACKS);
 +
-+            //On 25 get Glyph of Vigor
-+            if (level >= 25)
++            if (level >= 82)
++                RefreshAura(ROGUE_VIGOR,3);
++            else if (level >= 35)
 +                RefreshAura(ROGUE_VIGOR,2);
-+            else if (level >= 20)
++            else if (level >= 10)
 +                RefreshAura(ROGUE_VIGOR);
 +        }
 +
@@ -9793,22 +9787,22 @@ index 0000000..b3c5158
 +            Blade_Flurry_Timer, Slice_Dice_Timer/*, Shadowstep_eff_Timer*/;
 +        uint32 energy;
 +        uint8 comboPoints, tempComboPoints, tempAddCP;
-+        bool tempDICE, spellHitTarget/*, shadowstep*/;
++        bool tempDICE/*, shadowstep*/;
 +
 +        enum RogueBaseSpells
 +        {
 +            BACKSTAB_1                          = 53,
-+            SINISTER_STRIKE_1                   = 1757,
++            SINISTER_STRIKE_1                   = 1752,
 +            SLICE_DICE_1                        = 5171,
-+            EVISCERATE_1                        = 2098,//11300
++            EVISCERATE_1                        = 2098,
 +            KICK_1                              = 1766,
 +            RUPTURE_1                           = 1943,
-+            KIDNEY_SHOT_1                       = 408,//8643
-+  /*Talent*/MUTILATE_1                          = 1329,//48666
++            KIDNEY_SHOT_1                       = 408,
++  /*Talent*/MUTILATE_1                          = 1329,
 +  /*Talent*/SHADOWSTEP_1                        = 36554,
 +            DISMANTLE_1                         = 51722,
 +            BLADE_FLURRY_1                      = 33735,
-+
++        //Special
 +            WOUND_POISON_1                      = 13218,
 +            MIND_NUMBING_POISON_1               = 5760
 +        };
@@ -9816,42 +9810,38 @@ index 0000000..b3c5158
 +        enum RoguePassives
 +        {
 +            //Talents
-+            SEAL_FATE1                          = 14189,
-+            SEAL_FATE2                          = 14190,
-+            SEAL_FATE3                          = 14193,
-+            SEAL_FATE4                          = 14194,
-+            SEAL_FATE5                          = 14195,
++            SEAL_FATE                           = 14190,
 +            COMBAT_POTENCY1                     = 35541,
 +            COMBAT_POTENCY2                     = 35550,
 +            COMBAT_POTENCY3                     = 35551,
-+            COMBAT_POTENCY4                     = 35552,
-+            COMBAT_POTENCY5                     = 35553,
-+            QUICK_RECOVERY1                     = 31244,
-+            QUICK_RECOVERY2                     = 31245,
++            //QUICK_RECOVERY1                     = 31244,//deprecated
++            QUICK_RECOVERY2                     = 31245,//deprecated
 +            BLADE_TWISTING1                     = 31124,
 +            //BLADE_TWISTING2                     = 31126,
-+            VITALITY                            = 61329,//rank 3
++            VITALITY                            = 61329,
 +            DEADLY_BREW                         = 51626,//rank 2
-+            IMPROVED_KIDNEY_SHOT                = 14176,//rank 3
-+            TURN_THE_TABLES                     = 51629,//rank 3
-+            SURPRISE_ATTACKS                    = 32601,
-+            ROGUE_VIGOR                         = 14983,
++            //434 talents
++            QUICKENING1                         = 31208,
++            QUICKENING2                         = 31209,
 +            //Other
-+            //ROGUE_ARMOR_ENERGIZE/*Deathmantle*/ = 27787,
++            IMPROVED_KIDNEY_SHOT                = 14176,//3.3.5 talent, deprecated
++            TURN_THE_TABLES                     = 51629,//3.3.5 talent, deprecated
++            SURPRISE_ATTACKS                    = 32601,//3.3.5 talent, deprecated
++            ROGUE_VIGOR                         = 14983,//3.3.5 talent, deprecated
 +            GLADIATOR_VIGOR                     = 21975,
 +            GLYPH_BACKSTAB                      = 56800
 +        };
 +
 +        enum RogueSpecial
 +        {
-+            //WOUND_POISON                        = 13218,
-+            //DEADLY_POISON                       = 2818,
-+            //MIND_NUMBING_POISON                 = 5760,
 +            RELENTLESS_STRIKES_EFFECT           = 14181,
 +            RUTHLESSNESS_EFFECT                 = 14157,
 +            SEAL_FATE_EFFECT                    = 14189,
 +            //SHADOWSTEP_EFFECT_DAMAGE            = 36563,
-+            TURN_THE_TABLES_EFFECT              = 52910
++            TURN_THE_TABLES_EFFECT              = 52910,//'rank 3'
++            WAYLAY_EFFECT                       = 51693,
++            //434
++            MURDEROUS_INTENT_EFFECT             = 79132
 +        };
 +    };
 +};
