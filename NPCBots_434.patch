@@ -1,19 +1,19 @@
-From 142a83d118377c32d0c9898cbd80ce6e4b0e33f9 Mon Sep 17 00:00:00 2001
+From ffba3805009946c751d45e4df445659cae385b05 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Wed, 14 Aug 2013 16:13:11 +0700
+Date: Thu, 15 Aug 2013 14:41:50 +0700
 Subject: [PATCH] NPCBots_434
 
 ---
  sql/Bots/character_NPC_bots.sql                    |   12 +
  sql/Bots/world_bots.sql                            |  524 ++++
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  461 +++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 3288 ++++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 3293 ++++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |  372 +++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1145 +++++++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  340 ++
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  900 ++++++
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      | 1049 +++++++
- src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  859 +++++
+ src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  968 ++++++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  904 ++++++
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  474 +++
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  458 +++
@@ -45,7 +45,7 @@ Subject: [PATCH] NPCBots_434
  .../Database/Implementation/WorldDatabase.cpp      |    4 +
  .../shared/Database/Implementation/WorldDatabase.h |    4 +
  src/server/worldserver/worldserver.conf.dist       |  106 +
- 41 files changed, 14618 insertions(+), 0 deletions(-)
+ 41 files changed, 14732 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world_bots.sql
  create mode 100644 src/server/game/AI/NpcBots/bot_GridNotifiers.h
@@ -1081,10 +1081,10 @@ index 0000000..70637f8
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..a457aa0
+index 0000000..9f31d03
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,3288 @@
+@@ -0,0 +1,3293 @@
 +/*
 +NpcBot System by Graff (onlysuffering@gmail.com)
 +Original patch from: LordPsyan https://bitbucket.org/lordpsyan/trinitycore-patches/src/3b8b9072280e/Individual/11185-BOTS-NPCBots.patch
@@ -1770,7 +1770,12 @@ index 0000000..a457aa0
 +
 +        if (aura->GetSpellInfo()->GetDispelMask() & dispelMask)
 +        {
++            //do not dispel positive auras from enemies and negative ones from friends
 +            if (aurApp->IsPositive() == target->IsFriendlyTo(caster))
++                continue;
++
++            //skip Vampiric Touch to prevent being CCed just heal it out
++            if (aura->GetId() == 34914)
 +                continue;
 +
 +            uint8 charges = (aura->GetSpellInfo()->AttributesEx7 & SPELL_ATTR7_DISPEL_CHARGES) ? aura->GetCharges() : aura->GetStackAmount();
@@ -8211,15 +8216,15 @@ index 0000000..1983ecb
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_priest_ai.cpp b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 new file mode 100644
-index 0000000..50c95f8
+index 0000000..7eb7f23
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
-@@ -0,0 +1,859 @@
+@@ -0,0 +1,968 @@
 +#include "bot_ai.h"
 +#include "Group.h"
 +#include "Player.h"
 +#include "ScriptMgr.h"
-+//#include "SpellAuras.h"
++#include "SpellAuras.h"
 +#include "WorldSession.h"
 +/*
 +Priest NpcBot (reworked by Graff onlysuffering@gmail.com)
@@ -8273,9 +8278,8 @@ index 0000000..50c95f8
 +                for (GroupReference* itr = gr->GetFirstMember(); itr != NULL; itr = itr->next())
 +                {
 +                    Player* tPlayer = itr->GetSource();
-+                    if (!tPlayer || me->GetMap() != tPlayer->FindMap() || 
-+                        !tPlayer->IsInWorld() || tPlayer->IsBeingTeleported() || 
-+                        tPlayer->isPossessed() || tPlayer->IsCharmed()) continue;
++                    if (!tPlayer || !tPlayer->IsInWorld() || me->GetMap() != tPlayer->FindMap() ||
++                        tPlayer->IsBeingTeleported() || tPlayer->isPossessed() || tPlayer->IsCharmed()) continue;
 +                    if (tPlayer->IsAlive())
 +                    {
 +                        if (me->GetExactDist(tPlayer) > 35) continue;
@@ -8311,9 +8315,8 @@ index 0000000..50c95f8
 +                {
 +                    uint8 lowestPCT = 100;
 +                    Player* tPlayer = itr->GetSource();
-+                    if (!tPlayer || me->GetMap() != tPlayer->GetMap() || 
-+                        !tPlayer->IsInWorld() || tPlayer->IsBeingTeleported() || 
-+                        tPlayer->isPossessed() || tPlayer->IsCharmed()) continue;
++                    if (!tPlayer || !tPlayer->IsInWorld() || me->GetMap() != tPlayer->GetMap() ||
++                        tPlayer->IsBeingTeleported() || tPlayer->isPossessed() || tPlayer->IsCharmed()) continue;
 +                    if (tPlayer->IsAlive())
 +                    {
 +                        if (me->GetExactDist(tPlayer) > 25) continue;
@@ -8350,23 +8353,25 @@ index 0000000..50c95f8
 +
 +        bool ShieldTarget(Unit* target, uint32 diff)
 +        {
-+            if (PWS_Timer > diff || Rand() > 50 || IsCasting()) return false;
-+            if (target->HasAura(WEAKENED_SOUL)) return false;
-+            if (HasAuraName(target, PW_SHIELD)) return false;
++            if (!PW_SHIELD || PWS_Timer > diff || Rand() > 50 || IsCasting())
++                return false;
++            if (target->getAttackers().empty() &&
++                GetHealthPCT(target) > 33 &&
++                !target->HasAuraType(SPELL_AURA_PERIODIC_DAMAGE))
++                return false;
++            if (target->HasAura(WEAKENED_SOUL_DEBUFF) || HasAuraName(target, PW_SHIELD))
++                return false;
 +            //if (me->GetExactDist(target) > 40) return false;//checked already in HealTarget()
 +
-+            if (!target->getAttackers().empty() || GetHealthPCT(target) < 33 || target->HasAuraType(SPELL_AURA_PERIODIC_DAMAGE))
++            if (doCast(target, PW_SHIELD))
 +            {
-+                if (doCast(target, PW_SHIELD))
-+                {
-+                    if (me->getLevel() >= 30 || // improved
-+                        (target->ToCreature() && target->ToCreature()->GetIAmABot()))
-+                        PWS_Timer = 0;
-+                    else
-+                        PWS_Timer = 4000;
-+                    GC_Timer = 800;
-+                    return true;
-+                }
++                if (me->getLevel() >= 30 ||
++                    (target->ToCreature() && target->ToCreature()->GetBotAI()))
++                    PWS_Timer = 1000;
++                else
++                    PWS_Timer = 3000;
++                GC_Timer = 800;
++                return true;
 +            }
 +            return false;
 +        }
@@ -8448,57 +8453,62 @@ index 0000000..50c95f8
 +                }
 +                else
 +                    return;
-+                bool isBoss = opponent->GetTypeId() == TYPEID_UNIT ? opponent->ToCreature()->isWorldBoss() : false;
-+                if (me->GetExactDist(opponent) < 30)
++                bool isBoss = (opponent->GetTypeId() == TYPEID_UNIT && opponent->ToCreature()->isWorldBoss());
++                float dist = me->GetExactDist(opponent) < 30;
++                if (dist < 40)
 +                {
-+                    if (SW_DEATH && Rand() < 50 && SW_Death_Timer <= diff && 
-+                        (GetHealthPCT(opponent) < 15 || opponent->GetHealth() < me->GetMaxHealth()/6) && 
++                    if (SW_DEATH && SW_Death_Timer <= diff && Rand() < 50 &&
++                        (GetHealthPCT(opponent) < 25 || opponent->GetHealth() < me->GetMaxHealth()/6) &&
 +                        doCast(opponent, SW_DEATH))
 +                    {
-+                        SW_Death_Timer = 10000;
++                        SW_Death_Timer = 8000;
 +                        return;
 +                    }
-+                    if (Rand() < 30 && GC_Timer <= diff && !opponent->HasAura(SW_PAIN, me->GetGUID()) && 
-+                        opponent->GetHealth() > me->GetMaxHealth()/4 && 
++                    if (SW_PAIN && GC_Timer <= diff && Rand() < 25 &&
++                        opponent->GetHealth() > me->GetMaxHealth()/4 &&
++                        !opponent->HasAura(SW_PAIN, me->GetGUID()) &&
 +                        doCast(opponent, SW_PAIN))
 +                        return;
-+                    if (VAMPIRIC_TOUCH && GC_Timer <= diff && !isBoss && Rand() < 50 && !opponent->HasAura(VAMPIRIC_TOUCH, me->GetGUID()) && 
-+                        opponent->GetHealth() > me->GetMaxHealth()/4 && 
++                    if (VAMPIRIC_TOUCH && GC_Timer <= diff && !isBoss && Rand() < 50 &&
++                        opponent->GetHealth() > me->GetMaxHealth()/4 &&
++                        !opponent->HasAura(VAMPIRIC_TOUCH, me->GetGUID()) &&
 +                        doCast(opponent, VAMPIRIC_TOUCH))
 +                        return;
-+                    if (DEVOURING_PLAGUE && GC_Timer <= diff && !isBoss && Rand() < 30 && !Devcheck && !opponent->HasAura(DEVOURING_PLAGUE, me->GetGUID()) && 
-+                        opponent->GetHealth() > me->GetMaxHealth()/3 && 
++                    if (DEVOURING_PLAGUE && GC_Timer <= diff && !isBoss && !Devcheck && Rand() < 30 &&
++                        opponent->GetHealth() > me->GetMaxHealth()/3 &&
++                        !opponent->HasAura(DEVOURING_PLAGUE, me->GetGUID()) &&
 +                        doCast(opponent, DEVOURING_PLAGUE))
 +                        return;
-+                    if (Mind_Blast_Timer <= diff && GC_Timer <= 300 && !isBoss && Rand() < 50 && (!VAMPIRIC_TOUCH || HasAuraName(opponent, VAMPIRIC_TOUCH)) && 
++                    if (MIND_BLAST && Mind_Blast_Timer <= diff && GC_Timer <= 300 && !isBoss && Rand() < 35 &&
++                        (!VAMPIRIC_TOUCH || HasAuraName(opponent, VAMPIRIC_TOUCH)) &&
 +                        doCast(opponent, MIND_BLAST))
 +                    {
-+                        Mind_Blast_Timer = 7500 - me->getLevel()/4*100;//5.5 sec on 80 lvl (as improved)
++                        Mind_Blast_Timer = 6000;
 +                        return;
 +                    }
-+                    if (MIND_FLAY && Mind_Flay_Timer <= diff && GC_Timer <= 300 && !isBoss && !me->isMoving() && Rand() < 40 && me->GetExactDist(opponent) < 30 && 
-+                        
-+                        (opponent->isMoving() || opponent->GetHealth() < me->GetMaxHealth()/3 || 
-+                        (opponent->HasAura(SW_PAIN, me->GetGUID()) && 
-+                        opponent->HasAura(DEVOURING_PLAGUE, me->GetGUID()))) && 
++                    if (MIND_FLAY && Mind_Flay_Timer <= diff && !isBoss && !me->isMoving() && Rand() < 20 &&
++                        (opponent->isMoving() || opponent->GetHealth() < me->GetMaxHealth()/5 ||
++                        (opponent->HasAura(SW_PAIN, me->GetGUID()) && opponent->HasAura(DEVOURING_PLAGUE, me->GetGUID()))) &&
 +                        doCast(opponent, MIND_FLAY))
 +                    {
-+                        Mind_Flay_Timer = 3000;
++                        Mind_Flay_Timer = 2500;
 +                        return;
 +                    }
-+                    if (MIND_SEAR && GC_Timer <= diff && !me->isMoving() && !opponent->isMoving() && Rand() < 50 && 
-+                        opponent->HasAura(SW_PAIN, me->GetGUID()) && 
++                    if (MIND_SEAR && GC_Timer <= diff && !me->isMoving() && !opponent->isMoving() &&
++                        dist < 35 && Rand() < 50 && opponent->HasAura(SW_PAIN, me->GetGUID()) &&
 +                        opponent->HasAura(DEVOURING_PLAGUE, me->GetGUID()))
++                    {
 +                        if (Unit* u = FindSplashTarget(30, opponent))
 +                            if (doCast(u, MIND_SEAR))
 +                                return;
++                    }
 +                }//endif opponent
 +            }//endif damage
 +            //check horror after dots/damage
-+            if (PSYCHIC_HORROR && Psychic_Horror_Timer <= diff && Rand() < 30 && 
-+                opponent->GetCreatureType() != CREATURE_TYPE_UNDEAD && 
-+                opponent->GetHealth() > me->GetMaxHealth()/5 && 
-+                me->GetExactDist(opponent) < 30 && !HasAuraName(opponent, PSYCHIC_HORROR) && 
++            if (PSYCHIC_HORROR && Psychic_Horror_Timer <= diff &&
++                opponent->GetCreatureType() != CREATURE_TYPE_UNDEAD &&
++                opponent->GetHealth() > me->GetMaxHealth()/5 && Rand() < 30 &&
++                me->GetExactDist(opponent) < 30 && !HasAuraName(opponent, PSYCHIC_HORROR) &&
 +                !CCed(opponent))
 +            {
 +                if (doCast(opponent, PSYCHIC_HORROR))
@@ -8511,32 +8521,40 @@ index 0000000..50c95f8
 +
 +        bool HealTarget(Unit* target, uint8 hp, uint32 diff)
 +        {
-+            if (hp > 98) return false;
-+            if (!target || target->isDead() || me->GetExactDist(target) > 40)
++            if (hp > 98)
 +                return false;
-+            if (Rand() > 50 + 20*target->IsInCombat() + 50*master->GetMap()->IsRaid()) return false;
++            if (!target || !target->IsInWorld() || target->isDead() || me->GetExactDist(target) > 40)
++                return false;
++            if (Rand() > 50 + 20*target->IsInCombat() + 50*master->GetMap()->IsRaid())
++                return false;
 +
 +            //GUARDIAN SPIRIT
-+            if (GUARDIAN_SPIRIT && Guardian_Spirit_Timer <= diff && Rand() < 70 && 
-+                target->IsInCombat() && !target->getAttackers().empty() && 
-+                hp < (5 + std::min(20, uint8(target->getAttackers().size())*5)) && 
-+                (master->GetGroup() && master->GetGroup()->IsMember(target->GetGUID()) || target == master) && 
++            if (GUARDIAN_SPIRIT && Guardian_Spirit_Timer <= diff && target->IsInCombat() &&
++                !target->getAttackers().empty() && hp < (5 + std::min(20, uint8(target->getAttackers().size())*5)) &&
++                ((master->GetGroup() && master->GetGroup()->IsMember(target->GetGUID())) || target == master) &&
++                Rand() < 80 &&
 +                !target->HasAura(GUARDIAN_SPIRIT))
 +            {
 +                temptimer = GC_Timer;
-+                if (me->IsNonMeleeSpellCasted(true))
-+                    me->InterruptNonMeleeSpells(true);
++                if (me->IsNonMeleeSpellCasted(false))
++                    me->InterruptNonMeleeSpells(false);
 +                if (doCast(target, GUARDIAN_SPIRIT))
 +                {
++                    GC_Timer = temptimer;
 +                    if (target->GetTypeId() == TYPEID_PLAYER)
 +                    {
-+                        if (target->HasAura(GUARDIAN_SPIRIT, me->GetGUID()))
++                        //if (target->HasAura(GUARDIAN_SPIRIT, me->GetGUID()))
 +                            me->MonsterWhisper("Guardin Spirit on you!", target->GetGUID());
-+                        Guardian_Spirit_Timer = 90000;//1.5 min
++                        Guardian_Spirit_Timer = 90000; //1.5 min
 +                    }
 +                    else
-+                        Guardian_Spirit_Timer = 30000;//30 sec for creatures
-+                    GC_Timer = temptimer;
++                    {
++                        std::ostringstream msg;
++                        msg << "Guardin Spirit on " << (target == me ? "myself" : target->GetName()) << '!';
++                        me->MonsterWhisper(msg.str().c_str(), master->GetGUID());
++                        Guardian_Spirit_Timer = 30000; //30 sec for creatures
++                    }
++
 +                    return true;
 +                }
 +            }
@@ -8544,61 +8562,71 @@ index 0000000..50c95f8
 +            if (IsCasting()) return false;
 +
 +            //PAIN SUPPRESSION
-+            if (hp < 35 && PAIN_SUPPRESSION && Pain_Suppression_Timer <= diff && Rand() < 50 && 
-+                (target->IsInCombat() || !target->getAttackers().empty()) && 
++            if (hp < 35 && PAIN_SUPPRESSION && Pain_Suppression_Timer <= diff &&
++                (target->IsInCombat() || !target->getAttackers().empty()) && Rand() < 50 &&
 +                !target->HasAura(PAIN_SUPPRESSION))
 +            {
++                if (me->IsNonMeleeSpellCasted(false))
++                    me->InterruptNonMeleeSpells(false);
 +                temptimer = GC_Timer;
 +                if (doCast(target, PAIN_SUPPRESSION))
 +                {
++                    GC_Timer = temptimer;
 +                    if (target->GetTypeId() == TYPEID_PLAYER)
 +                    {
 +                        if (target->HasAura(PAIN_SUPPRESSION, me->GetGUID()))
 +                            me->MonsterWhisper("Pain Suppression on you!", target->GetGUID());
-+                        Pain_Suppression_Timer = 45000;//45 sec
++                        Pain_Suppression_Timer = 60000; //60 sec
 +                    }
 +                    else
-+                        Pain_Suppression_Timer = 15000;//15 sec for creatures
-+                    GC_Timer = temptimer;
++                    {
++                        std::ostringstream msg;
++                        msg << "Guardin Spirit on " << (target == me ? "myself" : target->GetName()) << '!';
++                        me->MonsterWhisper(msg.str().c_str(), master->GetGUID());
++                        Pain_Suppression_Timer = 15000; //15 sec for creatures
++                    }
++
 +                    return true;
 +                }
 +            }
 +
 +            //Now Heals Requires GCD
-+            if ((hp < 80 || !target->getAttackers().empty()) && 
-+                PWS_Timer <= diff && ShieldTarget(target, diff))
++            if (PWS_Timer <= diff && (hp < 80 || !target->getAttackers().empty()) &&
++                ShieldTarget(target, diff))
 +                return true;
 +
 +            //PENANCE/Greater Heal
 +            if (hp < 75 || GetLostHP(target) > 4000)
 +            {
-+                if (PENANCE && Penance_Timer <= diff && 
-+                    !me->isMoving() && //better check then stop moving every try (furthermore it doesn't always work properly)
-+                    (target->GetTypeId() != TYPEID_PLAYER || !(target->ToPlayer()->IsCharmed() || target->ToPlayer()->isPossessed())) && 
++                if (PENANCE && Penance_Timer <= diff && !me->isMoving() && Rand() < 80 &&
++                    (target->GetTypeId() != TYPEID_PLAYER ||
++                    !(target->ToPlayer()->IsCharmed() || target->ToPlayer()->isPossessed())) &&
 +                    doCast(target, PENANCE))
 +                {
 +                    Penance_Timer = 8000;
 +                    return true;
 +                }
-+                else if (Heal_Timer <= diff && GC_Timer <= diff && hp > 50 && doCast(target, HEAL))
++                else if (HEAL && Heal_Timer <= diff && GC_Timer <= diff && hp > 50 && Rand() < 70 &&
++                    doCast(target, HEAL))
 +                {
 +                    Heal_Timer = 2500;
 +                    return true;
 +                }
 +            }
 +            //Flash Heal
-+            if (((hp > 75 && hp < 90) || hp < 50 || GetLostHP(target) > 1500) && 
-+                GC_Timer <= diff && FLASH_HEAL && 
++            if (FLASH_HEAL && GC_Timer <= diff &&
++                ((hp > 75 && hp < 90) || hp < 50 || GetLostHP(target) > 1500) &&
 +                doCast(target, FLASH_HEAL))
-+                    return true;
++                return true;
 +            //maintain HoTs
 +            Unit* u = target->GetVictim();
 +            Creature* boss = u && u->ToCreature() && u->ToCreature()->isWorldBoss() ? u->ToCreature() : NULL;
 +            bool tanking = tank == target && boss;
 +            //Renew
-+            if (((hp < 98 && hp > 70) || GetLostHP(target) > 500 || tanking) && 
-+                !HasAuraName(target, RENEW, me->GetGUID()) && 
-+                GC_Timer <= diff && doCast(target, RENEW))
++            if (RENEW && GC_Timer <= diff &&
++                ((hp < 98 && hp > 70) || GetLostHP(target) > 500 || tanking) &&
++                !target->HasAura(RENEW, me->GetGUID()) &&
++                doCast(target, RENEW))
 +            {
 +                GC_Timer = 800;
 +                return true;
@@ -8609,24 +8637,29 @@ index 0000000..50c95f8
 +
 +        bool BuffTarget(Unit* target, uint32 diff)
 +        {
-+            if (GC_Timer > diff || Rand() > 20) return false;
-+            if (!target || target->isDead() || me->GetExactDist(target) > 30) return false;
++            if (GC_Timer > diff || Rand() > 20)
++                return false;
++            if (!target || !target->IsInWorld() || target->isDead() || me->GetExactDist(target) > 30)
++                return false;
 +
-+            if (Fear_Ward_Timer <= diff && !HasAuraName(target, FEAR_WARD) && doCast(target, FEAR_WARD))
++            if (FEAR_WARD && Fear_Ward_Timer <= diff && !target->HasAura(FEAR_WARD) &&
++                doCast(target, FEAR_WARD))
 +            {
-+                Fear_Ward_Timer = target->GetTypeId() == TYPEID_PLAYER ? 60000 : 30000;//30sec for bots
++                Fear_Ward_Timer = target->GetTypeId() == TYPEID_PLAYER ? 60000 : 30000; //30sec for bots
 +                GC_Timer = 800;
 +                return true;
 +            }
 +
 +            if (target == me)
 +            {
-+                if (!me->HasAura(INNER_FIRE) && doCast(me, INNER_FIRE))
++                if (INNER_FIRE && !me->HasAura(INNER_FIRE) &&
++                    doCast(me, INNER_FIRE))
 +                {
 +                    GC_Timer = 800;
 +                    return true;
 +                }
-+                if (VAMPIRIC_EMBRACE && !me->HasAura(VAMPIRIC_EMBRACE) && doCast(me, VAMPIRIC_EMBRACE))
++                if (VAMPIRIC_EMBRACE && !me->HasAura(VAMPIRIC_EMBRACE) &&
++                    doCast(me, VAMPIRIC_EMBRACE))
 +                {
 +                    GC_Timer = 800;
 +                    return true;
@@ -8635,42 +8668,43 @@ index 0000000..50c95f8
 +
 +            if (me->IsInCombat() && !master->GetMap()->IsRaid()) return false;
 +
-+            if (Rand() < 70 && !HasAuraName(target, PW_FORTITUDE) && doCast(target, PW_FORTITUDE))
++            if (PW_FORTITUDE && !HasAuraName(target, PW_FORTITUDE) &&
++                doCast(target, PW_FORTITUDE))
 +            {
 +                /*GC_Timer = 800;*/
 +                return true;
 +            }
-+            if (Rand() < 30 && !HasAuraName(target, SHADOW_PROTECTION) && doCast(target, SHADOW_PROTECTION))
++            if (SHADOW_PROTECTION && !HasAuraName(target, SHADOW_PROTECTION) &&
++                doCast(target, SHADOW_PROTECTION))
 +            {
 +                /*GC_Timer = 800;*/
 +                return true;
 +            }
-+            if (Rand() < 30 && !HasAuraName(target, DIVINE_SPIRIT) && doCast(target, DIVINE_SPIRIT))
-+            {
-+                /*GC_Timer = 800;*/
-+                return true;
-+            }
++
 +            return false;
 +        }
 +
 +        void DoNonCombatActions(uint32 diff)
 +        {
-+            if (Rand() > 50 || GC_Timer > diff || me->IsMounted()) return;
++            if (Rand() > 50 || GC_Timer > diff || me->IsMounted())
++                return;
 +
 +            RezGroup(RESURRECTION, master);
 +
-+            if (Feasting()) return;
++            if (Feasting())
++                return;
 +
-+            if (BuffTarget(master, diff))
-+                return;
-+            if (BuffTarget(me, diff))
-+                return;
++            //if (BuffTarget(master, diff))
++            //    return;
++            //if (BuffTarget(me, diff))
++            //    return;
 +        }
 +
 +        void CheckDispel(uint32 diff)
 +        {
 +            if (CheckDispelTimer > diff || Rand() > 25 || IsCasting())
 +                return;
++
 +            Unit* target = FindHostileDispelTarget();
 +            if (target && doCast(target, DISPELMAGIC))
 +            {
@@ -8682,10 +8716,13 @@ index 0000000..50c95f8
 +
 +        void CheckShackles(uint32 diff)
 +        {
-+            if (!SHACKLE_UNDEAD || ShackleTimer > diff || GC_Timer > diff || IsCasting())
++            if (!SHACKLE_UNDEAD || ShackleTimer > diff || GC_Timer > diff || Rand() > 50 || IsCasting())
 +                return;
 +            if (FindAffectedTarget(SHACKLE_UNDEAD, me->GetGUID()))
++            {
++                ShackleTimer = 1500;
 +                return;
++            }
 +            Unit* target = FindUndeadCCTarget(30, SHACKLE_UNDEAD);
 +            if (target && doCast(target, SHACKLE_UNDEAD))
 +            {
@@ -8718,14 +8755,14 @@ index 0000000..50c95f8
 +            AttackerSet m_attackers = master->getAttackers();
 +            AttackerSet b_attackers = me->getAttackers();
 +            //fear master's attackers
-+            if (!m_attackers.empty() && PSYCHIC_SCREAM && Fear_Timer <= diff && 
++            if (PSYCHIC_SCREAM && Fear_Timer <= diff && !m_attackers.empty() &&
 +                (master != tank || GetHealthPCT(master) < 75))
 +            {
 +                uint8 tCount = 0;
 +                for (AttackerSet::iterator iter = m_attackers.begin(); iter != m_attackers.end(); ++iter)
 +                {
 +                    if (!(*iter)) continue;
-+                    if ((*iter)->GetCreatureType() == CREATURE_TYPE_UNDEAD) continue;
++                    if ((*iter)->ToCreature() && (*iter)->GetCreatureType() == CREATURE_TYPE_UNDEAD) continue;
 +                    if (me->GetExactDist((*iter)) > 7) continue;
 +                    if (CCed(*iter) && me->GetExactDist((*iter)) > 5) continue;
 +                    if (me->IsValidAttackTarget(*iter))
@@ -8733,7 +8770,7 @@ index 0000000..50c95f8
 +                }
 +                if (tCount > 1 && doCast(me, PSYCHIC_SCREAM))
 +                {
-+                    Fear_Timer = 24000;//with improved 24 sec
++                    Fear_Timer = 22000;
 +                    return;
 +                }
 +            }
@@ -8745,7 +8782,7 @@ index 0000000..50c95f8
 +                for (AttackerSet::iterator iter = b_attackers.begin(); iter != b_attackers.end(); ++iter)
 +                {
 +                    if (!(*iter)) continue;
-+                    if ((*iter)->GetCreatureType() == CREATURE_TYPE_UNDEAD) continue;
++                    if ((*iter)->ToCreature() && (*iter)->GetCreatureType() == CREATURE_TYPE_UNDEAD) continue;
 +                    if (me->GetExactDist((*iter)) > 7) continue;
 +                    if (CCed(*iter) && me->GetExactDist((*iter)) > 5) continue;
 +                    if (me->IsValidAttackTarget(*iter))
@@ -8753,18 +8790,18 @@ index 0000000..50c95f8
 +                }
 +                if (tCount > 0 && doCast(me, PSYCHIC_SCREAM))
 +                {
-+                    Fear_Timer = 24000;//with improved 24 sec
++                    Fear_Timer = 22000;
 +                    return;
 +                }
 +            }
 +            // Heal myself
-+            if (GetHealthPCT(me) < 99 && !b_attackers.empty())
++            if (GetHealthPCT(me) < 98 && !b_attackers.empty())
 +            {
 +                if (ShieldTarget(me, diff)) return;
 +
 +                if (FADE && Fade_Timer <= diff && me->IsInCombat())
 +                {
-+                    if (b_attackers.empty()) return; //no aggro
++                    if (b_attackers.empty()) return;
 +                    uint8 Tattackers = 0;
 +                    for (AttackerSet::iterator iter = b_attackers.begin(); iter != b_attackers.end(); ++iter)
 +                    {
@@ -8772,7 +8809,7 @@ index 0000000..50c95f8
 +                        if ((*iter)->isDead()) continue;
 +                        if (!(*iter)->ToCreature()) continue;
 +                        if (!(*iter)->CanHaveThreatList()) continue;
-+                        if (me->GetExactDist((*iter)) <= 15)
++                        if (me->GetExactDist((*iter)) < 15)
 +                            Tattackers++;
 +                    }
 +                    if (Tattackers > 0)
@@ -8783,7 +8820,7 @@ index 0000000..50c95f8
 +                            for (AttackerSet::iterator iter = b_attackers.begin(); iter != b_attackers.end(); ++iter)
 +                                if ((*iter)->getThreatManager().getThreat(me) > 0.f)
 +                                    (*iter)->getThreatManager().modifyThreatPercent(me, -50);
-+                            Fade_Timer = 6000;
++                            Fade_Timer = 10000;
 +                            GC_Timer = temptimer;
 +                            return;
 +                        }
@@ -8796,6 +8833,9 @@ index 0000000..50c95f8
 +
 +        void DoDevCheck(uint32 diff)
 +        {
++            if (!DEVOURING_PLAGUE)
++                return;
++
 +            if (DevcheckTimer <= diff)
 +            {
 +                Devcheck = FindAffectedTarget(DEVOURING_PLAGUE, me->GetGUID());
@@ -8805,20 +8845,108 @@ index 0000000..50c95f8
 +
 +        void Disperse(uint32 diff)
 +        {
-+            if (!DISPERSION || GC_Timer > diff || Dispersion_Timer > diff || IsCasting()) return;
-+            //attackers case
-+            if ((me->getAttackers().size() > 3 && Fade_Timer > diff && GetHealthPCT(me) < 90) || 
-+                (GetHealthPCT(me) < 20 && me->HasAuraType(SPELL_AURA_PERIODIC_DAMAGE)) || 
-+                (GetManaPCT(me) < 30) || 
++            if (!DISPERSION || Dispersion_Timer > diff || GC_Timer > diff || IsCasting())
++                return;
++            if ((me->getAttackers().size() > 3 && Fade_Timer > diff && GetHealthPCT(me) < 90) ||
++                (GetHealthPCT(me) < 20 && me->HasAuraType(SPELL_AURA_PERIODIC_DAMAGE)) ||
++                (GetManaPCT(me) < 30) ||
 +                (me->getAttackers().size() > 1 && me->HasAuraWithMechanic((1<<MECHANIC_SNARE)|(1<<MECHANIC_ROOT))))
 +            {
 +                temptimer = GC_Timer;
 +                if (doCast(me, DISPERSION))
-+                    Dispersion_Timer = 75000;//with glyph
++                    Dispersion_Timer = 60000;
 +                GC_Timer = temptimer;
 +                return;
 +            }
++
 +            Dispersion_Timer = 2000;//fail
++        }
++
++        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool& crit) const
++        {
++            uint32 spellId = spellInfo->Id;
++            uint8 lvl = me->getLevel();
++            float fdamage = float(damage);
++            //1) apply additional crit chance. This additional chance roll will replace original (balance safe)
++            if (!crit)
++            {
++                float aftercrit = 0.f;
++                //434 new
++                //Improved Fire Blast (part 1): 8% additional crit chance for Fire Blast
++                //if (lvl >= 11 && spellId == FLAMESTRIKE)
++                //    aftercrit += 8.f;
++
++                if (aftercrit > 0.f)
++                    crit = roll_chance_f(aftercrit);
++            }
++
++            //2) apply bonus damage mods
++            float pctbonus = 0.0f;
++            if (crit)
++            {
++                ////!!!spell damage is not yet critical and will be multiplied by 1.5
++                ////so we should put here bonus damage mult /1.5
++                ////Ice Shards: 50% additional crit damage bonus for Frost spells
++                //else if (lvl >= 15 && (SPELL_SCHOOL_MASK_FROST & spellInfo->GetSchoolMask()))
++                //    pctbonus += 0.333f;
++            }
++            //Twin Disciplines (damage part): 6% bonus damage for shadow and holy spells
++            if (lvl >= 13)
++                if ((SPELL_SCHOOL_MASK_HOLY & spellInfo->GetSchoolMask()) ||
++                    (SPELL_SCHOOL_MASK_SHADOW & spellInfo->GetSchoolMask()))
++                    pctbonus += 0.06f;
++            //Twisted Faith (part 1): 2% bonus damage for shadow spells
++            if (lvl >= 21 && (SPELL_SCHOOL_MASK_SHADOW & spellInfo->GetSchoolMask()))
++                pctbonus += 0.02f;
++            //Mind Melt (part 1): 30% bonus damage for Shadow Word: Death
++            if (lvl >= 41 && spellId == SW_DEATH)
++                pctbonus += 0.3f;
++
++            //Glyph of Mind Flay: 10% damage bonus for Mind Flay
++            if (lvl >= 25 && spellId == MIND_FLAY)
++                pctbonus += 0.1f;
++
++
++            //other
++            if (spellId == SW_DEATH_BACKLASH)
++            {
++                //T13 Shadow 2P Bonus (Shadow Word: Death), part 2
++                if (lvl >= 60) //buffed
++                    pctbonus -= 0.95f;
++                //Pain and Suffering (part 2): 40% reduced backlash damage
++                if (lvl >= 50)
++                    pctbonus -= 0.4f;
++
++                pctbonus = std::min<float>(pctbonus, 1.0f);
++            }
++
++            damage = int32(fdamage * (1.0f + pctbonus));
++        }
++
++        void SpellHitTarget(Unit* target, SpellInfo const* spell)
++        {
++            uint32 spellId = spell->Id;
++
++            //Strength of Soul: direct heals reduce Weakened Soul duration on target by 4 sec
++            if (spellId == HEAL || spellId == FLASH_HEAL)
++            {
++                if (me->getLevel() >= 51)
++                {
++                    if (Aura* soul = target->GetAura(WEAKENED_SOUL_DEBUFF))
++                    {
++                        if (soul->GetDuration() > 4000)
++                            soul->SetDuration(soul->GetDuration() - 4000);
++                        else
++                            target->RemoveAura(WEAKENED_SOUL_DEBUFF, AURA_REMOVE_BY_EXPIRE);
++                    }
++                }
++            }
++
++            //Pain and Suffering (part 1, 335 version): 100% to refresh Shadow Word: Pain on target hit by Mind Flay
++            if (spellId == MIND_FLAY)
++                if (me->getLevel() >= 51)
++                    if (Aura* pain = target->GetAura(SW_PAIN, me->GetGUID()))
++                        pain->RefreshDuration();
 +        }
 +
 +        void SpellHit(Unit* caster, SpellInfo const* spell)
@@ -8895,21 +9023,21 @@ index 0000000..50c95f8
 +        void InitSpells()
 +        {
 +            uint8 lvl = me->getLevel();
-+            DISPELMAGIC                = lvl >= 70 ? MASS_DISPEL_1 : InitSpell(me, DISPEL_MAGIC_1);
++            DISPELMAGIC                 = lvl >= 72 ? MASS_DISPEL_1 : InitSpell(me, DISPEL_MAGIC_1);
 +            CURE_DISEASE                            = InitSpell(me, CURE_DISEASE_1);
 +            FEAR_WARD                               = InitSpell(me, FEAR_WARD_1);
-+  /*Talent*/PAIN_SUPPRESSION            = lvl >= 50 ? PAIN_SUPPRESSION_1 : 0;
++  /*Talent*/PAIN_SUPPRESSION            = lvl >= 49 ? PAIN_SUPPRESSION_1 : 0;
 +            PSYCHIC_SCREAM                          = InitSpell(me, PSYCHIC_SCREAM_1);
 +            FADE                                    = InitSpell(me, FADE_1);
-+  /*Talent*/PSYCHIC_HORROR              = lvl >= 50 ? PSYCHIC_HORROR_1 : 0;
-+  /*Talent*/SILENCE                     = lvl >= 30 ? SILENCE_1 : 0;
-+  /*Talent*/PENANCE                     = lvl >= 60 ? InitSpell(me, PENANCE_1) : 0;
-+  /*Talent*/VAMPIRIC_EMBRACE            = lvl >= 30 ? VAMPIRIC_EMBRACE_1 : 0;
-+  /*Talent*/DISPERSION                  = lvl >= 60 ? DISPERSION_1 : 0;
++  /*Talent*/PSYCHIC_HORROR              = lvl >= 59 ? PSYCHIC_HORROR_1 : 0;
++  /*Talent*/SILENCE                     = lvl >= 39 ? SILENCE_1 : 0;
++            PENANCE                     = lvl >= 11 ? PENANCE_1 : 0;
++  /*Talent*/VAMPIRIC_EMBRACE            = lvl >= 40 ? VAMPIRIC_EMBRACE_1 : 0;
++  /*Talent*/DISPERSION                  = lvl >= 67 ? DISPERSION_1 : 0;
 +            MIND_SEAR                               = InitSpell(me, MIND_SEAR_1);
-+  /*Talent*/GUARDIAN_SPIRIT             = lvl >= 60 ? GUARDIAN_SPIRIT_1 : 0;
++  /*Talent*/GUARDIAN_SPIRIT             = lvl >= 68 ? GUARDIAN_SPIRIT_1 : 0;
 +            SHACKLE_UNDEAD                          = InitSpell(me, SHACKLE_UNDEAD_1);
-+            HEAL                        = lvl >= 40 ? InitSpell(me, GREATER_HEAL_1) : lvl >= 16 ? InitSpell(me, NORMAL_HEAL_1) : InitSpell(me, LESSER_HEAL_1);
++            HEAL                        = lvl >= 38 ? GREATER_HEAL_1 : InitSpell(me, LESSER_HEAL_1);
 +            RENEW                                   = InitSpell(me, RENEW_1);
 +            FLASH_HEAL                              = InitSpell(me, FLASH_HEAL_1);
 +            PRAYER_OF_HEALING                       = InitSpell(me, PRAYER_OF_HEALING_1);
@@ -8919,71 +9047,61 @@ index 0000000..50c95f8
 +            INNER_FIRE                              = InitSpell(me, INNER_FIRE_1);
 +            PW_FORTITUDE                            = InitSpell(me, PW_FORTITUDE_1);
 +            SHADOW_PROTECTION                       = InitSpell(me, SHADOW_PROTECTION_1);
-+            DIVINE_SPIRIT                           = InitSpell(me, DIVINE_SPIRIT_1);
 +            SW_PAIN                                 = InitSpell(me, SW_PAIN_1);
 +            MIND_BLAST                              = InitSpell(me, MIND_BLAST_1);
 +            SW_DEATH                                = InitSpell(me, SW_DEATH_1);
 +            DEVOURING_PLAGUE                        = InitSpell(me, DEVOURING_PLAGUE_1);
-+  /*Talent*/MIND_FLAY                   = lvl >= 20 ? InitSpell(me, MIND_FLAY_1) : 0;
-+  /*Talent*/VAMPIRIC_TOUCH              = lvl >= 50 ? InitSpell(me, VAMPIRIC_TOUCH_1) : 0;
++            MIND_FLAY                   = lvl >= 10 ? MIND_FLAY_1 : 0;
++  /*Talent*/VAMPIRIC_TOUCH              = lvl >= 49 ? VAMPIRIC_TOUCH_1 : 0;
 +        }
 +        void ApplyClassPassives()
 +        {
 +            uint8 level = master->getLevel();
-+            if (level >= 65)
-+                RefreshAura(BORROWED_TIME); //25%haste/40%bonus
++            if (level >= 43)
++                RefreshAura(BORROWED_TIME); //14% haste
 +            if (level >= 55)
-+                RefreshAura(DIVINE_AEGIS); //30%
-+            if (level >= 55)
-+                RefreshAura(EMPOWERED_RENEW3); //15%
-+            else if (level >= 50)
-+                RefreshAura(EMPOWERED_RENEW2); //10%
-+            else if (level >= 45)
-+                RefreshAura(EMPOWERED_RENEW1); //5%
++                RefreshAura(DIVINE_AEGIS); //30% absorb
++            if (level >= 31)
++                RefreshAura(DIVINE_TOUCH2); //10%
++            else if (level >= 29)
++                RefreshAura(DIVINE_TOUCH1); //5%
 +            if (level >= 45)
-+                RefreshAura(BODY_AND_SOUL1); //30%
-+            if (level >= 50)
-+                RefreshAura(PAINANDSUFFERING3); //100%
-+            else if (level >= 48)
-+                RefreshAura(PAINANDSUFFERING2); //66%
-+            else if (level >= 45)
-+                RefreshAura(PAINANDSUFFERING1); //33%
-+            if (level >= 50)
-+                RefreshAura(MISERY3); //3%
-+            else if (level >= 48)
-+                RefreshAura(MISERY2); //2%
-+            else if (level >= 45)
-+                RefreshAura(MISERY1); //1%
-+            if (level >= 45)
-+                RefreshAura(GRACE); //100%
-+            if (level >= 35)
-+                RefreshAura(IMP_DEV_PLAG); //30%
++                RefreshAura(BODY_AND_SOUL); //30%
++            if (level >= 60)
++                RefreshAura(GRACE); //8% x3
++            if (level >= 21)
++                RefreshAura(IMPROVED_DEVOURING_PLAGUE); //30%
++            if (level >= 21)
++                RefreshAura(INSPIRATION2); //10%
++            else if (level >= 19)
++                RefreshAura(INSPIRATION1); //5%
++            //434 new
++            if (level >= 61)
++                RefreshAura(BLESSED_RESILIENCE);
++            if (level >= 31)
++                RefreshAura(PHANTASM);
++            if (level >= 41)
++                RefreshAura(MASOCHISM);
++            if (level >= 51)
++                RefreshAura(PARALYSIS);
++            if (level >= 61)
++                RefreshAura(SIN_AND_PUNISHMENT);
++            //Glyphs
 +            if (level >= 25)
-+                RefreshAura(INSPIRATION3); //10%
-+            else if (level >= 23)
-+                RefreshAura(INSPIRATION2); //6%
-+            else if (level >= 20)
-+                RefreshAura(INSPIRATION1); //3%
-+            if (level >= 30)
-+                RefreshAura(SHADOW_WEAVING3); //100%
-+            else if (level >= 28)
-+                RefreshAura(SHADOW_WEAVING2); //66%
-+            else if (level >= 25)
-+                RefreshAura(SHADOW_WEAVING1); //33%
-+            if (level >= 15)
-+            {
-+                RefreshAura(GLYPH_SW_PAIN);
 +                RefreshAura(GLYPH_PW_SHIELD); //20% heal
-+            }
-+            if (level >= 40)
-+                RefreshAura(SHADOWFORM); //allows dots to crit, passive
++            //434
++            if (level >= 25)
++                RefreshAura(GLYPH_PRAYER_OF_HEALING); //HoT 20% heal over 6 sec
++            //Special
++            if (level >= 29)
++                RefreshAura(MIND_QUICKENING);
 +            if (level >= 70)
 +                RefreshAura(PRIEST_T10_2P_BONUS);
 +        }
 +
 +    private:
 +        uint32
-+   /*Buffs*/INNER_FIRE, PW_FORTITUDE, DIVINE_SPIRIT, SHADOW_PROTECTION,
++   /*Buffs*/INNER_FIRE, PW_FORTITUDE, SHADOW_PROTECTION,
 +    /*Disc*/FEAR_WARD, PAIN_SUPPRESSION, SHACKLE_UNDEAD, PW_SHIELD, DISPELMAGIC, CURE_DISEASE, PENANCE,
 +    /*Holy*/HEAL, FLASH_HEAL, RENEW, PRAYER_OF_HEALING, DIVINE_HYMN, GUARDIAN_SPIRIT, RESURRECTION,
 +  /*Shadow*/SW_PAIN, MIND_BLAST, SW_DEATH, DEVOURING_PLAGUE, MIND_FLAY, VAMPIRIC_TOUCH,
@@ -9007,14 +9125,13 @@ index 0000000..50c95f8
 +            FADE_1                              = 586,
 +  /*Talent*/PSYCHIC_HORROR_1                    = 64044,
 +  /*Talent*/SILENCE_1                           = 15487,
-+  /*Talent*/PENANCE_1                           = 47540,
++            PENANCE_1                           = 47540,
 +  /*Talent*/VAMPIRIC_EMBRACE_1                  = 15286,
 +  /*Talent*/DISPERSION_1                        = 47585,
 +            MIND_SEAR_1                         = 48045,
 +  /*Talent*/GUARDIAN_SPIRIT_1                   = 47788,
 +            SHACKLE_UNDEAD_1                    = 9484,
 +            LESSER_HEAL_1                       = 2050,
-+            NORMAL_HEAL_1                       = 2054,
 +            GREATER_HEAL_1                      = 2060,
 +            RENEW_1                             = 139,
 +            FLASH_HEAL_1                        = 2061,
@@ -9023,49 +9140,46 @@ index 0000000..50c95f8
 +            RESURRECTION_1                      = 2006,
 +            PW_SHIELD_1                         = 17,
 +            INNER_FIRE_1                        = 588,
-+            PW_FORTITUDE_1                      = 1243,
-+            SHADOW_PROTECTION_1                 = 976,
-+            DIVINE_SPIRIT_1                     = 14752,
++            PW_FORTITUDE_1                      = 21562,
++            SHADOW_PROTECTION_1                 = 27683,
 +            SW_PAIN_1                           = 589,
 +            MIND_BLAST_1                        = 8092,
 +            SW_DEATH_1                          = 32379,
 +            DEVOURING_PLAGUE_1                  = 2944,
-+  /*Talent*/MIND_FLAY_1                         = 15407,
-+  /*Talent*/VAMPIRIC_TOUCH_1                    = 34914,
++            MIND_FLAY_1                         = 15407,
++  /*Talent*/VAMPIRIC_TOUCH_1                    = 34914
 +        };
 +        enum PriestPassives
 +        {
-+            SHADOWFORM  /*For DOT crits*/   = 49868,
 +        //Talents
-+            IMP_DEV_PLAG                    = 63627,//rank 3
-+            MISERY1                         = 33191,
-+            MISERY2                         = 33192,
-+            MISERY3                         = 33193,
-+            PAINANDSUFFERING1               = 47580,
-+            PAINANDSUFFERING2               = 47581,
-+            PAINANDSUFFERING3               = 47582,
-+            SHADOW_WEAVING1                 = 15257,
-+            SHADOW_WEAVING2                 = 15331,
-+            SHADOW_WEAVING3                 = 15332,
++            IMPROVED_DEVOURING_PLAGUE       = 63626,//rank 2
 +            DIVINE_AEGIS                    = 47515,//rank 3
-+            BORROWED_TIME                   = 52800,//rank 5
++            BORROWED_TIME                   = 52797,//rank 2
 +            GRACE                           = 47517,//rank 2
-+            EMPOWERED_RENEW1                = 63534,
-+            EMPOWERED_RENEW2                = 63542,
-+            EMPOWERED_RENEW3                = 63543,
++            DIVINE_TOUCH1                   = 63534,
++            DIVINE_TOUCH2                   = 63542,
 +            INSPIRATION1                    = 14892,
 +            INSPIRATION2                    = 15362,
-+            INSPIRATION3                    = 15363,
-+            BODY_AND_SOUL1                  = 64127,
++            BODY_AND_SOUL                   = 64127,//rank 1
++            //434 new
++            BLESSED_RESILIENCE              = 33145,//rank 2
++            PHANTASM                        = 47570,//rank 2
++            MASOCHISM                       = 88995,//rank 2
++            PARALYSIS                       = 87195,//rank 2
++            SIN_AND_PUNISHMENT              = 87100,//rank 2
 +        //Glyphs
-+            GLYPH_SW_PAIN                   = 55681,
 +            GLYPH_PW_SHIELD                 = 55672,
++            //434
++            GLYPH_PRAYER_OF_HEALING         = 55680,
++        //Special
++            MIND_QUICKENING                 = 49868,//shadowform part 2
 +        //other
 +            PRIEST_T10_2P_BONUS             = 70770,//33% renew
 +        };
 +        enum PriestSpecial
 +        {
-+            WEAKENED_SOUL                   = 6788,
++            SW_DEATH_BACKLASH               = 32409,//434
++            WEAKENED_SOUL_DEBUFF            = 6788
 +        };
 +    }; //end priest_bot
 +};
