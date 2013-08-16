@@ -1,6 +1,6 @@
-From ffba3805009946c751d45e4df445659cae385b05 Mon Sep 17 00:00:00 2001
+From d01aeb0b00942f07fbafdaa3510e331284ff03bf Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Thu, 15 Aug 2013 14:41:50 +0700
+Date: Fri, 16 Aug 2013 12:00:52 +0700
 Subject: [PATCH] NPCBots_434
 
 ---
@@ -16,7 +16,7 @@ Subject: [PATCH] NPCBots_434
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  968 ++++++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  904 ++++++
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  474 +++
- src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  458 +++
+ src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  472 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1114 +++++++
  src/server/game/AI/NpcBots/botcommands.cpp         |  633 ++++
  src/server/game/AI/NpcBots/bothelper.cpp           |  421 +++
@@ -45,7 +45,7 @@ Subject: [PATCH] NPCBots_434
  .../Database/Implementation/WorldDatabase.cpp      |    4 +
  .../shared/Database/Implementation/WorldDatabase.h |    4 +
  src/server/worldserver/worldserver.conf.dist       |  106 +
- 41 files changed, 14732 insertions(+), 0 deletions(-)
+ 41 files changed, 14746 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world_bots.sql
  create mode 100644 src/server/game/AI/NpcBots/bot_GridNotifiers.h
@@ -1081,7 +1081,7 @@ index 0000000..70637f8
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..9f31d03
+index 0000000..7ab8046
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
 @@ -0,0 +1,3293 @@
@@ -3626,7 +3626,7 @@ index 0000000..9f31d03
 +    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "overall hp: %u", me->GetMaxHealth());
 +    me->SetHealth(uint32(0.5f + float(me->GetMaxHealth()) * pct / 100.f));//restore pct
 +    if (!me->IsInCombat())
-+        me->SetHealth(me->GetHealth() + m_basehp / 100);//regenerate
++        me->SetHealth(me->GetHealth() + m_basehp / 100 + me->getLevel() / 2);//regenerate
 +}
 +//Mana management for minions
 +//Including calcs and set
@@ -3795,7 +3795,7 @@ index 0000000..9f31d03
 +    me->UpdateMaxHealth();//will use values set (update base health and buffs)
 +    me->SetHealth(uint32(0.5f + float(me->GetMaxHealth())*pct / 100.f));//restore pct
 +    if (!me->IsInCombat())
-+        me->SetHealth(me->GetHealth() + m_basehp / 100);//regenerate
++        me->SetHealth(me->GetHealth() + m_basehp / 100 + me->getLevel() / 2);//regenerate
 +}
 +//Mana for pets
 +//Same as for minions just simplified (modified to match real pets' values)
@@ -10580,10 +10580,10 @@ index 0000000..cbe11fa
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warlock_ai.cpp b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 new file mode 100644
-index 0000000..9060024
+index 0000000..4b3179b
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
-@@ -0,0 +1,458 @@
+@@ -0,0 +1,472 @@
 +#include "bot_ai.h"
 +//#include "Group.h"
 +#include "Player.h"
@@ -10626,6 +10626,7 @@ index 0000000..9060024
 +        {
 +            if (checkBotCast(victim, spellId, CLASS_WARRIOR) != SPELL_CAST_OK)
 +                return false;
++
 +            return bot_ai::doCast(victim, spellId, triggered);
 +        }
 +
@@ -10661,11 +10662,11 @@ index 0000000..9060024
 +            CheckAuras();
 +            if (CCed(me)) return;
 +
-+            //if pet is dead or unreachable
-+            Creature* m_botsPet = me->GetBotsPet();
-+            if (!m_botsPet || m_botsPet->FindMap() != master->GetMap() || (me->GetDistance2d(m_botsPet) > sWorld->GetMaxVisibleDistanceOnContinents() - 20.f))
-+                if (master->getLevel() >= 10 && !me->IsInCombat() && !IsCasting() && !me->IsMounted())
-+                    SummonBotsPet(PET_VOIDWALKER);
++            ////if pet is dead or unreachable
++            //Creature* m_botsPet = me->GetBotsPet();
++            //if (!m_botsPet || m_botsPet->FindMap() != master->GetMap() || (me->GetDistance2d(m_botsPet) > sWorld->GetMaxVisibleDistanceOnContinents() - 20.f))
++            //    if (master->getLevel() >= 10 && !me->IsInCombat() && !IsCasting() && !me->IsMounted())
++            //        SummonBotsPet(PET_VOIDWALKER);
 +
 +            //TODO: implement healthstone
 +            if (GetHealthPCT(me) < 50 && Potion_cd <= diff)
@@ -10707,9 +10708,9 @@ index 0000000..9060024
 +            if (fear_cd <= diff && GC_Timer <= diff)
 +            { CheckFear(); fear_cd = 2000; }
 +
-+            if (RAIN_OF_FIRE && Rand() < 25 && Rain_of_fire_cd <= diff && GC_Timer <= diff)
++            if (RAIN_OF_FIRE && Rain_of_fire_cd <= diff && GC_Timer <= diff && Rand() < 25)
 +            {
-+                Unit* blizztarget = FindAOETarget(30, true);
++                Unit* blizztarget = FindAOETarget(35, true);
 +                if (blizztarget && doCast(blizztarget, RAIN_OF_FIRE))
 +                {
 +                    Rain_of_fire_cd = 5000;
@@ -10718,49 +10719,55 @@ index 0000000..9060024
 +                Rain_of_fire_cd = 2000;//fail
 +            }
 +
-+            if (Rand() < 25 && CURSE_OF_THE_ELEMENTS && GC_Timer <= diff && !HasAuraName(opponent, CURSE_OF_THE_ELEMENTS) && 
++            float dist = me->GetExactDist(opponent);
++
++            if (CURSE_OF_THE_ELEMENTS && GC_Timer <= diff && dist < 40 && Rand() < 15 &&
++                !HasAuraName(opponent, CURSE_OF_THE_ELEMENTS) &&
 +                doCast(opponent, CURSE_OF_THE_ELEMENTS))
 +            {
 +                GC_Timer = 800;
 +                return;
 +            }
 +
-+            if (GC_Timer <= 0 && Rand() < 25 && !opponent->HasAura(CORRUPTION, me->GetGUID()) && 
++            if (CORRUPTION && GC_Timer <= 0 && dist < 40 && Rand() < 25 &&
++                !opponent->HasAura(CORRUPTION, me->GetGUID()) &&
 +                doCast(opponent, CORRUPTION))
-+                { return; }
++                return;
 +
-+            if (HAUNT && Rand() < 25 && Haunt_cd <= diff && GC_Timer <= diff && !opponent->HasAura(HAUNT, me->GetGUID()) && 
++            if (HAUNT && Haunt_cd <= diff && GC_Timer <= diff && dist < 40 && Rand() < 25 &&
++                !opponent->HasAura(HAUNT, me->GetGUID()) &&
 +                doCast(opponent, HAUNT))
 +            {
 +                Haunt_cd = 8000;
 +                return;
 +            }
 +
-+            if (GC_Timer <= diff && Rand() < 15 && !Afflicted(opponent))
++            if (GC_Timer <= diff && dist < 40 && Rand() < 15 && !Afflicted(opponent))
 +            {
-+                if (conflagarate_cd <= 8000 && doCast(opponent, IMMOLATE))
++                if (IMMOLATE && (!CONFLAGRATE || conflagarate_cd <= 8000) && doCast(opponent, IMMOLATE))
 +                    return;
 +                else if (UNSTABLE_AFFLICTION && doCast(opponent, UNSTABLE_AFFLICTION))
 +                    return;
 +            }
 +
-+            if (CONFLAGRATE && Rand() < 35 && conflagarate_cd <= diff && GC_Timer <= diff && 
-+                HasAuraName(opponent, IMMOLATE) && 
++            if (CONFLAGRATE && conflagarate_cd <= diff && GC_Timer <= diff && dist < 40 && Rand() < 35 &&
++                HasAuraName(opponent, IMMOLATE) &&
 +                doCast(opponent, CONFLAGRATE))
 +            {
-+                conflagarate_cd = 10000;
++                conflagarate_cd = 8000;
 +                return;
 +            }
 +
-+            if (CHAOS_BOLT && Rand() < 50 && chaos_bolt_cd <= diff && GC_Timer <= diff && doCast(opponent, CHAOS_BOLT))
++            if (CHAOS_BOLT && chaos_bolt_cd <= diff && GC_Timer <= diff && dist < 40 && Rand() < 50 &&
++                doCast(opponent, CHAOS_BOLT))
 +            {
-+                chaos_bolt_cd = 16000 - me->getLevel() * 100;
++                chaos_bolt_cd = me->getLevel() < 80 ? 10000 : 8000;
 +                return;
 +            }
 +
-+            if (GC_Timer <= diff && doCast(opponent, SHADOW_BOLT))
++            if (SHADOW_BOLT && GC_Timer <= diff && dist < 40 &&
++                doCast(opponent, SHADOW_BOLT))
 +                return;
-+
 +        }
 +
 +        uint8 Afflicted(Unit* target)
@@ -10780,7 +10787,8 @@ index 0000000..9060024
 +                    if (aura->GetDuration() > 3000)
 +                        return;
 +            Unit* feartarget = FindFearTarget();
-+            if (feartarget && doCast(feartarget, FEAR)) {}
++            if (feartarget && doCast(feartarget, FEAR))
++                return;
 +        }
 +
 +        //void SummonedCreatureDies(Creature* summon, Unit* /*killer*/)
@@ -10846,12 +10854,12 @@ index 0000000..9060024
 +            CURSE_OF_THE_ELEMENTS                   = InitSpell(me, CURSE_OF_THE_ELEMENTS_1);
 +            SHADOW_BOLT                             = InitSpell(me, SHADOW_BOLT_1);
 +            IMMOLATE                                = InitSpell(me, IMMOLATE_1);
-+            CONFLAGRATE                 = lvl >= 40 ? CONFLAGRATE_1 : 0;
-+  /*Talent*/CHAOS_BOLT                  = lvl >= 60 ? InitSpell(me, CHAOS_BOLT_1) : 0;
++            CONFLAGRATE                 = lvl >= 10 ? CONFLAGRATE_1 : 0;
++  /*Talent*/CHAOS_BOLT                  = lvl >= 68 ? InitSpell(me, CHAOS_BOLT_1) : 0;
 +            RAIN_OF_FIRE                            = InitSpell(me, RAIN_OF_FIRE_1);
-+  /*Talent*/HAUNT                       = lvl >= 60 ? InitSpell(me, HAUNT_1) : 0;
++  /*Talent*/HAUNT                       = lvl >= 69 ? InitSpell(me, HAUNT_1) : 0;
 +            CORRUPTION                              = InitSpell(me, CORRUPTION_1);
-+  /*Talent*/UNSTABLE_AFFLICTION         = lvl >= 50 ? InitSpell(me, UNSTABLE_AFFLICTION_1) : 0;
++            UNSTABLE_AFFLICTION         = lvl >= 12 ? InitSpell(me, UNSTABLE_AFFLICTION_1) : 0;
 +            FEAR                                    = InitSpell(me, FEAR_1);
 +        }
 +
@@ -10860,8 +10868,8 @@ index 0000000..9060024
 +    private:
 +        uint32 
 +  /*Curses*/CURSE_OF_THE_ELEMENTS, 
-+/*Destruct*/SHADOW_BOLT, IMMOLATE, CONFLAGRATE, CHAOS_BOLT, RAIN_OF_FIRE, 
-+ /*Afflict*/HAUNT, CORRUPTION, UNSTABLE_AFFLICTION, 
++/*Destruct*/SHADOW_BOLT, IMMOLATE, CONFLAGRATE, CHAOS_BOLT, RAIN_OF_FIRE,
++ /*Afflict*/HAUNT, CORRUPTION, UNSTABLE_AFFLICTION,
 +   /*Other*/FEAR;
 +        //Timers
 +        uint32 Rain_of_fire_cd, Haunt_cd, conflagarate_cd, chaos_bolt_cd, fear_cd;
@@ -10874,10 +10882,10 @@ index 0000000..9060024
 +            CONFLAGRATE_1                       = 17962,
 +            CHAOS_BOLT_1                        = 50796,
 +            RAIN_OF_FIRE_1                      = 5740,
-+            HAUNT_1                             = 59164,
++            HAUNT_1                             = 48181,
 +            CORRUPTION_1                        = 172,
-+            UNSTABLE_AFFLICTION_1               = 30404,
-+            FEAR_1                              = 6215,
++            UNSTABLE_AFFLICTION_1               = 30108,
++            FEAR_1                              = 5782
 +        };
 +        enum WarlockPassives
 +        {
@@ -10962,13 +10970,19 @@ index 0000000..9060024
 +            if (MoveBehind(*opponent))
 +                wait = 5;
 +
++            //float dist = me->GetExactDist(opponent);
++            float meleedist = me->GetDistance(opponent);
++
 +            //TORMENT
-+            if (Torment_cd <= diff && me->GetDistance(opponent) <= 5 && (!tank || tank == me || opponent->GetVictim() == m_creatureOwner))
++            if (TORMENT && Torment_cd <= diff && meleedist < 5 && (!tank || tank == me || opponent->GetVictim() == m_creatureOwner))
 +            {
 +                temptimer = GC_Timer;
 +                if (doCast(opponent, TORMENT))
++                {
 +                    Torment_cd = 5000;
-+                GC_Timer = temptimer;
++                    GC_Timer = temptimer;
++                    return;
++                }
 +            }
 +        }
 +
@@ -11029,7 +11043,7 @@ index 0000000..9060024
 +
 +        enum VoidwalkerBaseSpells
 +        {
-+            TORMENT_1                           = 3716,
++            TORMENT_1                           = 3716
 +        };
 +        enum VoidwalkerPassives
 +        {
