@@ -1,10 +1,10 @@
-From 4bc3c1bee94d491e193bc104f4fd372d2fda9951 Mon Sep 17 00:00:00 2001
+From d92b9c99b742750af7642afd20ece1de6dfd6331 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Fri, 16 Aug 2013 13:55:34 +0700
+Date: Fri, 16 Aug 2013 14:37:34 +0700
 Subject: [PATCH] NPCBots_434
 
 ---
- sql/Bots/character_NPC_bots.sql                    |   12 +
+ sql/Bots/character_NPC_bots.sql                    |    9 +
  sql/Bots/world_bots.sql                            |  522 ++++
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  461 +++
  src/server/game/AI/NpcBots/bot_ai.cpp              | 3294 ++++++++++++++++++++
@@ -45,7 +45,7 @@ Subject: [PATCH] NPCBots_434
  .../Database/Implementation/WorldDatabase.cpp      |    4 +
  .../shared/Database/Implementation/WorldDatabase.h |    4 +
  src/server/worldserver/worldserver.conf.dist       |  106 +
- 41 files changed, 14745 insertions(+), 0 deletions(-)
+ 41 files changed, 14742 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world_bots.sql
  create mode 100644 src/server/game/AI/NpcBots/bot_GridNotifiers.h
@@ -66,10 +66,10 @@ Subject: [PATCH] NPCBots_434
 
 diff --git a/sql/Bots/character_NPC_bots.sql b/sql/Bots/character_NPC_bots.sql
 new file mode 100644
-index 0000000..723043e
+index 0000000..3e53c46
 --- /dev/null
 +++ b/sql/Bots/character_NPC_bots.sql
-@@ -0,0 +1,12 @@
+@@ -0,0 +1,9 @@
 +DROP TABLE IF EXISTS `character_npcbot`;
 +CREATE TABLE `character_npcbot` (
 +  `owner` int(10) default NULL,
@@ -79,9 +79,6 @@ index 0000000..723043e
 +  `istank` tinyint(3) default NULL,
 +  PRIMARY KEY  (`owner`,`entry`)
 +)  ENGINE=InnoDB DEFAULT CHARSET=utf8;
-+
-+
-+
 diff --git a/sql/Bots/world_bots.sql b/sql/Bots/world_bots.sql
 new file mode 100644
 index 0000000..eb7cd06
@@ -612,7 +609,7 @@ index 0000000..eb7cd06
 +UPDATE `creature_template` SET exp:=3, dmg_multiplier:=1.0, attackpower:=0, mindmg:= 2, maxdmg:= 3, minlevel:=85, maxlevel:=85, baseattacktime:=2000, rangeattacktime:=2000, minrangedmg:=0, maxrangedmg:=0, rangedattackpower:=0, dynamicflags:=0, speed_walk:=1.2, speed_run:=1.3, InhabitType:=3, health_mod:=1, mana_mod:=1, armor_mod:=1, mechanic_immune_mask:=1, flags_extra:=@FLAGS_EX, AIName='' where entry between 70001 and 70239 and name='Voidwalker';
 diff --git a/src/server/game/AI/NpcBots/bot_GridNotifiers.h b/src/server/game/AI/NpcBots/bot_GridNotifiers.h
 new file mode 100644
-index 0000000..70637f8
+index 0000000..ff39bac
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_GridNotifiers.h
 @@ -0,0 +1,461 @@
@@ -634,7 +631,7 @@ index 0000000..70637f8
 +class NearestHostileUnitCheck
 +{
 +    public:
-+        explicit NearestHostileUnitCheck(Unit const* unit, float dist, bool magic, bot_ai const* m_ai, bool targetCCed = false) : 
++        explicit NearestHostileUnitCheck(Unit const* unit, float dist, bool magic, bot_ai const* m_ai, bool targetCCed = false) :
 +        me(unit), m_range(dist), byspell(magic), ai(m_ai), AttackCCed(targetCCed) { }
 +        bool operator()(Unit* u)
 +        {
@@ -671,17 +668,17 @@ index 0000000..70637f8
 +class HostileDispelTargetCheck
 +{
 +    public:
-+        explicit HostileDispelTargetCheck(Unit const* unit, float dist = 30, bool stealable = false, bot_ai const* m_ai = NULL) : 
++        explicit HostileDispelTargetCheck(Unit const* unit, float dist = 30, bool stealable = false, bot_ai const* m_ai = NULL) :
 +        me(unit), m_range(dist), checksteal(stealable), ai(m_ai) { }
 +        bool operator()(Unit* u)
 +        {
-+            if (u->IsWithinDistInMap(me, m_range) && 
-+                u->IsAlive() && 
-+                u->InSamePhase(me) && 
-+                u->IsInCombat() && 
-+                u->isTargetableForAttack() && 
-+                u->IsVisible() && 
-+                u->GetReactionTo(me) < REP_NEUTRAL && 
++            if (u->IsWithinDistInMap(me, m_range) &&
++                u->IsAlive() &&
++                u->InSamePhase(me) &&
++                u->IsInCombat() &&
++                u->isTargetableForAttack() &&
++                u->IsVisible() &&
++                u->GetReactionTo(me) < REP_NEUTRAL &&
 +                ai->IsInBotParty(u->GetVictim()))
 +            {
 +                if (checksteal && u->IsImmunedToSpell(sSpellMgr->GetSpellInfo(30449))) return false;//immune to steal
@@ -721,7 +718,7 @@ index 0000000..70637f8
 +class AffectedTargetCheck
 +{
 +    public:
-+        explicit AffectedTargetCheck(uint64 casterguid, float dist, uint32 spellId, Player const* groupCheck = 0, uint8 hostileCheckType = 0) : 
++        explicit AffectedTargetCheck(uint64 casterguid, float dist, uint32 spellId, Player const* groupCheck = 0, uint8 hostileCheckType = 0) :
 +        caster(casterguid), m_range(dist), spell(spellId), checker(groupCheck), needhostile(hostileCheckType)
 +        { if (checker->GetTypeId() != TYPEID_PLAYER) return; gr = checker->GetGroup(); }
 +        bool operator()(Unit* u)
@@ -768,7 +765,7 @@ index 0000000..70637f8
 +                return false;
 +            if (!u->IsInCombat() || !u->IsAlive() || !u->GetVictim())
 +                return false;
-+            if (u->GetCreatureType() != CREATURE_TYPE_HUMANOID && 
++            if (u->GetCreatureType() != CREATURE_TYPE_HUMANOID &&
 +                u->GetCreatureType() != CREATURE_TYPE_BEAST)
 +                return false;
 +            if (me->GetDistance(u) < 6 || mytar->GetDistance(u) < 5 || u->GetHealthPct() < 70)
@@ -783,11 +780,11 @@ index 0000000..70637f8
 +                return false;
 +            if (!u->IsHostileTo(me))
 +                return false;
-+            if (u->IsPolymorphed() || 
-+                u->isFrozen() || 
-+                u->isInRoots() || 
-+                u->HasAura(51514)/*hex*/ || 
-+                u->HasAura(20066)/*repentance*/ || 
++            if (u->IsPolymorphed() ||
++                u->isFrozen() ||
++                u->isInRoots() ||
++                u->HasAura(51514)/*hex*/ ||
++                u->HasAura(20066)/*repentance*/ ||
 +                //u->HasAuraTypeWithAffectMask(SPELL_AURA_PERIODIC_DAMAGE, sSpellMgr->GetSpellInfo(339)) || //entangling roots
 +                //u->HasAuraTypeWithAffectMask(SPELL_AURA_PERIODIC_DAMAGE, sSpellMgr->GetSpellInfo(16914)) || //hurricane
 +                //u->HasAuraTypeWithAffectMask(SPELL_AURA_PERIODIC_DAMAGE, sSpellMgr->GetSpellInfo(10)) || //blizzard
@@ -835,7 +832,7 @@ index 0000000..70637f8
 +                return false;
 +            if (u->GetReactionTo(me) > REP_NEUTRAL)
 +                return false;
-+            
++
 +            if (!u->IsImmunedToSpell(sSpellMgr->GetSpellInfo(5782)))//fear rank1
 +                return true;
 +
@@ -877,17 +874,17 @@ index 0000000..70637f8
 +                return false;
 +            if (u->HasAuraType(SPELL_AURA_PERIODIC_DAMAGE))
 +                return false;
-+            if (!(u->GetCreatureType() == CREATURE_TYPE_HUMANOID || 
-+                u->GetCreatureType() == CREATURE_TYPE_DEMON || 
-+                u->GetCreatureType() == CREATURE_TYPE_DRAGONKIN || 
-+                u->GetCreatureType() == CREATURE_TYPE_GIANT || 
++            if (!(u->GetCreatureType() == CREATURE_TYPE_HUMANOID ||
++                u->GetCreatureType() == CREATURE_TYPE_DEMON ||
++                u->GetCreatureType() == CREATURE_TYPE_DRAGONKIN ||
++                u->GetCreatureType() == CREATURE_TYPE_GIANT ||
 +                u->GetCreatureType() == CREATURE_TYPE_UNDEAD))
 +                return false;
 +            if (me->GetDistance(u) < 10)//do not allow close cast to prevent break due to consecration
 +                return false;
-+            if (u->IsPolymorphed() || 
-+                u->HasAura(51514)/*hex*/ || 
-+                u->HasAura(20066)/*repentance*/ || 
++            if (u->IsPolymorphed() ||
++                u->HasAura(51514)/*hex*/ ||
++                u->HasAura(20066)/*repentance*/ ||
 +                u->HasAuraWithMechanic(1<<MECHANIC_SHACKLE)/*shackleundead*/)
 +                return false;
 +            if (!u->IsImmunedToSpell(sSpellMgr->GetSpellInfo(20066)))//repentance
@@ -925,12 +922,12 @@ index 0000000..70637f8
 +                return false;
 +            if (!u->getAttackers().empty())
 +                return false;
-+            if (u->GetCreatureType() != CREATURE_TYPE_UNDEAD && 
++            if (u->GetCreatureType() != CREATURE_TYPE_UNDEAD &&
 +                (m_spellId == 9484 || m_spellId == 9485 || m_spellId == 10955))//shackle undead
 +                return false;
 +            //most horrible hacks
-+            if (u->GetCreatureType() != CREATURE_TYPE_UNDEAD && 
-+                u->GetCreatureType() != CREATURE_TYPE_DEMON && 
++            if (u->GetCreatureType() != CREATURE_TYPE_UNDEAD &&
++                u->GetCreatureType() != CREATURE_TYPE_DEMON &&
 +                (m_spellId == 2812 || m_spellId == 10318 || //holy
 +                m_spellId == 27139 || m_spellId == 48816 || //wra
 +                m_spellId == 48817 ||                       //th or
@@ -938,7 +935,7 @@ index 0000000..70637f8
 +                return false;
 +            if (u->HasUnitState(UNIT_STATE_CONFUSED | UNIT_STATE_STUNNED | UNIT_STATE_FLEEING | UNIT_STATE_DISTRACTED | UNIT_STATE_CONFUSED_MOVE | UNIT_STATE_FLEEING_MOVE))
 +                return false;
-+            if (u->HasAuraType(SPELL_AURA_PERIODIC_DAMAGE) && 
++            if (u->HasAuraType(SPELL_AURA_PERIODIC_DAMAGE) &&
 +                (m_spellId == 9484 || m_spellId == 9485 || m_spellId == 10955))//shackle undead
 +                return false;
 +            if (!u->IsImmunedToSpell(sSpellMgr->GetSpellInfo(m_spellId)))
@@ -982,9 +979,9 @@ index 0000000..70637f8
 +                return false;
 +            if (!u->getAttackers().empty())
 +                return false;
-+            if (u->IsPolymorphed() || 
-+                u->HasAura(51514)/*hex*/ || 
-+                u->HasAura(20066)/*repentance*/ || 
++            if (u->IsPolymorphed() ||
++                u->HasAura(51514)/*hex*/ ||
++                u->HasAura(20066)/*repentance*/ ||
 +                u->HasAuraWithMechanic(1<<MECHANIC_SHACKLE)/*shackleundead*/)
 +                return false;
 +            if (!u->IsImmunedToSpell(sSpellMgr->GetSpellInfo(m_spellId)))
@@ -1023,14 +1020,14 @@ index 0000000..70637f8
 +            if (m_friend == (u->GetReactionTo(me) < REP_FRIENDLY))
 +                return false;
 +            if (m_spell == 10326 && //turn evil
-+                u->GetCreatureType() != CREATURE_TYPE_UNDEAD && 
++                u->GetCreatureType() != CREATURE_TYPE_UNDEAD &&
 +                u->GetCreatureType() != CREATURE_TYPE_DEMON)
 +                return false;
 +            if (m_spell == 20066 && //repentance
-+                !(u->GetCreatureType() == CREATURE_TYPE_HUMANOID || 
-+                u->GetCreatureType() == CREATURE_TYPE_DEMON || 
-+                u->GetCreatureType() == CREATURE_TYPE_DRAGONKIN || 
-+                u->GetCreatureType() == CREATURE_TYPE_GIANT || 
++                !(u->GetCreatureType() == CREATURE_TYPE_HUMANOID ||
++                u->GetCreatureType() == CREATURE_TYPE_DEMON ||
++                u->GetCreatureType() == CREATURE_TYPE_DRAGONKIN ||
++                u->GetCreatureType() == CREATURE_TYPE_GIANT ||
 +                u->GetCreatureType() == CREATURE_TYPE_UNDEAD))
 +                return false;
 +            if (!m_spell || !u->IsImmunedToSpell(sSpellMgr->GetSpellInfo(m_spell)))
@@ -1079,7 +1076,7 @@ index 0000000..70637f8
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..8fcdeed
+index 0000000..7892da1
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
 @@ -0,0 +1,3294 @@
@@ -1357,15 +1354,15 @@ index 0000000..8fcdeed
 +    pos.m_positionY = y;
 +    pos.m_positionZ = z;
 +
-+    //            T   
++    //            T
 +    //           TTT
-+    //    mmmmmmmm mmmmmmmm 
-+    //   mmmmmmm MMM mmmmmmm 
-+    //   mmmmm rrrrrrr mmmmm 
++    //    mmmmmmmm mmmmmmmm
++    //   mmmmmmm MMM mmmmmmm
++    //   mmmmm rrrrrrr mmmmm
 +    //    ddd rrrrrrrrr ddd
 +    //     ddddddddddddddd
 +    //       ddddddddddd
-+    //         
++    //
 +    //MMM - player
 +    //TTT - bot tank
 +    //m - melee (warrior, paladin, deathknight)
@@ -2045,7 +2042,7 @@ index 0000000..8fcdeed
 +
 +    //DAMAGE
 +    _OnMeleeDamageUpdate(myclass);
-+    
++
 +    //ARMOR
 +    //sLog->outBasic("Unpdating %s's ARMOR: ", me->GetName().c_str());
 +    //sLog->outBasic("armor mod: %f", armor_mod);
@@ -2323,7 +2320,7 @@ index 0000000..8fcdeed
 +        me->SetModifierValue(UNIT_MOD_ATTACK_POWER, BASE_VALUE, atpower);
 +        me->UpdateAttackPowerAndDamage();
 +    }
-+    
++
 +    //ARMOR
 +    value = float(basearmor);
 +    //get minion's armor and give 35% to pet (just as for real pets)
@@ -2442,7 +2439,7 @@ index 0000000..8fcdeed
 +
 +    shouldUpdateStats = false;
 +}
-+//Emotion-based action 
++//Emotion-based action
 +void bot_ai::ReceiveEmote(Player* player, uint32 emote)
 +{
 +    switch (emote)
@@ -3574,7 +3571,7 @@ index 0000000..8fcdeed
 +    }
 +    stammod -= 0.3f;
 +    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "stammod: %f", stammod);
-+    
++
 +    //manually pick up stamina from bot's buffs
 +    float stamValue = me->GetTotalStatValue(STAT_STAMINA);
 +    stamValue = std::max(stamValue - 16.f, 1.f); //remove base stamina (not calculated into health)
@@ -3693,13 +3690,13 @@ index 0000000..8fcdeed
 +    //No Regen
 +}
 +//Melee damage for minions (melee classes only)
-+//Calculation is based on master's attack power if melee/hunter or spellpower 
++//Calculation is based on master's attack power if melee/hunter or spellpower
 +void bot_minion_ai::_OnMeleeDamageUpdate(uint8 myclass) const
 +{
 +    if (ap_mod == 0.f) return; //do not bother casters
 +    //sLog->outBasic("_OnMeleeDamageUpdate: Updating bot %s", me->GetName().c_str());
 +    float my_ap_mod = ap_mod;
-+    float mod = master->getClass() == CLASS_HUNTER ? (master->GetModifierValue(UNIT_MOD_DAMAGE_RANGED, BASE_PCT) + master->GetModifierValue(UNIT_MOD_DAMAGE_RANGED, TOTAL_PCT))/2.f : 
++    float mod = master->getClass() == CLASS_HUNTER ? (master->GetModifierValue(UNIT_MOD_DAMAGE_RANGED, BASE_PCT) + master->GetModifierValue(UNIT_MOD_DAMAGE_RANGED, TOTAL_PCT))/2.f :
 +        (master->GetModifierValue(UNIT_MOD_DAMAGE_MAINHAND, BASE_PCT) + master->GetModifierValue(UNIT_MOD_DAMAGE_MAINHAND, TOTAL_PCT))/2.f;
 +    mod = std::max(mod, 1.f); // x1 is Minimum
 +    mod = std::min(mod, 2.5f); // x2.5 is Maximum
@@ -4379,7 +4376,7 @@ index 0000000..8fcdeed
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..1900e8c
+index 0000000..b8a0541
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
 @@ -0,0 +1,372 @@
@@ -4476,8 +4473,8 @@ index 0000000..1900e8c
 +enum WarlockBotPets
 +{
 +    //PET_IMP                     = ,
-+    PET_VOIDWALKER              = 70237,
-+    //PET_SUCCUBUS                = 
++    PET_VOIDWALKER              = 70237
++    //PET_SUCCUBUS                =
 +};
 +
 +enum HunterBotPets
@@ -4657,7 +4654,7 @@ index 0000000..1900e8c
 +
 +        void Follow(bool force = false, Position* newpos = NULL)
 +        {
-+            if (force || 
++            if (force ||
 +                (me->IsAlive() && (!me->IsInCombat() || !opponent) && m_botCommandState != COMMAND_STAY))
 +                SetBotCommandState(COMMAND_FOLLOW, force, newpos);
 +        }
@@ -4757,7 +4754,7 @@ index 0000000..1900e8c
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_druid_ai.cpp b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 new file mode 100644
-index 0000000..21bae79
+index 0000000..152d7b0
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 @@ -0,0 +1,1145 @@
@@ -4922,7 +4919,7 @@ index 0000000..21bae79
 +
 +            Unit* u = master->GetVictim();
 +            if (master->getAttackers().size() > 4 ||
-+              (!master->getAttackers().empty() && 
++              (!master->getAttackers().empty() &&
 +                u != NULL && u->GetHealth() > me->GetMaxHealth()*17))
 +                return false;
 +
@@ -4956,7 +4953,7 @@ index 0000000..21bae79
 +        void StartAttack(Unit* u, bool force = false)
 +        {
 +            if (GetBotCommandState() == COMMAND_ATTACK && !force) return;
-+            Aggro(u); 
++            Aggro(u);
 +            SetBotCommandState(COMMAND_ATTACK);
 +            GetInPosition(force, me->GetShapeshiftForm() == FORM_NONE);
 +        }
@@ -5813,11 +5810,11 @@ index 0000000..21bae79
 +
 +    private:
 +        uint32
-+   /*Buffs*/MARK_OF_THE_WILD, THORNS, 
-+/*Heal/Rez*/HEALING_TOUCH, REGROWTH, REJUVENATION, LIFEBLOOM, NOURISH, WILD_GROWTH, SWIFTMEND, TRANQUILITY, REVIVE, REBIRTH, 
-+    /*Bear*/BEAR_FORM, SWIPE, MANGLE_BEAR,// BASH, 
-+     /*Cat*/CAT_FORM, CLAW, RAKE, SHRED, RIP, MANGLE_CAT, 
-+ /*Balance*/MOONFIRE, STARFIRE, WRATH, HURRICANE, FAERIE_FIRE, 
++   /*Buffs*/MARK_OF_THE_WILD, THORNS,
++/*Heal/Rez*/HEALING_TOUCH, REGROWTH, REJUVENATION, LIFEBLOOM, NOURISH, WILD_GROWTH, SWIFTMEND, TRANQUILITY, REVIVE, REBIRTH,
++    /*Bear*/BEAR_FORM, SWIPE, MANGLE_BEAR,// BASH,
++     /*Cat*/CAT_FORM, CLAW, RAKE, SHRED, RIP, MANGLE_CAT,
++ /*Balance*/MOONFIRE, STARFIRE, WRATH, HURRICANE, FAERIE_FIRE,
 +    /*Misc*/REMOVE_CORRUPTION, INNERVATE, ENTANGLING_ROOTS, NATURES_SWIFTNESS, WARSTOMP;
 +        //Timers/other
 +/*Heal*/uint32 Heal_Timer, Regrowth_Timer, Swiftmend_Timer, Wild_Growth_Timer,
@@ -5884,7 +5881,7 @@ index 0000000..21bae79
 +            GLYPH_INNERVATE                     = 54832,//self regen
 +        //other
 +            T9_RESTO_P4_BONUS                   = 67128,//rejuve crits
-+            T8_RESTO_P4_BONUS                   = 64760,//rejuve init heal 
++            T8_RESTO_P4_BONUS                   = 64760,//rejuve init heal
 +            T9_BALANCE_P2_BONUS                 = 67125,//moonfire crits
 +            T10_BALANCE_P2_BONUS                = 70718,//omen of doom (15%)
 +            T10_BALANCE_P4_BONUS                = 70723,//Languish(DOT)
@@ -5908,7 +5905,7 @@ index 0000000..21bae79
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_hunter_ai.cpp b/src/server/game/AI/NpcBots/bot_hunter_ai.cpp
 new file mode 100644
-index 0000000..58ae0f4
+index 0000000..5c02c12
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_hunter_ai.cpp
 @@ -0,0 +1,340 @@
@@ -6219,7 +6216,7 @@ index 0000000..58ae0f4
 +
 +    private:
 +        uint32
-+        AUTO_SHOT, TRANQ_SHOT, SCORPID_STING, HUNTERS_MARK, ARCANE_SHOT, CHIMERA_SHOT, AIMED_SHOT, 
++        AUTO_SHOT, TRANQ_SHOT, SCORPID_STING, HUNTERS_MARK, ARCANE_SHOT, CHIMERA_SHOT, AIMED_SHOT,
 +        SILENCING_SHOT, ASPECT_OF_THE_DRAGONHAWK, FEIGN_DEATH;
 +        //Timers
 +        uint32 ArcaneShot_cd, ChimeraShot_Timer, SilencingShot_Timer, AimedShot_Timer, Feign_Death_Timer;
@@ -6254,7 +6251,7 @@ index 0000000..58ae0f4
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_mage_ai.cpp b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 new file mode 100644
-index 0000000..f070e99
+index 0000000..7bf0a65
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 @@ -0,0 +1,900 @@
@@ -6438,7 +6435,7 @@ index 0000000..f070e99
 +
 +            if (!me->IsInCombat())
 +                DoNonCombatActions(diff);
-+            
++
 +            if (!CheckAttackTarget(CLASS_MAGE))
 +                return;
 +
@@ -6592,7 +6589,7 @@ index 0000000..f070e99
 +                {
 +                    if (doCast(opponent, FIREBLAST))
 +                    {
-+                        
++
 +                        FireBlast_cd = 6000;
 +                        GC_Timer = 500;
 +                        return;
@@ -7093,9 +7090,9 @@ index 0000000..f070e99
 +
 +        enum MageBaseSpells// all orignals
 +        {
-+            //DAMPENMAGIC_1                       = 604, 
-+            ARCANEBRILLIANCE_1                  = 1459, 
-+            ARCANEMISSILES_1                    = 5143, 
++            //DAMPENMAGIC_1                       = 604,
++            ARCANEBRILLIANCE_1                  = 1459,
++            ARCANEMISSILES_1                    = 5143,
 +            POLYMORPH_1                         = 118,
 +            COUNTERSPELL_1                      = 2139,
 +            SPELLSTEAL_1                        = 30449,
@@ -7160,7 +7157,7 @@ index 0000000..f070e99
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 new file mode 100644
-index 0000000..fdf1c9a
+index 0000000..c139244
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 @@ -0,0 +1,1049 @@
@@ -7701,7 +7698,7 @@ index 0000000..fdf1c9a
 +                FindAffectedTarget(TURN_EVIL, me->GetGUID(), 50))
 +                return;
 +            Unit* target = FindUndeadCCTarget(20, TURN_EVIL);
-+            if (target && 
++            if (target &&
 +                (target != me->GetVictim() || GetHealthPCT(me) < 70 || target->GetVictim() == master) &&
 +                doCast(target, TURN_EVIL, true))
 +            {
@@ -7724,7 +7721,7 @@ index 0000000..fdf1c9a
 +            if ((opponent->GetCreatureType() == CREATURE_TYPE_UNDEAD || opponent->GetCreatureType() == CREATURE_TYPE_DEMON) &&
 +                me->GetExactDist(opponent) <= 8 && doCast(me, HOLY_WRATH))
 +                Holy_Wrath_Timer = 23500 - me->getLevel() * 100; //23.5 - 0...8.5 sec (15 sec on 85)
-+            else 
++            else
 +            {
 +                Unit* target = FindUndeadCCTarget(8, HOLY_WRATH);
 +                if (target && doCast(me, HOLY_WRATH))
@@ -10099,7 +10096,7 @@ index 0000000..8a397d1
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_shaman_ai.cpp b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 new file mode 100644
-index 0000000..cbe11fa
+index 0000000..e0f7e64
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 @@ -0,0 +1,474 @@
@@ -10368,7 +10365,7 @@ index 0000000..cbe11fa
 +
 +            if (IsCasting()) return false;
 +
-+            
++
 +            /*if (hp < 70 && Heal_Timer <= diff)
 +            {
 +                doCast(target, HEALING_WAVE);
@@ -10579,7 +10576,7 @@ index 0000000..cbe11fa
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warlock_ai.cpp b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 new file mode 100644
-index 0000000..4b3179b
+index 0000000..aa08ab5
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 @@ -0,0 +1,472 @@
@@ -10865,8 +10862,8 @@ index 0000000..4b3179b
 +        void ApplyClassPassives() {}
 +
 +    private:
-+        uint32 
-+  /*Curses*/CURSE_OF_THE_ELEMENTS, 
++        uint32
++  /*Curses*/CURSE_OF_THE_ELEMENTS,
 +/*Destruct*/SHADOW_BOLT, IMMOLATE, CONFLAGRATE, CHAOS_BOLT, RAIN_OF_FIRE,
 + /*Afflict*/HAUNT, CORRUPTION, UNSTABLE_AFFLICTION,
 +   /*Other*/FEAR;
@@ -11035,7 +11032,7 @@ index 0000000..4b3179b
 +        void ApplyClassPassives() {}
 +
 +    private:
-+        uint32 
++        uint32
 +            TORMENT;
 +        //Timers
 +        uint32 Torment_cd;
@@ -11057,7 +11054,7 @@ index 0000000..4b3179b
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warrior_ai.cpp b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 new file mode 100644
-index 0000000..f3c79ee
+index 0000000..308b97d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 @@ -0,0 +1,1114 @@
@@ -11778,7 +11775,7 @@ index 0000000..f3c79ee
 +                case 1:
 +                    if (doCast(me, BATTLESTANCE))
 +                    {
-+                        if (me->HasAura(BATTLESTANCE)) 
++                        if (me->HasAura(BATTLESTANCE))
 +                        {
 +                            battleStance = true;
 +                            defensiveStance = false;
@@ -12063,11 +12060,11 @@ index 0000000..f3c79ee
 +
 +    private:
 +        uint32
-+  /*Shouts*/INTIMIDATING_SHOUT, BATTLESHOUT, CHALLENGING_SHOUT, 
-+ /*Charges*/CHARGE, INTERCEPT, INTERVENE, 
-+  /*Damage*/OVERPOWER, CLEAVE, REND, EXECUTE, WHIRLWIND, BLADESTORM, MORTALSTRIKE, SLAM, 
-+ /*Stances*/BATTLESTANCE, DEFENSIVESTANCE, BERSERKERSTANCE, 
-+   /*Ubers*/RECKLESSNESS, RETALIATION, DEATHWISH, 
++  /*Shouts*/INTIMIDATING_SHOUT, BATTLESHOUT, CHALLENGING_SHOUT,
++ /*Charges*/CHARGE, INTERCEPT, INTERVENE,
++  /*Damage*/OVERPOWER, CLEAVE, REND, EXECUTE, WHIRLWIND, BLADESTORM, MORTALSTRIKE, SLAM,
++ /*Stances*/BATTLESTANCE, DEFENSIVESTANCE, BERSERKERSTANCE,
++   /*Ubers*/RECKLESSNESS, RETALIATION, DEATHWISH,
 +  /*Others*/TAUNT, DISARM, BLOODRAGE, ENRAGED_REGENERATION, VICTORY_RUSH,
 +        BERSERKERRAGE, HAMSTRING, PUMMEL, SUNDER, SWEEPING_STRIKES;
 +
@@ -12075,7 +12072,7 @@ index 0000000..f3c79ee
 +/*shts*/uint32 batcomShout_cd, intimidatingShout_cd;
 +/*chrg*/uint32 charge_cd, intercept_cd, intervene_cd;
 + /*Dmg*/uint32 mortalStrike_cd, slam_cd, whirlwind_cd, cleave_cd, bladestorm_cd;
-+/*else*/uint32 regen_cd, sweeping_strikes_cd, deathwish_cd, uber_cd, berserkerRage_cd, pummel_cd, 
++/*else*/uint32 regen_cd, sweeping_strikes_cd, deathwish_cd, uber_cd, berserkerRage_cd, pummel_cd,
 +            bloodrage_cd, taunt_cd, sunder_cd;
 +/*tmrs*/uint32 stancetimer, ragetimer;
 +/*misc*/uint32 rage;
@@ -12177,7 +12174,7 @@ index 0000000..f3c79ee
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 0000000..f8dbfc6
+index 0000000..06e3e87
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
 @@ -0,0 +1,633 @@
@@ -12597,7 +12594,7 @@ index 0000000..f8dbfc6
 +            handler->SetSentErrorMessage(true);
 +            return false;
 +        }
-+        
++
 +        Creature* cre = ObjectAccessor::GetCreature(*owner, guid);
 +        if (cre && cre->GetIAmABot())
 +        {
@@ -13461,7 +13458,7 @@ index 779cffa..4fd42ab 100644
 +    if (bot_AI) bot_AI->OnBotSummon(summon);
 +}
 diff --git a/src/server/game/Entities/Creature/Creature.h b/src/server/game/Entities/Creature/Creature.h
-index 13ed277..6fe838d 100644
+index 13ed277..c78f6ef 100644
 --- a/src/server/game/Entities/Creature/Creature.h
 +++ b/src/server/game/Entities/Creature/Creature.h
 @@ -37,6 +37,11 @@ class Player;
@@ -13484,7 +13481,7 @@ index 13ed277..6fe838d 100644
 +        Player* GetBotOwner() const { return m_bot_owner; }
 +        void SetBotOwner(Player* newowner) { m_bot_owner = newowner; }
 +        Creature* GetCreatureOwner() const { return m_creature_owner; }
-+        void SetCreatureOwner(Creature* newCreOwner) { m_creature_owner = newCreOwner; } 
++        void SetCreatureOwner(Creature* newCreOwner) { m_creature_owner = newCreOwner; }
 +        Creature* GetBotsPet() const { return m_bots_pet; }
 +        void SetBotsPetDied();
 +        void SetBotsPet(Creature* newpet) { /*ASSERT (!m_bots_pet);*/ m_bots_pet = newpet; }
@@ -13574,7 +13571,7 @@ index e8bbf09..a0d209a 100644
  
      return summon;
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index 35d1d15..3aaeaae 100644
+index 35d1d15..4c8305b 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -81,6 +81,10 @@
@@ -13740,9 +13737,9 @@ index 35d1d15..3aaeaae 100644
 +            else if (m_botmap[i]->m_reviveTimer > 0)
 +                m_botmap[i]->m_reviveTimer = 0;
 +        }
-+        if ((m_bot->isDead() || !m_bot->IsAlive()) && IsAlive() && !IsInCombat() && !InArena() && !IsInFlight() && 
-+            !HasFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_FEIGN_DEATH) && 
-+            m_botmap[i]->m_reviveTimer == 0 && 
++        if ((m_bot->isDead() || !m_bot->IsAlive()) && IsAlive() && !IsInCombat() && !InArena() && !IsInFlight() &&
++            !HasFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_FEIGN_DEATH) &&
++            m_botmap[i]->m_reviveTimer == 0 &&
 +            !HasInvisibilityAura() && !HasStealthAura())
 +        {
 +            CreateBot(0, 0, 0, false, true);//revive
@@ -13811,7 +13808,7 @@ index 35d1d15..3aaeaae 100644
 +{
 +    for (uint8 pos = 0; pos != GetMaxNpcBots(); ++pos)
 +    {
-+        if (m_botmap[pos]->m_entry != 0 && 
++        if (m_botmap[pos]->m_entry != 0 &&
 +            (m_botmap[pos]->m_guid == 0 || !sObjectAccessor->FindUnit(m_botmap[pos]->m_guid)))
 +        {
 +            m_botmap[pos]->m_guid = 0;
@@ -13825,8 +13822,8 @@ index 35d1d15..3aaeaae 100644
 +{
 +    for (uint8 pos = 0; pos != GetMaxNpcBots(); ++pos)
 +    {
-+        if ((guid == true && m_botmap[pos]->m_guid == guidOrSlot) || 
-+            (guid == false && pos == guidOrSlot) || 
++        if ((guid == true && m_botmap[pos]->m_guid == guidOrSlot) ||
++            (guid == false && pos == guidOrSlot) ||
 +            fully)
 +        {
 +            m_botmap[pos]->m_guid = 0;
