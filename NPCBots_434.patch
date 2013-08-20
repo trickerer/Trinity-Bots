@@ -1,6 +1,6 @@
-From 3b04200ae980bfe8191852fc5b6dd6ff372502c4 Mon Sep 17 00:00:00 2001
+From 5c1f11a035b044c3e18da5b033b1a23c54afd469 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Sun, 18 Aug 2013 14:58:42 +0700
+Date: Tue, 20 Aug 2013 18:18:12 +0700
 Subject: [PATCH] NPCBots_434
 
 ---
@@ -11,13 +11,13 @@ Subject: [PATCH] NPCBots_434
  src/server/game/AI/NpcBots/bot_ai.h                |  372 +++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1210 +++++++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  340 ++
- src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  961 ++++++
+ src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  973 ++++++
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      | 1049 +++++++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       | 1007 ++++++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  905 ++++++
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  474 +++
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  542 ++++
- src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1114 +++++++
+ src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1145 +++++++
  src/server/game/AI/NpcBots/botcommands.cpp         |  633 ++++
  src/server/game/AI/NpcBots/bothelper.cpp           |  421 +++
  src/server/game/AI/NpcBots/bothelper.h             |   32 +
@@ -45,7 +45,7 @@ Subject: [PATCH] NPCBots_434
  .../Database/Implementation/WorldDatabase.cpp      |    4 +
  .../shared/Database/Implementation/WorldDatabase.h |    4 +
  src/server/worldserver/worldserver.conf.dist       |  106 +
- 41 files changed, 14971 insertions(+), 0 deletions(-)
+ 41 files changed, 15014 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world_bots.sql
  create mode 100644 src/server/game/AI/NpcBots/bot_GridNotifiers.h
@@ -6309,10 +6309,10 @@ index 0000000..5c02c12
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_mage_ai.cpp b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 new file mode 100644
-index 0000000..00a3091
+index 0000000..394dabb
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
-@@ -0,0 +1,961 @@
+@@ -0,0 +1,973 @@
 +#include "bot_ai.h"
 +#include "Group.h"
 +#include "Player.h"
@@ -6630,7 +6630,7 @@ index 0000000..00a3091
 +                return;
 +            }
 +            //dragon's breath
-+            if (DRAGONBREATH && DragonBreath_cd <= diff && GC_Timer <= diff &&
++            if (DRAGONBREATH && DragonBreath_cd <= diff && GC_Timer <= diff && !CCed(opponent, true) &&
 +                (me->HasInArc(M_PI*0.75f, opponent) ||
 +                (u && u != opponent && me->HasInArc(M_PI*0.75f, u) && IsInBotParty(u->GetVictim()))) &&
 +                doCast(/*opponent*/me, DRAGONBREATH))
@@ -6651,7 +6651,7 @@ index 0000000..00a3091
 +            //fire blast
 +            if (FIREBLAST && FireBlast_cd <= diff && GC_Timer <= diff && dist < 40)
 +            {
-+                if (Rand() < 20 + 80*(!opponent->HasAuraType(SPELL_AURA_MOD_STUN) && me->HasAura(IMPACT_BUFF)))
++                if (Rand() < 20 + 80*(!opponent->isFrozen() && !opponent->HasAuraType(SPELL_AURA_MOD_STUN) && me->HasAura(IMPACT_BUFF)))
 +                {
 +                    if (doCast(opponent, FIREBLAST))
 +                    {
@@ -6690,10 +6690,10 @@ index 0000000..00a3091
 +                Nova_cd = std::max<uint32>(Nova_cd, 450);
 +                return;
 +            }
-+            //Arcane Missiles
-+            if (Rand() < 15 && GC_Timer <= diff && !me->isMoving() && dist < 40 &&
-+                doCast(opponent, ARCANEMISSILES))
-+                return;
++            ////Arcane Missiles
++            //if (Rand() < 15 && GC_Timer <= diff && !me->isMoving() && dist < 40 &&
++            //    doCast(opponent, ARCANEMISSILES))
++            //    return;
 +        }
 +
 +        void CheckPoly(uint32 diff)
@@ -6970,8 +6970,18 @@ index 0000000..00a3091
 +            OnSpellHit(caster, spell);
 +        }
 +
-+        void SpellHitTarget(Unit* /*target*/, SpellInfo const* /*spell*/)
++        void SpellHitTarget(Unit* target, SpellInfo const* spell)
 +        {
++            if (spell->GetSchoolMask() & SPELL_SCHOOL_MASK_FROST)
++            {
++                //if (!target->IsFriendlyTo(me))
++                if (target != me)
++                {
++                    if (urand(0,100) < 25)
++                        me->AddAura(FREEZE_TRIGGERED, target);
++                }
++            }
++
 +            //if (aftercastTargetGuid != 0)
 +            //{
 +            //    //only players for now
@@ -7052,6 +7062,7 @@ index 0000000..00a3091
 +            Pyroblast_cd = 0;
 +            FireBlast_cd = 0;
 +            DragonBreath_cd = 0;
++            Living_Bomb_cd = 0;
 +            //Combustion_cd = 30000;//30 sec for reset
 +            Ice_Barrier_cd = 0;
 +            Iceblock_cd = 0;
@@ -7115,11 +7126,11 @@ index 0000000..00a3091
 +            REMOVE_CURSE                            = InitSpell(me, REMOVE_CURSE_1);
 +            //INVISIBILITY                            = InitSpell(me, INVISIBILITY_1);
 +            FIREBALL                                = InitSpell(me, FIREBALL_1);
-+  /*Talent*/BLASTWAVE                   = lvl >= 41 ? InitSpell(me, BLASTWAVE_1) : 0;
-+  /*Talent*/DRAGONBREATH                = lvl >= 51 ? InitSpell(me, DRAGONBREATH_1) : 0;
++  /*Talent*/BLASTWAVE                   = lvl >= 41 ? BLASTWAVE_1 : 0;
++  /*Talent*/DRAGONBREATH                = lvl >= 51 ? DRAGONBREATH_1 : 0;
 +            FIREBLAST                               = InitSpell(me, FIREBLAST_1);
 +            PYROBLAST                   = lvl >= 13 ? PYROBLAST_1 : 0;
-+  /*Talent*/LIVINGBOMB                  = lvl >= 69 ? InitSpell(me, LIVINGBOMB_1) : 0;
++  /*Talent*/LIVINGBOMB                  = lvl >= 69 ? LIVINGBOMB_1 : 0;
 +            FLAMESTRIKE                             = InitSpell(me, FLAMESTRIKE_1);
 +  /*Talent*///COMBUSTION                  = lvl >= 39 ? COMBUSTION_1 : 0;
 +            FROSTBOLT                               = InitSpell(me, FROSTBOLT_1);
@@ -7265,7 +7276,8 @@ index 0000000..00a3091
 +            ARCANEMISSILES_DAMAGE               = 7268,
 +            CLEARCASTBUFF                       = 12536,
 +            IMPACT_BUFF                         = 64343,
-+            ARCANE_POTENCY_BUFF                 = 57529
++            ARCANE_POTENCY_BUFF                 = 57529,
++            FREEZE_TRIGGERED                    = 95377
 +        };
 +    };
 +};
@@ -9344,7 +9356,7 @@ index 0000000..489cdba
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_rogue_ai.cpp b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 new file mode 100644
-index 0000000..35e5daf
+index 0000000..fc2ad6d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 @@ -0,0 +1,905 @@
@@ -9755,8 +9767,8 @@ index 0000000..35e5daf
 +            {
 +                float ap = me->GetTotalAttackPowerValue(BASE_ATTACK);
 +                //434 temp formula - placeholder
-+                float damageMin = 5 + me->getLevel() * 2;
-+                float damageMax = 10 + me->getLevel() * 5;
++                float damageMin = 2 + me->getLevel() * 2;
++                float damageMax = me->getLevel() >= 80 ? 10 + me->getLevel() * 5 : 5 + me->getLevel() * 4;
 +                //base damage
 +                fdamage = frand(damageMin, damageMax) + (damageMin + damageMax) * comboPoints;
 +
@@ -11283,10 +11295,10 @@ index 0000000..dfe2e59
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warrior_ai.cpp b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 new file mode 100644
-index 0000000..308b97d
+index 0000000..7c81d48
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
-@@ -0,0 +1,1114 @@
+@@ -0,0 +1,1145 @@
 +#include "bot_ai.h"
 +#include "Group.h"
 +#include "Player.h"
@@ -12125,6 +12137,32 @@ index 0000000..308b97d
 +            OnSpellHit(caster, spell);
 +        }
 +
++        void DamageDealt(Unit* victim, uint32& /*damage*/, DamageEffectType damageType)
++        {
++            if (victim == me)
++                return;
++
++            if (damageType == DIRECT_DAMAGE || damageType == SPELL_DIRECT_DAMAGE)
++            {
++                //zzzOLD Sword Specialization: 1 - 15% chance
++                if (swordspectimer == 0 && me->getLevel() >= 30)
++                {
++                    if (urand(0,100) < std::min<uint8>(15, me->getLevel() - 29))
++                        swordspectimer = 1000;
++
++                    if (swordspectimer > 0)
++                    {
++                        //Spell* spell = new Spell(me, sSpellMgr->GetSpellInfo(SWORD_SPECIALIZATION_TRIGGERED), TRIGGERED_FULL_MASK);
++                        //spell->ExecuteLogEffectExtraAttacks(EFFECT_0, victim, 1);
++                        //spell->SendLogExecute();
++                        //delete spell;
++                        //me->m_extraAttacks += 1;
++                        me->CastSpell(victim, SWORD_SPECIALIZATION_TRIGGERED, true);
++                    }
++                }
++            }
++        }
++
 +        void DamageTaken(Unit* u, uint32& /*damage*/)
 +        {
 +            OnOwnerDamagedBy(u);
@@ -12158,6 +12196,7 @@ index 0000000..308b97d
 +            sunder_cd = 0;
 +            stancetimer = 0;
 +            ragetimer = 1500;
++            swordspectimer = 0;
 +
 +            battleStance = true;
 +            defensiveStance = false;
@@ -12201,6 +12240,9 @@ index 0000000..308b97d
 +
 +            if (stancetimer > diff)                 stancetimer -= diff;
 +            if (ragetimer > diff)                   ragetimer -= diff;
++
++            if (swordspectimer > diff)              swordspectimer -= diff;
++            else                                    swordspectimer = 0;
 +        }
 +
 +        bool CanRespawn()
@@ -12303,7 +12345,7 @@ index 0000000..308b97d
 + /*Dmg*/uint32 mortalStrike_cd, slam_cd, whirlwind_cd, cleave_cd, bladestorm_cd;
 +/*else*/uint32 regen_cd, sweeping_strikes_cd, deathwish_cd, uber_cd, berserkerRage_cd, pummel_cd,
 +            bloodrage_cd, taunt_cd, sunder_cd;
-+/*tmrs*/uint32 stancetimer, ragetimer;
++/*tmrs*/uint32 stancetimer, ragetimer, swordspectimer;
 +/*misc*/uint32 rage;
 +/*misc*/float rageIncomeMult, rageLossMult;
 +/*Chck*/bool battleStance, defensiveStance, berserkerStance, SS, UNRELENTING_ASSAULT, VICTORIOUS;
@@ -12370,7 +12412,8 @@ index 0000000..308b97d
 +            LAMBS_TO_THE_SLAUGHTER_BUFF             = 84586,
 +            UNRELENTING_ASSAULT_SPELL               = 65925,//64849
 +            VICTORIOUS_SPELL                        = 32216,
-+            COLOSSUS_SMASH_EFFECT                   = 108126
++            COLOSSUS_SMASH_EFFECT                   = 108126,
++            SWORD_SPECIALIZATION_TRIGGERED          = 16459
 +        };
 +        enum WarriorCooldowns
 +        {
