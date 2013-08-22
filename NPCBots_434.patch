@@ -1,18 +1,18 @@
-From 5c1f11a035b044c3e18da5b033b1a23c54afd469 Mon Sep 17 00:00:00 2001
+From ca89daa542961e31d41cb2608ad01350e9838dcd Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Tue, 20 Aug 2013 18:18:12 +0700
+Date: Thu, 22 Aug 2013 10:48:24 +0700
 Subject: [PATCH] NPCBots_434
 
 ---
  sql/Bots/character_NPC_bots.sql                    |    9 +
- sql/Bots/world_bots.sql                            |  522 ++++
- src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  454 +++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 3294 ++++++++++++++++++++
+ sql/Bots/world_bots.sql                            |  522 +++
+ src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  456 +++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 3315 ++++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |  372 +++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1210 +++++++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  340 ++
- src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  973 ++++++
- src/server/game/AI/NpcBots/bot_paladin_ai.cpp      | 1049 +++++++
+ src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  974 ++++++
+ src/server/game/AI/NpcBots/bot_paladin_ai.cpp      | 1039 ++++++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       | 1007 ++++++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  905 ++++++
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  474 +++
@@ -22,12 +22,12 @@ Subject: [PATCH] NPCBots_434
  src/server/game/AI/NpcBots/bothelper.cpp           |  421 +++
  src/server/game/AI/NpcBots/bothelper.h             |   32 +
  src/server/game/CMakeLists.txt                     |    1 +
- src/server/game/Entities/Creature/Creature.cpp     |  140 +
- src/server/game/Entities/Creature/Creature.h       |   40 +
+ src/server/game/Entities/Creature/Creature.cpp     |  149 +
+ src/server/game/Entities/Creature/Creature.h       |   43 +
  .../game/Entities/Creature/TemporarySummon.cpp     |    8 +
  src/server/game/Entities/Object/Object.cpp         |   11 +
- src/server/game/Entities/Player/Player.cpp         |  857 +++++
- src/server/game/Entities/Player/Player.h           |   63 +
+ src/server/game/Entities/Player/Player.cpp         |  909 ++++++
+ src/server/game/Entities/Player/Player.h           |   64 +
  src/server/game/Entities/Unit/StatSystem.cpp       |    4 +
  src/server/game/Entities/Unit/Unit.cpp             |  224 ++
  src/server/game/Groups/Group.cpp                   |   12 +
@@ -45,7 +45,7 @@ Subject: [PATCH] NPCBots_434
  .../Database/Implementation/WorldDatabase.cpp      |    4 +
  .../shared/Database/Implementation/WorldDatabase.h |    4 +
  src/server/worldserver/worldserver.conf.dist       |  106 +
- 41 files changed, 15014 insertions(+), 0 deletions(-)
+ 41 files changed, 15093 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world_bots.sql
  create mode 100644 src/server/game/AI/NpcBots/bot_GridNotifiers.h
@@ -609,10 +609,10 @@ index 0000000..eb7cd06
 +UPDATE `creature_template` SET exp:=3, dmg_multiplier:=1.0, attackpower:=0, mindmg:= 2, maxdmg:= 3, minlevel:=85, maxlevel:=85, baseattacktime:=2000, rangeattacktime:=2000, minrangedmg:=0, maxrangedmg:=0, rangedattackpower:=0, dynamicflags:=0, speed_walk:=1.2, speed_run:=1.3, InhabitType:=3, health_mod:=1, mana_mod:=1, armor_mod:=1, mechanic_immune_mask:=1, flags_extra:=@FLAGS_EX, AIName='' where entry between 70001 and 70239 and name='Voidwalker';
 diff --git a/src/server/game/AI/NpcBots/bot_GridNotifiers.h b/src/server/game/AI/NpcBots/bot_GridNotifiers.h
 new file mode 100644
-index 0000000..41074e8
+index 0000000..580fcf0
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_GridNotifiers.h
-@@ -0,0 +1,454 @@
+@@ -0,0 +1,456 @@
 +/*
 +Name: bot_GridNotifiers
 +%Complete: 91+
@@ -638,6 +638,8 @@ index 0000000..41074e8
 +            if (!me->IsWithinDistInMap(u, m_range))
 +                return false;
 +            if (!u->IsInCombat())
++                return false;
++            if (!u->InSamePhase(me))
 +                return false;
 +            if (!ai->CanBotAttack(u, byspell))
 +                return false;
@@ -1069,10 +1071,10 @@ index 0000000..41074e8
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..5f1c526
+index 0000000..477bf0f
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,3294 @@
+@@ -0,0 +1,3315 @@
 +/*
 +NpcBot System by Graff (onlysuffering@gmail.com)
 +Original patch from: LordPsyan https://bitbucket.org/lordpsyan/trinitycore-patches/src/3b8b9072280e/Individual/11185-BOTS-NPCBots.patch
@@ -2966,27 +2968,24 @@ index 0000000..5f1c526
 +//MOUNT SUPPORT
 +void bot_minion_ai::UpdateMountedState()
 +{
-+    //DEBUG
-+    if (master->IsMounted() && me->IsMounted())
-+    {
-+        if ((master->HasAuraType(SPELL_AURA_FLY) || master->HasUnitMovementFlag(MOVEMENTFLAG_CAN_FLY) || master->HasUnitMovementFlag(MOVEMENTFLAG_FLYING)))
-+        {
-+            //creature don't benefit from mount flight speed, so force it
-+            if (me->GetSpeed(MOVE_FLIGHT) != master->GetSpeed(MOVE_FLIGHT)/2)
-+            me->SetSpeed(MOVE_FLIGHT, master->GetSpeed(MOVE_FLIGHT)/2);
-+        }
++    if (GetBotCommandState() != COMMAND_FOLLOW)
 +        return;
-+    }
++
 +    bool aura = me->HasAuraType(SPELL_AURA_MOUNTED);
 +    bool mounted = me->IsMounted();
 +    if ((!master->IsMounted() || aura != mounted || (me->IsInCombat() && opponent)) && (aura || mounted))
 +    {
++        const_cast<CreatureTemplate*>(me->GetCreatureTemplate())->InhabitType &= ~INHABIT_AIR;
 +        me->RemoveAurasByType(SPELL_AURA_MOUNTED);
++        //me->RemoveUnitMovementFlag(MOVEMENTFLAG_HOVER);
++        me->SetCanFly(false);
++        me->SetDisableGravity(false);
++        me->RemoveUnitMovementFlag(MOVEMENTFLAG_FALLING);
 +        me->Dismount();
 +        return;
 +    }
 +    //END DEBUG
-+    if (me->IsInCombat() || IsCasting() || me->HasUnitMovementFlag(MOVEMENTFLAG_SWIMMING)) //IsInWater() is too much calculations
++    if (me->IsInCombat() || IsCasting() || me->HasUnitMovementFlag(MOVEMENTFLAG_SWIMMING))
 +        return;
 +    //fly
 +    //if ((master->IsMounted() && master->HasAuraType(SPELL_AURA_FLY))/* || master->HasUnitMovementFlag(MOVEMENTFLAG_CAN_FLY) || master->HasUnitMovementFlag(MOVEMENTFLAG_FLYING)*/)
@@ -3101,8 +3100,17 @@ index 0000000..5f1c526
 +    //me->ApplySpellImmune(0, IMMUNITY_STATE, SPELL_AURA_MOD_TAUNT, true);
 +    //me->ApplySpellImmune(0, IMMUNITY_EFFECT, SPELL_EFFECT_ATTACK_ME, true);
 +
++    //if (IsMinionAI() && botOrPetType != CLASS_MAGE)
++        me->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
++
++    //movement speed
++    if (master->HasAuraType(SPELL_AURA_MOD_SPEED_ALWAYS) ||
++        master->HasAuraType(SPELL_AURA_MOD_SPEED_NOT_STACK) ||
++        master->HasAuraType(SPELL_AURA_MOD_INCREASE_SPEED))
++        RefreshAura(BOAR);
++
 +    //apply +healing taken
-+    if (master->getLevel() >= 60)
++    if (master->getLevel() >= 40)
 +        RefreshAura(BOR);//+40%
 +
 +    if (IsPetAI())
@@ -3958,7 +3966,22 @@ index 0000000..5f1c526
 +        uint32 auraname = spell->Effects[i].ApplyAuraName;
 +        //remove pet on mount
 +        if (auraname == SPELL_AURA_MOUNTED)
++        {
 +            me->SetBotsPetDied();
++            if (master->HasAuraType(SPELL_AURA_MOD_INCREASE_VEHICLE_FLIGHT_SPEED) ||
++                master->HasAuraType(SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED))
++            {
++                const_cast<CreatureTemplate*>(me->GetCreatureTemplate())->InhabitType |= INHABIT_AIR;
++                //me->AddUnitMovementFlag(MOVEMENTFLAG_HOVER);
++                me->SetCanFly(true);
++                me->SetDisableGravity(true);
++                me->SetSpeed(MOVE_FLIGHT, master->GetSpeedRate(MOVE_FLIGHT) * 1.37f);
++                me->SetSpeed(MOVE_RUN, master->GetSpeedRate(MOVE_FLIGHT) * 1.37f);
++            }
++            else
++                me->SetSpeed(MOVE_RUN, master->GetSpeedRate(MOVE_RUN) * 1.25f);
++        }
++
 +        //update stats
 +        if (auraname == SPELL_AURA_MOD_STAT)
 +        {
@@ -4369,7 +4392,7 @@ index 0000000..5f1c526
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..9b95e0e
+index 0000000..8f29c3d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
 @@ -0,0 +1,372 @@
@@ -4420,6 +4443,7 @@ index 0000000..9b95e0e
 +  //3) Pet/Special
 +    //THREAT   /*Tank Class Passive*/     = 57339,//+43% threat
 +    BOR      /*Blood of Rhino - pet*/   = 53482,//rank 2 +40% healing taken
++    BOAR     /*Boar's Speed - pet*/     = 19596,//rank 1 +30% movement speed
 +    //RCP      /*Rogue Class Passive*/    = 21184,//-27% threat caused
 +    DEFENSIVE_STANCE_PASSIVE            = 7376, //+ 400% threat 10% damage reduction
 +//COMMON GOSSIPS
@@ -4494,6 +4518,7 @@ index 0000000..9b95e0e
 +        bool IsInBotParty(Unit* unit) const;
 +        bool CanBotAttack(Unit* target, int8 byspell = 0) const;
 +        bool InDuel(Unit* target) const;
++        CommandStates GetBotCommandState() const { return m_botCommandState; }
 +        void ApplyBotDamageMultiplierMelee(uint32& damage, CalcDamageInfo& damageinfo) const;
 +        void ApplyBotDamageMultiplierMelee(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool& crit) const;
 +        void ApplyBotDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool& crit) const;
@@ -4578,8 +4603,6 @@ index 0000000..9b95e0e
 +        static inline uint8 GetManaPCT(Unit* hTarget) { if (!hTarget || hTarget->isDead() || hTarget->getPowerType() != POWER_MANA) return 100; return (hTarget->GetPower(POWER_MANA)*100/(hTarget->GetMaxPower(POWER_MANA) + 1)); }
 +
 +        Unit* getTarget(bool byspell, bool ranged, bool &reset) const;
-+
-+        CommandStates GetBotCommandState() const { return m_botCommandState; }
 +
 +        typedef std::set<Unit*> AttackerSet;
 +
@@ -6309,10 +6332,10 @@ index 0000000..5c02c12
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_mage_ai.cpp b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 new file mode 100644
-index 0000000..394dabb
+index 0000000..5a09dd4
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
-@@ -0,0 +1,973 @@
+@@ -0,0 +1,974 @@
 +#include "bot_ai.h"
 +#include "Group.h"
 +#include "Player.h"
@@ -6599,7 +6622,7 @@ index 0000000..394dabb
 +                return;
 +            }
 +            //nova //TODO: SEPARATE
-+            u = me->SelectNearestTarget(7);
++            u = me->SelectNearestTarget(6.3f);
 +            if (NOVA && Nova_cd <= diff && u && Rand() < 75 && !CCed(u, true) && IsInBotParty(u->GetVictim()))
 +            {
 +                if (doCast(me, NOVA))
@@ -6631,7 +6654,7 @@ index 0000000..394dabb
 +            }
 +            //dragon's breath
 +            if (DRAGONBREATH && DragonBreath_cd <= diff && GC_Timer <= diff && !CCed(opponent, true) &&
-+                (me->HasInArc(M_PI*0.75f, opponent) ||
++                ((me->HasInArc(M_PI*0.75f, opponent) && dist < 7) ||
 +                (u && u != opponent && me->HasInArc(M_PI*0.75f, u) && IsInBotParty(u->GetVictim()))) &&
 +                doCast(/*opponent*/me, DRAGONBREATH))
 +            {
@@ -6750,7 +6773,7 @@ index 0000000..394dabb
 +        {
 +            if (GetBotCommandState() == COMMAND_STAY || me->IsMounted()) return;
 +            if (!BLINK || Blink_cd > diff || me->getLevel() < 20 || IsCasting()) return;
-+            if (!me->IsInCombat() && me->GetExactDist(master) > std::max(float(master->GetBotFollowDist()), 25.f) &&
++            if (!me->IsInCombat() && me->GetExactDist(master) > std::max(float(master->GetBotFollowDist()), 35.f) &&
 +                me->HasInArc(M_PI*0.75f, master))
 +            {
 +                temptimer = GC_Timer;
@@ -6974,12 +6997,13 @@ index 0000000..394dabb
 +        {
 +            if (spell->GetSchoolMask() & SPELL_SCHOOL_MASK_FROST)
 +            {
-+                //if (!target->IsFriendlyTo(me))
-+                if (target != me)
-+                {
-+                    if (urand(0,100) < 25)
-+                        me->AddAura(FREEZE_TRIGGERED, target);
-+                }
++                //zzzOLD Frostbite (deleted, using Freeze (6 sec duration) instead)
++                //only apply on creatures
++                if (me->getLevel() >= 10 && target != me && !target->ToPlayer())
++                    if (SpellInfo const* freezeInfo = sSpellMgr->GetSpellInfo(FREEZE_TRIGGERED))
++                        if (!target->IsImmunedToSpell(freezeInfo))
++                            if (urand(0,100) < std::min<uint8>(25, me->getLevel() - 9))
++                                me->AddAura(FREEZE_TRIGGERED, target);
 +            }
 +
 +            //if (aftercastTargetGuid != 0)
@@ -7288,10 +7312,10 @@ index 0000000..394dabb
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 new file mode 100644
-index 0000000..c139244
+index 0000000..c254a4a
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
-@@ -0,0 +1,1049 @@
+@@ -0,0 +1,1039 @@
 +#include "bot_ai.h"
 +#include "Group.h"
 +#include "Player.h"
@@ -7383,25 +7407,15 @@ index 0000000..c139244
 +                    if (app->IsPositive()) continue;
 +                SpellInfo const* spellInfo = aura->GetSpellInfo();
 +                if (spellInfo->AttributesEx & SPELL_ATTR0_HIDDEN_CLIENTSIDE) continue;
-+                if (me->getLevel() >= 40 && (spellInfo->GetAllEffectsMechanicMask() & (1<<MECHANIC_STUN)))
-+                {
-+                    if (doCast(target, HOF))
-+                    {
-+                        if (target->ToCreature())
-+                            HOF_Timer = 10000; //10 sec for selfcast after stun
-+                        else
-+                            HOF_Timer = 15000; //improved
-+                        HOFGuid = target->GetGUID();
-+                        return true;
-+                    }
-+                }
-+       /*else */if ((spellInfo->GetAllEffectsMechanicMask() & (1<<MECHANIC_SNARE)) ||
++
++                if ((spellInfo->GetAllEffectsMechanicMask() & (1<<MECHANIC_SNARE)) ||
 +                    (spellInfo->GetAllEffectsMechanicMask() & (1<<MECHANIC_ROOT)))
 +                {
-+                    uint32 spell = (spellInfo->Dispel == DISPEL_MAGIC ||
++                    uint32 spell = CLEANSE &&
++                        (spellInfo->Dispel == DISPEL_MAGIC ||
 +                        spellInfo->Dispel == DISPEL_DISEASE ||
-+                        spellInfo->Dispel == DISPEL_POISON) &&
-+                        CLEANSE ? CLEANSE : HOF;
++                        spellInfo->Dispel == DISPEL_POISON) ? CLEANSE : HOF;
++
 +                    if (doCast(target, spell))
 +                    {
 +                        if (spell == HOF)
@@ -11295,7 +11309,7 @@ index 0000000..dfe2e59
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warrior_ai.cpp b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 new file mode 100644
-index 0000000..7c81d48
+index 0000000..0a02e2c
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 @@ -0,0 +1,1145 @@
@@ -12145,9 +12159,9 @@ index 0000000..7c81d48
 +            if (damageType == DIRECT_DAMAGE || damageType == SPELL_DIRECT_DAMAGE)
 +            {
 +                //zzzOLD Sword Specialization: 1 - 15% chance
-+                if (swordspectimer == 0 && me->getLevel() >= 30)
++                if (swordspectimer == 0 && me->getLevel() >= 15)
 +                {
-+                    if (urand(0,100) < std::min<uint8>(15, me->getLevel() - 29))
++                    if (urand(0,100) < std::min<uint8>(15, me->getLevel() - 14))
 +                        swordspectimer = 1000;
 +
 +                    if (swordspectimer > 0)
@@ -13561,7 +13575,7 @@ index c8d1a94..a6207b2 100644
    ${CMAKE_CURRENT_SOURCE_DIR}/AI/SmartScripts
    ${CMAKE_CURRENT_SOURCE_DIR}/AuctionHouse
 diff --git a/src/server/game/Entities/Creature/Creature.cpp b/src/server/game/Entities/Creature/Creature.cpp
-index 779cffa..4fd42ab 100644
+index 779cffa..75ace51 100644
 --- a/src/server/game/Entities/Creature/Creature.cpp
 +++ b/src/server/game/Entities/Creature/Creature.cpp
 @@ -54,6 +54,9 @@
@@ -13597,7 +13611,19 @@ index 779cffa..4fd42ab 100644
  
      m_corpseRemoveTime = time(NULL);
      setDeathState(DEAD);
-@@ -2533,3 +2545,131 @@ void Creature::SetDisplayId(uint32 modelId)
+@@ -443,6 +455,11 @@ bool Creature::UpdateEntry(uint32 Entry, uint32 team, const CreatureData* data)
+ 
+ void Creature::Update(uint32 diff)
+ {
++    //npcbot: update helper
++    if (!m_canUpdate && bot_AI)
++        return;
++    //end npcbot
++
+     if (IsAIEnabled && TriggerJustRespawned)
+     {
+         TriggerJustRespawned = false;
+@@ -2533,3 +2550,135 @@ void Creature::SetDisplayId(uint32 modelId)
          SetFloatValue(UNIT_FIELD_COMBATREACH, minfo->combat_reach * GetFloatValue(OBJECT_FIELD_SCALE_X));
      }
  }
@@ -13667,6 +13693,10 @@ index 779cffa..4fd42ab 100644
 +    if (bot_AI && IsAIEnabled)
 +        bot_AI->SetBotCommandState(st, force);
 +}
++CommandStates Creature::GetBotCommandState() const
++{
++    return bot_AI ? bot_AI->GetBotCommandState() : COMMAND_ABANDON;
++}
 +//Bot damage mods
 +void Creature::ApplyBotDamageMultiplierMelee(uint32& damage, CalcDamageInfo& damageinfo) const
 +{
@@ -13730,7 +13760,7 @@ index 779cffa..4fd42ab 100644
 +    if (bot_AI) bot_AI->OnBotSummon(summon);
 +}
 diff --git a/src/server/game/Entities/Creature/Creature.h b/src/server/game/Entities/Creature/Creature.h
-index 13ed277..c78f6ef 100644
+index 13ed277..7537cf6 100644
 --- a/src/server/game/Entities/Creature/Creature.h
 +++ b/src/server/game/Entities/Creature/Creature.h
 @@ -37,6 +37,11 @@ class Player;
@@ -13745,7 +13775,7 @@ index 13ed277..c78f6ef 100644
  enum CreatureFlagsExtra
  {
      CREATURE_FLAG_EXTRA_INSTANCE_BIND   = 0x00000001,       // creature kill bind instance with killer and killer's group
-@@ -692,6 +697,33 @@ class Creature : public Unit, public GridObject<Creature>, public MapCreature
+@@ -692,6 +697,35 @@ class Creature : public Unit, public GridObject<Creature>, public MapCreature
  
          bool m_isTempWorldObject; //true when possessed
  
@@ -13768,18 +13798,20 @@ index 13ed277..c78f6ef 100644
 +        bot_pet_ai* GetBotPetAI() const;
 +        void InitBotAI(bool asPet = false);
 +        void SetBotCommandState(CommandStates st, bool force = false);
++        CommandStates GetBotCommandState() const;
 +        void ApplyBotDamageMultiplierMelee(uint32& damage, CalcDamageInfo& damageinfo) const;
 +        void ApplyBotDamageMultiplierMelee(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool& crit) const;
 +        void ApplyBotDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool& crit) const;
 +        void ApplyBotDamageMultiplierEffect(SpellInfo const* spellInfo, uint8 effect_index, float &value) const;
 +        void SetBotShouldUpdateStats();
 +        void OnBotSummon(Creature* summon);
++        void SetCanUpdate(bool can) { m_canUpdate = can; }
 +        //Bot commands
 +
      protected:
          bool CreateFromProto(uint32 guidlow, uint32 Entry, uint32 vehId, uint32 team, const CreatureData* data = NULL);
          bool InitEntry(uint32 entry, uint32 team=ALLIANCE, const CreatureData* data=NULL);
-@@ -742,6 +774,14 @@ class Creature : public Unit, public GridObject<Creature>, public MapCreature
+@@ -742,6 +776,15 @@ class Creature : public Unit, public GridObject<Creature>, public MapCreature
          bool IsInvisibleDueToDespawn() const;
          bool CanAlwaysSee(WorldObject const* obj) const;
      private:
@@ -13789,6 +13821,7 @@ index 13ed277..c78f6ef 100644
 +        Creature* m_bots_pet;
 +        bot_ai* bot_AI;
 +        uint8 m_bot_class;
++        bool m_canUpdate;
 +        //end bot system
 +
          void ForcedDespawn(uint32 timeMSToDespawn = 0);
@@ -13843,7 +13876,7 @@ index e8bbf09..a0d209a 100644
  
      return summon;
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index 35d1d15..4c8305b 100644
+index 35d1d15..ef82dd4 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -81,6 +81,10 @@
@@ -13876,7 +13909,7 @@ index 35d1d15..4c8305b 100644
          // 4.2.3. Calculate expansion penalty
          if (_victim->GetTypeId() == TYPEID_UNIT && player->getLevel() >= GetMaxLevelForExpansion(_victim->ToCreature()->GetCreatureTemplate()->expansion))
              xp = CalculatePct(xp, 10); // Players get only 10% xp for killing creatures of lower expansion levels than himself
-@@ -863,6 +879,30 @@ Player::Player(WorldSession* session): Unit(true), phaseMgr(this)
+@@ -863,6 +879,31 @@ Player::Player(WorldSession* session): Unit(true), phaseMgr(this)
  
      m_ChampioningFaction = 0;
  
@@ -13884,6 +13917,7 @@ index 35d1d15..4c8305b 100644
 +    _botHlpr = NULL;
 +    //Npcbot
 +    m_botTimer = 500;
++    m_botCreateTimer = 500;
 +    m_bot = NULL;
 +    m_botTankGuid = 0;
 +    m_enableNpcBots = sConfigMgr->GetBoolDefault("Bot.EnableNpcBots", true);
@@ -13907,7 +13941,7 @@ index 35d1d15..4c8305b 100644
      for (uint8 i = 0; i < MAX_POWERS_PER_CLASS; ++i)
          m_powerFraction[i] = 0;
  
-@@ -923,6 +963,16 @@ Player::~Player()
+@@ -923,6 +964,16 @@ Player::~Player()
  
      ClearResurrectRequestData();
  
@@ -13924,7 +13958,7 @@ index 35d1d15..4c8305b 100644
      sWorld->DecreasePlayerCount();
  }
  
-@@ -1840,6 +1890,17 @@ void Player::Update(uint32 p_time)
+@@ -1840,6 +1891,17 @@ void Player::Update(uint32 p_time)
      //because we don't want player's ghost teleported from graveyard
      if (IsHasDelayedTeleport() && IsAlive())
          TeleportTo(m_teleport_dest, m_teleport_options);
@@ -13942,7 +13976,7 @@ index 35d1d15..4c8305b 100644
  }
  
  void Player::setDeathState(DeathState s)
-@@ -2229,6 +2290,13 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
+@@ -2229,6 +2291,13 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
          if (!sMapMgr->CanPlayerEnter(mapid, this, false))
              return false;
  
@@ -13956,17 +13990,23 @@ index 35d1d15..4c8305b 100644
          //I think this always returns true. Correct me if I am wrong.
          // If the map is not created, assume it is possible to enter it.
          // It will be created in the WorldPortAck.
-@@ -2486,6 +2554,768 @@ void Player::RemoveFromWorld()
+@@ -2486,6 +2555,819 @@ void Player::RemoveFromWorld()
      }
  }
  
 +void Player::RefreshBot(uint32 diff)
 +{
-+    if (m_botTimer > 0) return;
-+    m_botTimer = 100 + IsInFlight()*3000;//x2 ms //temp hack
-+    if (!HaveBot()) return;
++    if (m_botTimer > 0)
++        return;
 +
-+    //addition for revive timer (maybe we should check whole party?)
++    if (IsInFlight())
++        m_botTimer = 3000;
++
++    if (!HaveBot())
++        return;
++
++    //BOT REVIVE SUPPORT part 2
++    //Revive timer condition (maybe we should check whole party?)
 +    bool partyInCombat = IsInCombat();
 +    if (!partyInCombat)
 +    {
@@ -13995,9 +14035,8 @@ index 35d1d15..4c8305b 100644
 +    {
 +        uint64 guid = m_botmap[i]->m_guid;
 +        m_bot = m_botmap[i]->m_creature;
-+        if (!m_bot || !m_bot->IsInWorld())
-+            continue;
-+        //BOT REVIVE SUPPORT
++
++        //BOT REVIVE SUPPORT part 2
 +        //Do not allow bot to be revived if master is in battle
 +        if (!partyInCombat)
 +        {
@@ -14009,48 +14048,94 @@ index 35d1d15..4c8305b 100644
 +            else if (m_botmap[i]->m_reviveTimer > 0)
 +                m_botmap[i]->m_reviveTimer = 0;
 +        }
-+        if ((m_bot->isDead() || !m_bot->IsAlive()) && IsAlive() && !IsInCombat() && !InArena() && !IsInFlight() &&
-+            !HasFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_FEIGN_DEATH) &&
-+            m_botmap[i]->m_reviveTimer == 0 &&
-+            !HasInvisibilityAura() && !HasStealthAura())
-+        {
-+            CreateBot(0, 0, 0, false, true);//revive
++
++        if (!m_bot || !m_bot->IsInWorld())
 +            continue;
++
++        //!!!BOT UPDATE HELPER!!!
++        m_bot->SetCanUpdate(true);
++        m_bot->IsAIEnabled = true;
++
++        //BOT REVIVE SUPPORT part 3
++        //Revive bot if possible
++        if (m_botmap[i]->m_reviveTimer == 0)
++        {
++            if (m_bot->isDead() && IsAlive() && !IsInCombat() && !InArena() && !IsInFlight() &&
++                !HasFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_FEIGN_DEATH) &&
++                !HasInvisibilityAura() && !HasStealthAura())
++            {
++                CreateBot(0, 0, 0, false, true);//revive
++                continue;
++            }
++
++            //delay next attempt
++            m_botmap[i]->m_reviveTimer = 500;
 +        }
++
 +        //BOT MUST DIE SUPPORT
 +        if (IsInFlight() || !GetGroup() || !GetGroup()->IsMember(m_bot->GetGUID()))//even if bot is dead
 +        {
 +            RemoveBot(guid, !IsInFlight());
 +            continue;
 +        }
-+        //TELEPORT/OUTRUN SUPPORT
-+        if (!IsInFlight() && IsAlive() && (m_bot->IsAlive() || m_bot->GetMapId() != GetMapId()))
++
++        //TELEPORT SUPPORT
++        if (!IsInFlight() && IsAlive() && (m_bot->IsAlive() || m_bot->GetMapId() != GetMapId() || RestrictBots()))
 +        {
-+            float maxdist;
-+            if (GetMap()->IsDungeon())
-+                maxdist = sWorld->GetMaxVisibleDistanceInInstances();
-+            else if (GetMap()->IsBattlegroundOrArena())
-+                maxdist = sWorld->GetMaxVisibleDistanceInBGArenas();
-+            else
-+                maxdist = sWorld->GetMaxVisibleDistanceOnContinents();
-+
-+            maxdist += 20.0f; //allow player to recall it by moving back
-+
-+            if (abs(m_bot->GetPositionX() - GetPositionX()) > maxdist ||
-+                abs(m_bot->GetPositionY() - GetPositionY()) > maxdist ||
-+                m_bot->GetMapId() != GetMapId() || RestrictBots())
++            if (m_bot->GetMapId() != GetMapId() || RestrictBots())
 +            {
 +                RemoveBot(guid);
 +                continue;
 +            }
++            else if (m_bot->GetBotCommandState() != COMMAND_STAY)
++            {
++                if (GetDistance(m_bot) > SIZE_OF_GRIDS)
++                {
++                    uint32 newphase = PHASEMASK_NORMAL;
++                    uint32 oldphase = m_bot->GetPhaseMask();
++                    uint32 phase = phaseMgr.GetCurrentPhasemask();
++
++                    if (phase != uint32(PHASEMASK_ANYWHERE))
++                        for (uint8 i = 0; i != 5 && (phase & newphase); ++i)
++                            newphase *= 2;
++
++                    m_bot->SetPhaseMask(newphase, true);
++                    m_bot->NearTeleportTo(GetPositionX(), GetPositionY(), GetPositionZ(), GetOrientation());
++                    m_bot->SetPhaseMask(oldphase, true);
++                }
++            }
 +        }
++
++        //Update bots manually and prevent from normal updates
++        //This will update bot's AI
++        m_bot->Update(diff);
++        m_bot->SetCanUpdate(false);
++
++        //Update bot's pet manually and prevent from normal updates
++        //This will update pet's AI
++        if (Creature* pet = m_bot->GetBotsPet())
++        {
++            pet->SetCanUpdate(true);
++            pet->IsAIEnabled = true;
++            pet->Update(diff);
++            pet->SetCanUpdate(false);
++        }
++
 +        m_bot = NULL;
 +    }//end for botmap
++
 +    //BOT CREATION/RECREATION SUPPORT
-+    if (!IsInFlight() && IsAlive()/* && !GetTransport()*/ && GetBotMustBeCreated() && !RestrictBots())
-+        for (uint8 pos = 0; pos != GetMaxNpcBots(); ++pos)
-+            if (m_botmap[pos]->m_entry != 0 && m_botmap[pos]->m_guid == 0)
-+                CreateBot(m_botmap[pos]->m_entry, m_botmap[pos]->m_race, m_botmap[pos]->m_class, m_botmap[pos]->tank);
++    if (m_botCreateTimer > diff)
++        m_botCreateTimer -= diff;
++    else
++    {
++        m_botCreateTimer = 250;
++
++        if (!IsInFlight() && IsAlive() && !IsInCombat() && GetBotMustBeCreated() && !RestrictBots())
++            for (uint8 pos = 0; pos != GetMaxNpcBots(); ++pos)
++                if (m_botmap[pos]->m_entry != 0 && m_botmap[pos]->m_guid == 0)
++                    CreateBot(m_botmap[pos]->m_entry, m_botmap[pos]->m_race, m_botmap[pos]->m_class, m_botmap[pos]->tank);
++    }
 +}
 +
 +void Player::SetBotMustBeCreated(uint32 m_entry, uint8 m_race, uint8 m_class, bool istank)
@@ -14725,7 +14810,7 @@ index 35d1d15..4c8305b 100644
  void Player::RegenerateAll()
  {
      //if (m_regenTimer <= 500)
-@@ -3010,6 +3840,26 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
+@@ -3010,6 +3892,26 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
  {
      if (group)
      {
@@ -14752,7 +14837,7 @@ index 35d1d15..4c8305b 100644
          group->RemoveMember(guid, method, kicker, reason);
          group = NULL;
      }
-@@ -5037,6 +5887,13 @@ void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmC
+@@ -5037,6 +5939,13 @@ void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmC
              stmt->setUInt32(0, guid);
              trans->Append(stmt);
  
@@ -14767,7 +14852,7 @@ index 35d1d15..4c8305b 100644
              break;
          }
 diff --git a/src/server/game/Entities/Player/Player.h b/src/server/game/Entities/Player/Player.h
-index 8a1f09b..ab2e474 100644
+index 8a1f09b..1709d1f 100644
 --- a/src/server/game/Entities/Player/Player.h
 +++ b/src/server/game/Entities/Player/Player.h
 @@ -57,6 +57,11 @@ class SpellCastTargets;
@@ -14822,7 +14907,7 @@ index 8a1f09b..ab2e474 100644
      protected:
          // Gamemaster whisper whitelist
          WhisperListContainer WhisperList;
-@@ -2806,6 +2844,31 @@ class Player : public Unit, public GridObject<Player>
+@@ -2806,6 +2844,32 @@ class Player : public Unit, public GridObject<Player>
          CUFProfile* _CUFProfiles[MAX_CUF_PROFILES];
  
      private:
@@ -14846,6 +14931,7 @@ index 8a1f09b..ab2e474 100644
 +        bool m_limitNpcBotsRaids;
 +        uint32 m_NpcBotsCost;
 +        uint32 m_botTimer;
++        uint32 m_botCreateTimer;
 +        NpcBotMap* m_botmap[MAX_NPCBOTS];
 +        /*********************************************************/
 +        /***                END BOT SYSTEM                     ***/
