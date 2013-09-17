@@ -1,6 +1,6 @@
-From bbf87cc544115129c65d6522c5cadb63c67bff05 Mon Sep 17 00:00:00 2001
+From 92210725fe166e935d58a09062a7764600137e56 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Mon, 16 Sep 2013 20:15:08 +0700
+Date: Tue, 17 Sep 2013 13:17:19 +0700
 Subject: [PATCH] NPCBots_434
 
 ---
@@ -24,7 +24,7 @@ Subject: [PATCH] NPCBots_434
  src/server/game/AI/NpcBots/bothelper.h             |   32 +
  src/server/game/Accounts/RBAC.h                    |   14 +
  src/server/game/CMakeLists.txt                     |    1 +
- src/server/game/Entities/Creature/Creature.cpp     |  173 +
+ src/server/game/Entities/Creature/Creature.cpp     |  174 +
  src/server/game/Entities/Creature/Creature.h       |   43 +
  .../game/Entities/Creature/TemporarySummon.cpp     |    8 +
  src/server/game/Entities/Object/Object.cpp         |   11 +
@@ -47,7 +47,7 @@ Subject: [PATCH] NPCBots_434
  .../Database/Implementation/WorldDatabase.cpp      |    4 +
  .../shared/Database/Implementation/WorldDatabase.h |    4 +
  src/server/worldserver/worldserver.conf.dist       |  106 +
- 43 files changed, 15157 insertions(+), 0 deletions(-)
+ 43 files changed, 15158 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/auth_rbac.sql
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world_bots.sql
@@ -13635,7 +13635,7 @@ index c8d1a94..a6207b2 100644
    ${CMAKE_CURRENT_SOURCE_DIR}/AI/SmartScripts
    ${CMAKE_CURRENT_SOURCE_DIR}/AuctionHouse
 diff --git a/src/server/game/Entities/Creature/Creature.cpp b/src/server/game/Entities/Creature/Creature.cpp
-index a5c9a3f..30a5cd4 100644
+index a5c9a3f..1443a83 100644
 --- a/src/server/game/Entities/Creature/Creature.cpp
 +++ b/src/server/game/Entities/Creature/Creature.cpp
 @@ -54,6 +54,9 @@
@@ -13648,7 +13648,7 @@ index a5c9a3f..30a5cd4 100644
  TrainerSpell const* TrainerSpellData::Find(uint32 spell_id) const
  {
      TrainerSpellMap::const_iterator itr = spellList.find(spell_id);
-@@ -165,6 +168,13 @@ m_creatureInfo(NULL), m_creatureData(NULL), m_path_id(0), m_formation(NULL)
+@@ -165,6 +168,14 @@ m_creatureInfo(NULL), m_creatureData(NULL), m_path_id(0), m_formation(NULL)
      ResetLootMode(); // restore default loot mode
      TriggerJustRespawned = false;
      m_isTempWorldObject = false;
@@ -13659,10 +13659,11 @@ index a5c9a3f..30a5cd4 100644
 +    m_bots_pet = NULL;
 +    m_bot_class = CLASS_NONE;
 +    bot_AI = NULL;
++    m_canUpdate = true;
  }
  
  Creature::~Creature()
-@@ -233,6 +243,8 @@ void Creature::RemoveCorpse(bool setSpawnTime)
+@@ -233,6 +244,8 @@ void Creature::RemoveCorpse(bool setSpawnTime)
  {
      if (getDeathState() != CORPSE)
          return;
@@ -13671,7 +13672,7 @@ index a5c9a3f..30a5cd4 100644
  
      m_corpseRemoveTime = time(NULL);
      setDeathState(DEAD);
-@@ -443,6 +455,11 @@ bool Creature::UpdateEntry(uint32 Entry, uint32 team, const CreatureData* data)
+@@ -443,6 +456,11 @@ bool Creature::UpdateEntry(uint32 Entry, uint32 team, const CreatureData* data)
  
  void Creature::Update(uint32 diff)
  {
@@ -13683,7 +13684,7 @@ index a5c9a3f..30a5cd4 100644
      if (IsAIEnabled && TriggerJustRespawned)
      {
          TriggerJustRespawned = false;
-@@ -2538,3 +2555,159 @@ void Creature::SetDisplayId(uint32 modelId)
+@@ -2538,3 +2556,159 @@ void Creature::SetDisplayId(uint32 modelId)
          SetFloatValue(UNIT_FIELD_COMBATREACH, minfo->combat_reach * GetObjectScale());
      }
  }
@@ -13960,7 +13961,7 @@ index 0a5eb82..0346d43 100644
  
      return summon;
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index db22cce..8778a77 100644
+index db22cce..7721cb1 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -80,6 +80,10 @@
@@ -14185,7 +14186,7 @@ index db22cce..8778a77 100644
 +
 +                    m_bot->SetPhaseMask(newphase, true);
 +                    m_bot->NearTeleportTo(GetPositionX(), GetPositionY(), GetPositionZ(), GetOrientation());
-+                    m_bot->SetPhaseMask(oldphase, true);
++                    //m_bot->SetPhaseMask(oldphase, true);
 +                }
 +            }
 +        }
@@ -15719,7 +15720,7 @@ index 01f059a..72f743a 100644
 +    PrepareStatement(CHAR_UPD_NPCBOT_TANK, "UPDATE character_npcbot SET istank = ? WHERE owner = ? AND entry = ?", CONNECTION_ASYNC);
  }
 diff --git a/src/server/shared/Database/Implementation/CharacterDatabase.h b/src/server/shared/Database/Implementation/CharacterDatabase.h
-index abe1f07..75d38db 100755
+index abe1f07..75d38db 100644
 --- a/src/server/shared/Database/Implementation/CharacterDatabase.h
 +++ b/src/server/shared/Database/Implementation/CharacterDatabase.h
 @@ -559,6 +559,13 @@ enum CharacterDatabaseStatements
