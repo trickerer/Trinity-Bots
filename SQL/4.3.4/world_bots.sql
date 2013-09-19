@@ -485,6 +485,12 @@ insert into `creature_equip_template` (`entry`, `id`, `itemEntry1`, `itemEntry2`
 insert into `creature_equip_template` (`entry`, `id`, `itemEntry1`, `itemEntry2`, `itemEntry3`) values('70235','1','29175','18826','0');
 insert into `creature_equip_template` (`entry`, `id`, `itemEntry1`, `itemEntry2`, `itemEntry3`) values('70236','1','31289','0','0');
 
+-- -- -- Update 18.09.13 - Equips for shamans
+-- Orcs and Draenei. Mainhand: Cudgel of Furious Justice, Offhand: Azure-Shield of Coldarra
+UPDATE `creature_equip_template` SET `itemEntry1` = '50050', `itemEntry2` = '29266', `itemEntry3` = '0' WHERE `entry` IN (SELECT entry FROM `creature_template` WHERE (`entry` BETWEEN '70000' AND '70238') AND `trainer_class` = '7' AND (`trainer_race` = '2' OR `trainer_race` = '11'));
+-- Taurens and some Draenei. De-Raged Waraxe (Two-Hand)
+UPDATE `creature_equip_template` SET `itemEntry1` = '41816', `itemEntry2` = '0', `itemEntry3` = '0' WHERE `entry` IN (SELECT entry FROM `creature_template` WHERE (`entry` BETWEEN '70000' AND '70238') AND `trainer_class` = '7' AND (`trainer_race` = '6' OR `entry` IN (70218,70222,70223,70233)));
+
 
 
 -- Customize section

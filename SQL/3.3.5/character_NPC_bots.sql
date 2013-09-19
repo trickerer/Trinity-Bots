@@ -7,6 +7,3 @@ CREATE TABLE `character_npcbot` (
   `istank` tinyint(3) default NULL,
   PRIMARY KEY  (`owner`,`entry`)
 )  ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
-
-
