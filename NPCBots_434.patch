@@ -1,35 +1,36 @@
-From 92210725fe166e935d58a09062a7764600137e56 Mon Sep 17 00:00:00 2001
+From c5ef1248408b718ecbc7cada4a0736dcd952e493 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Tue, 17 Sep 2013 13:17:19 +0700
+Date: Thu, 19 Sep 2013 11:54:58 +0700
 Subject: [PATCH] NPCBots_434
 
 ---
  sql/Bots/auth_rbac.sql                             |   27 +
  sql/Bots/character_NPC_bots.sql                    |    9 +
- sql/Bots/world_bots.sql                            |  522 +++
- src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  456 +++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 3315 ++++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |  372 +++
- src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1210 +++++++
+ sql/Bots/world_bots.sql                            |  528 ++++
+ src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  459 +++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 3330 ++++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |  366 +++
+ src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1211 +++++++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  340 ++
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  974 ++++++
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      | 1039 ++++++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       | 1007 ++++++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  905 ++++++
- src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  474 +++
+ src/server/game/AI/NpcBots/bot_shaman_ai.cpp       | 1344 ++++++++
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  542 ++++
- src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1145 +++++++
+ src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1142 +++++++
  src/server/game/AI/NpcBots/botcommands.cpp         |  632 ++++
  src/server/game/AI/NpcBots/bothelper.cpp           |  421 +++
  src/server/game/AI/NpcBots/bothelper.h             |   32 +
  src/server/game/Accounts/RBAC.h                    |   14 +
  src/server/game/CMakeLists.txt                     |    1 +
- src/server/game/Entities/Creature/Creature.cpp     |  174 +
- src/server/game/Entities/Creature/Creature.h       |   43 +
+ src/server/game/Entities/Creature/Creature.cpp     |  180 ++
+ src/server/game/Entities/Creature/Creature.h       |   44 +
  .../game/Entities/Creature/TemporarySummon.cpp     |    8 +
  src/server/game/Entities/Object/Object.cpp         |   11 +
- src/server/game/Entities/Player/Player.cpp         |  909 ++++++
+ src/server/game/Entities/Player/Player.cpp         |  908 ++++++
  src/server/game/Entities/Player/Player.h           |   64 +
+ src/server/game/Entities/Totem/Totem.cpp           |    7 +
  src/server/game/Entities/Unit/StatSystem.cpp       |    4 +
  src/server/game/Entities/Unit/Unit.cpp             |  224 ++
  src/server/game/Groups/Group.cpp                   |   12 +
@@ -47,7 +48,7 @@ Subject: [PATCH] NPCBots_434
  .../Database/Implementation/WorldDatabase.cpp      |    4 +
  .../shared/Database/Implementation/WorldDatabase.h |    4 +
  src/server/worldserver/worldserver.conf.dist       |  106 +
- 43 files changed, 15158 insertions(+), 0 deletions(-)
+ 44 files changed, 16057 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/auth_rbac.sql
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world_bots.sql
@@ -117,10 +118,10 @@ index 0000000..3e53c46
 +)  ENGINE=InnoDB DEFAULT CHARSET=utf8;
 diff --git a/sql/Bots/world_bots.sql b/sql/Bots/world_bots.sql
 new file mode 100644
-index 0000000..eb7cd06
+index 0000000..6949c8a
 --- /dev/null
 +++ b/sql/Bots/world_bots.sql
-@@ -0,0 +1,522 @@
+@@ -0,0 +1,528 @@
 +
 +-- GENERAL --
 +
@@ -608,6 +609,12 @@ index 0000000..eb7cd06
 +insert into `creature_equip_template` (`entry`, `id`, `itemEntry1`, `itemEntry2`, `itemEntry3`) values('70235','1','29175','18826','0');
 +insert into `creature_equip_template` (`entry`, `id`, `itemEntry1`, `itemEntry2`, `itemEntry3`) values('70236','1','31289','0','0');
 +
++-- -- -- Update 18.09.13 - Equips for shamans
++-- Orcs and Draenei. Mainhand: Cudgel of Furious Justice, Offhand: Azure-Shield of Coldarra
++UPDATE `creature_equip_template` SET `itemEntry1` = '50050', `itemEntry2` = '29266', `itemEntry3` = '0' WHERE `entry` IN (SELECT entry FROM `creature_template` WHERE (`entry` BETWEEN '70000' AND '70238') AND `trainer_class` = '7' AND (`trainer_race` = '2' OR `trainer_race` = '11'));
++-- Taurens and some Draenei. De-Raged Waraxe (Two-Hand)
++UPDATE `creature_equip_template` SET `itemEntry1` = '41816', `itemEntry2` = '0', `itemEntry3` = '0' WHERE `entry` IN (SELECT entry FROM `creature_template` WHERE (`entry` BETWEEN '70000' AND '70238') AND `trainer_class` = '7' AND (`trainer_race` = '6' OR `entry` IN (70218,70222,70223,70233)));
++
 +
 +
 +-- Customize section
@@ -645,10 +652,10 @@ index 0000000..eb7cd06
 +UPDATE `creature_template` SET exp:=3, dmg_multiplier:=1.0, attackpower:=0, mindmg:= 2, maxdmg:= 3, minlevel:=85, maxlevel:=85, baseattacktime:=2000, rangeattacktime:=2000, minrangedmg:=0, maxrangedmg:=0, rangedattackpower:=0, dynamicflags:=0, speed_walk:=1.2, speed_run:=1.3, InhabitType:=3, health_mod:=1, mana_mod:=1, armor_mod:=1, mechanic_immune_mask:=1, flags_extra:=@FLAGS_EX, AIName='' where entry between 70001 and 70239 and name='Voidwalker';
 diff --git a/src/server/game/AI/NpcBots/bot_GridNotifiers.h b/src/server/game/AI/NpcBots/bot_GridNotifiers.h
 new file mode 100644
-index 0000000..580fcf0
+index 0000000..878b52e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_GridNotifiers.h
-@@ -0,0 +1,456 @@
+@@ -0,0 +1,459 @@
 +/*
 +Name: bot_GridNotifiers
 +%Complete: 91+
@@ -735,7 +742,9 @@ index 0000000..580fcf0
 +                    if (checksteal && (Info->AttributesEx4 & SPELL_ATTR4_NOT_STEALABLE)) continue;
 +                    AuraApplication* aurApp = aura->GetApplicationOfTarget(u->GetGUID());
 +                    if (aurApp && aurApp->IsPositive())
++                    {
 +                        return true;
++                    }
 +                }
 +            }
 +            return false;
@@ -801,18 +810,16 @@ index 0000000..580fcf0
 +            if (u->GetCreatureType() != CREATURE_TYPE_HUMANOID &&
 +                u->GetCreatureType() != CREATURE_TYPE_BEAST)
 +                return false;
-+            if (!u->getAttackers().empty())
++            if (me->GetDistance(u) < 6 || mytar->GetDistance(u) < 5 ||
++                (me->ToCreature()->GetBotClass() == CLASS_MAGE && u->GetHealthPct() < 70))
 +                return false;
 +            if (!u->InSamePhase(me))
 +                return false;
-+            if (me->GetDistance(u) < 6 || mytar->GetDistance(u) < 5 || u->GetHealthPct() < 70)
-+                return false;
-+            if (Group const* gr = me->ToCreature()->GetBotOwner()->GetGroup())
-+                if (!gr->IsMember(u->GetVictim()->GetGUID()))
-+                    return false;
 +            if (!u->isTargetableForAttack())
 +                return false;
 +            if (!u->IsVisible())
++                return false;
++            if (me->ToCreature()->GetBotClass() == CLASS_MAGE ? !u->getAttackers().empty() : u->getAttackers().size() > 1)
 +                return false;
 +            if (!u->IsHostileTo(me))
 +                return false;
@@ -828,7 +835,10 @@ index 0000000..580fcf0
 +                //u->HasAuraTypeWithAffectMask(SPELL_AURA_PERIODIC_DAMAGE, sSpellMgr->GetSpellInfo(20116)) || //consecration
 +                u->HasAuraType(SPELL_AURA_PERIODIC_DAMAGE))
 +                return false;
-+            if (!u->IsImmunedToSpell(sSpellMgr->GetSpellInfo(118)))//Polymorph rank 1
++
++            if (me->ToCreature()->GetBotClass() == CLASS_MAGE && !u->IsImmunedToSpell(sSpellMgr->GetSpellInfo(118)))//Polymorph
++                return true;
++            if (me->ToCreature()->GetBotClass() == CLASS_SHAMAN && !u->IsImmunedToSpell(sSpellMgr->GetSpellInfo(51514)))//Hex
 +                return true;
 +
 +            return false;
@@ -1013,7 +1023,7 @@ index 0000000..580fcf0
 +            if (u->IsPolymorphed() ||
 +                u->HasAura(51514)/*hex*/ ||
 +                u->HasAura(20066)/*repentance*/ ||
-+                u->HasAura(9484)/*shackle unddead*/)
++                u->HasAura(9484)/*shackle undead*/)
 +                return false;
 +            if (!u->IsImmunedToSpell(sSpellMgr->GetSpellInfo(m_spellId)))
 +                return true;
@@ -1031,7 +1041,7 @@ index 0000000..580fcf0
 +class CastingUnitCheck
 +{
 +    public:
-+        explicit CastingUnitCheck(Unit const* unit, float dist = 30, bool friendly = false, uint32 spell = 0) : me(unit), m_range(dist), m_friend(friendly), m_spell(spell) { if (!m_spell) return; }
++        explicit CastingUnitCheck(Unit const* unit, float dist = 30, bool friendly = false, uint32 spell = 0) : me(unit), m_range(dist), m_friend(friendly), m_spell(spell) {}
 +        bool operator()(Unit* u)
 +        {
 +            if (!me->IsWithinDistInMap(u, m_range))
@@ -1107,10 +1117,10 @@ index 0000000..580fcf0
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..477bf0f
+index 0000000..df3b6f0
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,3315 @@
+@@ -0,0 +1,3330 @@
 +/*
 +NpcBot System by Graff (onlysuffering@gmail.com)
 +Original patch from: LordPsyan https://bitbucket.org/lordpsyan/trinitycore-patches/src/3b8b9072280e/Individual/11185-BOTS-NPCBots.patch
@@ -2030,7 +2040,7 @@ index 0000000..477bf0f
 +    }
 +
 +    //PHASE
-+    if (!me->InSamePhase(master))
++    if (master->GetPhaseMask() != me->GetPhaseMask())
 +        me->SetPhaseMask(master->GetPhaseMask(), true);
 +    //INIT STATS
 +    //partially receive master's stats and get base class stats, we'll need all this later
@@ -2055,11 +2065,11 @@ index 0000000..477bf0f
 +    switch (myclass)
 +    {
 +        case CLASS_WARRIOR:      ap_mod = 1.3f;  spp_mod = 0.0f; armor_mod = 1.4f;  crit_mod = 1.0f; haste_mod = 0.75f; dodge_mod = 0.75f; parry_mod = 1.75f; break;
-+        case CLASS_DEATH_KNIGHT: ap_mod = 1.2f;  spp_mod = 1.0f; armor_mod = 1.15f; crit_mod = 0.9f; haste_mod = 0.65f; dodge_mod = 0.8f;  parry_mod = 2.0f;  break;//NYI
++ /*NYI*/case CLASS_DEATH_KNIGHT: ap_mod = 1.2f;  spp_mod = 1.0f; armor_mod = 1.15f; crit_mod = 0.9f; haste_mod = 0.65f; dodge_mod = 0.8f;  parry_mod = 2.0f;  break;/*NYI*/
 +        case CLASS_PALADIN:      ap_mod = 1.0f;  spp_mod = 0.8f; armor_mod = 1.2f;  crit_mod = 0.8f; haste_mod = 0.85f; dodge_mod = 0.7f;  parry_mod = 1.5f;  break;
-+        case CLASS_ROGUE:        ap_mod = 1.5f;  spp_mod = 0.0f; armor_mod = 0.7f;  crit_mod = 1.5f; haste_mod = 1.35f; dodge_mod = 1.5f;  parry_mod = 0.8f;  break;//NYI
-+        case CLASS_HUNTER:       ap_mod = 1.15f; spp_mod = 0.0f; armor_mod = 0.85f; crit_mod = 1.2f; haste_mod = 1.25f; dodge_mod = 1.2f;  parry_mod = 1.2f;  break;//NYI
-+        case CLASS_SHAMAN:       ap_mod = 1.2f;  spp_mod = 1.1f; armor_mod = 0.95f; crit_mod = 1.3f; haste_mod = 2.15f; dodge_mod = 1.35f; parry_mod = 1.15f; break;
++        case CLASS_ROGUE:        ap_mod = 1.5f;  spp_mod = 0.0f; armor_mod = 0.7f;  crit_mod = 1.5f; haste_mod = 1.35f; dodge_mod = 1.5f;  parry_mod = 0.8f;  break;
++ /*NYI*/case CLASS_HUNTER:       ap_mod = 1.15f; spp_mod = 0.0f; armor_mod = 0.85f; crit_mod = 1.2f; haste_mod = 1.25f; dodge_mod = 1.2f;  parry_mod = 1.2f;  break;/*NYI*/
++        case CLASS_SHAMAN:       ap_mod = 1.5f;  spp_mod = 0.7f; armor_mod = 1.1f;  crit_mod = 1.3f; haste_mod = 1.45f; dodge_mod = 1.1f;  parry_mod = 1.4f;  break;
 +        case CLASS_DRUID:        ap_mod = 0.0f;  spp_mod = 1.3f; armor_mod = 0.7f;  crit_mod = 0.7f; haste_mod = 1.95f; dodge_mod = 0.5f;  parry_mod = 0.0f;  break;
 +        case CLASS_MAGE:         ap_mod = 0.0f;  spp_mod = 0.8f; armor_mod = 0.5f;  crit_mod = 0.7f; haste_mod = 1.75f; dodge_mod = 0.5f;  parry_mod = 0.0f;  break;
 +        case CLASS_PRIEST:       ap_mod = 0.0f;  spp_mod = 1.2f; armor_mod = 0.5f;  crit_mod = 0.7f; haste_mod = 1.75f; dodge_mod = 0.5f;  parry_mod = 0.0f;  break;
@@ -2131,7 +2141,7 @@ index 0000000..477bf0f
 +    value = value/3.f + float(mylevel/42);//get bonus at 84
 +    if (myclass == CAT) //give cat lots of haste
 +        value += float(mylevel/17); //or 20 (+ 4-5 stacks);
-+    RefreshAura(HASTE,  uint8(value)); //spell haste
++    RefreshAura(HASTE,  uint8(value) + uint8(myclass == CLASS_SHAMAN) * 3); //spell haste
 +    RefreshAura(HASTE2, uint8(value) + uint8(myclass == CLASS_ROGUE)); //melee haste
 +    haste = uint8(value); //for show only
 +
@@ -2161,6 +2171,8 @@ index 0000000..477bf0f
 +        value += 10.f;
 +    if (value > 55.f)
 +        value = 55.f;
++    if (myclass == CLASS_SHAMAN)
++        value += 6.f;
 +    float parryAndDodge = value; //set temp value, this is needed to keep total avoidance within 65%
 +    RefreshAura(PARRY, int8(value/6.f)); //6% per stack aplied
 +
@@ -2223,7 +2235,7 @@ index 0000000..477bf0f
 +        m_spellpower = int32(float(m_spellpower) * spp_mod);
 +        //sLog->outBasic("spellpower * mod: %i", m_spellpower);
 +        if (myclass == CLASS_MAGE)
-+            RefreshAura(FIREDAM_86, (m_spellpower / 4) / 86 + (mylevel >= 80) * 2); //(86,172,258,344,430,516,602,688...) // fire spp, do not touch this
++            RefreshAura(FIREDAM_86, (m_spellpower / 4) / 86 + (mylevel >= 78) * 2); //(86,172,258,344,430,516,602,688...) // fire spp, do not touch this
 +        me->RemoveAurasDueToSpell(SPELL_BONUS_250);
 +        me->RemoveAurasDueToSpell(SPELL_BONUS_150);
 +        me->RemoveAurasDueToSpell(SPELL_BONUS_50);
@@ -2261,7 +2273,7 @@ index 0000000..477bf0f
 +        InitSpells();
 +
 +    //PHASE
-+    if (!me->InSamePhase(master))
++    if (master->GetPhaseMask() != me->GetPhaseMask())
 +        me->SetPhaseMask(master->GetPhaseMask(), true);
 +
 +    ////INIT STATS
@@ -2458,8 +2470,8 @@ index 0000000..477bf0f
 +        me->RemoveAurasDueToSpell(SPELL_BONUS_150);
 +        me->RemoveAurasDueToSpell(SPELL_BONUS_50);
 +        if      (mylevel < 60) RefreshAura(SPELL_BONUS_50,  m_spellpower / 50);
-+        else if (mylevel < 80) RefreshAura(SPELL_BONUS_150, m_spellpower / 150);
-+        else                   RefreshAura(SPELL_BONUS_250, m_spellpower / 250 + 1);
++        else if (mylevel < 80) RefreshAura(SPELL_BONUS_150, m_spellpower / 150 + 1);
++        else                   RefreshAura(SPELL_BONUS_250, m_spellpower / 250 + 2);
 +    }
 +
 +    if (force)
@@ -2597,7 +2609,20 @@ index 0000000..477bf0f
 +            {
 +                switch (me->GetBotClass())
 +                {
-+                    case CLASS_MAGE: case CLASS_DRUID: case CLASS_WARLOCK: case CLASS_PRIEST:/* case CLASS_SHAMAN:*/
++                    case CLASS_SHAMAN:
++                        if (isTwoHander())
++                        {
++                            if (me->GetDistance(opponent) > 1.5f)
++                                GetInPosition(true, false);
++                        }
++                        else
++                        {
++                            CalculateAttackPos(opponent, attackpos);
++                            if (me->GetDistance(attackpos) > 8)
++                                GetInPosition(true, true, opponent, &attackpos);
++                        }
++                        break;
++                    case CLASS_MAGE: case CLASS_DRUID: case CLASS_WARLOCK: case CLASS_PRIEST:
 +                        CalculateAttackPos(opponent, attackpos);
 +                        if (me->GetDistance(attackpos) > 8)
 +                            GetInPosition(true, true, opponent, &attackpos);
@@ -2883,7 +2908,7 @@ index 0000000..477bf0f
 +            case CLASS_WARLOCK:
 +            case CLASS_SHAMAN:
 +                byspell = true;
-+                ranged = true;
++                ranged = !isTwoHander();
 +                break;
 +            case CLASS_HUNTER:
 +                ranged = true;
@@ -3154,7 +3179,7 @@ index 0000000..477bf0f
 +        switch (botOrPetType)
 +        {
 +            case PET_TYPE_VOIDWALKER:
-+                RefreshAura(DEFENSIVE_STANCE_PASSIVE);
++                RefreshAura(DEFENSIVE_STANCE_PASSIVE,2);
 +                break;
 +            default:
 +                break;
@@ -3673,12 +3698,12 @@ index 0000000..477bf0f
 +    float manamod = 15.f; //here we set mana multiplier from intellect as we gain mana from MASTER's stats mostly
 +    switch (myclass)
 +    {
-+        case CLASS_PALADIN: case CLASS_HUNTER: manamod =  5.f; break;
-+        case CLASS_SHAMAN:                     manamod = 11.f; break;
-+        case CLASS_DRUID:                      manamod = 12.f; break;
-+        case CLASS_PRIEST:                     manamod = 16.f; break;
-+        case CLASS_MAGE: case CLASS_WARLOCK:   manamod = 10.f; break;
-+        default:                                               break;
++        case CLASS_PALADIN: case CLASS_HUNTER: manamod =  4.5f; break;
++        case CLASS_SHAMAN:                     manamod = 13.5f; break;
++        case CLASS_DRUID:                      manamod = 12.5f; break;
++        case CLASS_PRIEST:                     manamod = 16.5f; break;
++        case CLASS_MAGE: case CLASS_WARLOCK:   manamod = 10.5f; break;
++        default:                                                break;
 +    }
 +    //manamod += 1.f;//custom
 +    //manamod *= 0.70f;//custom
@@ -3743,14 +3768,14 @@ index 0000000..477bf0f
 +    me->SetModifierValue(UNIT_MOD_DAMAGE_MAINHAND, BASE_PCT, mod);
 +    me->SetModifierValue(UNIT_MOD_DAMAGE_OFFHAND, BASE_PCT, mod);
 +    me->SetModifierValue(UNIT_MOD_DAMAGE_RANGED, BASE_PCT, mod);
-+    me->SetCanDualWield(myclass == CLASS_ROGUE || myclass == CLASS_SHAMAN);
++    me->SetCanDualWield(myclass == CLASS_ROGUE);
 +    //Rogue has mainhand attack speed 1900, other dual-wielders - 2800 or 2600 or 2400
 +    if (myclass == CLASS_ROGUE)
 +        me->SetAttackTime(BASE_ATTACK, 1900);
-+    else if (myclass == CLASS_SHAMAN)
-+        me->SetAttackTime(BASE_ATTACK, 2400);
++    if (myclass == CLASS_SHAMAN)
++        me->SetAttackTime(BASE_ATTACK, isTwoHander() ? 3200 : 2400);
 +    if (me->CanDualWield())
-+        me->SetAttackTime(OFF_ATTACK, myclass == CLASS_ROGUE ? 1400 : 1700);
++        me->SetAttackTime(OFF_ATTACK, myclass == CLASS_ROGUE ? 1400 : 1800);
 +    //me->SetModifierValue(UNIT_MOD_DAMAGE_RANGED, BASE_PCT, mod);//NUY
 +    mod = (mod - 1.f)*0.5f;
 +    //sLog->outBasic("reduced damage modifier to gain bonus: %f", mod);
@@ -4362,7 +4387,7 @@ index 0000000..477bf0f
 +    if (pvpTrinket_cd <= diff && CCed(me, true) && (me->GetVictim() || !me->getAttackers().empty()))
 +    {
 +        temptimer = GC_Timer;
-+        if (doCast(me, PVPTRINKET/*, true*/))
++        if (doCast(me, PVPTRINKET))
 +        {
 +            pvpTrinket_cd = PVPTRINKET_CD;
 +            GC_Timer = temptimer;
@@ -4409,7 +4434,7 @@ index 0000000..477bf0f
 +        case CLASS_WARLOCK:
 +        case CLASS_SHAMAN:
 +            byspell = true;
-+            ranged = true;
++            ranged = !isTwoHander();
 +            break;
 +        case CLASS_HUNTER:
 +            ranged = true;
@@ -4428,10 +4453,10 @@ index 0000000..477bf0f
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..8f29c3d
+index 0000000..b86ad54
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,372 @@
+@@ -0,0 +1,366 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -4485,14 +4510,6 @@ index 0000000..8f29c3d
 +//COMMON GOSSIPS
 +    GOSSIP_SERVE_MASTER                 = 2279  //"I live only to serve the master."
 +};
-+
-+//TODO: slow fall / water walking for master
-+//enum HoverSpells
-+//{
-+//    LEVITATE                            = 1706,
-+//    SLOW_FALL                           = 130,
-+//    //WATER_WALKING                       = 546,
-+//};
 +
 +enum DruidStances//bot's temp set class
 +{
@@ -4572,6 +4589,7 @@ index 0000000..8f29c3d
 +        inline uint8 GetHaste() const { return haste; }
 +
 +        virtual void OnBotSummon(Creature* /*summon*/) {}
++        virtual void OnBotDespawn(Creature* /*summon*/) {}
 +        virtual void UnsummonAll() {}
 +
 +        void ReceiveEmote(Player* player, uint32 emote);
@@ -4597,6 +4615,7 @@ index 0000000..8f29c3d
 +        virtual void removeFeralForm(bool /*recast*/ = false) {}
 +
 +        inline bool Feasting() const { return (me->HasAura(EAT) || me->HasAura(DRINK)); }
++        inline bool isTwoHander() const { return !me->GetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + 1); }
 +        static inline bool isMeleeClass(uint8 m_class) { return (m_class == CLASS_WARRIOR || m_class == CLASS_ROGUE || m_class == CLASS_PALADIN || m_class == CLASS_DEATH_KNIGHT || m_class == BEAR); }
 +        static inline bool isTankingClass(uint8 m_class) { return (m_class == CLASS_WARRIOR || m_class == CLASS_PALADIN || m_class == CLASS_DEATH_KNIGHT || m_class == BEAR); }
 +        inline bool IsChanneling(Unit* u = NULL) const { if (!u) u = me; return u->GetCurrentSpell(CURRENT_CHANNELED_SPELL); }
@@ -4676,8 +4695,8 @@ index 0000000..8f29c3d
 +        void SummonBotsPet(uint32 entry);
 +        inline bool IAmDead() const { return (!master || me->isDead()); }
 +        void SetBotCommandState(CommandStates st, bool force = false, Position* newpos = NULL);
-+        //virtual bool HealTarget(Unit* /*target*/, uint8 /*pct*/, uint32 const /*diff*/) { return false; }
-+        //virtual bool BuffTarget(Unit* /*target*/, uint32 const /*diff*/) { return false; }
++        //virtual bool HealTarget(Unit* /*target*/, uint8 /*pct*/, uint32 /*diff*/) { return false; }
++        //virtual bool BuffTarget(Unit* /*target*/, uint32 /*diff*/) { return false; }
 +        //virtual bool doCast(Unit*  /*victim*/, uint32 /*spellId*/, bool /*triggered*/ = false) { return false; }
 +        void CureGroup(Player* pTarget, uint32 cureSpell, uint32 diff);
 +        bool CureTarget(Unit* target, uint32 cureSpell, uint32 diff);
@@ -4764,13 +4783,13 @@ index 0000000..8f29c3d
 +        inline bool IAmDead() const { return (!master || !m_creatureOwner || me->isDead()); }
 +        //void SetCreatureOwner(Creature* newowner) { m_creatureOwner = newowner; }
 +        void SetBotCommandState(CommandStates st, bool force = false, Position* newpos = NULL);
-+        //virtual bool HealTarget(Unit* /*target*/, uint8 /*pct*/, uint32 const /*diff*/) { return false; }
-+        //virtual bool BuffTarget(Unit* /*target*/, uint32 const /*diff*/) { return false; }
-+        //void BuffAndHealGroup(Player* /*gPlayer*/, uint32 const /*diff*/) {}
++        //virtual bool HealTarget(Unit* /*target*/, uint8 /*pct*/, uint32 /*diff*/) { return false; }
++        //virtual bool BuffTarget(Unit* /*target*/, uint32 /*diff*/) { return false; }
++        //void BuffAndHealGroup(Player* /*gPlayer*/, uint32 /*diff*/) {}
 +        //void RezGroup(uint32 /*REZZ*/, Player* /*gPlayer*/) {}
 +        //virtual bool doCast(Unit*  /*victim*/, uint32 /*spellId*/, bool /*triggered*/ = false) { return false; }
-+        //void CureGroup(Player* /*pTarget*/, uint32 /*cureSpell*/, uint32 const /*diff*/) {}
-+        //bool CureTarget(Unit* /*target*/, uint32 /*cureSpell*/, uint32 const /*diff*/) { return false; }
++        //void CureGroup(Player* /*pTarget*/, uint32 /*cureSpell*/, uint32 /*diff*/) {}
++        //bool CureTarget(Unit* /*target*/, uint32 /*cureSpell*/, uint32 /*diff*/) { return false; }
 +        void CheckAuras(bool force = false);
 +        //virtual void DoNonCombatActions(uint32 /*diff*/) {}
 +        //virtual void StartAttack(Unit* /*u*/, bool /*force*/ = false) {}
@@ -4806,10 +4825,10 @@ index 0000000..8f29c3d
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_druid_ai.cpp b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 new file mode 100644
-index 0000000..8999efb
+index 0000000..c1876f1
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
-@@ -0,0 +1,1210 @@
+@@ -0,0 +1,1211 @@
 +#include "bot_ai.h"
 +#include "Group.h"
 +#include "Player.h"
@@ -5166,7 +5185,8 @@ index 0000000..8999efb
 +            for (GroupReference* itr = pGroup->GetFirstMember(); itr != NULL; itr = itr->next())
 +            {
 +                Player* tPlayer = itr->GetSource();
-+                if (!tPlayer || (tPlayer->isDead() && !tPlayer->HaveBot())) continue;
++                if (!tPlayer || !tPlayer->IsInWorld() || tPlayer->GetMapId() != me->GetMapId() ||
++                    (tPlayer->isDead() && !tPlayer->HaveBot())) continue;
 +                if (me->GetExactDist(tPlayer) > 39) continue;
 +                if (GetHealthPCT(tPlayer) < 80)
 +                {
@@ -6368,7 +6388,7 @@ index 0000000..5c02c12
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_mage_ai.cpp b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 new file mode 100644
-index 0000000..5a09dd4
+index 0000000..4f7f0e4
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 @@ -0,0 +1,974 @@
@@ -6446,7 +6466,7 @@ index 0000000..5a09dd4
 +        {
 +            Unit* u = me->GetVictim();
 +            bool cSpell = COUNTERSPELL && CounterSpell_cd <= 5000;
-+            bool blast = FIREBLAST && !(u && u->ToCreature() && (u->ToCreature()->isWorldBoss() || u->ToCreature()->IsDungeonBoss())) && me->HasAura(IMPACT_BUFF);
++            bool blast = FIREBLAST && FireBlast_cd <= 3000 && !(u && u->ToCreature() && (u->ToCreature()->isWorldBoss() || u->ToCreature()->IsDungeonBoss())) && me->HasAura(IMPACT_BUFF);
 +            if (!cSpell && !blast) return;
 +            if (u && u->IsNonMeleeSpellCasted(false) &&
 +                ((cSpell && me->GetDistance(u) < 40) || (blast && me->GetDistance(u) < 30)))
@@ -6757,7 +6777,7 @@ index 0000000..5a09dd4
 +
 +        void CheckPoly(uint32 diff)
 +        {
-+            if (polyCheckTimer <= diff)
++            if (polyCheckTimer <= diff && POLYMORPH)
 +            {
 +                Polymorph = FindAffectedTarget(POLYMORPH, me->GetGUID());
 +                polyCheckTimer = 2000;
@@ -6766,14 +6786,14 @@ index 0000000..5a09dd4
 +
 +        void CheckPoly2()
 +        {
-+            if (Polymorph == false && GC_Timer < 500)
++            if (POLYMORPH && Polymorph == false && GC_Timer < 500)
 +            {
 +                if (Unit* target = FindPolyTarget(35, me->GetVictim()))
 +                {
 +                    if (doCast(target, POLYMORPH))
 +                    {
 +                        Polymorph = true;
-+                        polyCheckTimer = 2000;
++                        polyCheckTimer += 2000;
 +                    }
 +                }
 +            }
@@ -7348,7 +7368,7 @@ index 0000000..5a09dd4
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 new file mode 100644
-index 0000000..c254a4a
+index 0000000..5d662d8
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 @@ -0,0 +1,1039 @@
@@ -7875,7 +7895,7 @@ index 0000000..c254a4a
 +
 +        void TurnEvil(uint32 diff)
 +        {
-+            if (!TURN_EVIL || Turn_Evil_Timer > diff || GC_Timer > diff || Rand() > 50 ||
++            if (!TURN_EVIL || Turn_Evil_Timer > diff || GC_Timer > diff || Rand() > 50 || IsCasting() ||
 +                FindAffectedTarget(TURN_EVIL, me->GetGUID(), 50))
 +                return;
 +            Unit* target = FindUndeadCCTarget(20, TURN_EVIL);
@@ -8393,7 +8413,7 @@ index 0000000..c254a4a
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_priest_ai.cpp b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 new file mode 100644
-index 0000000..489cdba
+index 0000000..1da677e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 @@ -0,0 +1,1007 @@
@@ -8630,7 +8650,7 @@ index 0000000..489cdba
 +                }
 +                else
 +                    return;
-+                float dist = me->GetExactDist(opponent) < 30;
++                float dist = me->GetExactDist(opponent);
 +                if (dist < 40)
 +                {
 +                    if (SW_DEATH && SW_Death_Timer <= diff && Rand() < 50 && opponent->GetHealthPct() < 25 &&
@@ -8698,7 +8718,7 @@ index 0000000..489cdba
 +        {
 +            if (hp > 98)
 +                return false;
-+            if (!target || !target->IsInWorld() || target->isDead() || me->GetExactDist(target) > 40)
++            if (!target || !target->IsAlive() || me->GetExactDist(target) > 40)
 +                return false;
 +            if (Rand() > 50 + 20*target->IsInCombat() + 50*master->GetMap()->IsRaid())
 +                return false;
@@ -8877,7 +8897,7 @@ index 0000000..489cdba
 +
 +        void CheckDispel(uint32 diff)
 +        {
-+            if (CheckDispelTimer > diff || Rand() > 25 || IsCasting())
++            if (!DISPELMAGIC || CheckDispelTimer > diff || Rand() > 25 || IsCasting())
 +                return;
 +
 +            Unit* target = FindHostileDispelTarget();
@@ -9394,7 +9414,7 @@ index 0000000..489cdba
 +        {
 +            IMPROVED_DEVOURING_PLAGUE_DAMAGE= 63675,
 +            MIND_SEAR_DAMAGE                = 49821,
-+            SW_DEATH_BACKLASH               = 32409,//434
++            SW_DEATH_BACKLASH               = 32409,
 +            WEAKENED_SOUL_DEBUFF            = 6788
 +        };
 +    };
@@ -9406,7 +9426,7 @@ index 0000000..489cdba
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_rogue_ai.cpp b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 new file mode 100644
-index 0000000..fc2ad6d
+index 0000000..91201e4
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 @@ -0,0 +1,905 @@
@@ -9754,7 +9774,7 @@ index 0000000..fc2ad6d
 +            {
 +                float aftercrit = 0.f;
 +                //Puncturing Wounds: 30% additional critical chance for Backstab
-+                if (lvl >= 20 && spellId == BACKSTAB)
++                if (lvl >= 15 && spellId == BACKSTAB)
 +                    aftercrit += 30.f;
 +                //Puncturing Wounds: 15% additional critical chance for Mutilate
 +                else if (spellId == MUTILATE)
@@ -9858,7 +9878,7 @@ index 0000000..fc2ad6d
 +            if (!WOUND_POISON && !MIND_NUMBING_POISON)
 +                return;
 +
-+            if (damageType == DIRECT_DAMAGE/* || damageType == SPELL_DIRECT_DAMAGE*/)
++            if (damageType == DIRECT_DAMAGE || damageType == SPELL_DIRECT_DAMAGE)
 +            {
 +                if (victim && me->GetExactDist(victim) <= 40)
 +                {
@@ -10317,29 +10337,36 @@ index 0000000..fc2ad6d
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_shaman_ai.cpp b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 new file mode 100644
-index 0000000..e0f7e64
+index 0000000..4cd1e15
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
-@@ -0,0 +1,474 @@
+@@ -0,0 +1,1344 @@
 +#include "bot_ai.h"
++#include "Group.h"
 +#include "Player.h"
 +#include "ScriptMgr.h"
 +#include "SpellAuras.h"
 +#include "Totem.h"
 +/*
 +Shaman NpcBot (reworked by Graff onlysuffering@gmail.com)
-+Complete - 1%
++Complete - around 30%
 +TODO:
 +*/
 +enum TotemSlot
 +{
-+    T_FIRE  = 0,
-+    T_WATER = 1,
-+    T_EARTH = 2,
-+    T_AIR   = 3,
++    T_FIRE  = 0,//m_SummonSlot[1]
++    T_EARTH = 1,//m_SummonSlot[2]
++    T_WATER = 2,//m_SummonSlot[3]
++    T_AIR   = 3,//m_SummonSlot[4]
 +    MAX_TOTEMS
 +};
-+typedef std::pair<uint64, Position> BotTotem;
++struct TotemParam
++{
++    TotemParam() : effradius(0.f) {}
++    Position pos;
++    float effradius;
++};
++typedef std::pair<uint64 /*guid*/, TotemParam /*param*/> BotTotem;
 +class shaman_bot : public CreatureScript
 +{
 +public:
@@ -10373,15 +10400,32 @@ index 0000000..e0f7e64
 +        {
 +            if (checkBotCast(victim, spellId, CLASS_SHAMAN) != SPELL_CAST_OK)
 +                return false;
-+            uint64 originalCaster = me->GetGUID();
-+            return bot_ai::doCast(victim, spellId, triggered, originalCaster);
++
++            bool maelstrom = false;
++            if (!triggered)
++                maelstrom = (MaelstromCount >= 5 &&
++                (spellId == LIGHTNING_BOLT || spellId == CHAIN_LIGHTNING ||
++                spellId == HEALING_WAVE || spellId == LESSER_HEALING_WAVE ||
++                spellId == CHAIN_HEAL || spellId == HEX));
++
++            triggered |= maelstrom;
++
++            bool result = bot_ai::doCast(victim, spellId, triggered, me->GetGUID());
++
++            if (result && maelstrom)
++            {
++                MaelstromCount = 0;
++                me->RemoveAurasDueToSpell(MAELSTROM_WEAPON_BUFF, 0, 0, AURA_REMOVE_BY_EXPIRE);
++            }
++
++            return result;
 +        }
 +
 +        void StartAttack(Unit* u, bool force = false)
 +        {
 +            if (GetBotCommandState() == COMMAND_ATTACK && !force) return;
 +            Aggro(u);
-+            GetInPosition(force, false/*STYLE == MELEE*//*SPEC == ENCHANCEMENT*/);
++            GetInPosition(force, !isTwoHander());
 +            SetBotCommandState(COMMAND_ATTACK);
 +        }
 +
@@ -10393,25 +10437,69 @@ index 0000000..e0f7e64
 +        void MoveInLineOfSight(Unit*) { }
 +        void JustDied(Unit*) { master->SetNpcBotDied(me->GetGUID()); }
 +
++        bool Shielded(Unit* target) const
++        {
++            return
++                (HasAuraName(target, WATER_SHIELD_1) ||
++                HasAuraName(target, EARTH_SHIELD_1) ||
++                HasAuraName(target, LIGHTNING_SHIELD_1));
++        }
++
++        void CheckBloodlust(uint32 diff)
++        {
++            if (!BLOODLUST || Bloodlust_Timer > diff || me->GetDistance(master) > 18 || IsCasting() || Rand() > 15)
++                return;
++            if (!me->IsInCombat() || !master->IsInCombat())
++                return;
++            if (HasAuraName(master, BLOODLUST))
++            {
++                Bloodlust_Timer += 3000;
++                return;
++            }
++
++            if (Unit* u = me->GetVictim())
++            {
++                Creature* cre = u->ToCreature();
++                if (u->GetMaxHealth() > me->GetHealth() * 2 ||
++                    (cre && (cre->IsDungeonBoss() || cre->isWorldBoss())) ||
++                    me->getAttackers().size() + master->getAttackers().size() > 5)
++                {
++                    temptimer = GC_Timer;
++                    if (doCast(me, BLOODLUST))
++                    {
++                        GC_Timer = temptimer;
++                        Bloodlust_Timer = 180000; //3 min
++                        return;
++                    }
++                }
++            }
++
++            Bloodlust_Timer = 2000; //fail
++        }
++
 +        void CheckTotems(uint32 diff)
 +        {
 +            //update rate
-+            if (Rand() > 50)
++            if (Rand() > 25)
 +                return;
 +            //Unsummon
 +            for (uint8 i = 0; i != MAX_TOTEMS; ++i)
 +            {
-+                if (_totems[i].first != 0 && me->GetDistance(_totems[i].second) > 18)
++                if (_totems[i].first != 0)
 +                {
-+                    Unit* to = sObjectAccessor->FindUnit(_totems[i].first);
-+                    //reset
-+                    _totems[i].first = 0;
-+                    if (!to)
++                    if (master->GetDistance2d(_totems[i].second.pos.m_positionX, _totems[i].second.pos.m_positionY) > _totems[i].second.effradius &&
++                        me->GetDistance2d(_totems[i].second.pos.m_positionX, _totems[i].second.pos.m_positionY) > _totems[i].second.effradius)
 +                    {
-+                        TC_LOG_ERROR(LOG_FILTER_PLAYER, "%s has lost totem in slot %u! Despawned normally?", me->GetName().c_str(), i);
-+                        continue;
++                        Unit* to = sObjectAccessor->FindUnit(_totems[i].first);
++                        if (!to)
++                        {
++                            _totems[i].first = 0;
++                            //TC_LOG_ERROR(LOG_FILTER_PLAYER, "%s has lost totem in slot %u! Despawned normally?", me->GetName().c_str(), i);
++                            continue;
++                        }
++
++                        to->ToTotem()->UnSummon();
 +                    }
-+                    to->ToTotem()->UnSummon();
 +                }
 +            }
 +            if (GC_Timer > diff || IsCasting() || me->GetDistance(master) > 15 || Feasting())
@@ -10420,27 +10508,64 @@ index 0000000..e0f7e64
 +            //TODO: role-based totems (attack/heal)
 +            if (me->IsInCombat())
 +            {
-+                if (WINDFURY_TOTEM && !_totems[T_AIR].first)
++                if (WINDFURY_TOTEM && !_totems[T_AIR].first && !master->m_SummonSlot[T_AIR+1])
 +                {
++                    temptimer = GC_Timer;
 +                    if (doCast(me, WINDFURY_TOTEM))
++                    {
++                        GC_Timer = temptimer;
 +                        return;
-+                }
-+                else if (STONESKIN_TOTEM && !_totems[T_EARTH].first)
-+                {
-+                    if (doCast(me, STONESKIN_TOTEM))
-+                        return;
++                    }
 +                }
 +
-+                if (Unit* u = me->GetVictim())
++                if (!_totems[T_EARTH].first && !master->m_SummonSlot[T_EARTH+1])
 +                {
-+                    if (SEARING_TOTEM && Searing_Totem_Timer <= diff)
++                    if (STRENGTH_OF_EARTH_TOTEM)
 +                    {
-+                        if (me->GetExactDist(u) < (u->isMoving() ? 10 : 25))
++                        temptimer = GC_Timer;
++                        if (doCast(me, STRENGTH_OF_EARTH_TOTEM))
 +                        {
-+                            if (doCast(me, SEARING_TOTEM))
++                            GC_Timer = temptimer;
++                            return;
++                        }
++                    }
++                    else if (STONESKIN_TOTEM)
++                    {
++                        temptimer = GC_Timer;
++                        if (doCast(me, STONESKIN_TOTEM))
++                        {
++                            GC_Timer = temptimer;
++                            return;
++                        }
++                    }
++                }
++
++                if (!_totems[T_FIRE].first && !master->m_SummonSlot[T_FIRE+1])
++                {
++                    if (TOTEM_OF_WRATH && Totem_of_Wrath_Timer <= diff)
++                    {
++                        temptimer = GC_Timer;
++                        if (doCast(me, TOTEM_OF_WRATH))
++                        {
++                            //bot's poor AI cannot use totems wisely so just reduce CD on this
++                            Totem_of_Wrath_Timer = 30000; //30 sec, old 5 min
++                            GC_Timer = temptimer;
++                            return;
++                        }
++                    }
++                    else if (SEARING_TOTEM && Searing_Totem_Timer <= diff)
++                    {
++                        if (Unit* u = me->GetVictim())
++                        {
++                            if (me->GetExactDist(u) < (u->isMoving() ? 10 : 25))
 +                            {
-+                                Searing_Totem_Timer = 30000;
-+                                return;
++                                temptimer = GC_Timer;
++                                if (doCast(me, SEARING_TOTEM))
++                                {
++                                    Searing_Totem_Timer = 20000;
++                                    GC_Timer = temptimer;
++                                    return;
++                                }
 +                            }
 +                        }
 +                    }
@@ -10448,7 +10573,7 @@ index 0000000..e0f7e64
 +            }
 +            else if (!me->isMoving() && !master->isMoving())
 +            {
-+                if (!_totems[T_WATER].first)
++                if (!_totems[T_WATER].first && !master->m_SummonSlot[T_WATER+1])
 +                {
 +                    uint8 manapct = GetManaPCT(master);
 +                    uint8 hppct = GetHealthPCT(master);
@@ -10456,23 +10581,139 @@ index 0000000..e0f7e64
 +                        (master->getPowerType() != POWER_MANA || !MANASPRING_TOTEM || hppct < 25 || manapct > hppct) &&
 +                        hppct < 98)
 +                    {
++                        temptimer = GC_Timer;
 +                        if (doCast(me, HEALINGSTREAM_TOTEM))
++                        {
++                            GC_Timer = temptimer;
 +                            return;
++                        }
 +                    }
-+                    else if (MANASPRING_TOTEM && manapct < 98)
++                    else if (MANASPRING_TOTEM && (manapct < 98 || GetManaPCT(me) < 90))
 +                    {
++                        temptimer = GC_Timer;
 +                        if (doCast(me, MANASPRING_TOTEM))
++                        {
++                            GC_Timer = temptimer;
 +                            return;
++                        }
 +                    }
 +                }
 +            }
++        }
++
++        void CheckThunderStorm(uint32 diff)
++        {
++            if (!THUNDERSTORM || Thunderstorm_Timer > diff || IsCasting() || Rand() > 25)
++                return;
++
++            //case 1: low mana
++            if (GetManaPCT(me) < 15)
++            {
++                temptimer = GC_Timer;
++                if (doCast(me, THUNDERSTORM))
++                {
++                    GC_Timer = temptimer;
++                    Thunderstorm_Timer = 25000; //45 - 20 = 25 sec for mana restore
++                }
++                return;
++            }
++
++            //case 2: knock attackers
++            if (tank == me) //pretty stupid idea I think
++                return;
++
++            //AttackerSet m_attackers = master->getAttackers();
++            AttackerSet b_attackers = me->getAttackers();
++            if (b_attackers.empty())
++                return;
++
++            uint8 tCount = 0;
++            for (AttackerSet::iterator iter = b_attackers.begin(); iter != b_attackers.end(); ++iter)
++            {
++                if (!(*iter)) continue;
++                if (me->GetExactDist((*iter)) > 9) continue;
++                if (CCed(*iter)) continue;
++                if (me->IsValidAttackTarget(*iter))
++                {
++                    ++tCount;
++                    break;
++                }
++            }
++
++            if (tCount > 0)
++            {
++                temptimer = GC_Timer;
++                if (doCast(me, THUNDERSTORM))
++                {
++                    GC_Timer = temptimer;
++                    Thunderstorm_Timer = 40000; //45 - 5 = 40 sec for knock
++                }
++                return;
++            }
++        }
++
++        void CheckManaTide(uint32 diff)
++        {
++            if (!MANA_TIDE_TOTEM || Mana_Tide_Totem_Timer > diff || IsCasting() || Rand() > 20)
++                return;
++
++            Group* group = master->GetGroup();
++            if (!group)
++                return;
++
++            uint8 LMPcount = 0;
++            uint8 members = group->GetMembersCount();
++            for (GroupReference* itr = group->GetFirstMember(); itr != NULL; itr = itr->next())
++            {
++                Player* tPlayer = itr->GetSource();
++                if (!tPlayer || !tPlayer->IsInWorld() || tPlayer->GetMapId() != me->GetMapId() ||
++                    (!tPlayer->IsAlive() && !tPlayer->HaveBot())) continue;
++                if (me->GetExactDist(tPlayer) > 20) continue;
++                if (tPlayer->getPowerType() != POWER_MANA) continue;
++                if (GetManaPCT(tPlayer) < 35)
++                {
++                    ++LMPcount;
++                    if (LMPcount > 3 || LMPcount > members / 3) break;
++                }
++                if (tPlayer->HaveBot())
++                {
++                    for (uint8 i = 0; i != tPlayer->GetMaxNpcBots(); ++i)
++                    {
++                        Creature* bot = tPlayer->GetBotMap(i)->_Cre();
++                        if (bot && bot->IsInWorld() && bot->getPowerType() == POWER_MANA &&
++                            bot->GetExactDist(me) < 20 && GetManaPCT(bot) < 35)
++                        {
++                            ++LMPcount;
++                            if (LMPcount > 3 || LMPcount > members / 3) break;
++                        }
++                    }
++                }
++            }
++
++            if (LMPcount > 3 || LMPcount > members / 3)
++            {
++                if (_totems[T_WATER].first != 0)
++                {
++                    Unit* to = sObjectAccessor->FindUnit(_totems[T_WATER].first);
++                    if (!to)
++                        _totems[T_WATER].first = 0;
++                    else
++                        to->ToTotem()->UnSummon();
++                }
++                if (doCast(me, MANA_TIDE_TOTEM))
++                {
++                    Mana_Tide_Totem_Timer = 60000; //1 min
++                    return;
++                }
++            }
++
++            Mana_Tide_Totem_Timer = 3000; //fail
 +        }
 +
 +        void UpdateAI(uint32 diff)
 +        {
 +            ReduceCD(diff);
 +            if (IAmDead()) return;
-+            if (!me->GetVictim()) Evade();
 +            if (me->GetVictim())
 +                DoMeleeAttackIfReady();
 +            else
@@ -10482,8 +10723,12 @@ index 0000000..e0f7e64
 +            else
 +                return;
 +            CheckAuras();
++            CheckThunderStorm(diff);
 +            BreakCC(diff);
 +            if (CCed(me)) return;
++
++            CheckHexy(diff);
++            CheckEarthy(diff);
 +
 +            if (GetManaPCT(me) < 30 && Potion_cd <= diff)
 +            {
@@ -10493,25 +10738,66 @@ index 0000000..e0f7e64
 +                GC_Timer = temptimer;
 +            }
 +
++            CheckBloodlust(diff);
 +            BuffAndHealGroup(master, diff);
++            CureGroup(master, CURE_TOXINS, diff);
++            CheckManaTide(diff);
 +            CheckTotems(diff);
++
++            if (master->IsInCombat() || me->IsInCombat())
++                CheckDispel(diff);
 +
 +            if (!me->IsInCombat())
 +                DoNonCombatActions(diff);
 +            //buff myself
-+            if (LIGHTNING_SHIELD && GC_Timer <= diff && !me->HasAura(LIGHTNING_SHIELD))
++            if (LIGHTNING_SHIELD && tank != me && !Shielded(me))
++            {
++                temptimer = GC_Timer;
 +                if (doCast(me, LIGHTNING_SHIELD))
-+                    GC_Timer = 500;
++                    GC_Timer = temptimer;
++            }
++            //heal myself
++            if (GetHealthPCT(me) < 80)
++                HealTarget(me, GetHealthPCT(me), diff);
 +
 +            if (!CheckAttackTarget(CLASS_SHAMAN))
 +                return;
++
++            CheckHexy2(diff);
 +
 +            //Counter(diff);
 +            DoNormalAttack(diff);
 +        }
 +
-+        void Counter(uint32 const /*diff*/)
-+        {}
++        void Counter(uint32 diff)
++        {
++            if (!WIND_SHEAR || Wind_Shear_Timer > diff || Rand() > 60)
++                return;
++
++            Unit* u = me->GetVictim();
++            if (u && u->IsNonMeleeSpellCasted(false))
++            {
++                temptimer = GC_Timer;
++                if (me->IsNonMeleeSpellCasted(false))
++                    me->InterruptNonMeleeSpells(false);
++                if (doCast(u, WIND_SHEAR))
++                {
++                    Wind_Shear_Timer = 5000; //improved
++                    GC_Timer = temptimer;
++                }
++            }
++            else if (Unit* target = FindCastingTarget(25))
++            {
++                temptimer = GC_Timer;
++                if (me->IsNonMeleeSpellCasted(false))
++                    me->InterruptNonMeleeSpells(false);
++                if (doCast(target, WIND_SHEAR))
++                {
++                    Wind_Shear_Timer = 5000;
++                    GC_Timer = temptimer;
++                }
++            }
++        }
 +
 +        void DoNormalAttack(uint32 diff)
 +        {
@@ -10529,32 +10815,85 @@ index 0000000..e0f7e64
 +            //AttackerSet m_attackers = master->getAttackers();
 +            //AttackerSet b_attackers = me->getAttackers();
 +            float dist = me->GetExactDist(opponent);
-+            //float meleedist = me->GetDistance(opponent);
++            float meleedist = me->GetDistance(opponent);
 +
 +            if (MoveBehind(*opponent))
 +                wait = 5;
++            //{ wait = 5; return; }
 +
-+            if (Shock_Timer <= diff && GC_Timer <= diff && dist < 20)
++            if (IsCasting()) return;
++
++            if (STORMSTRIKE && isTwoHander() && Stormstrike_Timer <= diff && GC_Timer <= diff &&
++                meleedist <= 5 && Rand() < 70)
 +            {
-+                if (!opponent->HasAura(FLAME_SHOCK, me->GetGUID()))
++                if (doCast(opponent, STORMSTRIKE))
++                {
++                    Stormstrike_Timer = 6000; //improved
++                    return;
++                }
++            }
++
++            if ((FLAME_SHOCK || EARTH_SHOCK || FROST_SHOCK) && Shock_Timer <= diff && GC_Timer <= diff &&
++                dist < 25 && Rand() < 30)
++            {
++                temptimer = GC_Timer;
++
++                bool canFlameShock = (FLAME_SHOCK != 0);
++                if (canFlameShock)
++                {
++                    if (Aura* fsh = opponent->GetAura(FLAME_SHOCK, me->GetGUID()))
++                        if (fsh->GetDuration() > 3000)
++                            canFlameShock = false;
++                }
++
++                if (canFlameShock)
 +                {
 +                    if (doCast(opponent, FLAME_SHOCK))
 +                    {
-+                        Shock_Timer = 9000;
++                        Shock_Timer = 3000; //improved twice
++                        GC_Timer = temptimer;
 +                        return;
 +                    }
 +                }
-+                else if (!opponent->HasAura(EARTH_SHOCK))
++                else if (EARTH_SHOCK || FROST_SHOCK)
 +                {
-+                    if (doCast(opponent, EARTH_SHOCK))
++                    uint32 SHOCK = !FROST_SHOCK ? EARTH_SHOCK : RAND(EARTH_SHOCK, FROST_SHOCK);
++                    if (SHOCK && !opponent->HasAuraWithMechanic((1<<MECHANIC_SNARE)|(1<<MECHANIC_ROOT)) &&
++                        !opponent->HasAura(SHOCK))
 +                    {
-+                        Shock_Timer = 9000;
-+                        return;
++                        if (doCast(opponent, SHOCK))
++                        {
++                            Shock_Timer = 3000; //improved twice
++                            GC_Timer = temptimer;
++                            return;
++                        }
 +                    }
 +                }
 +            }
 +
-+            if (Lightning_Bolt_Timer <= diff && GC_Timer <= diff && dist < 25)
++            if (LAVA_BURST && Lava_Burst_Timer <= diff && GC_Timer <= diff && dist < 30 && Rand() < 50)
++            {
++                if (doCast(opponent, LAVA_BURST))
++                {
++                    Lava_Burst_Timer = 8000;
++                    return;
++                }
++            }
++
++            if (GetManaPCT(me) < 15 ||
++                (isTwoHander() && (me->GetExactDist(opponent) < 15 || MaelstromCount < 5)))
++                return;
++
++            if (CHAIN_LIGHTNING && Chain_Lightning_Timer <= diff && GC_Timer <= diff && dist < 30 && Rand() < 80)
++            {
++                if (doCast(opponent, CHAIN_LIGHTNING))
++                {
++                    Chain_Lightning_Timer = 3500; //improved
++                    return;
++                }
++            }
++
++            if (LIGHTNING_BOLT && Lightning_Bolt_Timer <= diff && GC_Timer <= diff && dist < 20)
 +            {
 +                if (doCast(opponent, LIGHTNING_BOLT))
 +                {
@@ -10564,83 +10903,270 @@ index 0000000..e0f7e64
 +            }
 +        }
 +
++        void CheckHexy(uint32 diff)
++        {
++            if (HexyCheckTimer <= diff && HEX)
++            {
++                Hexy = FindAffectedTarget(HEX, me->GetGUID());
++                HexyCheckTimer = 2000;
++            }
++        }
++
++        void CheckHexy2(uint32 diff)
++        {
++            if (HEX && Hexy == false && Hex_Timer < diff && me->GetVictim())
++            {
++                if (Unit* target = FindPolyTarget(20, me->GetVictim()))
++                {
++                    if (doCast(target, HEX))
++                    {
++                        Hexy = true;
++                        Hex_Timer = 30000; //45 - 15 = 30 sec for bots
++                        HexyCheckTimer += 2000;
++                    }
++                }
++            }
++        }
++
++        void CheckEarthy(uint32 diff)
++        {
++            if (EarthyCheckTimer <= diff && EARTH_SHIELD)
++            {
++                Earthy = FindAffectedTarget(EARTH_SHIELD, me->GetGUID(), 90.f, 2);
++                EarthyCheckTimer = 1000;
++            }
++        }
++
 +        void DoNonCombatActions(uint32 diff)
 +        {
 +            if (GC_Timer > diff || Rand() > 50 || me->IsMounted()) return;
 +
 +            RezGroup(ANCESTRAL_SPIRIT, master);
 +
-+            //if (Feasting()) return;
-+            //BuffAndHealGroup(master, diff);
-+            //CureGroup(master, diff);
++            if (Feasting()) return;
++
++            if (Shielded(me) && Rand() < 25)
++            {
++                Aura* shield = NULL;
++                uint32 SHIELD = LIGHTNING_SHIELD;
++                if (SHIELD)
++                    shield = me->GetAura(SHIELD);
++                if (!shield && EARTH_SHIELD)
++                {
++                    SHIELD = EARTH_SHIELD;
++                    shield = me->GetAura(SHIELD);
++                }
++                if (!shield && WATER_SHIELD)
++                {
++                    SHIELD = WATER_SHIELD;
++                    shield = me->GetAura(SHIELD);
++                }
++                if (shield && shield->GetCharges() < 5)
++                {
++                    temptimer = GC_Timer;
++                    if (doCast(me, SHIELD))
++                    {
++                        GC_Timer = temptimer;
++                        return;
++                    }
++                }
++            }
++        }
++
++        bool BuffTarget(Unit* target, uint32 diff)
++        {
++            if (!WATER_WALKING && !WATER_BREATHING && !EARTH_SHIELD)
++                return false;
++
++            if (GC_Timer > diff || !target || !target->IsAlive() || Rand() > 40) return false;
++            
++            if (EARTH_SHIELD && Earthy == false && ((!tank && target == master) || target == tank) &&
++                (target->IsInCombat() || !target->isMoving()) &&
++                me->GetExactDist(target) < 40 && Rand() < 75)
++            {
++                bool cast = !Shielded(target);
++                if (!cast)
++                    if (Aura* eShield = target->GetAura(EARTH_SHIELD))
++                        if (eShield->GetCharges() < 5)
++                            cast = true;
++                if (cast && doCast(target, EARTH_SHIELD))
++                {
++                    Earthy = true;
++                    //GC_Timer = 800;
++                    return true;
++                }
++            }
++
++            if (me->GetExactDist(target) > 30) return false;
++            if (me->IsInCombat() && !master->GetMap()->IsRaid()) return false;
++
++            if (target->HasUnitMovementFlag(MOVEMENTFLAG_SWIMMING))
++            {
++                //bots don't need water breathing
++                if (WATER_BREATHING && target->GetTypeId() == TYPEID_PLAYER &&
++                    !HasAuraName(target, WATER_BREATHING) &&
++                    doCast(target, WATER_BREATHING))
++                {
++                    //GC_Timer = 800;
++                    return true;
++                }
++                //water walking breaks on any damage
++                if (WATER_WALKING && target->getAttackers().empty() &&
++                    !HasAuraName(target, WATER_WALKING) &&
++                    doCast(target, WATER_WALKING))
++                {
++                    //GC_Timer = 800;
++                    return true;
++                }
++            }
++            return false;
++        }
++
++        void CheckDispel(uint32 diff)
++        {
++            if (!PURGE || CheckDispelTimer > diff || Rand() > 35 || IsCasting())
++                return;
++            Unit* target = FindHostileDispelTarget();
++            if (target && doCast(target, PURGE))
++            {
++                CheckDispelTimer = 3000;
++                GC_Timer = 500;
++            }
++            CheckDispelTimer = 1000;
 +        }
 +
 +        bool HealTarget(Unit* target, uint8 hp, uint32 diff)
 +        {
-+            if (hp > 95) return false;
-+            if (!target || target->isDead() || me->GetExactDist(target) > 40)
++            if (hp > 97)
 +                return false;
-+            if (Rand() > 50 + 20*target->IsInCombat() + 50*master->GetMap()->IsRaid()) return false;
++            if (!target || !target->IsAlive() || me->GetExactDist(target) > 40)
++                return false;
++            if (Rand() > 50 + 20*target->IsInCombat() + 50*master->GetMap()->IsRaid())
++                return false;
 +
 +            //PLACEHOLDER: Instant spell req. interrupt current spell
 +
 +            if (IsCasting()) return false;
 +
-+
-+            /*if (hp < 70 && Heal_Timer <= diff)
++            if (LESSER_HEALING_WAVE && ((hp > 70 && hp < 85) || hp < 50 || GetLostHP(target) > 1500) && GC_Timer <= diff &&
++                Rand() < 75)
 +            {
-+                doCast(target, HEALING_WAVE);
++                if (doCast(target, LESSER_HEALING_WAVE))
++                    return true;
 +            }
-+            else */if (hp < 90 && Heal_Timer <= diff)
++            if (HEALING_WAVE && hp > 40 && (hp < 75 || GetLostHP(target) > 4000) && GC_Timer <= diff &&
++                Rand() < 65)
 +            {
-+                doCast(target, CHAIN_HEAL);
++                if (doCast(target, HEALING_WAVE))
++                    return true;
 +            }
-+            else if (hp < 95)
++            if (CHAIN_HEAL && ((hp > 40 && hp < 90) || GetLostHP(target) > 1000) && GC_Timer <= diff &&
++                Rand() < 120)
 +            {
-+                doCast(target, LESSER_HEAL);
-+                return true;
++                if (RIPTIDE && Riptide_Timer <= diff && (hp < 85 || GetLostHP(target) > 1300) &&
++                    !target->HasAura(RIPTIDE))
++                {
++                    temptimer = GC_Timer;
++                    if (doCast(target, RIPTIDE, true))
++                    {
++                        Riptide_Timer = 5000;
++                        if (doCast(target, CHAIN_HEAL))
++                        {
++                            GC_Timer = temptimer;
++                            return true;
++                        }
++                    }
++                }
++                else if (doCast(target, CHAIN_HEAL))
++                    return true;
 +            }
-+            return true;
++            
++            return false;
 +        }
 +
-+        //void ApplyBotDamageMultiplierMelee(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool& /*crit*/) const
-+        //{
-+        //    uint32 spellId = spellInfo->Id;
-+        //    uint8 lvl = me->getLevel();
-+        //    float fdamage = float(damage);
-+        //    //1) apply additional crit chance. This new chance roll will replace original (balance unsafe)
-+        //    if (!crit)
-+        //    {
-+        //        float crit_chance = me->GetUnitCriticalChance(BASE_ATTACK, me);
-+        //        float aftercrit = crit_chance;
-+
-+        //        //second roll (may be illogical)
-+        //        if (aftercrit > crit_chance)
-+        //            crit = roll_chance_f(aftercrit);
-+        //    }
-+
-+        //    2) apply bonus damage mods
-+        //    float pctbonus = 0.0f;
-+        //    if (crit)
-+        //    {
-+        //    }
-+
-+        //    fdamage *= (1.0f + pctbonus);
-+        //    damage = int32(fdamage);
-+        //    //last: overall multiplier
-+        //    bot_ai::ApplyBotDamageMultiplierMelee(damage, damageinfo, spellInfo, attackType, crit);
-+        //}
-+
-+        void DamageDealt(Unit* /*victim*/, uint32& /*damage*/, DamageEffectType /*damageType*/)
++        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool& crit) const
 +        {
++            uint32 spellId = spellInfo->Id;
++            uint8 lvl = me->getLevel();
++            float fdamage = float(damage);
++            //1) apply additional crit chance. This additional chance roll will replace original (balance safe)
++            if (!crit)
++            {
++                float aftercrit = 0.f;
++                //Call of Thunder: 5% additional critical chance for Lightning Bolt, Chain Lightning and Thunderstorm,
++                if (lvl >= 30 &&
++                    (spellId == LIGHTNING_BOLT ||
++                    spellId == CHAIN_LIGHTNING ||
++                    spellId == THUNDERSTORM))
++                    aftercrit += 5.f;
++                //Tidal Mastery (part 2): 5% additional critical chance for lightning spells
++                if (lvl >= 25 && (SPELL_SCHOOL_MASK_NATURE & spellInfo->GetSchoolMask()))
++                    aftercrit += 5.f;
++
++                if (aftercrit > 0.f)
++                    crit = roll_chance_f(aftercrit);
++            }
++
++            //2) apply bonus damage mods
++            float pctbonus = 0.0f;
++            if (crit)
++            {
++                //!!!spell damage is not yet critical and will be multiplied by 1.5
++                //so we should put here bonus damage mult /1.5
++                //Elemental Fury (part 2): 50% additional crit damage bonus for Nature, Fire and Frost (all) spells
++                if (lvl >= 21)
++                    pctbonus += 0.333f;
++                //Lava Flows (part 1): 24% additional crit damage bonus for Lava Burst
++                if (lvl >= 50 && spellId == LAVA_BURST)
++                    pctbonus += 0.16f;
++            }
++            //Concussion: 5% bonus damage for Lightning Bolt, Chain Lightning, Thunderstorm, Lava Burst and Shocks
++            if (lvl >= 10 &&
++                (spellId == LIGHTNING_BOLT ||
++                spellId == CHAIN_LIGHTNING ||
++                spellId == THUNDERSTORM ||
++                spellId == LAVA_BURST ||
++                spellId == EARTH_SHOCK ||
++                spellId == FROST_SHOCK ||
++                spellId == FLAME_SHOCK))
++                pctbonus += 0.05f;
++            //Call of Flame (part 2): 6% bonus damage for Lava burst
++            if (lvl >= 15 && spellId == LAVA_BURST)
++                pctbonus += 0.06f;
++            //Storm, Earth and fire (part 3): 60% bonus damage for Flame Shock (periodic damage in fact but who cares?)
++            if (lvl >= 40 && spellId == FLAME_SHOCK)
++                pctbonus += 0.6f;
++            //Booming Echoes (part 2): 20% bonus damage for Flame Shock and Frost Shock (direct damage)
++            if (lvl >= 45 &&
++                (spellId == FLAME_SHOCK ||
++                spellId == FROST_SHOCK))
++                pctbonus += 0.2f;
++            //SHAMAN_T8_ENCHANCEMENT_2P_BONUS: 20% bonus damage for Lava Lash and Stormstrike
++            if (lvl >= 60 &&
++                (spellId == STORMSTRIKE/* || spellId == LAVA_LASH*/))
++                pctbonus += 0.2f;
++
++            //custom bonus to make stormstrike useful
++            if (spellId == STORMSTRIKE)
++                pctbonus += 1.5f;
++
++            //flat damage mods (temp)
++            //Shamanism: 25% bonus damage from bonus damage effects for Lightning Bolt, Chain Lightning and Lava Burst
++            if (lvl >= 55 &&
++                (spellId == LIGHTNING_BOLT ||
++                spellId == CHAIN_LIGHTNING ||
++                spellId == LAVA_BURST))
++                fdamage += float(m_spellpower / 4);
++
++            damage = int32(fdamage * (1.0f + pctbonus));
 +        }
 +
-+        void OnBotSummon(Creature* summon)
++        void OnBotDespawn(Creature* summon)
 +        {
 +            TempSummon* totem = summon->ToTempSummon();
-+            if (!totem)
++            if (!totem || !totem->ToTotem())
 +            {
-+                TC_LOG_ERROR(LOG_FILTER_PLAYER, "shaman bot %s summoned creature %s which is not a temp summon...");
++                TC_LOG_ERROR(LOG_FILTER_PLAYER, "SummonedCreatureDespawn(): Shaman bot %s has despawned summon %s which is not a temp summon or not a totem...", me->GetName().c_str(), summon->GetName().c_str());
 +                return;
 +            }
 +
@@ -10660,21 +11186,160 @@ index 0000000..e0f7e64
 +                    slot = T_AIR;
 +                    break;
 +                default:
-+                    TC_LOG_ERROR(LOG_FILTER_PLAYER, "unknown totem type %u", totem->m_Properties->Id);
++                    TC_LOG_ERROR(LOG_FILTER_PLAYER, "SummonedCreatureDespawn(): Shaman bot %s has despawned totem %s with unknown type %u", me->GetName().c_str(), summon->GetName().c_str(), totem->m_Properties->Id);
 +                    return;
 +            }
++
++            _totems[slot].first = 0;
++        }
++
++        void OnBotSummon(Creature* summon)
++        {
++            TempSummon* totem = summon->ToTempSummon();
++            if (!totem || !totem->ToTotem())
++            {
++                TC_LOG_ERROR(LOG_FILTER_PLAYER, "OnBotSummon(): Shaman bot %s has summoned creature %s which is not a temp summon or not a totem...", me->GetName().c_str(), summon->GetName().c_str());
++                return;
++            }
++
++            totem->SetCreatorGUID(me->GetGUID());
++
++            int8 slot = -1;
++            switch (totem->m_Properties->Id)
++            {
++                case SUMMON_TYPE_TOTEM_FIRE:
++                    slot = T_FIRE;
++                    break;
++                case SUMMON_TYPE_TOTEM_EARTH:
++                    slot = T_EARTH;
++                    break;
++                case SUMMON_TYPE_TOTEM_WATER:
++                    slot = T_WATER;
++                    break;
++                case SUMMON_TYPE_TOTEM_AIR:
++                    slot = T_AIR;
++                    break;
++                default:
++                    TC_LOG_ERROR(LOG_FILTER_PLAYER, "OnBotSummon(): Shaman bot %s has summoned totem %s with unknown type %u", me->GetName().c_str(), summon->GetName().c_str(), totem->m_Properties->Id);
++                    return;
++            }
++
++            float radius = 0.f;
++            if (SpellInfo const* info = sSpellMgr->GetSpellInfo(summon->m_spells[0]))
++                if (SpellRadiusEntry const* entry = info->Effects[0].RadiusEntry)
++                    radius = entry->RadiusMax;
++
 +            _totems[slot].first = summon->GetGUID();
-+            _totems[slot].second.Relocate(*summon);
++            _totems[slot].second.pos.Relocate(*summon);
++            _totems[slot].second.effradius = std::max<float>(radius, 20.f) + 5.f;
++
 +            //TC_LOG_ERROR(LOG_FILTER_PLAYER, "shaman bot: summoned %s (type %u) at x='%f', y='%f', z='%f'",
 +            //    summon->GetName().c_str(), slot, _totems[slot].second.GetPositionX(), _totems[slot].second.GetPositionY(), _totems[slot].second.GetPositionZ());
 +
 +            summon->SetDisplayId(me->GetModelForTotem(PlayerTotemType(totem->m_Properties->Id)));
-+            //summon->SetDisplayId(summon->GetNativeDisplayId());
++            master->m_SummonSlot[++slot] = 0;
 +        }
 +
 +        void SpellHit(Unit* caster, SpellInfo const* spell)
 +        {
++            uint32 spellId = spell->Id;
++
++            //Maelstrom Weapon improved: 20% to gain full stack and 50% to add 2 extra stacks
++            if (spellId == MAELSTROM_WEAPON_BUFF)
++            {
++                if (Aura* mwb = me->GetAura(MAELSTROM_WEAPON_BUFF))
++                {
++                    uint32 stacks = mwb->GetStackAmount();
++                    if (stacks < 5)
++                    {
++                        if (urand(1,100) <= 20)
++                            mwb->ModStackAmount(5);
++                        if (urand(1,100) <= 50)
++                            mwb->ModStackAmount(1);
++                    }
++
++                    MaelstromCount = mwb->GetStackAmount();
++                }
++
++                MaelstromTimer = 30000; //30 sec duration then reset
++            }
++
 +            OnSpellHit(caster, spell);
++        }
++
++        void SpellHitTarget(Unit* target, SpellInfo const* spell)
++        {
++            uint32 spellId = spell->Id;
++            //Shields improvement, replaces Static Shock (part 2) and Improved Earth Shield (part 1)
++            if (spellId == LIGHTNING_SHIELD || spellId == EARTH_SHIELD/* || spellId == WATER_SHIELD*/)
++            {
++                if (Aura* shield = target->GetAura(spellId, me->GetGUID()))
++                {
++                    shield->SetCharges(shield->GetCharges() + 12);
++                }
++            }
++            //Lightning Overlord: 50% cast SAME spell with no mana! make sure this does not proc on itself!
++   /*else */if (spellId == LIGHTNING_BOLT || spellId == CHAIN_LIGHTNING)
++            {
++                bool cast = (urand(1,100) <= 50);
++                if (spellId == LIGHTNING_BOLT)
++                {
++                    if (LOvBolt == false)
++                    {
++                        if (cast)
++                        {
++                            LOvBolt = true;
++                            me->CastSpell(target, LIGHTNING_BOLT, true);
++                        }
++                    }
++                    else
++                        LOvBolt = false;
++                }
++                if (spellId == CHAIN_LIGHTNING)
++                {
++                    if (LOvChain == false)
++                    {
++                        if (cast)
++                        {
++                            LOvChain = true;
++                            me->CastSpell(target, CHAIN_LIGHTNING, true);
++                        }
++                    }
++                    else
++                        LOvChain = false;
++                }
++            }
++   /*else */if (spellId == STORMSTRIKE)
++            {
++                //Windfury: 20% chance
++                if (WindfuryTimer == 0 && me->getLevel() >= 30)
++                {
++                    if (urand(0,100) < 20)
++                        WindfuryTimer = 1000;
++
++                    if (WindfuryTimer > 0)
++                        me->CastSpell(target, WINDFURY_PROC, true);
++                }
++            }
++        }
++
++        void DamageDealt(Unit* victim, uint32& /*damage*/, DamageEffectType damageType)
++        {
++            if (victim == me)
++                return;
++
++            if (damageType == DIRECT_DAMAGE)
++            {
++                //Windfury: 20% chance
++                if (WindfuryTimer == 0 && me->getLevel() >= 30)
++                {
++                    if (urand(0,100) < 20)
++                        WindfuryTimer = 1000;
++
++                    if (WindfuryTimer > 0)
++                        me->CastSpell(victim, WINDFURY_PROC, true);
++                }
++            }
 +        }
 +
 +        void DamageTaken(Unit* u, uint32& /*damage*/)
@@ -10696,7 +11361,7 @@ index 0000000..e0f7e64
 +                    Unit* to = sObjectAccessor->FindUnit(_totems[i].first);
 +                    if (!to)
 +                    {
-+                        TC_LOG_ERROR(LOG_FILTER_PLAYER, "%s has no totem in slot %u during remove!", me->GetName().c_str(), i);
++                        //TC_LOG_ERROR(LOG_FILTER_PLAYER, "%s has no totem in slot %u during remove!", me->GetName().c_str(), i);
 +                        continue;
 +                    }
 +                    to->ToTotem()->UnSummon();
@@ -10706,10 +11371,32 @@ index 0000000..e0f7e64
 +
 +        void Reset()
 +        {
-+            Heal_Timer = 0;
++            Riptide_Timer = 0;
 +            Shock_Timer = 0;
 +            Lightning_Bolt_Timer = 0;
 +            Searing_Totem_Timer = 0;
++            Totem_of_Wrath_Timer = 0;
++            CheckDispelTimer = 0;
++            Wind_Shear_Timer = 0;
++            Chain_Lightning_Timer = 0;
++            Lava_Burst_Timer = 0;
++            Thunderstorm_Timer = 0;
++            Hex_Timer = 0;
++            Bloodlust_Timer = 10000;
++            Stormstrike_Timer = 0;
++            Mana_Tide_Totem_Timer = 10000;
++
++            HexyCheckTimer = 3000;
++            EarthyCheckTimer = 2000;
++            MaelstromTimer = 0;
++            WindfuryTimer = 0;
++
++            MaelstromCount = 0;
++
++            Hexy = false;
++            Earthy = false;
++            LOvBolt = false;
++            LOvChain = false;
 +
 +            if (master)
 +            {
@@ -10722,10 +11409,29 @@ index 0000000..e0f7e64
 +        void ReduceCD(uint32 diff)
 +        {
 +            CommonTimers(diff);
-+            if (Heal_Timer > diff)              Heal_Timer -= diff;
++            if (Riptide_Timer > diff)           Riptide_Timer -= diff;
 +            if (Shock_Timer > diff)             Shock_Timer -= diff;
 +            if (Lightning_Bolt_Timer > diff)    Lightning_Bolt_Timer -= diff;
 +            if (Searing_Totem_Timer > diff)     Searing_Totem_Timer -= diff;
++            if (Totem_of_Wrath_Timer > diff)    Totem_of_Wrath_Timer -= diff;
++            if (CheckDispelTimer > diff)        CheckDispelTimer -= diff;
++            if (Wind_Shear_Timer > diff)        Wind_Shear_Timer -= diff;
++            if (Chain_Lightning_Timer > diff)   Chain_Lightning_Timer -= diff;
++            if (Lava_Burst_Timer > diff)        Lava_Burst_Timer -= diff;
++            if (Thunderstorm_Timer > diff)      Thunderstorm_Timer -= diff;
++            if (Hex_Timer > diff)               Hex_Timer -= diff;
++            if (Bloodlust_Timer > diff)         Bloodlust_Timer -= diff;
++            if (Stormstrike_Timer > diff)       Stormstrike_Timer -= diff;
++            if (Mana_Tide_Totem_Timer > diff)   Mana_Tide_Totem_Timer -= diff;
++
++            if (HexyCheckTimer > diff)          HexyCheckTimer -= diff;
++            if (EarthyCheckTimer > diff)        EarthyCheckTimer -= diff;
++
++            if (MaelstromTimer > diff)          MaelstromTimer -= diff;
++            else if (MaelstromCount > 0)        MaelstromCount = 0;
++
++            if (WindfuryTimer > diff)           WindfuryTimer -= diff;
++            else                                WindfuryTimer = 0;
 +        }
 +
 +        bool CanRespawn()
@@ -10733,59 +11439,243 @@ index 0000000..e0f7e64
 +
 +        void InitSpells()
 +        {
-+            //uint8 lvl = me->getLevel();
++            uint8 lvl = me->getLevel();
++            HEALING_WAVE                            = InitSpell(me, HEALING_WAVE_1);
 +            CHAIN_HEAL                              = InitSpell(me, CHAIN_HEAL_1);
-+            LESSER_HEAL                             = InitSpell(me, LESSER_HEAL_1);
++            LESSER_HEALING_WAVE                     = InitSpell(me, LESSER_HEALING_WAVE_1);
++  /*Talent*/RIPTIDE                     = lvl >= 60 ? InitSpell(me, RIPTIDE_1) : 0;
 +            ANCESTRAL_SPIRIT                        = InitSpell(me, ANCESTRAL_SPIRIT_1);
++            CURE_TOXINS                 = lvl <= 38 ? InitSpell(me, CURE_TOXINS_1) : CLEANSE_SPIRIT_1;
 +            FLAME_SHOCK                             = InitSpell(me, FLAME_SHOCK_1);
 +            EARTH_SHOCK                             = InitSpell(me, EARTH_SHOCK_1);
++            FROST_SHOCK                             = InitSpell(me, FROST_SHOCK_1);
++            STORMSTRIKE                 = lvl >= 40 ? STORMSTRIKE_1 : 0;
 +            LIGHTNING_BOLT                          = InitSpell(me, LIGHTNING_BOLT_1);
++            CHAIN_LIGHTNING                         = InitSpell(me, CHAIN_LIGHTNING_1);
++            LAVA_BURST                              = InitSpell(me, LAVA_BURST_1);
++  /*Talent*/THUNDERSTORM                = lvl >= 60 ? InitSpell(me, THUNDERSTORM_1) : 0;
 +            LIGHTNING_SHIELD                        = InitSpell(me, LIGHTNING_SHIELD_1);
-+            STONESKIN_TOTEM                         = InitSpell(me, STONESKIN_TOTEM_1);
++  /*Talent*/EARTH_SHIELD                = lvl >= 50 ? InitSpell(me, EARTH_SHIELD_1) : 0;
++     /*NYI*/WATER_SHIELD                            = InitSpell(me, WATER_SHIELD_1);
++            WATER_BREATHING                         = InitSpell(me, WATER_BREATHING_1);
++            WATER_WALKING                           = InitSpell(me, WATER_WALKING_1);
++  /*CUSTOM*/BLOODLUST                   = lvl >= 60 ? BLOODLUST_1 : 0;
++            PURGE                                   = InitSpell(me, PURGE_1);
++            WIND_SHEAR                              = InitSpell(me, WIND_SHEAR_1);
++            HEX                                     = InitSpell(me, HEX_1);
++   /*Quest*/STONESKIN_TOTEM             = lvl >= 10 ? InitSpell(me, STONESKIN_TOTEM_1) : 0;
 +            HEALINGSTREAM_TOTEM                     = InitSpell(me, HEALINGSTREAM_TOTEM_1);
 +            MANASPRING_TOTEM                        = InitSpell(me, MANASPRING_TOTEM_1);
-+            SEARING_TOTEM                           = InitSpell(me, SEARING_TOTEM_1);
++   /*Quest*/SEARING_TOTEM               = lvl >= 10 ? InitSpell(me, SEARING_TOTEM_1) : 0;
 +            WINDFURY_TOTEM                          = InitSpell(me, WINDFURY_TOTEM_1);
++            STRENGTH_OF_EARTH_TOTEM                 = InitSpell(me, STRENGTH_OF_EARTH_TOTEM_1);
++  /*Talent*/TOTEM_OF_WRATH              = lvl >= 50 ? InitSpell(me, TOTEM_OF_WRATH_1) : 0;
++  /*Talent*/MANA_TIDE_TOTEM             = lvl >= 40 ? MANA_TIDE_TOTEM_1 : 0;
 +        }
 +
 +        void ApplyClassPassives()
 +        {
++            uint8 level = master->getLevel();
++            if (level >= 70)
++                RefreshAura(MAELSTROM_WEAPON5,2);
++            else if (level >= 60)
++                RefreshAura(MAELSTROM_WEAPON5);
++            else if (level >= 55)
++                RefreshAura(MAELSTROM_WEAPON4);
++            else if (level >= 50)
++                RefreshAura(MAELSTROM_WEAPON3);
++            else if (level >= 45)
++                RefreshAura(MAELSTROM_WEAPON2);
++            else if (level >= 40)
++                RefreshAura(MAELSTROM_WEAPON1);
++            if (level >= 58)
++                RefreshAura(ELEMENTAL_WARDING,2); //12%
++            else if (level >= 15)
++                RefreshAura(ELEMENTAL_WARDING); //6%
++            if (level >= 18)
++                RefreshAura(ELEMENTAL_DEVASTATION3); //9%
++            else if (level >= 15)
++                RefreshAura(ELEMENTAL_DEVASTATION2); //6%
++            else if (level >= 12)
++                RefreshAura(ELEMENTAL_DEVASTATION1); //3%
++            if (level >= 50)
++                RefreshAura(ANCESTRAL_KNOWLEDGE,5); //50%
++            else if (level >= 40)
++                RefreshAura(ANCESTRAL_KNOWLEDGE,4); //40%
++            else if (level >= 30)
++                RefreshAura(ANCESTRAL_KNOWLEDGE,3); //30%
++            else if (level >= 20)
++                RefreshAura(ANCESTRAL_KNOWLEDGE,2); //20%
++            else if (level >= 10)
++                RefreshAura(ANCESTRAL_KNOWLEDGE); //10%
++            if (level >= 25)
++                RefreshAura(TOUGHNESS); //10%, 30%
++            if (level >= 29)
++                RefreshAura(FLURRY5); //30%
++            else if (level >= 28)
++                RefreshAura(FLURRY4); //24%
++            else if (level >= 27)
++                RefreshAura(FLURRY3); //18%
++            else if (level >= 26)
++                RefreshAura(FLURRY2); //12%
++            else if (level >= 25)
++                RefreshAura(FLURRY1); //6%
++            if (level >= 70)
++                RefreshAura(WEAPON_MASTERY,5); //50%
++            else if (level >= 60)
++                RefreshAura(WEAPON_MASTERY,4); //40%
++            else if (level >= 50)
++                RefreshAura(WEAPON_MASTERY,3); //30%
++            else if (level >= 40)
++                RefreshAura(WEAPON_MASTERY,2); //20%
++            else if (level >= 30)
++                RefreshAura(WEAPON_MASTERY); //10%
++            if (level >= 45)
++                RefreshAura(STATIC_SHOCK,3); //18%
++            else if (level >= 43)
++                RefreshAura(STATIC_SHOCK,2); //12%
++            else if (level >= 41)
++                RefreshAura(STATIC_SHOCK); //6%
++            if (level >= 20)
++                RefreshAura(ANCESTRAL_HEALING); //10%
++            if (level >= 50)
++                RefreshAura(ANCESTRAL_AWAKENING); //30%
++
++            if (level >= 70)
++                RefreshAura(SHAMAN_T10_RESTO_4P); //25%
++
++
++            //spec-based (race-based)
++            if (level >= 40)
++            {
++                if (isTwoHander())
++                {
++                    RefreshAura(UNLEASHED_RAGE);
++                    RefreshAura(IMPROVED_STORMSTRIKE); //20%
++                }
++                else
++                    RefreshAura(ELEMENTAL_OATH);
++            }
++
++            EARTHLIVING_WEAPON =
++                level >= 70 ? EARTHLIVING_WEAPON_PASSIVE_6 :
++                level >= 50 ? EARTHLIVING_WEAPON_PASSIVE_5 :
++                level >= 30 ? EARTHLIVING_WEAPON_PASSIVE_4 : 0;
++            if (EARTHLIVING_WEAPON)
++            {
++                me->RemoveAurasDueToSpell(EARTHLIVING_WEAPON_PASSIVE_4);
++                me->RemoveAurasDueToSpell(EARTHLIVING_WEAPON_PASSIVE_5);
++                me->RemoveAurasDueToSpell(EARTHLIVING_WEAPON_PASSIVE_6);
++                RefreshAura(EARTHLIVING_WEAPON, 3);
++            }
 +        }
 +
 +    private:
 +        BotTotem _totems[MAX_TOTEMS];
 +        uint32
-+            CHAIN_HEAL, LESSER_HEAL, ANCESTRAL_SPIRIT,
-+            FLAME_SHOCK, EARTH_SHOCK, LIGHTNING_BOLT, LIGHTNING_SHIELD,
-+            STONESKIN_TOTEM, HEALINGSTREAM_TOTEM, MANASPRING_TOTEM, SEARING_TOTEM, WINDFURY_TOTEM;
++            HEALING_WAVE, CHAIN_HEAL, LESSER_HEALING_WAVE, RIPTIDE, ANCESTRAL_SPIRIT, CURE_TOXINS,
++            FLAME_SHOCK, EARTH_SHOCK, FROST_SHOCK, STORMSTRIKE, LIGHTNING_BOLT, CHAIN_LIGHTNING, LAVA_BURST, THUNDERSTORM,
++            LIGHTNING_SHIELD, EARTH_SHIELD, WATER_SHIELD, WATER_BREATHING, WATER_WALKING, BLOODLUST,
++            PURGE, WIND_SHEAR, HEX,
++            STONESKIN_TOTEM, HEALINGSTREAM_TOTEM, MANASPRING_TOTEM, WINDFURY_TOTEM, STRENGTH_OF_EARTH_TOTEM,
++            SEARING_TOTEM, TOTEM_OF_WRATH, MANA_TIDE_TOTEM;
++        uint32
++            EARTHLIVING_WEAPON;
 +        //Timers
-+        uint32 Heal_Timer, Shock_Timer, Lightning_Bolt_Timer, Searing_Totem_Timer;
++        uint32 Riptide_Timer, Shock_Timer, Lightning_Bolt_Timer, Searing_Totem_Timer, Totem_of_Wrath_Timer,
++            CheckDispelTimer, Wind_Shear_Timer, Chain_Lightning_Timer, Lava_Burst_Timer, Thunderstorm_Timer,
++            Hex_Timer, Bloodlust_Timer, Stormstrike_Timer, Mana_Tide_Totem_Timer;
++        uint32 HexyCheckTimer, EarthyCheckTimer, MaelstromTimer, WindfuryTimer;
++        uint8 MaelstromCount;
++        bool Hexy, Earthy, LOvChain, LOvBolt;
 +
 +        enum ShamanBaseSpells
 +        {
++            HEALING_WAVE_1                      = 331,
 +            CHAIN_HEAL_1                        = 1064,
-+            LESSER_HEAL_1                       = 8004,
++            LESSER_HEALING_WAVE_1               = 8004,
++            RIPTIDE_1                           = 61295,
 +            ANCESTRAL_SPIRIT_1                  = 2008,
++            CURE_TOXINS_1                       = 526,
++            CLEANSE_SPIRIT_1                    = 51886,
 +            FLAME_SHOCK_1                       = 8050,
 +            EARTH_SHOCK_1                       = 8042,
++            FROST_SHOCK_1                       = 8056,
++            STORMSTRIKE_1                       = 17364,
 +            LIGHTNING_BOLT_1                    = 403,
++            CHAIN_LIGHTNING_1                   = 421,
++            LAVA_BURST_1                        = 51505,
++            THUNDERSTORM_1                      = 51490,
 +            LIGHTNING_SHIELD_1                  = 324,
++            EARTH_SHIELD_1                      = 974,
++            WATER_SHIELD_1                      = 52127,
++            WATER_BREATHING_1                   = 131,
++            WATER_WALKING_1                     = 546,
++            //BLOODLUST_1                         = 54516,//custom, moved to specials
++            PURGE_1                             = 370,
++            WIND_SHEAR_1                        = 57994,
++            HEX_1                               = 51514,
 +            STONESKIN_TOTEM_1                   = 8071,
 +            HEALINGSTREAM_TOTEM_1               = 5394,
 +            MANASPRING_TOTEM_1                  = 5675,
 +            SEARING_TOTEM_1                     = 3599,
 +            WINDFURY_TOTEM_1                    = 8512,
++            STRENGTH_OF_EARTH_TOTEM_1           = 8075,
++            TOTEM_OF_WRATH_1                    = 30706,
++            MANA_TIDE_TOTEM_1                   = 16190
 +        };
 +
 +        enum ShamanPassives
 +        {
++            //Elemental
++            ELEMENTAL_DEVASTATION1              = 30160,
++            ELEMENTAL_DEVASTATION2              = 29179,
++            ELEMENTAL_DEVASTATION3              = 29180,
++            ELEMENTAL_WARDING                   = 28998,//rank 3
++            ELEMENTAL_OATH                      = 51470,//rank 2
++            //Enchancement
++            ANCESTRAL_KNOWLEDGE                 = 17489,//rank 5
++            TOUGHNESS                           = 16309,//rank 5
++            FLURRY1                             = 16256,
++            FLURRY2                             = 16281,
++            FLURRY3                             = 16282,
++            FLURRY4                             = 16283,
++            FLURRY5                             = 16284,
++            WEAPON_MASTERY                      = 29086,//rank 3
++            UNLEASHED_RAGE                      = 30809,//rank 3
++            STATIC_SHOCK                        = 51527,//rank 3
++            IMPROVED_STORMSTRIKE                = 51522,//rank 2
++            MAELSTROM_WEAPON1                   = 51528,
++            MAELSTROM_WEAPON2                   = 51529,
++            MAELSTROM_WEAPON3                   = 51530,
++            MAELSTROM_WEAPON4                   = 51531,
++            MAELSTROM_WEAPON5                   = 51532,
++            //Restoration
++            ANCESTRAL_HEALING                   = 16240,//rank 3
++            ANCESTRAL_AWAKENING                 = 51558,//rank 3
++            //Special
++            SHAMAN_T10_RESTO_4P                 = 70808 //Chain Heal HoT
 +        };
 +
 +        enum ShamanSpecial
 +        {
-+            STONESKIN_AURA                      = 8072,
-+            HEALINGSTREAM_AURA                  = 5672,
-+            MANASPRING_AURA                     = 5677,
++            //2 extra white attacks
++            //100 yd
++            //"Increases attack power for 1.50 sec"
++            //Warning! can proc even from itself!
++            WINDFURY_PROC                       = 32910,
++            //"Increases melee,ranged and spell casting speed by 35%
++            //for all party members. Lasts 20 sec."
++            //250 mana, 20 yd
++            //affects raid
++            //no penalty
++            BLOODLUST_1                         = 54516,
++            //20% chance to put HoT on healed target over 12 sec
++            EARTHLIVING_WEAPON_PASSIVE_4        = 52005,//348 base hp
++            EARTHLIVING_WEAPON_PASSIVE_5        = 52007,//456 base hp
++            EARTHLIVING_WEAPON_PASSIVE_6        = 52008,//652 base hp
++
++            MAELSTROM_WEAPON_BUFF               = 53817
 +        };
 +    };
 +};
@@ -11345,10 +12235,10 @@ index 0000000..dfe2e59
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warrior_ai.cpp b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 new file mode 100644
-index 0000000..0a02e2c
+index 0000000..d8524ee
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
-@@ -0,0 +1,1145 @@
+@@ -0,0 +1,1142 @@
 +#include "bot_ai.h"
 +#include "Group.h"
 +#include "Player.h"
@@ -11524,10 +12414,11 @@ index 0000000..0a02e2c
 +        {
 +            if (me->HasAuraWithMechanic((1<<MECHANIC_FEAR)|(1<<MECHANIC_SAPPED)|(1<<MECHANIC_DISORIENTED)))
 +            {
-+                if (BERSERKERRAGE && berserkerRage_cd <= diff && GC_Timer <= diff && doCast(me, BERSERKERRAGE))
++                if (BERSERKERRAGE && berserkerRage_cd <= diff && GC_Timer <= diff &&
++                    doCast(me, BERSERKERRAGE))
 +                {
 +                    berserkerRage_cd = BERSERKERRAGE_CD;
-+                    if (me->getLevel() >= 54)
++                    if (me->getLevel() >= 40)
 +                        doCast(me, 58096, true); //Berserker Rage Effect (434 unused)
 +                    return;
 +                }
@@ -11759,9 +12650,9 @@ index 0000000..0a02e2c
 +            {
 +                if (doCast(opponent, EXECUTE))
 +                {
-+                    //sudden death part 2
++                    //sudden death
 +                    if (me->getLevel() >= 50 && getrage() <= 200)
-+                       modrage(10, true);
++                        modrage(10, true);
 +                    return;
 +                }
 +            }
@@ -12141,14 +13032,11 @@ index 0000000..0a02e2c
 +            float pctbonus = 0.0f;
 +            if (crit)
 +            {
-+                //2.1 crit damage bonus
 +                //!!!Melee spell damage is not yet critical, all reduced by half
 +                //Impale: 20% crit damage bonus for all abilities
 +                if (lvl >= 20)
 +                    pctbonus += 0.10f;
 +            }
-+
-+            //2.2 normal damage
 +
 +            //Lambs to the Slaughter: 10% bonus damage for Execute, Overpower, Slam and MS per stack
 +            if (lvl >= 50 && spellId == EXECUTE || spellId == OVERPOWER || spellId == SLAM || spellId == MORTALSTRIKE)
@@ -12166,7 +13054,6 @@ index 0000000..0a02e2c
 +            if (lvl >= 10 && (spellId == MORTALSTRIKE || spellId == SLAM/* || || || */))
 +                pctbonus += 0.15f;
 +
-+            //2.3 debug
 +            //execute 250% - fix too low damage
 +            if (spellId == EXECUTE)
 +                pctbonus += 1.5f;
@@ -12320,7 +13207,7 @@ index 0000000..0a02e2c
 +            REND                                    = InitSpell(me, REND_1);
 +            EXECUTE                                 = InitSpell(me, EXECUTE_1);
 +            PUMMEL                                  = InitSpell(me, PUMMEL_1);
-+  /*Talent*/MORTALSTRIKE                            = InitSpell(me, MORTALSTRIKE_1);
++  /*Talent*/MORTALSTRIKE                = lvl >= 10 ? InitSpell(me, MORTALSTRIKE_1) : 0;
 +            SLAM                                    = InitSpell(me, SLAM_1);
 +   /*Quest*/SUNDER                      = lvl >= 10 ? InitSpell(me, SUNDER_1) : 0;
 +  /*Talent*/SWEEPING_STRIKES            = lvl >= 30 ? SWEEPING_STRIKES_1 : 0;
@@ -12477,9 +13364,9 @@ index 0000000..0a02e2c
 +            INTERCEPT_CD            = 20000,  //30 sec improved -10
 +            INTIMIDATINGSHOUT_CD    = 45000,
 +            PUMMEL_CD               = 9000,
-+            WHIRLWIND_CD            = 6500,   //average assuming ~20% chance to strike 4+ targets
++            WHIRLWIND_CD            = 6500,
 +            BLADESTORM_CD           = 60000,
-+            BLOODRAGE_CD            = 20000,  //generic
++            BLOODRAGE_CD            = 20000,
 +            //DISARM_CD               = 40000,
 +            INTERVENE_CD            = 20000,  //-10 sec for bots
 +            SHOUT_CD                = 60000,
@@ -12496,7 +13383,7 @@ index 0000000..0a02e2c
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 0000000..39e9c44
+index 0000000..645c90f
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
 @@ -0,0 +1,632 @@
@@ -13096,7 +13983,7 @@ index 0000000..39e9c44
 +            botclass = CLASS_PRIEST;
 +        else if (!strncmp(bclass, "rogue", 6) || !strncmp(bclass, "rog", 4) || !strncmp(bclass, "ro", 3))
 +            botclass = CLASS_ROGUE;
-+        else if (!strncmp(bclass, "shaman", 7) || !strncmp(bclass, "sha", 4) || !strncmp(bclass, "sh", 3))
++        else if (!strncmp(bclass, "shaman", 7) || !strncmp(bclass, "sham", 5) || !strncmp(bclass, "sha", 4) || !strncmp(bclass, "sh", 3))
 +            botclass = CLASS_SHAMAN;
 +        else if (!strncmp(bclass, "warlock", 8) || !strncmp(bclass, "warl", 5) || !strncmp(bclass, "lock", 5))
 +            botclass = CLASS_WARLOCK;
@@ -13635,7 +14522,7 @@ index c8d1a94..a6207b2 100644
    ${CMAKE_CURRENT_SOURCE_DIR}/AI/SmartScripts
    ${CMAKE_CURRENT_SOURCE_DIR}/AuctionHouse
 diff --git a/src/server/game/Entities/Creature/Creature.cpp b/src/server/game/Entities/Creature/Creature.cpp
-index a5c9a3f..1443a83 100644
+index a5c9a3f..bb5a92c 100644
 --- a/src/server/game/Entities/Creature/Creature.cpp
 +++ b/src/server/game/Entities/Creature/Creature.cpp
 @@ -54,6 +54,9 @@
@@ -13684,7 +14571,7 @@ index a5c9a3f..1443a83 100644
      if (IsAIEnabled && TriggerJustRespawned)
      {
          TriggerJustRespawned = false;
-@@ -2538,3 +2556,159 @@ void Creature::SetDisplayId(uint32 modelId)
+@@ -2538,3 +2556,165 @@ void Creature::SetDisplayId(uint32 modelId)
          SetFloatValue(UNIT_FIELD_COMBATREACH, minfo->combat_reach * GetObjectScale());
      }
  }
@@ -13844,8 +14731,14 @@ index a5c9a3f..1443a83 100644
 +    if (bot_AI)
 +        bot_AI->OnBotSummon(summon);
 +}
++
++void Creature::OnBotDespawn(Creature* summon)
++{
++    if (bot_AI)
++        bot_AI->OnBotDespawn(summon);
++}
 diff --git a/src/server/game/Entities/Creature/Creature.h b/src/server/game/Entities/Creature/Creature.h
-index 365bb05..fc68b18 100644
+index 365bb05..ad8f2e3 100644
 --- a/src/server/game/Entities/Creature/Creature.h
 +++ b/src/server/game/Entities/Creature/Creature.h
 @@ -37,6 +37,11 @@ class Player;
@@ -13860,7 +14753,7 @@ index 365bb05..fc68b18 100644
  enum CreatureFlagsExtra
  {
      CREATURE_FLAG_EXTRA_INSTANCE_BIND   = 0x00000001,       // creature kill bind instance with killer and killer's group
-@@ -692,6 +697,35 @@ class Creature : public Unit, public GridObject<Creature>, public MapCreature
+@@ -692,6 +697,36 @@ class Creature : public Unit, public GridObject<Creature>, public MapCreature
  
          bool m_isTempWorldObject; //true when possessed
  
@@ -13890,13 +14783,14 @@ index 365bb05..fc68b18 100644
 +        void ApplyBotDamageMultiplierEffect(SpellInfo const* spellInfo, uint8 effect_index, float &value) const;
 +        void SetBotShouldUpdateStats();
 +        void OnBotSummon(Creature* summon);
++        void OnBotDespawn(Creature* summon);
 +        void SetCanUpdate(bool can) { m_canUpdate = can; }
 +        //Bot commands
 +
      protected:
          bool CreateFromProto(uint32 guidlow, uint32 Entry, uint32 vehId, uint32 team, const CreatureData* data = NULL);
          bool InitEntry(uint32 entry, uint32 team=ALLIANCE, const CreatureData* data=NULL);
-@@ -742,6 +776,15 @@ class Creature : public Unit, public GridObject<Creature>, public MapCreature
+@@ -742,6 +777,15 @@ class Creature : public Unit, public GridObject<Creature>, public MapCreature
          bool IsInvisibleDueToDespawn() const;
          bool CanAlwaysSee(WorldObject const* obj) const;
      private:
@@ -13961,7 +14855,7 @@ index 0a5eb82..0346d43 100644
  
      return summon;
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index db22cce..7721cb1 100644
+index db22cce..33cd436 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -80,6 +80,10 @@
@@ -14075,7 +14969,7 @@ index db22cce..7721cb1 100644
          //I think this always returns true. Correct me if I am wrong.
          // If the map is not created, assume it is possible to enter it.
          // It will be created in the WorldPortAck.
-@@ -2485,6 +2554,819 @@ void Player::RemoveFromWorld()
+@@ -2485,6 +2554,818 @@ void Player::RemoveFromWorld()
      }
  }
  
@@ -14186,7 +15080,7 @@ index db22cce..7721cb1 100644
 +
 +                    m_bot->SetPhaseMask(newphase, true);
 +                    m_bot->NearTeleportTo(GetPositionX(), GetPositionY(), GetPositionZ(), GetOrientation());
-+                    //m_bot->SetPhaseMask(oldphase, true);
++                    m_bot->SetPhaseMask(oldphase, true);
 +                }
 +            }
 +        }
@@ -14518,7 +15412,6 @@ index db22cce..7721cb1 100644
 +    if (uint32 cost = GetNpcBotCost())
 +        ModifyMoney(-(int32(cost)));
 +
-+
 +    if (Group* gr = GetGroup())
 +    {
 +        Group::MemberSlotList const a = gr->GetMemberSlots();
@@ -14708,14 +15601,14 @@ index db22cce..7721cb1 100644
 +        bot_class != CLASS_MAGE &&
 +        bot_class != CLASS_DRUID &&
 +        bot_class != CLASS_WARLOCK &&
-+        bot_class != CLASS_ROGUE))
++        bot_class != CLASS_ROGUE &&
++        bot_class != CLASS_SHAMAN))
 +    {
 +        ChatHandler ch(GetSession());
 +        const char* bclass;
 +        switch (bot_class)
 +        {
 +            case CLASS_DEATH_KNIGHT:    bclass = "DeathKnight"; break;
-+            case CLASS_SHAMAN:          bclass = "Shaman"; break;
 +            case CLASS_HUNTER:          bclass = "Hunter"; break;
 +            default:                    bclass = "Unknown Class"; break;
 +        }
@@ -14895,7 +15788,7 @@ index db22cce..7721cb1 100644
  void Player::RegenerateAll()
  {
      //if (m_regenTimer <= 500)
-@@ -3009,6 +3891,26 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
+@@ -3009,6 +3890,26 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
  {
      if (group)
      {
@@ -14922,7 +15815,7 @@ index db22cce..7721cb1 100644
          group->RemoveMember(guid, method, kicker, reason);
          group = NULL;
      }
-@@ -5036,6 +5938,13 @@ void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmC
+@@ -5036,6 +5937,13 @@ void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmC
              stmt->setUInt32(0, guid);
              trans->Append(stmt);
  
@@ -15025,6 +15918,24 @@ index da59334..ba6ec2f 100644
          // internal common parts for CanStore/StoreItem functions
          InventoryResult CanStoreItem_InSpecificSlot(uint8 bag, uint8 slot, ItemPosCountVec& dest, ItemTemplate const* pProto, uint32& count, bool swap, Item* pSrcItem) const;
          InventoryResult CanStoreItem_InBag(uint8 bag, ItemPosCountVec& dest, ItemTemplate const* pProto, uint32& count, bool merge, bool non_specialized, Item* pSrcItem, uint8 skip_bag, uint8 skip_slot) const;
+diff --git a/src/server/game/Entities/Totem/Totem.cpp b/src/server/game/Entities/Totem/Totem.cpp
+index 907a6fa..0a49d1c 100644
+--- a/src/server/game/Entities/Totem/Totem.cpp
++++ b/src/server/game/Entities/Totem/Totem.cpp
+@@ -137,6 +137,13 @@ void Totem::UnSummon(uint32 msTime)
+         }
+     }
+ 
++    //npcbot: send SummonedCreatureDespawn()
++    if (IS_CREATURE_GUID(GetCreatorGUID()))
++        if (Unit* bot = sObjectAccessor->FindUnit(GetCreatorGUID()))
++            if (bot->ToCreature()->GetIAmABot())
++                bot->ToCreature()->OnBotDespawn(this);
++    //end npcbot
++
+     AddObjectToRemoveList();
+ }
+ 
 diff --git a/src/server/game/Entities/Unit/StatSystem.cpp b/src/server/game/Entities/Unit/StatSystem.cpp
 index 28e4293..a675e6f 100644
 --- a/src/server/game/Entities/Unit/StatSystem.cpp
@@ -15720,7 +16631,7 @@ index 01f059a..72f743a 100644
 +    PrepareStatement(CHAR_UPD_NPCBOT_TANK, "UPDATE character_npcbot SET istank = ? WHERE owner = ? AND entry = ?", CONNECTION_ASYNC);
  }
 diff --git a/src/server/shared/Database/Implementation/CharacterDatabase.h b/src/server/shared/Database/Implementation/CharacterDatabase.h
-index abe1f07..75d38db 100644
+index abe1f07..75d38db 100755
 --- a/src/server/shared/Database/Implementation/CharacterDatabase.h
 +++ b/src/server/shared/Database/Implementation/CharacterDatabase.h
 @@ -559,6 +559,13 @@ enum CharacterDatabaseStatements
