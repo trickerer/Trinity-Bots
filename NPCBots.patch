@@ -1,25 +1,25 @@
-From 013452e0efc0545a144a7ac17c750318a54b41cd Mon Sep 17 00:00:00 2001
+From 3e4f4170d2600b897cdcec1880f5a78e4a6b3910 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Thu, 19 Sep 2013 12:10:19 +0700
+Date: Thu, 19 Sep 2013 18:32:23 +0700
 Subject: [PATCH] NPCBots
 
 ---
  sql/Bots/auth_rbac.sql                             |   27 +
  sql/Bots/character_NPC_bots.sql                    |    9 +
  ...world_bot_helper_locales_gossip_menu_option.sql |   92 +
- sql/Bots/world_bots.sql                            |  528 ++++
+ sql/Bots/world_bots.sql                            |  528 +++
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  467 +++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 3330 ++++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |  356 +++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 3361 ++++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |  363 +++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1148 +++++++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  340 ++
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  958 ++++++
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      | 1077 +++++++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  988 ++++++
- src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  938 ++++++
- src/server/game/AI/NpcBots/bot_shaman_ai.cpp       | 1344 ++++++++
+ src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  937 ++++++
+ src/server/game/AI/NpcBots/bot_shaman_ai.cpp       | 1348 ++++++++
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  542 ++++
- src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1182 +++++++
+ src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1177 +++++++
  src/server/game/AI/NpcBots/botcommands.cpp         |  632 ++++
  src/server/game/AI/NpcBots/bothelper.cpp           |  421 +++
  src/server/game/AI/NpcBots/bothelper.h             |   32 +
@@ -49,7 +49,7 @@ Subject: [PATCH] NPCBots
  .../Database/Implementation/WorldDatabase.cpp      |    4 +
  .../shared/Database/Implementation/WorldDatabase.h |    4 +
  src/server/worldserver/worldserver.conf.dist       |  106 +
- 45 files changed, 16148 insertions(+), 0 deletions(-)
+ 45 files changed, 16184 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/auth_rbac.sql
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world_bot_helper_locales_gossip_menu_option.sql
@@ -1225,10 +1225,10 @@ index 0000000..88a501a
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..ce546eb
+index 0000000..e517dd4
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,3330 @@
+@@ -0,0 +1,3361 @@
 +/*
 +NpcBot System by Graff (onlysuffering@gmail.com)
 +Original patch from: LordPsyan https://bitbucket.org/lordpsyan/trinitycore-patches/src/3b8b9072280e/Individual/11185-BOTS-NPCBots.patch
@@ -1269,6 +1269,8 @@ index 0000000..ce546eb
 +    rezz_cd = 0;
 +    evade_cd = 0;
 +    myangle = 0.f;
++    mana_cd = 0;
++    health_cd = 0;
 +    classinfo = new PlayerClassLevelInfo;
 +}
 +bot_minion_ai::~bot_minion_ai()
@@ -1336,7 +1338,7 @@ index 0000000..ce546eb
 +        return SPELL_FAILED_DONT_REPORT;
 +
 +    if (Powers(spellInfo->PowerType) == me->getPowerType() &&
-+        me->GetPower(me->getPowerType()) < spellInfo->CalcPowerCost(me, spellInfo->GetSchoolMask()))
++        (int32)me->GetPower(me->getPowerType()) < spellInfo->CalcPowerCost(me, spellInfo->GetSchoolMask()))
 +        return SPELL_FAILED_DONT_REPORT;
 +
 +    switch (botclass)
@@ -2705,8 +2707,11 @@ index 0000000..ce546eb
 +//Updates bot's condition once a while
 +void bot_minion_ai::CheckAuras(bool force)
 +{
-+    if (checkAurasTimer > 0 && !force) return;
 +    opponent = me->GetVictim(); //safe
++
++    if (!force)
++        UpdateRations(); //safe
++
 +    if (checkAurasTimer == 0)
 +    {
 +        checkAurasTimer = 10 + master->GetNpcBotsCount()/2;
@@ -2798,7 +2803,6 @@ index 0000000..ce546eb
 +        }
 +        UpdateMountedState();
 +        UpdateStandState();
-+        UpdateRations();
 +    }
 +}
 +void bot_pet_ai::CheckAuras(bool /*force*/)
@@ -3112,7 +3116,7 @@ index 0000000..ce546eb
 +        if (me->GetDistance(attackpos) > 8)
 +            me->GetMotionMaster()->MovePoint(newtarget->GetMapId(), attackpos);
 +    }
-+    else
++    else if (!me->HasUnitState(UNIT_STATE_CHASE) || !me->HasUnitState(UNIT_STATE_CHASE_MOVE))
 +        me->GetMotionMaster()->MoveChase(newtarget);
 +    if (newtarget != me->GetVictim())
 +        me->Attack(newtarget, !ranged);
@@ -3228,44 +3232,68 @@ index 0000000..ce546eb
 +
 +}
 +//RATIONS
-+void bot_minion_ai::UpdateRations() const
++void bot_minion_ai::UpdateRations()
 +{
 +    if (me->IsInCombat() || CCed(me))
 +    {
-+        if (me->HasAura(EAT))   me->RemoveAurasDueToSpell(EAT);
-+        if (me->HasAura(DRINK)) me->RemoveAurasDueToSpell(DRINK);
++        if (health_cd <= RATIONS_CD && me->HasAura(EAT))
++        {
++            health_cd = uint32(-1);
++            me->RemoveAurasDueToSpell(EAT);
++        }
++        if (mana_cd <= RATIONS_CD && me->HasAura(DRINK))
++        {
++            mana_cd = uint32(-1);
++            me->RemoveAurasDueToSpell(DRINK);
++        }
++
++        return;
 +    }
 +
 +    //drink
-+    if (me->getPowerType() == POWER_MANA && !me->IsMounted() && !me->isMoving() && !CCed(me) &&
++    if (me->getPowerType() == POWER_MANA && !me->IsMounted() && !me->isMoving() &&
 +        !me->IsInCombat() && !IsCasting() && urand(0, 100) < 20 && GetManaPCT(me) < 80 &&
 +        !me->HasAura(DRINK))
 +    {
++        mana_cd = RATIONS_CD;
 +        me->CastSpell(me, DRINK);
 +        me->SetStandState(UNIT_STAND_STATE_SIT);
 +    }
-+    if (me->GetPower(POWER_MANA) < me->GetMaxPower(POWER_MANA) && me->HasAura(DRINK))
-+        me->ModifyPower(POWER_MANA, me->GetCreateMana()/20);
++    if (mana_cd == 0 && me->getPowerType() == POWER_MANA && me->GetPower(POWER_MANA) < me->GetMaxPower(POWER_MANA))
++    {
++        mana_cd = RATIONS_CD;
++        me->ModifyPower(POWER_MANA, me->GetMaxPower(POWER_MANA) / (RATIONS_CD / 40)/*1000/40=25*/); //4% per second
++    }
 +
 +    //eat
-+    if (!me->IsMounted() && !me->isMoving() && !CCed(me) &&
-+        !me->IsInCombat() && !IsCasting() && urand(0, 100) < 20 && GetHealthPCT(me) < 80 &&
++    if (!me->IsMounted() && !me->isMoving() && !me->IsInCombat() && !IsCasting() &&
++        urand(0, 100) < 20 && GetHealthPCT(me) < 80 &&
 +        !me->HasAura(EAT))
 +    {
++        health_cd = RATIONS_CD;
 +        me->CastSpell(me, EAT);
 +        me->SetStandState(UNIT_STAND_STATE_SIT);
 +    }
-+    if (me->GetHealth() < me->GetMaxHealth() && me->HasAura(EAT))
-+        me->SetHealth(me->GetHealth() + me->GetCreateHealth()/20);
++    if (health_cd == 0 && me->GetHealth() < me->GetMaxHealth() && me->HasAura(EAT))
++    {
++        health_cd = RATIONS_CD;
++        me->SetHealth(me->GetHealth() + me->GetMaxHealth() / (RATIONS_CD / 50)/*1000/50=20*/); //5% per second
++    }
 +
 +    //check
-+    if (me->GetHealth() >= me->GetMaxHealth() && me->HasAura(EAT))
++    if (health_cd <= RATIONS_CD && me->GetHealth() >= me->GetMaxHealth() && me->HasAura(EAT))
++    {
++        health_cd = uint32(-1);
 +        me->RemoveAurasDueToSpell(EAT);
++    }
 +
-+    if (me->getPowerType() == POWER_MANA &&
++    if (mana_cd <= RATIONS_CD && me->getPowerType() == POWER_MANA &&
 +        me->GetPower(POWER_MANA) >= me->GetMaxPower(POWER_MANA) &&
 +        me->HasAura(DRINK))
++    {
++        mana_cd = uint32(-1);
 +        me->RemoveAurasDueToSpell(DRINK);
++    }
 +}
 +//PASSIVES
 +// Used to apply common passives (run once)
@@ -3299,6 +3327,9 @@ index 0000000..ce546eb
 +            case CLASS_MAGE:
 +            case CLASS_ROGUE:
 +                RefreshAura(RCP,3);//-87%
++                break;
++            case CLASS_SHAMAN:
++                RefreshAura(RCP, isTwoHander() ? 1 : 3);
 +                break;
 +            default:
 +                RefreshAura(RCP,2);//-54%
@@ -4196,9 +4227,9 @@ index 0000000..ce546eb
 +//2) Apply bot damage multiplier
 +//3) Remove Creature damage multiplier (make independent from original config)
 +//Bug with config reload (creatures do not update their damage on reload) is not bot-related but still annoying
-+void bot_ai::ApplyBotDamageMultiplierMelee(uint32& damage, CalcDamageInfo& damageinfo) const
++void bot_ai::ApplyBotDamageMultiplierMelee(uint32& damage, CalcDamageInfo& /*damageinfo*/) const
 +{
-+    ApplyClassDamageMultiplierMelee(damage, damageinfo);
++    //ApplyClassDamageMultiplierMelee(damage, damageinfo);
 +    damage = int32(float(damage)*dmgmult_melee/dmgmod_melee);
 +}
 +void bot_ai::ApplyBotDamageMultiplierMelee(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool& crit) const
@@ -4561,10 +4592,10 @@ index 0000000..ce546eb
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..8fa30f5
+index 0000000..2874f0c
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,356 @@
+@@ -0,0 +1,363 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -4573,7 +4604,7 @@ index 0000000..8fa30f5
 +enum CommonValues
 +{
 +//COMMON SPELLS
-+    MANAPOTION                          = 32453,//"???" forgot 0_o
++    MANAPOTION                          = 32453,//"Uses a Holy elixir to heal the caster for 32000"
 +    HEALINGPOTION                       = 15504,//"Drinks Holy Elixir to heal the caster"
 +    DRINK                               = 66041,//"Restores 4% mana per sec for 30 sec"
 +    EAT                                 = 66478,//"Restores Health"
@@ -4581,6 +4612,7 @@ index 0000000..8fa30f5
 +//COMMON CDs
 +    POTION_CD                           = 60000,//default 60sec potion cd
 +    PVPTRINKET_CD                       = 120000,//default 2 min pvp trinket cd
++    RATIONS_CD                          = 1000,//update rations every X milliseconds
 +//COMMON PASSIVES
 +  //1) "Increase(d) @whatever"
 +    //SPELL_BONUS_10                      = 33021,//10spp
@@ -4603,6 +4635,7 @@ index 0000000..8fa30f5
 +  //3) Pet/Special
 +    THREAT   /*Tank Class Passive*/     = 57339,//+43% threat
 +    BOR      /*Blood of Rhino - pet*/   = 53482,//rank 2 +40% healing taken
++    BOAR     /*Boar's Speed - pet*/     = 19596,//rank 1 +30% movement speed
 +    RCP      /*Rogue Class Passive*/    = 21184,//-27% threat caused
 +    DEFENSIVE_STANCE_PASSIVE            = 7376, //+ 400% threat 10% damage reduction
 +//COMMON GOSSIPS
@@ -4642,7 +4675,7 @@ index 0000000..8fa30f5
 +{
 +    //PET_IMP                     = ,
 +    PET_VOIDWALKER              = 60237,
-+    //PET_SUCCUBUS                = 
++    //PET_SUCCUBUS                =
 +};
 +
 +enum HunterBotPets
@@ -4725,7 +4758,7 @@ index 0000000..8fa30f5
 +        void listAuras(Player* player, Unit* unit) const;
 +        void CalculateAttackPos(Unit* target, Position &pos) const;
 +
-+        virtual void ApplyClassDamageMultiplierMelee(uint32& /*damage*/, CalcDamageInfo& /*damageinfo*/) const {}
++        //virtual void ApplyClassDamageMultiplierMelee(uint32& /*damage*/, CalcDamageInfo& /*damageinfo*/) const {}
 +        virtual void ApplyClassDamageMultiplierMelee(int32& /*damage*/, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* /*spellInfo*/, WeaponAttackType /*attackType*/, bool& /*crit*/) const {}
 +        virtual void ApplyClassDamageMultiplierSpell(int32& /*damage*/, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* /*spellInfo*/, WeaponAttackType /*attackType*/, bool& /*crit*/) const {}
 +        virtual void ApplyClassDamageMultiplierEffect(SpellInfo const* /*spellInfo*/, uint8 /*effect_index*/, float& /*value*/) const {}
@@ -4823,7 +4856,7 @@ index 0000000..8fa30f5
 +
 +        void Follow(bool force = false, Position* newpos = NULL)
 +        {
-+            if (force || 
++            if (force ||
 +                (me->IsAlive() && (!me->IsInCombat() || !opponent) && m_botCommandState != COMMAND_STAY))
 +                SetBotCommandState(COMMAND_FOLLOW, force, newpos);
 +        }
@@ -4841,6 +4874,11 @@ index 0000000..8fa30f5
 +            if (checkAurasTimer != 0)       --checkAurasTimer;
 +            if (wait != 0)                  --wait;
 +            if (evade_cd != 0)              --evade_cd;
++
++            if (mana_cd > diff)             mana_cd -= diff;
++            else                            mana_cd = 0;
++            if (health_cd > diff)           health_cd -= diff;
++            else                            health_cd = 0;
 +        }
 +
 +        Unit* FindHostileDispelTarget(float dist = 30, bool stealable = false) const;
@@ -4854,7 +4892,7 @@ index 0000000..8fa30f5
 +        Unit* FindAOETarget(float dist = 30, bool checkbots = false, bool targetfriend = true) const;
 +        Unit* FindSplashTarget(float dist = 5, Unit* To = NULL) const;
 +
-+        uint32 Potion_cd, pvpTrinket_cd;
++        uint32 Potion_cd, pvpTrinket_cd, mana_cd, health_cd;
 +
 +    private:
 +        bool CanCureTarget(Unit* target, uint32 cureSpell, uint32 diff) const;
@@ -4862,7 +4900,7 @@ index 0000000..8fa30f5
 +        void CalculatePos(Position& pos);
 +        void UpdateMountedState();
 +        void UpdateStandState() const;
-+        void UpdateRations() const;
++        void UpdateRations();
 +        void _OnEvade();
 +        PlayerClassLevelInfo* classinfo;
 +        float myangle, armor_mod, haste_mod, dodge_mod, parry_mod;
@@ -4923,7 +4961,7 @@ index 0000000..8fa30f5
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_druid_ai.cpp b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 new file mode 100644
-index 0000000..029de5c
+index 0000000..b5ea30a
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 @@ -0,0 +1,1148 @@
@@ -5339,7 +5377,7 @@ index 0000000..029de5c
 +                {
 +                    if (me->IsInCombat() && me->getLevel() >= 30)
 +                    {
-+                        if (rage < 990 && rage >= 0)
++                        if (rage < 990)
 +                            me->SetPower(POWER_RAGE, rage + uint32(10.f*rageIncomeMult));//1 rage per 2 sec
 +                        else
 +                            me->SetPower(POWER_RAGE, 1000);
@@ -5366,11 +5404,11 @@ index 0000000..029de5c
 +                me->RemoveAurasDueToSpell(OMEN_OF_CLARITY_BUFF,me->GetGUID(),0,AURA_REMOVE_BY_EXPIRE);
 +                clearcast = false;
 +            }
++            CheckAuras();
 +            if (wait == 0)
 +                wait = GetWait();
 +            else
 +                return;
-+            CheckAuras();
 +            BreakCC(diff);
 +            if (CCed(me)) return;
 +            warstomp(diff);
@@ -5418,8 +5456,8 @@ index 0000000..029de5c
 +                Unit* u = opponent->GetVictim();
 +                //if the target is attacking us, we want to go bear
 +                if (BEAR_FORM && !CCed(opponent) &&
-+                    (u == me || (tank == me && IsInBotParty(u))) ||
-+                    (!me->getAttackers().empty() && (*me->getAttackers().begin()) == opponent && opponent->GetMaxHealth() > me->GetMaxHealth()*2))
++                    ((u == me || (tank == me && IsInBotParty(u))) ||
++                    (!me->getAttackers().empty() && (*me->getAttackers().begin()) == opponent && opponent->GetMaxHealth() > me->GetMaxHealth()*2)))
 +                {
 +                    //if we don't have bear yet
 +                    if (me->GetShapeshiftForm() != FORM_DIREBEAR &&
@@ -6423,7 +6461,7 @@ index 0000000..5c02c12
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_mage_ai.cpp b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 new file mode 100644
-index 0000000..0298deb
+index 0000000..6a4b984
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 @@ -0,0 +1,958 @@
@@ -6581,11 +6619,11 @@ index 0000000..0298deb
 +                    me->RemoveAurasDueToSpell(ARCANE_POTENCY_BUFF2,me->GetGUID(),0,AURA_REMOVE_BY_EXPIRE);
 +                clearcast = false;
 +            }
++            CheckAuras();
 +            if (wait == 0)
 +                wait = GetWait();
 +            else
 +                return;
-+            CheckAuras();
 +            BreakCC(diff);
 +            if (CCed(me) && (!ICEBLOCK || !me->HasAura(ICEBLOCK))) return;//TODO
 +
@@ -7387,7 +7425,7 @@ index 0000000..0298deb
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 new file mode 100644
-index 0000000..e1689a7
+index 0000000..023bd5e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 @@ -0,0 +1,1077 @@
@@ -7649,7 +7687,7 @@ index 0000000..e1689a7
 +            if (me->GetExactDist(target) > 35) return false;
 +            if (IsCasting()) return false;
 +            if (HAND_OF_PROTECTION && BOP_Timer <= diff && IS_PLAYER_GUID(target->GetGUID()) &&
-+                (master->GetGroup() && master->GetGroup()->IsMember(target->GetGUID()) || target == master) &&
++                ((master->GetGroup() && master->GetGroup()->IsMember(target->GetGUID())) || target == master) &&
 +                ((hp < 30 && !target->getAttackers().empty()) || (hp < 50 && target->getAttackers().size() > 3)) &&
 +                me->GetExactDist(target) < 30 &&
 +                !HasAuraName(target, HAND_OF_PROTECTION) &&
@@ -7753,11 +7791,11 @@ index 0000000..e1689a7
 +                DoMeleeAttackIfReady();
 +            else
 +                Evade();
++            CheckAuras();
 +            if (wait == 0)
 +                wait = GetWait();
 +            else
 +                return;
-+            CheckAuras();
 +            BreakCC(diff);
 +            //HOFTarget(me, diff);//self stun cure goes FIRST
 +            if (CCed(me)) return;
@@ -8470,7 +8508,7 @@ index 0000000..e1689a7
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_priest_ai.cpp b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 new file mode 100644
-index 0000000..b6178ee
+index 0000000..26a013f
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 @@ -0,0 +1,988 @@
@@ -8652,11 +8690,11 @@ index 0000000..b6178ee
 +            if (IAmDead()) return;
 +            if (!me->GetVictim())
 +                Evade();
++            CheckAuras();
 +            if (wait == 0)
 +                wait = GetWait();
 +            else
 +                return;
-+            CheckAuras();
 +            Disperse(diff);
 +            BreakCC(diff);
 +            if (CCed(me)) return;
@@ -9464,10 +9502,10 @@ index 0000000..b6178ee
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_rogue_ai.cpp b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 new file mode 100644
-index 0000000..b9146be
+index 0000000..6d931e0
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
-@@ -0,0 +1,938 @@
+@@ -0,0 +1,937 @@
 +#include "bot_ai.h"
 +//#include "Group.h"
 +#include "Player.h"
@@ -9667,12 +9705,11 @@ index 0000000..b9146be
 +                DoMeleeAttackIfReady();
 +            else
 +                Evade();
++            CheckAuras();
 +            if (wait == 0)
 +                wait = GetWait();
 +            else
 +                return;
-+            if (checkAurasTimer == 0)
-+                CheckAuras();
 +            BreakCC(diff);
 +            if (CCed(me)) return;
 +
@@ -10408,10 +10445,10 @@ index 0000000..b9146be
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_shaman_ai.cpp b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 new file mode 100644
-index 0000000..4cd1e15
+index 0000000..cc4541f
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
-@@ -0,0 +1,1344 @@
+@@ -0,0 +1,1348 @@
 +#include "bot_ai.h"
 +#include "Group.h"
 +#include "Player.h"
@@ -10584,7 +10621,8 @@ index 0000000..4cd1e15
 +                    temptimer = GC_Timer;
 +                    if (doCast(me, WINDFURY_TOTEM))
 +                    {
-+                        GC_Timer = temptimer;
++                        if (me->getLevel() >= 57)
++                            GC_Timer = temptimer;
 +                        return;
 +                    }
 +                }
@@ -10596,7 +10634,8 @@ index 0000000..4cd1e15
 +                        temptimer = GC_Timer;
 +                        if (doCast(me, STRENGTH_OF_EARTH_TOTEM))
 +                        {
-+                            GC_Timer = temptimer;
++                            if (me->getLevel() >= 57)
++                                GC_Timer = temptimer;
 +                            return;
 +                        }
 +                    }
@@ -10605,7 +10644,8 @@ index 0000000..4cd1e15
 +                        temptimer = GC_Timer;
 +                        if (doCast(me, STONESKIN_TOTEM))
 +                        {
-+                            GC_Timer = temptimer;
++                            if (me->getLevel() >= 57)
++                                GC_Timer = temptimer;
 +                            return;
 +                        }
 +                    }
@@ -10620,7 +10660,8 @@ index 0000000..4cd1e15
 +                        {
 +                            //bot's poor AI cannot use totems wisely so just reduce CD on this
 +                            Totem_of_Wrath_Timer = 30000; //30 sec, old 5 min
-+                            GC_Timer = temptimer;
++                            if (me->getLevel() >= 57)
++                                GC_Timer = temptimer;
 +                            return;
 +                        }
 +                    }
@@ -10634,7 +10675,8 @@ index 0000000..4cd1e15
 +                                if (doCast(me, SEARING_TOTEM))
 +                                {
 +                                    Searing_Totem_Timer = 20000;
-+                                    GC_Timer = temptimer;
++                                    if (me->getLevel() >= 57)
++                                        GC_Timer = temptimer;
 +                                    return;
 +                                }
 +                            }
@@ -10642,15 +10684,14 @@ index 0000000..4cd1e15
 +                    }
 +                }
 +            }
-+            else if (!me->isMoving() && !master->isMoving())
++            if (!me->isMoving() && !master->isMoving())
 +            {
 +                if (!_totems[T_WATER].first && !master->m_SummonSlot[T_WATER+1])
 +                {
 +                    uint8 manapct = GetManaPCT(master);
 +                    uint8 hppct = GetHealthPCT(master);
-+                    if (HEALINGSTREAM_TOTEM &&
-+                        (master->getPowerType() != POWER_MANA || !MANASPRING_TOTEM || hppct < 25 || manapct > hppct) &&
-+                        hppct < 98)
++                    if (HEALINGSTREAM_TOTEM && hppct < 98 && master->getPowerType() != POWER_MANA &&
++                        (hppct < 25 || manapct > hppct))
 +                    {
 +                        temptimer = GC_Timer;
 +                        if (doCast(me, HEALINGSTREAM_TOTEM))
@@ -10659,7 +10700,7 @@ index 0000000..4cd1e15
 +                            return;
 +                        }
 +                    }
-+                    else if (MANASPRING_TOTEM && (manapct < 98 || GetManaPCT(me) < 90))
++                    else if (MANASPRING_TOTEM && (manapct < 97 || GetManaPCT(me) < 90))
 +                    {
 +                        temptimer = GC_Timer;
 +                        if (doCast(me, MANASPRING_TOTEM))
@@ -10789,11 +10830,11 @@ index 0000000..4cd1e15
 +                DoMeleeAttackIfReady();
 +            else
 +                Evade();
++            CheckAuras();
 +            if (wait == 0)
 +                wait = GetWait();
 +            else
 +                return;
-+            CheckAuras();
 +            CheckThunderStorm(diff);
 +            BreakCC(diff);
 +            if (CCed(me)) return;
@@ -11349,8 +11390,8 @@ index 0000000..4cd1e15
 +                    shield->SetCharges(shield->GetCharges() + 12);
 +                }
 +            }
-+            //Lightning Overlord: 50% cast SAME spell with no mana! make sure this does not proc on itself!
-+   /*else */if (spellId == LIGHTNING_BOLT || spellId == CHAIN_LIGHTNING)
++            //Lightning Overload: 50% cast SAME spell with no mana! make sure this does not proc on itself!
++   /*else */if (me->getLevel() >= 40 && (spellId == LIGHTNING_BOLT || spellId == CHAIN_LIGHTNING))
 +            {
 +                bool cast = (urand(1,100) <= 50);
 +                if (spellId == LIGHTNING_BOLT)
@@ -11758,7 +11799,7 @@ index 0000000..4cd1e15
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warlock_ai.cpp b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 new file mode 100644
-index 0000000..52841ba
+index 0000000..e45e9f9
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 @@ -0,0 +1,542 @@
@@ -12187,11 +12228,11 @@ index 0000000..52841ba
 +            if (IAmDead()) return;
 +            if (me->GetVictim())
 +                DoMeleeAttackIfReady();
++            CheckAuras();
 +            if (wait == 0)
 +                wait = GetWait();
 +            else
 +                return;
-+            CheckAuras();
 +            if (CCed(me)) return;
 +
 +            //TODO: add checks to help owner
@@ -12306,10 +12347,10 @@ index 0000000..52841ba
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warrior_ai.cpp b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 new file mode 100644
-index 0000000..f5011e6
+index 0000000..4369e7b
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
-@@ -0,0 +1,1182 @@
+@@ -0,0 +1,1177 @@
 +#include "bot_ai.h"
 +#include "Group.h"
 +#include "Player.h"
@@ -12400,15 +12441,11 @@ index 0000000..f5011e6
 +                ragetimer = 1500;
 +            }
 +
++            CheckAuras();
 +            if (wait == 0)
 +                wait = GetWait();
 +            else
 +                return;
-+            if (checkAurasTimer == 0)
-+            {
-+                SS = SWEEPING_STRIKES && me->HasAura(SWEEPING_STRIKES);
-+                CheckAuras();
-+            }
 +            BreakCC(diff);
 +            if (CCed(me)) return;
 +
@@ -12786,7 +12823,6 @@ index 0000000..f5011e6
 +                if ((battleStance || berserkerStance || stanceChange(diff, 5)) &&
 +                    doCast(me, SWEEPING_STRIKES, true))//no rage use as with glyph
 +                {
-+                    SS = true;
 +                    sweeping_strikes_cd = SWEEPING_STRIKES_CD;
 +                    GC_Timer = temptimer;
 +                    return;
@@ -13383,7 +13419,7 @@ index 0000000..f5011e6
 +/*misc*/uint64 rendTarget;
 +/*misc*/uint32 rage;
 +/*misc*/float rageIncomeMult, rageLossMult;
-+/*Chck*/bool battleStance, defensiveStance, berserkerStance, SS, UNRELENTING_ASSAULT, VICTORIOUS;
++/*Chck*/bool battleStance, defensiveStance, berserkerStance, UNRELENTING_ASSAULT, VICTORIOUS;
 +
 +        enum WarriorBaseSpells
 +        {
