@@ -1,6 +1,6 @@
-From 44a8f8734ad0707e059d889840851ddc87f43f5d Mon Sep 17 00:00:00 2001
+From a9d618cdd7b6f2b759d1d608fb061cf66d9cb1c1 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Thu, 19 Sep 2013 18:33:39 +0700
+Date: Thu, 19 Sep 2013 23:16:58 +0700
 Subject: [PATCH] NPCBots_434
 
 ---
@@ -8,15 +8,15 @@ Subject: [PATCH] NPCBots_434
  sql/Bots/character_NPC_bots.sql                    |    9 +
  sql/Bots/world_bots.sql                            |  528 +++
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  459 +++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 3358 ++++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |  372 +++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 3375 ++++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |  373 +++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1211 +++++++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  340 ++
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  974 ++++++
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      | 1039 ++++++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       | 1007 ++++++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  904 ++++++
- src/server/game/AI/NpcBots/bot_shaman_ai.cpp       | 1348 ++++++++
+ src/server/game/AI/NpcBots/bot_shaman_ai.cpp       | 1390 ++++++++
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  542 ++++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1137 +++++++
  src/server/game/AI/NpcBots/botcommands.cpp         |  632 ++++
@@ -48,7 +48,7 @@ Subject: [PATCH] NPCBots_434
  .../Database/Implementation/WorldDatabase.cpp      |    4 +
  .../shared/Database/Implementation/WorldDatabase.h |    4 +
  src/server/worldserver/worldserver.conf.dist       |  106 +
- 44 files changed, 16089 insertions(+), 0 deletions(-)
+ 44 files changed, 16149 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/auth_rbac.sql
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world_bots.sql
@@ -1117,10 +1117,10 @@ index 0000000..878b52e
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..b95c8a1
+index 0000000..3a9fc22
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,3358 @@
+@@ -0,0 +1,3375 @@
 +/*
 +NpcBot System by Graff (onlysuffering@gmail.com)
 +Original patch from: LordPsyan https://bitbucket.org/lordpsyan/trinitycore-patches/src/3b8b9072280e/Individual/11185-BOTS-NPCBots.patch
@@ -1161,8 +1161,8 @@ index 0000000..b95c8a1
 +    rezz_cd = 0;
 +    evade_cd = 0;
 +    myangle = 0.f;
-+    mana_cd = 0;
-+    health_cd = 0;
++    mana_cd = uint32(-1);
++    health_cd = uint32(-1);
 +}
 +bot_minion_ai::~bot_minion_ai() {}
 +
@@ -1346,13 +1346,25 @@ index 0000000..b95c8a1
 +    {
 +        switch (me->GetBotClass())
 +        {
-+            case CLASS_WARRIOR: case CLASS_DEATH_KNIGHT: case CLASS_PALADIN: case BEAR:
++            case CLASS_WARRIOR: case CLASS_DEATH_KNIGHT: case CLASS_PALADIN:
 +                mydist = frand(0.2f, 1.f);
 +                angle = (M_PI/2.f) / 8.f * RAND(frand(5.f, 10.f), frand(-10.f, -5.f)); //to the sides +-(pi/3 to pi/1.6)
 +                break;
-+            case CLASS_WARLOCK: case CLASS_PRIEST: case CLASS_MAGE: case CAT:
++            case CLASS_WARLOCK: case CLASS_PRIEST: case CLASS_MAGE:
 +                mydist = frand(0.15f, 0.8f);
 +                angle = (M_PI/2.f) / 6.f * frand(10.5f, 13.5f); //behind pi+-pi/4.5
++                break;
++            case CLASS_SHAMAN:
++                if (isTwoHander())
++                {
++                    mydist = frand(0.2f, 1.f);
++                    angle = (M_PI/2.f) / 8.f * RAND(frand(5.f, 10.f), frand(-10.f, -5.f)); //to the sides +-(pi/3 to pi/1.6)
++                }
++                else
++                {
++                    mydist = frand(0.15f, 0.8f);
++                    angle = (M_PI/2.f) / 6.f * frand(10.5f, 13.5f); //behind pi+-pi/4.5
++                }
 +                break;
 +            default:
 +                mydist = frand(0.3f, 1.2f);
@@ -1408,9 +1420,9 @@ index 0000000..b95c8a1
 +    //
 +    //MMM - player
 +    //TTT - bot tank
-+    //m - melee (warrior, paladin, deathknight)
-+    //d - default (druid, shaman, rogue, hunter)
-+    //r - ranged/support (priest, warlock, mage)
++    //m - melee (warrior, paladin, deathknight, ench shaman)
++    //d - default (druid, rogue, hunter)
++    //r - ranged/support (priest, warlock, mage, elem shaman)
 +}
 +// Movement set
 +void bot_minion_ai::SetBotCommandState(CommandStates st, bool force, Position* newpos)
@@ -2071,7 +2083,7 @@ index 0000000..b95c8a1
 +        case CLASS_PALADIN:      ap_mod = 1.0f;  spp_mod = 0.8f; armor_mod = 1.2f;  crit_mod = 0.8f; haste_mod = 0.85f; dodge_mod = 0.7f;  parry_mod = 1.5f;  break;
 +        case CLASS_ROGUE:        ap_mod = 1.5f;  spp_mod = 0.0f; armor_mod = 0.7f;  crit_mod = 1.5f; haste_mod = 1.35f; dodge_mod = 1.5f;  parry_mod = 0.8f;  break;
 + /*NYI*/case CLASS_HUNTER:       ap_mod = 1.15f; spp_mod = 0.0f; armor_mod = 0.85f; crit_mod = 1.2f; haste_mod = 1.25f; dodge_mod = 1.2f;  parry_mod = 1.2f;  break;/*NYI*/
-+        case CLASS_SHAMAN:       ap_mod = 1.5f;  spp_mod = 0.7f; armor_mod = 1.1f;  crit_mod = 1.3f; haste_mod = 1.45f; dodge_mod = 1.1f;  parry_mod = 1.4f;  break;
++        case CLASS_SHAMAN:       ap_mod = 1.7f;  spp_mod = 0.9f; armor_mod = 1.1f;  crit_mod = 1.3f; haste_mod = 1.45f; dodge_mod = 1.1f;  parry_mod = 1.4f;  break;
 +        case CLASS_DRUID:        ap_mod = 0.0f;  spp_mod = 1.3f; armor_mod = 0.7f;  crit_mod = 0.7f; haste_mod = 1.95f; dodge_mod = 0.5f;  parry_mod = 0.0f;  break;
 +        case CLASS_MAGE:         ap_mod = 0.0f;  spp_mod = 0.8f; armor_mod = 0.5f;  crit_mod = 0.7f; haste_mod = 1.75f; dodge_mod = 0.5f;  parry_mod = 0.0f;  break;
 +        case CLASS_PRIEST:       ap_mod = 0.0f;  spp_mod = 1.2f; armor_mod = 0.5f;  crit_mod = 0.7f; haste_mod = 1.75f; dodge_mod = 0.5f;  parry_mod = 0.0f;  break;
@@ -3121,6 +3133,11 @@ index 0000000..b95c8a1
 +//RATIONS
 +void bot_minion_ai::UpdateRations()
 +{
++    if (mana_cd > RATIONS_CD)
++        mana_cd = uint32(-1);
++    if (health_cd > RATIONS_CD)
++        health_cd = uint32(-1);
++
 +    if (me->IsInCombat() || CCed(me))
 +    {
 +        if (health_cd <= RATIONS_CD && me->HasAura(EAT))
@@ -4481,10 +4498,10 @@ index 0000000..b95c8a1
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..37b7f09
+index 0000000..1223b1f
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,372 @@
+@@ -0,0 +1,373 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -4790,7 +4807,7 @@ index 0000000..37b7f09
 +        Unit* FindAOETarget(float dist = 30, bool checkbots = false, bool targetfriend = true) const;
 +        Unit* FindSplashTarget(float dist = 5, Unit* To = NULL) const;
 +
-+        uint32 Potion_cd, pvpTrinket_cd, mana_cd, health_cd;
++        uint32 Potion_cd, pvpTrinket_cd;
 +
 +    private:
 +        bool CanCureTarget(Unit* target, uint32 cureSpell, uint32 diff) const;
@@ -4802,6 +4819,7 @@ index 0000000..37b7f09
 +        void _OnEvade();
 +        PlayerClassLevelInfo classinfo;
 +        float myangle, armor_mod, haste_mod, dodge_mod, parry_mod;
++        uint32 mana_cd, health_cd;
 +        uint8 rezz_cd, evade_cd;
 +};
 +
@@ -10370,10 +10388,10 @@ index 0000000..f2421db
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_shaman_ai.cpp b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 new file mode 100644
-index 0000000..cc4541f
+index 0000000..074cb9d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
-@@ -0,0 +1,1348 @@
+@@ -0,0 +1,1390 @@
 +#include "bot_ai.h"
 +#include "Group.h"
 +#include "Player.h"
@@ -10917,8 +10935,7 @@ index 0000000..cc4541f
 +                }
 +            }
 +
-+            if (GetManaPCT(me) < 15 ||
-+                (isTwoHander() && (me->GetExactDist(opponent) < 15 || MaelstromCount < 5)))
++            if (GetManaPCT(me) < 15 || (isTwoHander() && MaelstromCount < 5))
 +                return;
 +
 +            if (CHAIN_LIGHTNING && Chain_Lightning_Timer <= diff && GC_Timer <= diff && dist < 30 && Rand() < 80)
@@ -10969,7 +10986,8 @@ index 0000000..cc4541f
 +        {
 +            if (EarthyCheckTimer <= diff && EARTH_SHIELD)
 +            {
-+                Earthy = FindAffectedTarget(EARTH_SHIELD, me->GetGUID(), 90.f, 2);
++                Unit* u = FindAffectedTarget(EARTH_SHIELD, me->GetGUID(), 90.f, 2);
++                Earthy = (u && (u == tank || u == master));
 +                EarthyCheckTimer = 1000;
 +            }
 +        }
@@ -10988,7 +11006,7 @@ index 0000000..cc4541f
 +                uint32 SHIELD = LIGHTNING_SHIELD;
 +                if (SHIELD)
 +                    shield = me->GetAura(SHIELD);
-+                if (!shield && EARTH_SHIELD)
++                if (!shield && EARTH_SHIELD && tank == me)
 +                {
 +                    SHIELD = EARTH_SHIELD;
 +                    shield = me->GetAura(SHIELD);
@@ -11085,7 +11103,7 @@ index 0000000..cc4541f
 +
 +            if (IsCasting()) return false;
 +
-+            if (LESSER_HEALING_WAVE && ((hp > 70 && hp < 85) || hp < 50 || GetLostHP(target) > 1500) && GC_Timer <= diff &&
++            if (LESSER_HEALING_WAVE && ((hp > 70 && hp < 85) || hp < 50 || GetLostHP(target) > 1800) && GC_Timer <= diff &&
 +                Rand() < 75)
 +            {
 +                if (doCast(target, LESSER_HEALING_WAVE))
@@ -11097,10 +11115,10 @@ index 0000000..cc4541f
 +                if (doCast(target, HEALING_WAVE))
 +                    return true;
 +            }
-+            if (CHAIN_HEAL && ((hp > 40 && hp < 90) || GetLostHP(target) > 1000) && GC_Timer <= diff &&
++            if (CHAIN_HEAL && ((hp > 40 && hp < 90) || GetLostHP(target) > 1300) && GC_Timer <= diff &&
 +                Rand() < 120)
 +            {
-+                if (RIPTIDE && Riptide_Timer <= diff && (hp < 85 || GetLostHP(target) > 1300) &&
++                if (RIPTIDE && Riptide_Timer <= diff && (hp < 85 || GetLostHP(target) > 2500) &&
 +                    !target->HasAura(RIPTIDE))
 +                {
 +                    temptimer = GC_Timer;
@@ -11119,6 +11137,46 @@ index 0000000..cc4541f
 +            }
 +            
 +            return false;
++        }
++
++        void ApplyClassDamageMultiplierMelee(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool& crit) const
++        {
++            uint32 spellId = spellInfo->Id;
++            uint8 lvl = me->getLevel();
++            float fdamage = float(damage);
++            //1) apply additional crit chance. This additional chance roll will replace original (balance safe)
++            if (!crit)
++            {
++                float aftercrit = 0.f;
++                ////Incite: 15% additional critical chance for Cleave, Heroic Strike and Thunder Clap
++                //if (lvl >= 15 && spellId == CLEAVE /*|| spellId == HEROICSTRIKE || spellId == THUNDERCLAP*/)
++                //    aftercrit += 15.f;
++
++                //second roll (may be illogical)
++                if (aftercrit > 0.f)
++                    crit = roll_chance_f(aftercrit);
++            }
++
++            //2) apply bonus damage mods
++            float pctbonus = 0.0f;
++            if (crit)
++            {
++                //!!!Melee spell damage is not yet critical, all reduced by half
++                //Elemental Fury (part 2): 50% additional crit damage bonus for Nature, Fire and Frost (all) spells
++                if (lvl >= 21)
++                    pctbonus += 0.25f;
++            }
++
++            //SHAMAN_T8_ENCHANCEMENT_2P_BONUS: 20% bonus damage for Lava Lash and Stormstrike
++            if (lvl >= 60 &&
++                (spellId == STORMSTRIKE_DAMAGE || spellId == STORMSTRIKE_DAMAGE_OFFHAND/* || spellId == LAVA_LASH*/))
++                pctbonus += 0.2f;
++
++            //custom bonus to make stormstrike useful
++            if (spellId == STORMSTRIKE_DAMAGE || spellId == STORMSTRIKE_DAMAGE_OFFHAND)
++                pctbonus += 1.0f;
++
++            damage = int32(fdamage * (1.0f + pctbonus));
 +        }
 +
 +        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool& crit) const
@@ -11188,12 +11246,12 @@ index 0000000..cc4541f
 +                pctbonus += 1.5f;
 +
 +            //flat damage mods (temp)
-+            //Shamanism: 25% bonus damage from bonus damage effects for Lightning Bolt, Chain Lightning and Lava Burst
-+            if (lvl >= 55 &&
-+                (spellId == LIGHTNING_BOLT ||
-+                spellId == CHAIN_LIGHTNING ||
-+                spellId == LAVA_BURST))
-+                fdamage += float(m_spellpower / 4);
++            ////Shamanism: 25% bonus damage from bonus damage effects for Lightning Bolt, Chain Lightning and Lava Burst
++            //if (lvl >= 55 &&
++            //    (spellId == LIGHTNING_BOLT ||
++            //    spellId == CHAIN_LIGHTNING ||
++            //    spellId == LAVA_BURST))
++            //    fdamage += float(m_spellpower / 4);
 +
 +            damage = int32(fdamage * (1.0f + pctbonus));
 +        }
@@ -11712,7 +11770,9 @@ index 0000000..cc4541f
 +            EARTHLIVING_WEAPON_PASSIVE_5        = 52007,//456 base hp
 +            EARTHLIVING_WEAPON_PASSIVE_6        = 52008,//652 base hp
 +
-+            MAELSTROM_WEAPON_BUFF               = 53817
++            MAELSTROM_WEAPON_BUFF               = 53817,
++            STORMSTRIKE_DAMAGE                  = 32175,
++            STORMSTRIKE_DAMAGE_OFFHAND          = 32176
 +        };
 +    };
 +};
