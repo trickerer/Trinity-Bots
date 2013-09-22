@@ -1,6 +1,6 @@
-From b1fb2d5ccf355149b2b7e3a3b31fb8dbbd2c40fe Mon Sep 17 00:00:00 2001
+From 1054387eab00f6f48002927b2dc8222222b82474 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Sun, 22 Sep 2013 11:19:40 +0700
+Date: Sun, 22 Sep 2013 15:09:13 +0700
 Subject: [PATCH] NPCBots
 
 ---
@@ -11,7 +11,6 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  532 +++
  src/server/game/AI/NpcBots/bot_ai.cpp              | 3424 ++++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |  366 +++
- src/server/game/AI/NpcBots/bot_death_knight_ai.cpp |  869 +++++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1150 +++++++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       | 1188 +++++++
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  962 ++++++
@@ -30,7 +29,7 @@ Subject: [PATCH] NPCBots
  src/server/game/Entities/Creature/Creature.h       |   44 +
  .../game/Entities/Creature/TemporarySummon.cpp     |    8 +
  src/server/game/Entities/Object/Object.cpp         |   11 +
- src/server/game/Entities/Player/Player.cpp         |  928 ++++++
+ src/server/game/Entities/Player/Player.cpp         |  927 ++++++
  src/server/game/Entities/Player/Player.h           |   64 +
  src/server/game/Entities/Totem/Totem.cpp           |    7 +
  src/server/game/Entities/Unit/StatSystem.cpp       |    4 +
@@ -50,7 +49,7 @@ Subject: [PATCH] NPCBots
  .../Database/Implementation/WorldDatabase.cpp      |    4 +
  .../shared/Database/Implementation/WorldDatabase.h |    4 +
  src/server/worldserver/worldserver.conf.dist       |  106 +
- 46 files changed, 18112 insertions(+), 0 deletions(-)
+ 45 files changed, 17242 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/auth_rbac.sql
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world_bot_helper_locales_gossip_menu_option.sql
@@ -58,7 +57,6 @@ Subject: [PATCH] NPCBots
  create mode 100644 src/server/game/AI/NpcBots/bot_GridNotifiers.h
  create mode 100644 src/server/game/AI/NpcBots/bot_ai.cpp
  create mode 100644 src/server/game/AI/NpcBots/bot_ai.h
- create mode 100644 src/server/game/AI/NpcBots/bot_death_knight_ai.cpp
  create mode 100644 src/server/game/AI/NpcBots/bot_druid_ai.cpp
  create mode 100644 src/server/game/AI/NpcBots/bot_hunter_ai.cpp
  create mode 100644 src/server/game/AI/NpcBots/bot_mage_ai.cpp
@@ -5092,881 +5090,6 @@ index 0000000..cf15d7d
 +};
 +
 +#endif
-diff --git a/src/server/game/AI/NpcBots/bot_death_knight_ai.cpp b/src/server/game/AI/NpcBots/bot_death_knight_ai.cpp
-new file mode 100644
-index 0000000..a938e4f
---- /dev/null
-+++ b/src/server/game/AI/NpcBots/bot_death_knight_ai.cpp
-@@ -0,0 +1,869 @@
-+#include "bot_ai.h"
-+#include "Group.h"
-+#include "Player.h"
-+#include "ScriptMgr.h"
-+#include "SpellAuras.h"
-+#include "WorldSession.h"
-+/*
-+Death Knight NpcBot by Graff onlysuffering@gmail.com
-+Complete - 1%
-+TODO:
-+*/
-+class death_knight_bot : public CreatureScript
-+{
-+public:
-+    death_knight_bot() : CreatureScript("death_knight_bot") { }
-+
-+    CreatureAI* GetAI(Creature* creature) const
-+    {
-+        return new death_knight_botAI(creature);
-+    }
-+
-+    bool OnGossipHello(Player* player, Creature* creature)
-+    {
-+        return bot_minion_ai::OnGossipHello(player, creature);
-+    }
-+
-+    bool OnGossipSelect(Player* player, Creature* creature, uint32 sender, uint32 action)
-+    {
-+        if (bot_minion_ai* ai = creature->GetBotMinionAI())
-+            return ai->OnGossipSelect(player, creature, sender, action);
-+        return true;
-+    }
-+
-+    struct death_knight_botAI : public bot_minion_ai
-+    {
-+        death_knight_botAI(Creature* creature) : bot_minion_ai(creature) { }
-+
-+        bool doCast(Unit* victim, uint32 spellId, bool triggered = false)
-+        {
-+            if (checkBotCast(victim, spellId, CLASS_DEATH_KNIGHT) != SPELL_CAST_OK)
-+                return false;
-+            return bot_ai::doCast(victim, spellId, triggered);
-+        }
-+
-+        void UpdateAI(uint32 diff)
-+        {
-+            ReduceCD(diff);
-+            if (IAmDead()) return;
-+            if (me->GetVictim())
-+                DoMeleeAttackIfReady();
-+            else
-+                Evade();
-+
-+            //if (ragetimer2 <= diff)
-+            //{
-+            //    if (me->IsInCombat() && me->getLevel() >= 20)
-+            //    {
-+            //        if (getrage() < 990)
-+            //            me->SetPower(POWER_RAGE, rage + uint32(10.f*rageIncomeMult));//1 rage per 2 sec
-+            //        else
-+            //            me->SetPower(POWER_RAGE, 1000);//max
-+            //    }
-+            //    ragetimer2 = 2000;
-+            //}
-+            //if (ragetimer <= diff)
-+            //{
-+            //    if (!me->IsInCombat() && !HasAuraName(me, BLOODRAGE_1))
-+            //    {
-+            //        if (getrage() > uint32(10.f*rageLossMult))
-+            //            me->SetPower(POWER_RAGE, rage - uint32(10.f*rageLossMult));//-1 rage per 1.5 sec
-+            //        else
-+            //            me->SetPower(POWER_RAGE, 0);//min
-+            //    }
-+            //    ragetimer = 1500;
-+            //}
-+
-+            CheckAuras();
-+            if (wait == 0)
-+                wait = GetWait();
-+            else
-+                return;
-+            BreakCC(diff);
-+            if (CCed(me)) return;
-+
-+            if (GetHealthPCT(me) < 67 && Potion_cd <= diff)
-+            {
-+                temptimer = GC_Timer;
-+                if (doCast(me, HEALINGPOTION))
-+                {
-+                    Potion_cd = POTION_CD;
-+                    GC_Timer = temptimer;
-+                }
-+            }
-+            if (!me->IsInCombat())
-+                DoNonCombatActions(diff);
-+
-+            if (!CheckAttackTarget(CLASS_DEATH_KNIGHT))
-+            {
-+                //if (tank != me && !me->IsInCombat() && battleStance != true && master->getAttackers().empty() && stancetimer <= diff)
-+                //    stanceChange(diff, 1);
-+                return;
-+            }
-+
-+            //if (Rand() < 30 && batcomShout_cd <= diff && GC_Timer <= diff && getrage() > 100 &&
-+            //    !HasAuraName(master, BATTLESHOUT) &&
-+            //    !HasAuraName(master, "Blessing of Might") &&
-+            //    !HasAuraName(master, "Greater Blessing of Might") &&
-+            //    master->IsWithinLOSInMap(me) &&
-+            //    doCast(me, BATTLESHOUT))
-+            //    batcomShout_cd = SHOUT_CD;
-+
-+            //if (Rand() < 20 && BLOODRAGE && bloodrage_cd <= diff && me->IsInCombat() && getrage() < 600 &&
-+            //    !me->HasAura(ENRAGED_REGENERATION))
-+            //{
-+            //    temptimer = GC_Timer;
-+            //    if (doCast(me, BLOODRAGE))
-+            //    {
-+            //        bloodrage_cd = BLOODRAGE_CD;
-+            //        GC_Timer = temptimer;
-+            //    }
-+            //}
-+
-+            Attack(diff);
-+        }
-+
-+        void StartAttack(Unit* u, bool force = false)
-+        {
-+            if (GetBotCommandState() == (COMMAND_ATTACK) && !force) return;
-+            Aggro(u);
-+            SetBotCommandState(COMMAND_ATTACK);
-+            GetInPosition(force, false);
-+        }
-+
-+        void EnterCombat(Unit*) { }
-+        void Aggro(Unit*) { }
-+        void AttackStart(Unit*) { }
-+        void KilledUnit(Unit* /*u*/)
-+        {
-+            ////victorious state emulation
-+            //if (me->getLevel() >= 5 && u->getLevel() + 9 >= me->getLevel())
-+            //{
-+            //    temptimer = GC_Timer;
-+            //    if (doCast(me, VICTORIOUS_SPELL, true))
-+            //    {
-+            //        GC_Timer = temptimer;
-+            //        return;
-+            //    }
-+            //}
-+        }
-+        void EnterEvadeMode() { }
-+        void MoveInLineOfSight(Unit*) { }
-+        void JustDied(Unit*) { master->SetNpcBotDied(me->GetGUID()); }
-+        void DoNonCombatActions(uint32 /*diff*/) {}
-+
-+        //void modrage(int32 mod, bool set = false)
-+        //{
-+        //    if (set && mod < 0)
-+        //        return;
-+        //    if (mod < 0 && rage < uint32(abs(mod)))
-+        //    {
-+        //        //debug set rage to 0
-+        //        mod = 0;
-+        //        set = true;
-+        //        return;
-+        //    }
-+
-+        //    if (set)
-+        //        rage = mod ? mod*10 : 0;
-+        //    else
-+        //        rage += mod*10;
-+
-+        //    me->SetPower(POWER_RAGE, rage);
-+        //}
-+
-+        //uint32 getrage()
-+        //{
-+        //    rage = me->GetPower(POWER_RAGE);
-+        //    return rage;
-+        //}
-+
-+        void BreakCC(uint32 diff)
-+        {
-+            //if (me->HasAuraWithMechanic((1<<MECHANIC_FEAR)|(1<<MECHANIC_SAPPED)|(1<<MECHANIC_DISORIENTED)))
-+            //{
-+            //    if (BERSERKERRAGE && berserkerRage_cd <= diff && GC_Timer <= diff &&
-+            //        !me->HasAura(ENRAGED_REGENERATION) &&
-+            //        doCast(me, BERSERKERRAGE))
-+            //    {
-+            //        berserkerRage_cd = BERSERKERRAGE_CD;
-+            //        if (me->getLevel() >= 40)
-+            //            doCast(me, 58096, true); //Berserker Rage Effect (434 unused)
-+            //        return;
-+            //    }
-+            //}
-+            bot_minion_ai::BreakCC(diff);
-+        }
-+
-+        void Attack(uint32 /*diff*/)
-+        {
-+            opponent = me->GetVictim();
-+            if (opponent)
-+            {
-+                if (!IsCasting())
-+                    StartAttack(opponent, true);
-+            }
-+            else
-+                return;
-+            //Keep stance in raid if tank
-+            //if (tank == me && defensiveStance != true && stancetimer <= diff)
-+            //    stanceChange(diff, 2);
-+            //SelfHeal
-+            //if (ENRAGED_REGENERATION)
-+            //{
-+            //    if (Rand() < 40 && GetHealthPCT(me) < 40 && getrage() > 150 && regen_cd <= diff && GC_Timer <= diff &&
-+            //        me->HasAuraWithMechanic(MECHANIC_ENRAGED))
-+            //    {
-+            //        temptimer = 0;
-+            //        if (doCast(me, ENRAGED_REGENERATION))
-+            //        {
-+            //            regen_cd = ENRAGED_REGENERATION_CD;
-+            //            GC_Timer = temptimer;
-+            //            return;
-+            //        }
-+            //    }
-+            //}
-+
-+            //AttackerSet m_attackers = master->getAttackers();
-+            //AttackerSet b_attackers = me->getAttackers();
-+            //float dist = me->GetExactDist(opponent);
-+            //float meleedist = me->GetDistance(opponent);
-+            ////charge + warbringer
-+            //if (CHARGE && charge_cd <= diff && dist > 11 && dist < 25 && me->HasInArc(M_PI, opponent) &&
-+            //    (me->getLevel() >= 50 ||
-+            //    (!me->IsInCombat() && (battleStance || stanceChange(diff, 1)))))
-+            //{
-+            //    temptimer = GC_Timer;
-+            //    if (me->getLevel() >= 29)
-+            //        me->RemoveMovementImpairingAuras();
-+            //    if (doCast(opponent, CHARGE, me->IsInCombat()))
-+            //    {
-+            //        charge_cd = CHARGE_CD;
-+            //        GC_Timer = temptimer;
-+            //        return;
-+            //    }
-+            //}
-+            ////intercept
-+            //if (INTERCEPT && intercept_cd <= diff && tank != me &&
-+            //    getrage() > 100 && dist > 11 && dist < 25 && me->HasInArc(M_PI, opponent) &&
-+            //    !CCed(opponent) && (berserkerStance || stanceChange(diff, 3)))
-+            //{
-+            //    if (doCast(opponent, INTERCEPT))
-+            //    {
-+            //        intercept_cd = INTERCEPT_CD;
-+            //        return;
-+            //    }
-+            //}
-+            ////SelfHeal 2
-+            //if (VICTORY_RUSH && VICTORIOUS && meleedist <= 5 && GC_Timer <= diff &&
-+            //    (b_attackers.size() <= 1 || (GetHealthPCT(me) < std::max<int32>(100 - b_attackers.size() * 10, 75))))
-+            //{
-+            //    if (doCast(opponent, VICTORY_RUSH))
-+            //    {
-+            //        me->RemoveAura(VICTORIOUS_SPELL);
-+            //        return;
-+            //    }
-+            //}
-+            ////FEAR
-+            //if (INTIMIDATING_SHOUT && intimidatingShout_cd <= diff && GC_Timer <= diff && Rand() < 70 && getrage() > 250)
-+            //{
-+            //    if (opponent->IsNonMeleeSpellCasted(false, false, true) && dist <= 8 &&
-+            //        !(opponent->ToCreature() && opponent->ToCreature()->GetCreatureType() == CREATURE_TYPE_UNDEAD))
-+            //    {
-+            //        if (doCast(opponent, INTIMIDATING_SHOUT))
-+            //        {
-+            //            intimidatingShout_cd = INTIMIDATINGSHOUT_CD;
-+            //            return;
-+            //        }
-+            //    }
-+            //    Unit* fearTarget = NULL;
-+            //    bool triggered = false;
-+            //    uint8 tCount = 0;
-+            //    //fear master's attackers
-+            //    if (!m_attackers.empty() &&
-+            //        ((master->getClass() != CLASS_DEATH_KNIGHT &&
-+            //        master->getClass() != CLASS_WARRIOR &&
-+            //        master->getClass() != CLASS_PALADIN) ||
-+            //        GetHealthPCT(master) < 70))
-+            //    {
-+            //        for(AttackerSet::iterator iter = m_attackers.begin(); iter != m_attackers.end(); ++iter)
-+            //        {
-+            //            if (!(*iter)) continue;
-+            //            if ((*iter)->GetCreatureType() == CREATURE_TYPE_UNDEAD) continue;
-+            //            if (me->GetExactDist((*iter)) <= 8 && (*iter)->isTargetableForAttack())
-+            //            {
-+            //                ++tCount;
-+            //                fearTarget = (*iter);
-+            //                if (tCount > 1) break;
-+            //            }
-+            //        }
-+            //        if (tCount > 0 && !fearTarget)
-+            //        {
-+            //            fearTarget = opponent;
-+            //            triggered = true;
-+            //        }
-+            //        if (tCount > 1 && doCast(fearTarget, INTIMIDATING_SHOUT, triggered))
-+            //        {
-+            //            intimidatingShout_cd = INTIMIDATINGSHOUT_CD;
-+            //            return;
-+            //        }
-+            //    }
-+            //    //Defend myself
-+            //    if (b_attackers.size() > 1)
-+            //    {
-+            //        tCount = 0;
-+            //        fearTarget = NULL;
-+            //        triggered = false;
-+            //        for(AttackerSet::iterator iter = b_attackers.begin(); iter != b_attackers.end(); ++iter)
-+            //        {
-+            //            if (!(*iter)) continue;
-+            //            if ((*iter)->GetCreatureType() == CREATURE_TYPE_UNDEAD) continue;
-+            //            if (me->GetExactDist((*iter)) <= 8 && (*iter)->isTargetableForAttack())
-+            //            {
-+            //                ++tCount;
-+            //                fearTarget = (*iter);
-+            //                if (tCount > 0) break;
-+            //            }
-+            //        }
-+            //        if (tCount > 0 && !fearTarget)
-+            //        {
-+            //            fearTarget = opponent;
-+            //            triggered = true;
-+            //        }
-+            //        if (tCount > 0 && doCast(fearTarget, INTIMIDATING_SHOUT, triggered))
-+            //        {
-+            //            intimidatingShout_cd = INTIMIDATINGSHOUT_CD;
-+            //            return;
-+            //        }
-+            //    }
-+            //}//end FEAR
-+            ////OVERPOWER
-+            //if (OVERPOWER && Rand() < 50 && getrage() > 50 && meleedist <= 5 && GC_Timer <= diff &&
-+            //    (battleStance || stancetimer <= diff))
-+            //{
-+            //    if (me->HasAura(TASTE_FOR_BLOOD_BUFF))
-+            //    {
-+            //        if (battleStance || stanceChange(diff, 1))
-+            //        {
-+            //            if (doCast(opponent, OVERPOWER))
-+            //            {
-+            //                me->RemoveAura(TASTE_FOR_BLOOD_BUFF);
-+            //                return;
-+            //            }
-+            //        }
-+            //    }
-+            //}
-+
-+            //if (MoveBehind(*opponent))
-+            //    wait = 5;
-+            ////HAMSTRING
-+            //if (HAMSTRING && Rand() < 50 && getrage() > 100 && GC_Timer <= diff && meleedist <= 5 && opponent->isMoving() &&
-+            //    (battleStance || berserkerStance || stancetimer <= diff) &&
-+            //    !opponent->HasAuraWithMechanic((1<<MECHANIC_SNARE)|(1<<MECHANIC_ROOT)))
-+            //{
-+            //    if (battleStance || berserkerStance || stanceChange(diff, 5))
-+            //        if (doCast(opponent, HAMSTRING))
-+            //            return;
-+            //}
-+            ////UBERS
-+            ////Dont use RETA unless capable circumstances
-+            //if (Rand() < 20 && uber_cd <= diff && GC_Timer <= diff)
-+            //{
-+            //    if (RETALIATION && b_attackers.size() > 4 &&
-+            //        (battleStance || stanceChange(diff, 1)))
-+            //    {
-+            //        if (doCast(me, RETALIATION))
-+            //        {
-+            //            uber_cd = UBER_CD;
-+            //            return;
-+            //        }
-+            //    }
-+            //    //Dont use RECKL unless capable circumstances
-+            //    if (RECKLESSNESS && tank != me &&
-+            //        (m_attackers.size() > 3 || opponent->GetHealth() > me->GetHealth() * 10) &&
-+            //        (berserkerStance || stanceChange(diff, 3)))
-+            //    {
-+            //        if (doCast(me, RECKLESSNESS))
-+            //        {
-+            //            uber_cd = UBER_CD;
-+            //            return;
-+            //        }
-+            //    }
-+            //}
-+            ////DEATHWISH
-+            //if (DEATHWISH && deathwish_cd <= diff && GC_Timer <= diff && getrage() > 100 &&
-+            //    Rand() < 20 && opponent->GetHealth() > me->GetHealth()/2 &&
-+            //    !me->HasAura(ENRAGED_REGENERATION))
-+            //{
-+            //    if (doCast(me, DEATHWISH))
-+            //    {
-+            //        deathwish_cd = DEATHWISH_CD;
-+            //        return;
-+            //    }
-+            //}
-+            ////TAUNT
-+            //Unit* u = opponent->GetVictim();
-+            //if (TAUNT && taunt_cd <= diff && u && u != me && u != tank && dist <= 30 &&
-+            //    !CCed(opponent) && !isTankingClass(u->getClass()) && (IsInBotParty(u) || tank == me) &&
-+            //    (defensiveStance || (stancetimer <= diff && stanceChange(diff, 2))))//No GCD
-+            //{
-+            //    temptimer = GC_Timer;
-+            //    if (doCast(opponent, TAUNT, true))
-+            //    {
-+            //        taunt_cd = TAUNT_CD;
-+            //        GC_Timer = temptimer;
-+            //        return;
-+            //    }
-+            //}
-+            ////EXECUTE
-+            //if (EXECUTE && tank != me && Rand() < 70 && GC_Timer <= diff && getrage() > 150 &&
-+            //    meleedist <= 5 && GetHealthPCT(opponent) < 20 &&
-+            //    (battleStance || berserkerStance || (stancetimer <= diff && stanceChange(diff, 5))))
-+            //{
-+            //    if (doCast(opponent, EXECUTE))
-+            //    {
-+            //        //sudden death
-+            //        if (me->getLevel() >= 50 && getrage() <= 400)
-+            //            modrage(10, true);
-+            //        else if (getrage() > 300)
-+            //            modrage(-30);
-+            //        else
-+            //            modrage(0, true);
-+            //        return;
-+            //    }
-+            //}
-+            ////SUNDER
-+            //if (SUNDER && Rand() < 35 && meleedist <= 5 && tank == me &&
-+            //    opponent->GetHealth() > me->GetMaxHealth() &&
-+            //    GC_Timer <= diff && getrage() > 150 && (sunder_cd <= diff || getrage() > 500))
-+            //{
-+            //    Aura* sunder = opponent->GetAura(SUNDER, me->GetGUID());
-+            //    if ((!sunder || sunder->GetStackAmount() < 5 || sunder->GetDuration() < 15000) &&
-+            //        doCast(opponent, SUNDER))
-+            //    {
-+            //        sunder_cd = SUNDER_CD;
-+            //        GC_Timer = 800;
-+            //        return;
-+            //    }
-+            //}
-+            ////SS
-+            //if (SWEEPING_STRIKES && sweeping_strikes_cd <= diff && tank != me && Rand() < 25 &&
-+            //    (battleStance || berserkerStance || stancetimer <= diff) &&
-+            //    (b_attackers.size() > 1 || FindSplashTarget(7, opponent)))
-+            //{
-+            //    temptimer = GC_Timer;
-+            //    if ((battleStance || berserkerStance || stanceChange(diff, 5)) &&
-+            //        doCast(me, SWEEPING_STRIKES, true))//no rage use as with glyph
-+            //    {
-+            //        sweeping_strikes_cd = SWEEPING_STRIKES_CD;
-+            //        GC_Timer = temptimer;
-+            //        return;
-+            //    }
-+            //}
-+            ////WHIRLWIND
-+            //if (WHIRLWIND && Rand() < 50 && whirlwind_cd <= diff && GC_Timer <= diff && getrage() >= 250 && tank != me &&
-+            //   (FindSplashTarget(7, opponent) || (getrage() > 800 && dist <= 7)) &&
-+            //   (berserkerStance || stancetimer <= diff))
-+            //{
-+            //    if ((berserkerStance || stanceChange(diff, 3)) &&
-+            //        doCast(me, WHIRLWIND))
-+            //    {
-+            //        whirlwind_cd = WHIRLWIND_CD;
-+            //        return;
-+            //    }
-+            //}
-+            ////BLADESTORM
-+            //if (BLADESTORM && bladestorm_cd <= diff && GC_Timer <= diff &&
-+            //   getrage() >= 250 && (Rand() < 20 || me->HasAura(RECKLESSNESS)) &&
-+            //   (b_attackers.size() > 1 || opponent->GetHealth() > me->GetMaxHealth()))
-+            //{
-+            //    if (doCast(me, BLADESTORM))
-+            //    {
-+            //        bladestorm_cd = BLADESTORM_CD;
-+            //        return;
-+            //    }
-+            //}
-+            ////Mortal Strike
-+            //if (MORTALSTRIKE && getrage() > 300 && meleedist <= 5 && mortalStrike_cd <= diff && GC_Timer <= diff)
-+            //{
-+            //    if (doCast(opponent, MORTALSTRIKE))
-+            //    {
-+            //        mortalStrike_cd = MORTALSTRIKE_CD;
-+            //        slam_cd = 0;//reset here
-+            //    }
-+            //}
-+            ////Slam
-+            //bool triggered = (mortalStrike_cd == MORTALSTRIKE_CD);
-+            //if (SLAM && Rand() < (30 + triggered * 30) && slam_cd <= diff && getrage() > 150 && meleedist <= 5)
-+            //{
-+            //    if (doCast(opponent, SLAM, true))
-+            //    {
-+            //        slam_cd = 3000; //must be > MORTALSTRIKE_CD/2
-+            //        modrage(-15);
-+            //        return;
-+            //    }
-+            //}
-+            ////PUMMEL
-+            //if (PUMMEL && Rand() < 80 && pummel_cd <= diff && getrage() > 100 && meleedist <= 5 &&
-+            //    opponent->IsNonMeleeSpellCasted(false) &&
-+            //    (berserkerStance || stancetimer <= diff))
-+            //{
-+            //    temptimer = GC_Timer;
-+            //    if ((berserkerStance || stanceChange(diff, 3)) &&
-+            //        doCast(opponent, PUMMEL))
-+            //    {
-+            //        pummel_cd = PUMMEL_CD;
-+            //        GC_Timer = temptimer;
-+            //        return;
-+            //    }
-+            //}
-+            ////REND
-+            //if (REND && Rand() < 50 && getrage() > 100 && GC_Timer <= diff && meleedist <= 5 &&
-+            //    opponent->GetHealth() > me->GetHealth()/2 &&
-+            //    !opponent->HasAura(REND, me->GetGUID()) &&
-+            //    (battleStance || defensiveStance || (stancetimer <= diff && stanceChange(diff, 4))))
-+            //{
-+            //    if (doCast(opponent, REND))
-+            //    {
-+            //        rendTarget = opponent->GetGUID();
-+            //        return;
-+            //    }
-+            //}
-+            ////Cleave
-+            //if (Rand() < 30 && CLEAVE && cleave_cd <= diff && me->getLevel() >= 20 && getrage() > 200 && meleedist <= 5)//noGC_Timer
-+            //{
-+            //    temptimer = GC_Timer;
-+            //    u = FindSplashTarget(5);
-+            //    if (u && doCast(opponent, CLEAVE))
-+            //    {
-+            //        cleave_cd = me->getAttackTimer(BASE_ATTACK); //once per swing, prevents rage loss
-+            //        GC_Timer = temptimer;
-+            //        return;
-+            //    }
-+            //}
-+        }
-+
-+        //void SpellHitTarget(Unit* target, SpellInfo const* spell)
-+        //{
-+        //    switch (spell->Id)
-+        //    {
-+        //        case OVERPOWER_1:
-+        //            //Unrelenting Assault
-+        //            if (UNRELENTING_ASSAULT && target->HasUnitState(UNIT_STATE_CASTING))
-+        //                target->CastSpell(target, UNRELENTING_ASSAULT_SPELL, true);
-+        //            break;
-+        //        default:
-+        //            break;
-+        //    }
-+        //}
-+
-+        //bool stanceChange(uint32 diff, uint8 stance)
-+        //{
-+        //    if (!(stancetimer <= diff) || !stance)
-+        //        return false;
-+
-+        //    if (stance == 5)
-+        //    {
-+        //        switch (urand(0,1))
-+        //        {
-+        //            case 0:
-+        //                stance = 1;
-+        //                break;
-+        //            case 1:
-+        //                stance = me->getLevel() < 30 ? 1 : (urand(1,100) > 75 ? 3 : 1);
-+        //                break;
-+        //        }
-+        //    }
-+        //    else if (stance == 4)
-+        //    {
-+        //        switch (urand(0,1))
-+        //        {
-+        //            case 0:
-+        //                stance = 1;
-+        //                break;
-+        //            case 1:
-+        //                stance = me == tank ? 2 : 1;
-+        //                break;
-+        //        }
-+        //    }
-+
-+        //    if (stance == 2 && me->getLevel() < 10)
-+        //        return false;
-+        //    if (stance == 3 && me->getLevel() < 30)
-+        //        return false;
-+
-+        //    temptimer = GC_Timer;
-+        //    //stance mastery impl
-+        //    uint32 temprage = 0;
-+        //    uint32 myrage = me->GetPower(POWER_RAGE);
-+        //    if (me->getLevel() >= 20)
-+        //        temprage = myrage > 250 ? 250 : myrage;
-+        //    else if (me->getLevel() >= 15)
-+        //        temprage = myrage > 100 ? 100 : myrage;
-+        //    switch (stance)
-+        //    {
-+        //        case 1:
-+        //            if (doCast(me, BATTLESTANCE))
-+        //            {
-+        //                if (me->HasAura(BATTLESTANCE))
-+        //                {
-+        //                    battleStance = true;
-+        //                    defensiveStance = false;
-+        //                    berserkerStance = false;
-+        //                    me->SetPower(POWER_RAGE, temprage);
-+        //                    stancetimer = 2100 - me->getLevel()*20;//500 on 80
-+        //                    GC_Timer = temptimer;
-+        //                    return true;
-+        //                }
-+        //            }
-+        //            break;
-+        //        case 2:
-+        //            if (doCast(me, DEFENSIVESTANCE))
-+        //            {
-+        //                if (me->HasAura(DEFENSIVESTANCE))
-+        //                {
-+        //                    defensiveStance = true;
-+        //                    battleStance = false;
-+        //                    berserkerStance = false;
-+        //                    me->SetPower(POWER_RAGE, temprage);
-+        //                    stancetimer = 2100 - me->getLevel()*20;//500 on 80
-+        //                    GC_Timer = temptimer;
-+        //                    return true;
-+        //                }
-+        //            }
-+        //            break;
-+        //        case 3:
-+        //            if (doCast(me, BERSERKERSTANCE))
-+        //            {
-+        //                if (me->HasAura(BERSERKERSTANCE))
-+        //                {
-+        //                    berserkerStance = true;
-+        //                    battleStance = false;
-+        //                    defensiveStance = false;
-+        //                    me->SetPower(POWER_RAGE, temprage);
-+        //                    stancetimer = 2100 - me->getLevel()*20;//500 on 80
-+        //                    GC_Timer = temptimer;
-+        //                    return true;
-+        //                }
-+        //            }
-+        //            break;
-+        //        default:
-+        //            break;
-+        //    }
-+        //    GC_Timer = temptimer;
-+        //    return false;
-+        //}
-+
-+        //void ApplyClassDamageMultiplierMelee(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool& crit) const
-+        //{
-+        //    uint32 spellId = spellInfo->Id;
-+        //    uint8 lvl = me->getLevel();
-+        //    float fdamage = float(damage);
-+        //    //1) apply additional crit chance. This additional chance roll will replace original (balance safe)
-+        //    if (!crit)
-+        //    {
-+        //        float aftercrit = 0.f;
-+        //        //Improved Overpower: 50% additional critical chance for Overpower
-+        //        if (lvl >= 20 && spellId == OVERPOWER)
-+        //            aftercrit += 50.f;
-+
-+        //        //second roll (may be illogical)
-+        //        if (aftercrit > 0.f)
-+        //            crit = roll_chance_f(aftercrit);
-+        //    }
-+
-+        //    //2) apply bonus damage mods
-+        //    float pctbonus = 0.0f;
-+        //    if (crit)
-+        //    {
-+        //        //!!!Melee spell damage is not yet critical, all reduced by half
-+        //        //Impale: 20% crit damage bonus for all abilities
-+        //        if (lvl >= 20)
-+        //            pctbonus += 0.10f;
-+        //    }
-+
-+        //    //Improved Whirlwind: 20% bonus damage for Whirlwind
-+        //    if (lvl >= 40 && spellId == WHIRLWIND)
-+        //        pctbonus += 0.2f;
-+
-+        //    damage = int32(fdamage * (1.0f + pctbonus));
-+        //}
-+
-+        void SpellHit(Unit* caster, SpellInfo const* spell)
-+        {
-+            //switch (spell->Id)
-+            //{
-+            //    case VICTORIOUS_SPELL:
-+            //        VICTORIOUS = true;
-+            //        break;
-+            //    default:
-+            //        break;
-+            //}
-+            OnSpellHit(caster, spell);
-+        }
-+
-+        void DamageTaken(Unit* u, uint32& /*damage*/)
-+        {
-+            OnOwnerDamagedBy(u);
-+        }
-+
-+        void OwnerAttackedBy(Unit* u)
-+        {
-+            OnOwnerDamagedBy(u);
-+        }
-+
-+        void Reset()
-+        {
-+            //slam_cd = 0;
-+            //regen_cd = 20000;
-+            //sweeping_strikes_cd = 0;
-+            //charge_cd = 0;
-+            //deathwish_cd = 7000;
-+            //mortalStrike_cd = 0;
-+            //uber_cd = 10000;
-+            //berserkerRage_cd = 0;
-+            //batcomShout_cd = 0;
-+            //intercept_cd = 0;
-+            //intimidatingShout_cd = 0;
-+            //pummel_cd = 0;
-+            //whirlwind_cd = 5000;
-+            //cleave_cd = 0;
-+            //bladestorm_cd = 10000;
-+            //bloodrage_cd = 0;
-+            //intervene_cd = 0;
-+            //taunt_cd = 5000;
-+            //sunder_cd = 0;
-+            //stancetimer = 0;
-+            //ragetimer = 1500;
-+            //ragetimer2 = 3000;
-+
-+            //rendTarget = 0;
-+
-+            //battleStance = true;
-+            //defensiveStance = false;
-+            //berserkerStance = false;
-+
-+            //rageIncomeMult = sWorld->getRate(RATE_POWER_RAGE_INCOME);
-+            //rageLossMult = sWorld->getRate(RATE_POWER_RAGE_LOSS);
-+            //me->setPowerType(POWER_RAGE);
-+            //rage = 0;
-+
-+            if (master)
-+            {
-+                setStats(CLASS_DEATH_KNIGHT, me->getRace(), master->getLevel(), true);
-+                ApplyClassPassives();
-+                ApplyPassives(CLASS_DEATH_KNIGHT);
-+            }
-+        }
-+
-+        void ReduceCD(uint32 diff)
-+        {
-+            CommonTimers(diff);
-+            //if (regen_cd > diff)                    regen_cd -= diff;
-+            //if (slam_cd > diff)                     slam_cd -= diff;
-+            //if (batcomShout_cd > diff)              batcomShout_cd -= diff;
-+            //if (sweeping_strikes_cd > diff)         sweeping_strikes_cd -= diff;
-+            //if (deathwish_cd > diff)                deathwish_cd -= diff;
-+            //if (mortalStrike_cd > diff)             mortalStrike_cd -= diff;
-+            //if (uber_cd > diff)                     uber_cd -= diff;
-+            //if (berserkerRage_cd > diff)            berserkerRage_cd -= diff;
-+            //if (charge_cd > diff)                   charge_cd -= diff;
-+            //if (intercept_cd > diff)                intercept_cd -= diff;
-+            //if (intimidatingShout_cd > diff)        intimidatingShout_cd -= diff;
-+            //if (pummel_cd > diff)                   pummel_cd -= diff;
-+            //if (whirlwind_cd > diff)                whirlwind_cd -= diff;
-+            //if (bladestorm_cd > diff)               bladestorm_cd -= diff;
-+            //if (cleave_cd > diff)                   cleave_cd -= diff;
-+            //if (bloodrage_cd > diff)                bloodrage_cd -= diff;
-+            //if (intervene_cd > diff)                intervene_cd -= diff;
-+            //if (taunt_cd > diff)                    taunt_cd -= diff;
-+            //if (sunder_cd > diff)                   sunder_cd -= diff;
-+
-+            //if (stancetimer > diff)                 stancetimer -= diff;
-+            //if (ragetimer > diff)                   ragetimer -= diff;
-+            //if (ragetimer2 > diff)                  ragetimer2 -= diff;
-+        }
-+
-+        bool CanRespawn()
-+        {return false;}
-+
-+        void InitSpells()
-+        {
-+  //          uint8 lvl = me->getLevel();
-+  //          //CHALLENGING_SHOUT                       = InitSpell(me, CHALLENGING_SHOUT_1);
-+  //          INTIMIDATING_SHOUT                      = InitSpell(me, INTIMIDATING_SHOUT_1);
-+  //          ENRAGED_REGENERATION                    = InitSpell(me, ENRAGED_REGENERATION_1);
-+  //          CHARGE                                  = InitSpell(me, CHARGE_1);
-+  //          OVERPOWER                               = InitSpell(me, OVERPOWER_1);
-+  // /*Quest*/TAUNT                       = lvl >= 10 ? TAUNT_1 : 0;
-+  //          //DISARM                                  = InitSpell(DISARM_1);
-+  //          BLOODRAGE                               = InitSpell(me, BLOODRAGE_1);
-+  //          BERSERKERRAGE                           = InitSpell(me, BERSERKERRAGE_1);
-+  //          INTERCEPT                               = InitSpell(me, INTERCEPT_1);
-+  //          CLEAVE                                  = InitSpell(me, CLEAVE_1);
-+  //          HAMSTRING                               = InitSpell(me, HAMSTRING_1);
-+  //          INTERVENE                               = InitSpell(me, INTERVENE_1);
-+  //          WHIRLWIND                               = InitSpell(me, WHIRLWIND_1);
-+  ///*Talent*/BLADESTORM                  = lvl >= 60 ? BLADESTORM_1 : 0;
-+  //          BATTLESHOUT                             = InitSpell(me, BATTLESHOUT_1);
-+  //          REND                                    = InitSpell(me, REND_1);
-+  //          EXECUTE                                 = InitSpell(me, EXECUTE_1);
-+  //          PUMMEL                                  = InitSpell(me, PUMMEL_1);
-+  ///*Talent*/MORTALSTRIKE                = lvl >= 40 ? InitSpell(me, MORTALSTRIKE_1) : 0;
-+  //          SLAM                                    = InitSpell(me, SLAM_1);
-+  // /*Quest*/SUNDER                      = lvl >= 10 ? InitSpell(me, SUNDER_1) : 0;
-+  ///*Talent*/SWEEPING_STRIKES            = lvl >= 30 ? SWEEPING_STRIKES_1 : 0;
-+  //          BATTLESTANCE                            = BATTLESTANCE_1;
-+  // /*Quest*/DEFENSIVESTANCE             = lvl >= 10 ? DEFENSIVESTANCE_1 : 0;
-+  // /*Quest*/BERSERKERSTANCE             = lvl >= 30 ? BERSERKERSTANCE_1 : 0;
-+  //          RECKLESSNESS                            = InitSpell(me, RECKLESSNESS_1);
-+  //          RETALIATION                             = InitSpell(me, RETALIATION_1);
-+  ///*Talent*/DEATHWISH                   = lvl >= 30 ? DEATHWISH_1 : 0;
-+  //          VICTORY_RUSH                            = InitSpell(me, VICTORY_RUSH_1);
-+        }
-+
-+        void ApplyClassPassives()
-+        {
-+            //uint8 level = master->getLevel();
-+        }
-+
-+    private:
-+ //       uint32
-+ // /*Shouts*/INTIMIDATING_SHOUT, BATTLESHOUT, CHALLENGING_SHOUT,
-+ ///*Charges*/CHARGE, INTERCEPT, INTERVENE,
-+ // /*Damage*/OVERPOWER, CLEAVE, REND, EXECUTE, WHIRLWIND, BLADESTORM, MORTALSTRIKE, SLAM,
-+ ///*Stances*/BATTLESTANCE, DEFENSIVESTANCE, BERSERKERSTANCE,
-+ //  /*Ubers*/RECKLESSNESS, RETALIATION, DEATHWISH,
-+ // /*Others*/TAUNT, DISARM, BLOODRAGE, ENRAGED_REGENERATION, VICTORY_RUSH,
-+ //       BERSERKERRAGE, HAMSTRING, PUMMEL, SUNDER, SWEEPING_STRIKES;
-+
-+        //CDs/Timers/misc
-+///*shts*/uint32 batcomShout_cd, intimidatingShout_cd;
-+///*chrg*/uint32 charge_cd, intercept_cd, intervene_cd;
-+// /*Dmg*/uint32 mortalStrike_cd, slam_cd, whirlwind_cd, cleave_cd, bladestorm_cd;
-+///*else*/uint32 regen_cd, sweeping_strikes_cd, deathwish_cd, uber_cd, berserkerRage_cd, pummel_cd,
-+//            bloodrage_cd, taunt_cd, sunder_cd;
-+///*tmrs*/uint32 stancetimer, ragetimer, ragetimer2;
-+///*misc*/uint64 rendTarget;
-+///*misc*/uint32 rage;
-+///*misc*/float rageIncomeMult, rageLossMult;
-+///*Chck*/bool battleStance, defensiveStance, berserkerStance, UNRELENTING_ASSAULT, VICTORIOUS;
-+
-+        enum DeathKnightBaseSpells
-+        {
-+        };
-+        enum DeathKnightPassives
-+        {
-+        //Talents
-+        //other
-+        };
-+        enum DeathKnightSpecial
-+        {
-+        };
-+    };
-+};
-+
-+void AddSC_death_knight_bot()
-+{
-+    new death_knight_bot();
-+}
 diff --git a/src/server/game/AI/NpcBots/bot_druid_ai.cpp b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 new file mode 100644
 index 0000000..013c406
@@ -15441,7 +14564,7 @@ index 0000000..f05f775
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 0000000..0ba13a0
+index 0000000..e30af74
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
 @@ -0,0 +1,633 @@
@@ -16027,8 +15150,8 @@ index 0000000..0ba13a0
 +        char* bclass = strtok((char*)args, " ");
 +        uint8 botclass = CLASS_NONE;
 +
-+        if (!strncmp(bclass, "deathknight", 12) || !strncmp(bclass, "deathk", 7 || !strncmp(bclass, "death", 6) || !strncmp(bclass, "deat", 5) ||
-+            !strncmp(bclass, "dea", 4) || !strncmp(bclass, "dk", 3) || !strncmp(bclass, "de", 3)))
++        if (!strncmp(bclass, "deathknight", 12) || !strncmp(bclass, "deathk", 7) || !strncmp(bclass, "death", 6) || !strncmp(bclass, "deat", 5) ||
++            !strncmp(bclass, "dea", 4) || !strncmp(bclass, "dk", 3) || !strncmp(bclass, "de", 3))
 +            botclass = CLASS_DEATH_KNIGHT;
 +        else if (!strncmp(bclass, "druid", 6) || !strncmp(bclass, "dru", 4) || !strncmp(bclass, "dr", 3))
 +            botclass = CLASS_DRUID;
@@ -16914,7 +16037,7 @@ index 5a787f9..6293f4d 100644
  
      return summon;
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index 9bdc1eb..349f952 100644
+index 9bdc1eb..12fbd60 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -78,6 +78,10 @@
@@ -16947,13 +16070,12 @@ index 9bdc1eb..349f952 100644
          // 4.2.3. Give XP to player.
          player->GiveXP(xp, _victim, _groupRate);
          if (Pet* pet = player->GetPet())
-@@ -857,6 +873,31 @@ Player::Player(WorldSession* session): Unit(true)
+@@ -857,6 +873,30 @@ Player::Player(WorldSession* session): Unit(true)
  
      m_ChampioningFaction = 0;
  
 +    ///////////////////// Bot System ////////////////////////
 +    _botHlpr = NULL;
-+    //Npcbot
 +    m_botTimer = 500;
 +    m_botCreateTimer = 500;
 +    m_bot = NULL;
@@ -16979,7 +16101,7 @@ index 9bdc1eb..349f952 100644
      for (uint8 i = 0; i < MAX_POWERS; ++i)
          m_powerFraction[i] = 0;
  
-@@ -911,6 +952,16 @@ Player::~Player()
+@@ -911,6 +951,16 @@ Player::~Player()
      delete m_achievementMgr;
      delete m_reputationMgr;
  
@@ -16996,7 +16118,7 @@ index 9bdc1eb..349f952 100644
      sWorld->DecreasePlayerCount();
  }
  
-@@ -1834,6 +1885,17 @@ void Player::Update(uint32 p_time)
+@@ -1834,6 +1884,17 @@ void Player::Update(uint32 p_time)
      //because we don't want player's ghost teleported from graveyard
      if (IsHasDelayedTeleport() && IsAlive())
          TeleportTo(m_teleport_dest, m_teleport_options);
@@ -17014,7 +16136,7 @@ index 9bdc1eb..349f952 100644
  }
  
  void Player::setDeathState(DeathState s)
-@@ -2210,6 +2272,13 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
+@@ -2210,6 +2271,13 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
          if (!sMapMgr->CanPlayerEnter(mapid, this, false))
              return false;
  
@@ -17028,7 +16150,7 @@ index 9bdc1eb..349f952 100644
          //I think this always returns true. Correct me if I am wrong.
          // If the map is not created, assume it is possible to enter it.
          // It will be created in the WorldPortAck.
-@@ -2457,6 +2526,838 @@ void Player::RemoveFromWorld()
+@@ -2457,6 +2525,838 @@ void Player::RemoveFromWorld()
      }
  }
  
@@ -17867,7 +16989,7 @@ index 9bdc1eb..349f952 100644
  void Player::RegenerateAll()
  {
      //if (m_regenTimer <= 500)
-@@ -2938,6 +3839,26 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
+@@ -2938,6 +3838,26 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
  {
      if (group)
      {
@@ -17894,7 +17016,7 @@ index 9bdc1eb..349f952 100644
          group->RemoveMember(guid, method, kicker, reason);
          group = NULL;
      }
-@@ -4990,6 +5911,13 @@ void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmC
+@@ -4990,6 +5910,13 @@ void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmC
              stmt->setUInt32(0, guid);
              trans->Append(stmt);
  
@@ -17909,7 +17031,7 @@ index 9bdc1eb..349f952 100644
              break;
          }
 diff --git a/src/server/game/Entities/Player/Player.h b/src/server/game/Entities/Player/Player.h
-index bac7944..a0ec72b 100644
+index bac7944..c306778 100644
 --- a/src/server/game/Entities/Player/Player.h
 +++ b/src/server/game/Entities/Player/Player.h
 @@ -52,6 +52,11 @@ class PlayerSocial;
@@ -17918,7 +17040,7 @@ index bac7944..a0ec72b 100644
  
 +// NpcBot mod
 +struct NpcBotMap;
-+#define MAX_NPCBOTS 40
++#define MAX_NPCBOTS 39
 +class BotHelper;
 +
  typedef std::deque<Mail*> PlayerMails;
