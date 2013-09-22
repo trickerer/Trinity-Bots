@@ -1,6 +1,6 @@
-From e9d222ae9cdc346d45f6945501d9d54e596047f9 Mon Sep 17 00:00:00 2001
+From 9e09b7cfe4c32d13038032195177ffd1298c35f1 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Sat, 21 Sep 2013 20:15:21 +0700
+Date: Sun, 22 Sep 2013 11:20:41 +0700
 Subject: [PATCH] NPCBots_434
 
 ---
@@ -12,12 +12,12 @@ Subject: [PATCH] NPCBots_434
  src/server/game/AI/NpcBots/bot_ai.h                |  375 +++
  src/server/game/AI/NpcBots/bot_death_knight_ai.cpp |  869 +++++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1213 +++++++
- src/server/game/AI/NpcBots/bot_hunter_ai.cpp       | 1185 +++++++
+ src/server/game/AI/NpcBots/bot_hunter_ai.cpp       | 1188 +++++++
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  978 ++++++
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      | 1043 ++++++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       | 1009 ++++++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  904 ++++++
- src/server/game/AI/NpcBots/bot_shaman_ai.cpp       | 1380 ++++++++
+ src/server/game/AI/NpcBots/bot_shaman_ai.cpp       | 1387 ++++++++
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  546 ++++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1137 +++++++
  src/server/game/AI/NpcBots/botcommands.cpp         |  633 ++++
@@ -29,7 +29,7 @@ Subject: [PATCH] NPCBots_434
  src/server/game/Entities/Creature/Creature.h       |   44 +
  .../game/Entities/Creature/TemporarySummon.cpp     |    8 +
  src/server/game/Entities/Object/Object.cpp         |   11 +
- src/server/game/Entities/Player/Player.cpp         |  908 ++++++
+ src/server/game/Entities/Player/Player.cpp         |  930 ++++++
  src/server/game/Entities/Player/Player.h           |   64 +
  src/server/game/Entities/Totem/Totem.cpp           |    7 +
  src/server/game/Entities/Unit/StatSystem.cpp       |    4 +
@@ -49,7 +49,7 @@ Subject: [PATCH] NPCBots_434
  .../Database/Implementation/WorldDatabase.cpp      |    4 +
  .../shared/Database/Implementation/WorldDatabase.h |    4 +
  src/server/worldserver/worldserver.conf.dist       |  106 +
- 45 files changed, 17979 insertions(+), 0 deletions(-)
+ 45 files changed, 18011 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/auth_rbac.sql
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world_bots.sql
@@ -7080,10 +7080,10 @@ index 0000000..70981b2
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_hunter_ai.cpp b/src/server/game/AI/NpcBots/bot_hunter_ai.cpp
 new file mode 100644
-index 0000000..71e6112
+index 0000000..fcf30fd
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_hunter_ai.cpp
-@@ -0,0 +1,1185 @@
+@@ -0,0 +1,1188 @@
 +#include "bot_ai.h"
 +#include "Player.h"
 +#include "ScriptMgr.h"
@@ -7432,9 +7432,9 @@ index 0000000..71e6112
 +            {
 +                if (shot->GetSpellInfo()->Id != AUTO_SHOT)
 +                {
-+                    //casting some other autorepeat spell, wtf?
-+                    TC_LOG_ERROR(LOG_FILTER_PLAYER, "CheckAutoShot(): Bot %s is casting autorepeatable spell %u (%s) during check!",
-+                        me->GetName().c_str(), shot->GetSpellInfo()->Id, shot->GetSpellInfo()->SpellName[0]);
++                    ////casting some other autorepeat spell, wtf?
++                    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "CheckAutoShot(): Bot %s is casting autorepeatable spell %u (%s) during check!",
++                    //    me->GetName().c_str(), shot->GetSpellInfo()->Id, shot->GetSpellInfo()->SpellName[0]);
 +
 +                    return;
 +                }
@@ -7588,7 +7588,10 @@ index 0000000..71e6112
 +            }
 +
 +            if (!CheckAttackTarget(CLASS_HUNTER))
++            {
++                me->InterruptSpell(CURRENT_AUTOREPEAT_SPELL);
 +                return;
++            }
 +
 +            DoRangedAttack(diff);
 +        }
@@ -12229,10 +12232,10 @@ index 0000000..f2421db
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_shaman_ai.cpp b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 new file mode 100644
-index 0000000..d28a408
+index 0000000..cc65af2
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
-@@ -0,0 +1,1380 @@
+@@ -0,0 +1,1387 @@
 +#include "bot_ai.h"
 +#include "Group.h"
 +#include "Player.h"
@@ -13097,6 +13100,12 @@ index 0000000..d28a408
 +
 +        void OnBotDespawn(Creature* summon)
 +        {
++            if (!summon)
++            {
++                UnsummonAll();
++                return;
++            }
++
 +            TempSummon* totem = summon->ToTempSummon();
 +            if (!totem || !totem->ToTotem())
 +            {
@@ -13410,18 +13419,6 @@ index 0000000..d28a408
 +        void ApplyClassPassives()
 +        {
 +            uint8 level = master->getLevel();
-+            if (level >= 70)
-+                RefreshAura(MAELSTROM_WEAPON5,2);
-+            else if (level >= 60)
-+                RefreshAura(MAELSTROM_WEAPON5);
-+            else if (level >= 55)
-+                RefreshAura(MAELSTROM_WEAPON4);
-+            else if (level >= 50)
-+                RefreshAura(MAELSTROM_WEAPON3);
-+            else if (level >= 45)
-+                RefreshAura(MAELSTROM_WEAPON2);
-+            else if (level >= 40)
-+                RefreshAura(MAELSTROM_WEAPON1);
 +            if (level >= 58)
 +                RefreshAura(ELEMENTAL_WARDING,2); //12%
 +            else if (level >= 15)
@@ -13476,6 +13473,19 @@ index 0000000..d28a408
 +            {
 +                if (isTwoHander())
 +                {
++                    if (level >= 70)
++                        RefreshAura(MAELSTROM_WEAPON5,2);
++                    else if (level >= 60)
++                        RefreshAura(MAELSTROM_WEAPON5);
++                    else if (level >= 55)
++                        RefreshAura(MAELSTROM_WEAPON4);
++                    else if (level >= 50)
++                        RefreshAura(MAELSTROM_WEAPON3);
++                    else if (level >= 45)
++                        RefreshAura(MAELSTROM_WEAPON2);
++                    else// if (level >= 40)
++                        RefreshAura(MAELSTROM_WEAPON1);
++
 +                    RefreshAura(UNLEASHED_RAGE);
 +                    RefreshAura(IMPROVED_STORMSTRIKE); //20%
 +                }
@@ -16783,7 +16793,7 @@ index 0a5eb82..0346d43 100644
  
      return summon;
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index db22cce..e1f02d7 100644
+index db22cce..95c9db0 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -80,6 +80,10 @@
@@ -16897,7 +16907,7 @@ index db22cce..e1f02d7 100644
          //I think this always returns true. Correct me if I am wrong.
          // If the map is not created, assume it is possible to enter it.
          // It will be created in the WorldPortAck.
-@@ -2485,6 +2554,818 @@ void Player::RemoveFromWorld()
+@@ -2485,6 +2554,840 @@ void Player::RemoveFromWorld()
      }
  }
  
@@ -16998,17 +17008,39 @@ index db22cce..e1f02d7 100644
 +            {
 +                if (GetDistance(m_bot) > SIZE_OF_GRIDS)
 +                {
-+                    uint32 newphase = PHASEMASK_NORMAL;
-+                    uint32 oldphase = m_bot->GetPhaseMask();
-+                    uint32 phase = phaseMgr.GetCurrentPhasemask();
++                    ////This thing is not confirmed to be stable
++                    //m_bot->SetOwnerGUID(0);
++                    //m_bot->RemoveFromWorld();
++                    //m_bot->Relocate(this);
++                    ////Creature::AddToWorld(): Skip AIM_Initialize();
++                    //if (m_bot->GetZoneScript())
++                    //    m_bot->GetZoneScript()->OnCreatureCreate(m_bot);   
++                    //sObjectAccessor->AddObject(m_bot);
++                    //m_bot->ToUnit()->AddToWorld();
++                    //m_bot->SetOwnerGUID(GetGUID());
 +
-+                    if (phase != uint32(PHASEMASK_ANYWHERE))
-+                        for (uint8 i = 0; i != 5 && (phase & newphase); ++i)
-+                            newphase *= 2;
++                    //This thing is unsafe
++                    m_bot->SetBotsPetDied();
++                    m_bot->OnBotDespawn(NULL);
++                    m_bot->InterruptNonMeleeSpells(true);
++                    m_bot->AttackStop();
++                    m_bot->RemoveAllAttackers();
++                    m_bot->DeleteThreatList();
++                    m_bot->ClearInCombat();
 +
-+                    m_bot->SetPhaseMask(newphase, true);
-+                    m_bot->NearTeleportTo(GetPositionX(), GetPositionY(), GetPositionZ(), GetOrientation());
-+                    m_bot->SetPhaseMask(oldphase, true);
++                    m_bot->RemoveNotOwnSingleTargetAuras();
++                    //m_bot->RemoveAllGameObjects();
++                    //m_bot->RemoveAllDynObjects();
++                    //m_bot->ExitVehicle();
++                    //m_bot->UnsummonAllTotems();
++                    //m_bot->RemoveAllControlled();
++                    m_bot->RemoveAreaAurasDueToLeaveWorld();
++                    m_bot->DestroyForNearbyPlayers();
++                    m_bot->ClearUpdateMask(true);
++                    //sObjectAccessor->RemoveObject(m_bot);
++                    m_bot->Relocate(this);
++                    //sObjectAccessor->AddObject(m_bot);
++                    m_bot->ToUnit()->AddToWorld();
 +                }
 +            }
 +        }
@@ -17716,7 +17748,7 @@ index db22cce..e1f02d7 100644
  void Player::RegenerateAll()
  {
      //if (m_regenTimer <= 500)
-@@ -3009,6 +3890,26 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
+@@ -3009,6 +3912,26 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
  {
      if (group)
      {
@@ -17743,7 +17775,7 @@ index db22cce..e1f02d7 100644
          group->RemoveMember(guid, method, kicker, reason);
          group = NULL;
      }
-@@ -5036,6 +5937,13 @@ void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmC
+@@ -5036,6 +5959,13 @@ void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmC
              stmt->setUInt32(0, guid);
              trans->Append(stmt);
  
