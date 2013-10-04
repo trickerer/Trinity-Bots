@@ -22,7 +22,7 @@ CREATE TABLE `character_npcbot` (
   `equipFinger2` int(10) default NULL,
   `equipTrinket1` int(10) default NULL,
   `equipTrinket2` int(10) default NULL,
-  `equipTabard` int(10) default NULL,
+  `equipNeck` int(10) default NULL,
   `active` tinyint(3) default NULL,
   PRIMARY KEY  (`owner`,`entry`)
 )  ENGINE=InnoDB DEFAULT CHARSET=utf8;
