@@ -1,6 +1,6 @@
-From 33d85287263504ea40e4cf6f3fadc68b2160c650 Mon Sep 17 00:00:00 2001
+From eea0df587dbe829b234c1759d5804f4b547a4b03 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Thu, 3 Oct 2013 12:48:50 +0700
+Date: Fri, 4 Oct 2013 15:39:10 +0700
 Subject: [PATCH] NPCBots
 
 ---
@@ -9,9 +9,9 @@ Subject: [PATCH] NPCBots
  ...world_bot_helper_locales_gossip_menu_option.sql |   92 +
  sql/Bots/world_bots.sql                            |  555 +++
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  570 +++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 4677 ++++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |  521 +++
- src/server/game/AI/NpcBots/bot_death_knight_ai.cpp | 1727 ++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 4728 ++++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |  523 +++
+ src/server/game/AI/NpcBots/bot_death_knight_ai.cpp | 1727 +++++++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1185 +++++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       | 1210 +++++
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  983 ++++
@@ -26,7 +26,7 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/NpcBots/bothelper.h             |   32 +
  src/server/game/Accounts/RBAC.h                    |   14 +
  src/server/game/CMakeLists.txt                     |    1 +
- src/server/game/Entities/Creature/Creature.cpp     |  220 +
+ src/server/game/Entities/Creature/Creature.cpp     |  223 +
  src/server/game/Entities/Creature/Creature.h       |   52 +
  .../game/Entities/Creature/TemporarySummon.cpp     |    8 +
  src/server/game/Entities/Object/Object.cpp         |   11 +
@@ -50,7 +50,7 @@ Subject: [PATCH] NPCBots
  .../Database/Implementation/WorldDatabase.cpp      |    4 +
  .../shared/Database/Implementation/WorldDatabase.h |    4 +
  src/server/worldserver/worldserver.conf.dist       |   98 +
- 46 files changed, 20917 insertions(+), 0 deletions(-)
+ 46 files changed, 20973 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/auth_rbac.sql
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world_bot_helper_locales_gossip_menu_option.sql
@@ -1376,10 +1376,10 @@ index 0000000..1f3dca9
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..82b6655
+index 0000000..6fdd101
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,4677 @@
+@@ -0,0 +1,4728 @@
 +/*
 +NpcBot System by Graff (onlysuffering@gmail.com)
 +Original patch from: LordPsyan https://bitbucket.org/lordpsyan/trinitycore-patches/src/3b8b9072280e/Individual/11185-BOTS-NPCBots.patch
@@ -1423,7 +1423,7 @@ index 0000000..82b6655
 +    myangle = 0.f;
 +    mana_cd = uint32(-1);
 +    health_cd = uint32(-1);
-+    for (uint8 i = 0; i != BOT_MAX_SLOTS - 1; ++i)
++    for (uint8 i = 0; i != BOT_INVENTORY_SIZE; ++i)
 +        for (uint8 j = 0; j != MAX_BOT_ITEM_MOD; ++j)
 +            _stats[i][j] = 0;
 +    for (uint8 i = 0; i != MAX_BOT_CTC_SPELLS; ++i)
@@ -1445,6 +1445,7 @@ index 0000000..82b6655
 +{
 +    master = me->GetBotOwner();
 +    m_spellpower = 0;
++    m_block = 1;
 +    haste = 0;
 +    hit = 0.f;
 +    regen_mp5 = 0.f;
@@ -1466,8 +1467,9 @@ index 0000000..82b6655
 +    pos.m_positionZ = 0.f;
 +    aftercastTargetGuid = 0;
 +    currentSpell = 0;
++    tempMana = 0;
 +    dmgmult_melee = sConfigMgr->GetFloatDefault("Bot.DamageMult.Melee", 1.0);
-+    dmgmult_spell = sConfigMgr->GetFloatDefault("Bot.DamageMult.Spell", 1.0);
++    dmgmult_spell = sConfigMgr->GetFloatDefault("Bot.DamageMult.Spell", 1.0) * 0.75f;
 +    dmgmult_melee = std::max(dmgmult_melee, 0.01f);
 +    dmgmult_spell = std::max(dmgmult_spell, 0.01f);
 +    dmgmult_melee = std::min(dmgmult_melee, 10.f);
@@ -2208,6 +2210,7 @@ index 0000000..82b6655
 +    ch.PSendSysMessage("dodge: %f pct", unit->GetUnitDodgeChance());
 +    ch.PSendSysMessage("parry: %f pct", unit->GetUnitParryChance());
 +    ch.PSendSysMessage("block: %f pct", unit->GetUnitBlockChance());
++    ch.PSendSysMessage("block value: %f", float(unit->GetShieldBlockValue()));
 +    ch.PSendSysMessage("Damage taken melee: %f", unit->GetTotalAuraMultiplierByMiscMask(SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN, SPELL_SCHOOL_MASK_NORMAL));
 +    ch.PSendSysMessage("Damage taken spell: %f", unit->GetTotalAuraMultiplierByMiscMask(SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN, SPELL_SCHOOL_MASK_MAGIC));
 +    ch.PSendSysMessage("Damage range mainhand: min: %f, max: %f", unit->GetFloatValue(UNIT_FIELD_MINDAMAGE), unit->GetFloatValue(UNIT_FIELD_MAXDAMAGE));
@@ -2289,7 +2292,7 @@ index 0000000..82b6655
 +        {
 +            int32 val = 0;
 +            uint32 const a = i;
-+            for (uint8 j = 0; j != BOT_MAX_SLOTS - 1; ++j)
++            for (uint8 j = 0; j != BOT_INVENTORY_SIZE; ++j)
 +                val += static_cast<BotStat>(_stats[j])[a];
 +
 +            if (val != 0)
@@ -2318,7 +2321,7 @@ index 0000000..82b6655
 +}
 +//SETSTATS
 +// Health, Armor, Powers, Combat Ratings, and global update setup
-+void bot_minion_ai::setStats(uint8 myclass, uint8 myrace, uint8 mylevel, bool force)
++void bot_minion_ai::setStats(uint8 myclass, uint8 myrace, uint8 mylevel, bool force, bool shapeshift)
 +{
 +    if (myrace == 0 || myclass == 0) return;
 +    if (myclass != DRUID_BEAR_FORM && myclass != DRUID_CAT_FORM && (master->isDead() || (!shouldUpdateStats && !force))) return;
@@ -2398,16 +2401,19 @@ index 0000000..82b6655
 +    //sLog->outBasic("armor mod: %f", armor_mod);
 +    armor_mod *= (master->GetModifierValue(UNIT_MOD_ARMOR, BASE_PCT) + master->GetModifierValue(UNIT_MOD_ARMOR, TOTAL_PCT))/2.f;
 +    //sLog->outBasic("armor mod * master's modifier: %f", armor_mod);
-+    value = float(classstats->BaseArmor);
++    value = float(classstats->BaseArmor / 2);
 +    //sLog->outBasic("base armor: %f", value);
 +    value += float(master->GetArmor())/5.f;
 +    //sLog->outBasic("base armor + 1/5 of master's armor: %f", value);
 +
-+    for (uint8 i = 0; i != BOT_MAX_SLOTS - 1; ++i)
++    for (uint8 i = 0; i != BOT_INVENTORY_SIZE; ++i)
 +        value += _stats[i][BOT_ITEM_MOD_ARMOR];
 +
++    if (tank == me)
++        armor_mod += 0.5f;
 +    if (GetBotStance() == DEATH_KNIGHT_FROST_PRESENCE)
 +        armor_mod += 0.6f;
++
 +    value *= armor_mod;
 +    //sLog->outBasic("multiplied by armor mod (total base armor): %f", value);
 +    me->SetModifierValue(UNIT_MOD_ARMOR, BASE_VALUE, value);
@@ -2419,7 +2425,7 @@ index 0000000..82b6655
 +    {
 +        value = float(master->GetResistance(SpellSchools(i)));
 +
-+        for (uint8 j = 0; j != BOT_MAX_SLOTS - 1; ++j)
++        for (uint8 j = 0; j != BOT_INVENTORY_SIZE; ++j)
 +            value += 2.5f * (_stats[j][BOT_ITEM_MOD_RESIST_HOLY + (i - 1)]);
 +
 +        //sLog->outBasic("master's resistance %u: %f, setting %f (triple) to bot", uint32(UNIT_MOD_RESISTANCE_START + i), value, value*3);
@@ -2457,7 +2463,7 @@ index 0000000..82b6655
 +
 +    if (mylevel >= 70)
 +    {
-+        for (uint8 i = 0; i != BOT_MAX_SLOTS - 1; ++i)
++        for (uint8 i = 0; i != BOT_INVENTORY_SIZE; ++i)
 +        {
 +            //25.5 HR = 1% haste at 80 (12.75 for bot)
 +            float tempval = _stats[i][ITEM_MOD_HASTE_MELEE_RATING] + _stats[i][ITEM_MOD_HASTE_RANGED_RATING] + _stats[i][ITEM_MOD_HASTE_SPELL_RATING] + _stats[i][ITEM_MOD_HASTE_RATING];
@@ -2484,7 +2490,7 @@ index 0000000..82b6655
 +
 +    if (mylevel >= 20)
 +    {
-+        for (uint8 i = 0; i != BOT_MAX_SLOTS - 1; ++i)
++        for (uint8 i = 0; i != BOT_INVENTORY_SIZE; ++i)
 +        {
 +            //32.5 HR = 1% hit at 80
 +            float tempval = _stats[i][ITEM_MOD_HIT_MELEE_RATING] + _stats[i][ITEM_MOD_HIT_RANGED_RATING] + _stats[i][ITEM_MOD_HIT_SPELL_RATING] + _stats[i][ITEM_MOD_HIT_RATING];
@@ -2503,11 +2509,11 @@ index 0000000..82b6655
 +
 +    if (mylevel >= 10)
 +    {
-+        for (uint8 i = 0; i != BOT_MAX_SLOTS - 1; ++i)
++        for (uint8 i = 0; i != BOT_INVENTORY_SIZE; ++i)
 +        {
 +            //45 CR = 1% crit at 80
 +            float tempval = _stats[i][ITEM_MOD_CRIT_MELEE_RATING] + _stats[i][ITEM_MOD_CRIT_RANGED_RATING] + _stats[i][ITEM_MOD_CRIT_SPELL_RATING] + _stats[i][ITEM_MOD_CRIT_RATING];
-+            value += 2.f * (tempval / (45.f * (float(mylevel - 5) / 75.f)));
++            value += 1.5f * (tempval / (45.f * (float(mylevel - 5) / 75.f)));
 +        }
 +    }
 +
@@ -2517,59 +2523,57 @@ index 0000000..82b6655
 +        RefreshAura(HOLYCRIT, int8(value / 7.f)); //add holy crit to healers
 +
 +    //PARRY
-+    value = master->GetFloatValue(PLAYER_PARRY_PERCENTAGE);
++    value = 0.5f * master->GetFloatValue(PLAYER_PARRY_PERCENTAGE);
 +    value = value > 5.f ? value - 5.f : 0.f; //remove base chance if possible
 +
 +    if (mylevel >= 30)
 +    {
-+        for (uint8 i = 0; i != BOT_MAX_SLOTS - 1; ++i)
++        for (uint8 i = 0; i != BOT_INVENTORY_SIZE; ++i)
 +        {
 +            //67 PR = 1% parry at 80
-+            float tempval = _stats[i][ITEM_MOD_PARRY_RATING] + _stats[i][ITEM_MOD_DEFENSE_SKILL_RATING];
-+            value += 2.f * (tempval / (67.f * (float(mylevel - 20) / 60.f)));
++            float tempval = _stats[i][ITEM_MOD_PARRY_RATING];
++            value += 1.5f * (tempval / (67.f * (float(mylevel - 20) / 60.f)));
++            //125 DR = 1% block/parry/dodge at 80
++            tempval = _stats[i][ITEM_MOD_DEFENSE_SKILL_RATING];
++            value += 1.5f * (tempval / (125.f * (float(mylevel - 20) / 60.f)));
 +        }
 +    }
 +
 +    value *= parry_mod;
 +    if (master->GetBotTankGuid() == me->GetGUID() && myclass != DRUID_CAT_FORM && myclass != DRUID_BEAR_FORM) //feral cannot parry so let it be base 5%
 +        value += 10.f;
-+    if (myclass == CLASS_SHAMAN)
-+        value += 6.f;
-+    if (myclass == CLASS_HUNTER)
-+        value += 3.f;
 +    //Forceful Deflection: 12.5% (half of base 25%) of strength (use max stat) goes to parry rating (~1% parry per 67 rating at 80)
 +    if (myclass == CLASS_DEATH_KNIGHT/* && mylevel >= 55*/)
 +        value += (stat / 8.f) / (float(mylevel) - (13.f / (float(mylevel - 40) / 40.f))); //~20 at 55, ~34 at 60 and 67 at 80
-+    if (value > 55.f)
-+        value = 55.f;
-+    float parryAndDodge = value; //set temp value, this is needed to keep total avoidance within 65%
++    if (value > 40.f)
++        value = 40.f;
++    float parryAndDodge = value; //set temp value, this is needed to keep total avoidance within 50%
 +    RefreshAura(PARRY, int8(value/5.f)); //5% per stack aplied
 +
 +    //DODGE
-+    value = master->GetUnitDodgeChance();
++    value = 0.5f * master->GetUnitDodgeChance();
 +    value = value > 5.f ? value - 5.f : 0.f; //remove base chance if possible
 +
 +    if (mylevel >= 20)
 +    {
-+        for (uint8 i = 0; i != BOT_MAX_SLOTS - 1; ++i)
++        for (uint8 i = 0; i != BOT_INVENTORY_SIZE; ++i)
 +        {
 +            //53 DR = 1% dodge at 80
-+            float tempval = _stats[i][ITEM_MOD_DODGE_RATING] + _stats[i][ITEM_MOD_DEFENSE_SKILL_RATING];
-+            value += 2.f * (tempval / (53.f * (float(mylevel - 10) / 70.f)));
++            float tempval = _stats[i][ITEM_MOD_DODGE_RATING];
++            value += 1.5f * (tempval / (53.f * (float(mylevel - 10) / 70.f)));
++            //125 DR = 1% block/parry/dodge at 80
++            tempval = _stats[i][ITEM_MOD_DEFENSE_SKILL_RATING];
++            value += 1.5f * (tempval / (125.f * (float(mylevel - 10) / 70.f)));
 +        }
 +    }
 +
 +    value *= dodge_mod;
 +    if (master->GetBotTankGuid() == me->GetGUID())
 +        value += 10.f;
-+    if (value > 55.f)
-+        value = 55.f;
-+    if (parryAndDodge + value > 55.f)
-+        value = 55.f - parryAndDodge; //do not allow avoidance to be more than 65% (base 5+5)
-+    if (myclass == CLASS_ROGUE)
-+        value += 6.f;
-+    if (myclass == CLASS_HUNTER)
-+        value += 3.f;
++    if (value > 40.f)
++        value = 40.f;
++    if (parryAndDodge + value > 40.f)
++        value = 40.f - parryAndDodge; //do not allow avoidance to be more than 65% (base 5+5)
 +    RefreshAura(DODGE, int8(value / 5.f));
 +
 +    //BLOCK
@@ -2578,26 +2582,48 @@ index 0000000..82b6655
 +        value = master->GetFloatValue(PLAYER_BLOCK_PERCENTAGE);
 +        if (mylevel >= 10)
 +        {
-+            for (uint8 i = 0; i != BOT_MAX_SLOTS - 1; ++i)
++            for (uint8 i = 0; i != BOT_INVENTORY_SIZE; ++i)
 +            {
 +                //16.5 BR = 1% block at 80
-+                float tempval = _stats[i][ITEM_MOD_BLOCK_RATING] + _stats[i][ITEM_MOD_DEFENSE_SKILL_RATING];
-+                value += 5.f * (tempval / (16.5f * (float(mylevel - 5) / 75.f)));
++                float tempval = _stats[i][ITEM_MOD_BLOCK_RATING];
++                value += 1.5f * (tempval / (16.5f * (float(mylevel - 5) / 75.f)));
++                //125 DR = 1% block/parry/dodge at 80
++                tempval = _stats[i][ITEM_MOD_DEFENSE_SKILL_RATING];
++                value += 2.5f * (tempval / (125.f * (float(mylevel - 5) / 75.f)));
 +            }
 +        }
 +
-+        RefreshAura(BLOCK, int8(value / 5.f) + mylevel / 10);
-+    }
++        if (tank == me)
++            value += 15.f;
++        RefreshAura(BLOCK, int8(value / 5.f));
 +
-+    //BLOCK VALUE ***TC NYI***
++        //BLOCK VALUE
++        float tempval = float(mylevel + mylevel / 4);
++        //tempval += master->GetShieldBlockValue();
++        for (uint8 i = 0; i != BOT_INVENTORY_SIZE; ++i)
++        {
++            tempval += 0.75f * (_stats[i][ITEM_MOD_STRENGTH]);
++            tempval += 1.25f * (_stats[i][ITEM_MOD_BLOCK_VALUE]);
++        }
++
++        //Shield Mastery
++        if (mylevel >= 20 && myclass == CLASS_WARRIOR)
++            tempval *= 1.3f;
++
++        tempval = std::max<float>(tempval - 10.f, 1.f);
++
++        m_block = uint32(tempval);
++    }
++    else
++        m_block = 1;
 +
 +    //MANA
-+    _OnManaUpdate(myclass, mylevel);
++    _OnManaUpdate(myclass, mylevel, shapeshift);
 +
 +    //MANA REGEN
 +    if (mylevel >= 40 && (me->getPowerType() == POWER_MANA || me->getPowerType() == POWER_RUNIC_POWER))
 +    {
-+        regen_mp5 = master->GetFloatValue(UNIT_FIELD_POWER_REGEN_FLAT_MODIFIER);
++        regen_mp5 = 0.5f * master->GetFloatValue(UNIT_FIELD_POWER_REGEN_FLAT_MODIFIER);
 +        //TOO COMPLICATED
 +        //regen_mp5 = (master->GetTotalAuraModifierByMiscValue(SPELL_AURA_MOD_POWER_REGEN, POWER_MANA) + sqrt(master->GetStat(STAT_INTELLECT)) * master->OCTRegenMPPerSpirit()) / 5.f;
 +        //Unit::AuraEffectList const& regenAura = master->GetAuraEffectsByType(SPELL_AURA_MOD_MANA_REGEN_FROM_STAT);
@@ -2609,14 +2635,14 @@ index 0000000..82b6655
 +        regen_mp5 = regen_mp5 > regen_mp5_a ? regen_mp5 : regen_mp5_a;
 +
 +        //unknown values
-+        for (uint8 i = 0; i != BOT_MAX_SLOTS - 1; ++i)
++        for (uint8 i = 0; i != BOT_INVENTORY_SIZE; ++i)
 +        {
 +            regen_mp5 += 2.f * (_stats[i][ITEM_MOD_MANA_REGENERATION]);
 +            regen_mp5 += 1.f * (_stats[i][ITEM_MOD_SPIRIT]);
 +        }
 +
 +        if (myclass == CLASS_HUNTER && mylevel > 20)
-+            regen_mp5 += 45.f * ((mylevel - 20) / 10 + 1);
++            regen_mp5 += 45.f * ((mylevel - 20) / 15 + 1);
 +        if (regen_mp5 >= 45.f)
 +        {
 +            me->RemoveAurasDueToSpell(MANAREGEN100);
@@ -2644,8 +2670,10 @@ index 0000000..82b6655
 +        m_spellpower = sppower > atpower ? sppower : atpower;
 +        //sLog->outBasic("Chosen stat value: %i", m_spellpower);
 +
-+        for (uint8 i = 0; i != BOT_MAX_SLOTS - 1; ++i)
-+            m_spellpower += 2 * (_stats[i][ITEM_MOD_SPELL_POWER] + _stats[i][ITEM_MOD_SPELL_DAMAGE_DONE] + _stats[i][ITEM_MOD_SPELL_HEALING_DONE]);
++        m_spellpower /= 3; //reduce spellpower since we have items
++
++        for (uint8 i = 0; i != BOT_INVENTORY_SIZE; ++i)
++            m_spellpower += 2 * (_stats[i][ITEM_MOD_SPELL_POWER]);
 +
 +        m_spellpower = int32(float(m_spellpower) * spp_mod);
 +        //sLog->outBasic("spellpower * mod: %i", m_spellpower);
@@ -2856,7 +2884,7 @@ index 0000000..82b6655
 +    RefreshAura(DODGE, int8(value / 5.f));
 +
 +    //MANA
-+    _OnManaUpdate(petType, mylevel);
++    _OnManaUpdate(petType, mylevel, false);
 +
 +    //MANA REGEN
 +    if (mylevel >= 40 && me->getPowerType() == POWER_MANA)
@@ -4171,13 +4199,13 @@ index 0000000..82b6655
 +    float stamValue = me->GetTotalStatValue(STAT_STAMINA);
 +    stamValue = std::max(stamValue - 18.f, 1.f); //remove base stamina (not calculated into health)
 +
-+    for (uint8 i = 0; i != BOT_MAX_SLOTS - 1; ++i)
++    for (uint8 i = 0; i != BOT_INVENTORY_SIZE; ++i)
 +        stamValue += 1.f * (static_cast<BotStat>(_stats[i])[ITEM_MOD_STAMINA]);
 +
 +    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "bot's stats to health add: Stamina (%f), value: %f", stamValue, stamValue * 10.f);
 +    int32 hp_add = int32(stamValue * 10.f);
 +
-+    for (uint8 i = 0; i != BOT_MAX_SLOTS - 1; ++i)
++    for (uint8 i = 0; i != BOT_INVENTORY_SIZE; ++i)
 +        hp_add += 3.f * (static_cast<BotStat>(_stats[i])[ITEM_MOD_HEALTH]);
 +
 +    //pick up master's stamina from items
@@ -4227,7 +4255,7 @@ index 0000000..82b6655
 +}
 +//Mana management for minions
 +//Including calcs and set
-+void bot_minion_ai::_OnManaUpdate(uint8 myclass, uint8 mylevel) const
++void bot_minion_ai::_OnManaUpdate(uint8 myclass, uint8 mylevel, bool shapeshift)
 +{
 +    if (me->getPowerType() != POWER_MANA)
 +        return;
@@ -4253,7 +4281,7 @@ index 0000000..82b6655
 +    float intValue = me->GetTotalStatValue(STAT_INTELLECT);
 +    intValue = std::max(intValue - 18.f, 1.f); //remove base int (not calculated into mana)
 +
-+    for (uint8 i = 0; i != BOT_MAX_SLOTS - 1; ++i)
++    for (uint8 i = 0; i != BOT_INVENTORY_SIZE; ++i)
 +    {
 +        intValue += 1.f * (static_cast<BotStat>(_stats[i])[ITEM_MOD_INTELLECT]);
 +        m_basemana += 3.f * (static_cast<BotStat>(_stats[i])[ITEM_MOD_MANA]);
@@ -4290,7 +4318,14 @@ index 0000000..82b6655
 +    me->SetModifierValue(UNIT_MOD_MANA, BASE_VALUE, m_totalmana);
 +    me->UpdateMaxPower(POWER_MANA);
 +    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "Overall mana to set: %u", me->GetMaxPower(POWER_MANA));
-+    me->SetPower(POWER_MANA, uint32(0.5f + float(me->GetMaxPower(POWER_MANA)) * pct / 100.f));//restore pct
++    if (tempMana)
++    {
++        me->SetPower(POWER_MANA, tempMana);
++        if (shapeshift == false)
++            tempMana = 0;
++    }
++    else
++        me->SetPower(POWER_MANA, uint32(0.5f + float(me->GetMaxPower(POWER_MANA)) * pct / 100.f)); //restore pct
 +    //No Regen
 +}
 +//Melee damage for minions (melee classes only)
@@ -4341,8 +4376,9 @@ index 0000000..82b6655
 +    atpower = sppower > atpower ? sppower : atpower; //highest stat is used (either 1.5x spellpower or attack power)
 +    //sLog->outBasic("chosen attack power stat value: %f", atpower);
 +    //sLog->outBasic("expected attack power: %f", atpower*ap_mod);
++    atpower *= 0.333f; //reduce damage since we can have weapons
 +
-+    for (uint8 i = 0; i != BOT_MAX_SLOTS - 1; ++i)
++    for (uint8 i = 0; i != BOT_INVENTORY_SIZE; ++i)
 +    {
 +        atpower += static_cast<BotStat>(_stats[i])[ITEM_MOD_ATTACK_POWER] + static_cast<BotStat>(_stats[i])[ITEM_MOD_RANGED_ATTACK_POWER] +
 +            static_cast<BotStat>(_stats[i])[ITEM_MOD_STRENGTH] * 2 + static_cast<BotStat>(_stats[i])[ITEM_MOD_AGILITY] * 2;
@@ -4401,7 +4437,7 @@ index 0000000..82b6655
 +}
 +//Mana for pets
 +//Same as for minions just simplified (modified to match real pets' values)
-+void bot_pet_ai::_OnManaUpdate(uint8 /*petType*/, uint8 mylevel) const
++void bot_pet_ai::_OnManaUpdate(uint8 /*petType*/, uint8 mylevel, bool /*shapeshift*/)
 +{
 +    if (me->getPowerType() != POWER_MANA)
 +        return;
@@ -4826,7 +4862,7 @@ index 0000000..82b6655
 +            int8 id = 1;
 +            EquipmentInfo const* einfo = sObjectMgr->GetEquipmentInfo(me->GetEntry(), id);
 +
-+            for (uint8 i = 0; i != BOT_MAX_SLOTS - 1; ++i)
++            for (uint8 i = 0; i != BOT_INVENTORY_SIZE; ++i)
 +            {
 +                if (uint32 itemId = master->GetBotEquip(me, i))
 +                {
@@ -5302,6 +5338,9 @@ index 0000000..82b6655
 +
 +    if (item->Class == ITEM_CLASS_WEAPON)
 +    {
++        if (slot > BOT_SLOT_RANGED)
++            return false;
++
 +        if (slot == BOT_SLOT_OFFHAND && item->SubClass == ITEM_SUBCLASS_WEAPON_POLEARM)
 +            return false;
 +
@@ -5348,10 +5387,6 @@ index 0000000..82b6655
 +                if (slot != BOT_SLOT_HEAD)
 +                    return false;
 +                break;
-+            //case INVTYPE_NECK:
-+            //    if (slot != BOT_SLOT_NECK)
-+            //        return false;
-+            //    break;
 +            case INVTYPE_SHOULDERS:
 +                if (slot != BOT_SLOT_SHOULDERS)
 +                    return false;
@@ -5657,7 +5692,7 @@ index 0000000..82b6655
 +    {
 +        int8 id = 1;
 +        EquipmentInfo const* einfo = sObjectMgr->GetEquipmentInfo(me->GetEntry(), id);
-+        if (!einfo)
++        if (!einfo || !einfo->ItemEntry[slot])
 +            return Unequip(slot);
 +
 +        if (slot + 1 == BOT_SLOT_MAINHAND && !(me->GetBotClass() == CLASS_WARRIOR && me->getLevel() >= 60))
@@ -5683,6 +5718,9 @@ index 0000000..82b6655
 +
 +void bot_minion_ai::ApplyItemBonuses(uint8 slot)
 +{
++    //ensurance to set zeros
++    RemoveItemBonuses(slot);
++
 +    uint32 itemId = master->GetBotEquip(me, slot);
 +    if (!itemId)
 +        return;
@@ -5722,7 +5760,7 @@ index 0000000..82b6655
 +        if (val == 0)
 +            continue;
 +
-+        _stats[slot][statType] = val;
++        _stats[slot][statType] += val;
 +    }
 +
 +    for (uint8 i = 0; i != MAX_ITEM_SPELLS; ++i)
@@ -5730,13 +5768,20 @@ index 0000000..82b6655
 +        _Spell const& spellData = proto->Spells[i];
 +        if (!spellData.SpellId)
 +            continue;
-+        if (spellData.SpellTrigger != ITEM_SPELLTRIGGER_CHANCE_ON_HIT)
-+            continue;
 +        SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellData.SpellId);
 +        if (!spellInfo)
 +            continue;
 +
 +        if (spellInfo->HasEffect(SPELL_EFFECT_ADD_EXTRA_ATTACKS))
++            continue;
++
++        for (uint8 j = 0; j != MAX_SPELL_EFFECTS; ++j)
++        {
++            if (spellInfo->Effects[j].ApplyAuraName == SPELL_AURA_MOD_SHIELD_BLOCKVALUE)
++                _stats[slot][ITEM_MOD_BLOCK_VALUE] += spellInfo->Effects[j].CalcValue();
++        }
++
++        if (spellData.SpellTrigger != ITEM_SPELLTRIGGER_CHANCE_ON_HIT)
 +            continue;
 +
 +        bool exists = false;
@@ -5770,9 +5815,12 @@ index 0000000..82b6655
 +    _stats[slot][BOT_ITEM_MOD_RESIST_ARCANE] = proto->ArcaneRes;
 +
 +    if (proto->Class == ITEM_CLASS_WEAPON)
-+        _stats[slot][BOT_ITEM_MOD_DAMAGE] = proto->Damage[0].DamageMax / 3;
++        _stats[slot][BOT_ITEM_MOD_DAMAGE] = proto->Damage[0].DamageMin;
 +    else if (proto->Class == ITEM_CLASS_ARMOR)
 +        _stats[slot][BOT_ITEM_MOD_ARMOR] = proto->Armor;
++
++    if (proto->Block)
++        _stats[slot][ITEM_MOD_BLOCK_VALUE] += proto->Block;
 +
 +    shouldUpdateStats = true;
 +}
@@ -5816,6 +5864,9 @@ index 0000000..82b6655
 +        _stats[slot][BOT_ITEM_MOD_DAMAGE] = 0;
 +    else if (proto->Class == ITEM_CLASS_ARMOR)
 +        _stats[slot][BOT_ITEM_MOD_ARMOR] = 0;
++
++    if (proto->Block)
++        _stats[slot][ITEM_MOD_BLOCK_VALUE] = 0;
 +
 +    shouldUpdateStats = true;
 +}
@@ -6059,10 +6110,10 @@ index 0000000..82b6655
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..541d406
+index 0000000..37530f4
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,521 @@
+@@ -0,0 +1,523 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -6194,7 +6245,8 @@ index 0000000..541d406
 +    BOT_SLOT_TRINKET1           = 16,
 +    BOT_SLOT_TRINKET2           = 17,
 +    BOT_SLOT_NECK               = 18,
-+    BOT_MAX_SLOTS
++    BOT_MAX_SLOTS,
++    BOT_INVENTORY_SIZE = BOT_MAX_SLOTS - 1
 +};
 +
 +enum BotStatTypes
@@ -6290,6 +6342,7 @@ index 0000000..541d406
 +        inline uint64 GetBotTankGuid() const { return m_TankGuid; }
 +        inline int32 GetSpellPower() const { return m_spellpower; }
 +        inline uint8 GetHaste() const { return haste; }
++        inline uint32 GetShieldBlockValue() const { return m_block; }
 +        virtual uint8 GetBotStance() const { return 0; }
 +
 +        virtual void OnBotSummon(Creature* /*summon*/) {}
@@ -6356,7 +6409,7 @@ index 0000000..541d406
 +        virtual void InitPowers() {}
 +        virtual void ApplyClassPassives() {}
 +        virtual void _OnHealthUpdate(uint8 /*myclass*/, uint8 /*mylevel*/) const = 0;
-+        virtual void _OnManaUpdate(uint8 /*myclass*/, uint8 /*mylevel*/) const = 0;
++        virtual void _OnManaUpdate(uint8 /*myclass*/, uint8 /*mylevel*/, bool = false) = 0;
 +        //virtual void _OnMeleeDamageUpdate(uint8 /*myclass*/) const = 0;
 +
 +        //virtual void ReceiveEmote(Player* /*player*/, uint32 /*emote*/) {}
@@ -6405,7 +6458,7 @@ index 0000000..541d406
 +            ap_mod, spp_mod, crit_mod;
 +        uint64 aftercastTargetGuid;
 +        int32 cost, value, sppower, m_spellpower;
-+        uint32 GC_Timer, temptimer, checkAurasTimer, wait, currentSpell;
++        uint32 GC_Timer, temptimer, checkAurasTimer, wait, currentSpell, tempMana, m_block;
 +        uint8 clear_cd, haste, healTargetIconFlags;
 +        bool doHealth, doMana, shouldUpdateStats;
 +
@@ -6438,7 +6491,7 @@ index 0000000..541d406
 +        void CheckAuras(bool force = false);
 +        //virtual void DoNonCombatActions(uint32 /*diff*/) {}
 +        //virtual void StartAttack(Unit* /*u*/, bool /*force*/ = false) {}
-+        void setStats(uint8 myclass, uint8 myrace, uint8 mylevel, bool force = false);
++        void setStats(uint8 myclass, uint8 myrace, uint8 mylevel, bool force = false, bool shapeshift = false);
 +
 +        static bool OnGossipHello(Player* player, Creature* creature);
 +        bool OnGossipSelect(Player* player, Creature* creature, uint32 sender, uint32 action);
@@ -6446,7 +6499,7 @@ index 0000000..541d406
 +        void InitSpells() {}
 +        void InitPowers() {}
 +        void _OnHealthUpdate(uint8 myclass, uint8 mylevel) const;
-+        void _OnManaUpdate(uint8 myclass, uint8 mylevel) const;
++        void _OnManaUpdate(uint8 myclass, uint8 mylevel, bool shapeshift = false);
 +        void _OnMeleeDamageUpdate(uint8 myclass) const;
 +
 +        void RemoveItemBonuses(uint8 slot);
@@ -6565,7 +6618,7 @@ index 0000000..541d406
 +
 +        void InitSpells() {}
 +        void _OnHealthUpdate(uint8 petType, uint8 mylevel) const;
-+        void _OnManaUpdate(uint8 petType, uint8 mylevel) const;
++        void _OnManaUpdate(uint8 petType, uint8 mylevel, bool shapeshift = false);
 +        //void _OnMeleeDamageUpdate(uint8 /*myclass*/) const {}
 +        void SetBaseArmor(uint32 armor) { basearmor = armor; }
 +
@@ -19181,7 +19234,7 @@ index f455610..e49ba96 100644
    ${CMAKE_CURRENT_SOURCE_DIR}/AI/EventAI
    ${CMAKE_CURRENT_SOURCE_DIR}/AI/ScriptedAI
 diff --git a/src/server/game/Entities/Creature/Creature.cpp b/src/server/game/Entities/Creature/Creature.cpp
-index 169d5fe..6927a1b 100644
+index 169d5fe..750cef8 100644
 --- a/src/server/game/Entities/Creature/Creature.cpp
 +++ b/src/server/game/Entities/Creature/Creature.cpp
 @@ -54,6 +54,9 @@
@@ -19242,7 +19295,17 @@ index 169d5fe..6927a1b 100644
      if (id == 0)
      {
          if (force)
-@@ -2640,3 +2663,200 @@ void Creature::SetDisplayId(uint32 modelId)
+@@ -2102,6 +2125,9 @@ void Creature::SetInCombatWithZone()
+ 
+ uint32 Creature::GetShieldBlockValue() const                  //dunno mob block value
+ {
++    if (bot_AI)
++        return bot_AI->GetShieldBlockValue();
++
+     return (getLevel()/2 + uint32(GetStat(STAT_STRENGTH)/20));
+ }
+ 
+@@ -2640,3 +2666,200 @@ void Creature::SetDisplayId(uint32 modelId)
          SetFloatValue(UNIT_FIELD_COMBATREACH, minfo->combat_reach * GetObjectScale());
      }
  }
