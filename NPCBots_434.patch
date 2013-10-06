@@ -1,14 +1,14 @@
-From fbe2cbb33466a758a54128aa0d2fb4aa451fe698 Mon Sep 17 00:00:00 2001
+From 06c1f545f2dfee8a5e3c6c0b16f4e029389baa78 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Fri, 4 Oct 2013 15:58:17 +0700
+Date: Sun, 6 Oct 2013 22:59:58 +0700
 Subject: [PATCH] NPCBots_434
 
 ---
  sql/Bots/auth_rbac.sql                             |   27 +
  sql/Bots/character_NPC_bots.sql                    |   28 +
  sql/Bots/world_bots.sql                            |  555 +++
- src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  562 +++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 4701 ++++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  586 +++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 4708 ++++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |  524 +++
  src/server/game/AI/NpcBots/bot_death_knight_ai.cpp | 1727 +++++++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1248 ++++++
@@ -48,8 +48,8 @@ Subject: [PATCH] NPCBots_434
  .../Database/Implementation/CharacterDatabase.h    |   10 +
  .../Database/Implementation/WorldDatabase.cpp      |    4 +
  .../shared/Database/Implementation/WorldDatabase.h |    4 +
- src/server/worldserver/worldserver.conf.dist       |   98 +
- 45 files changed, 20851 insertions(+), 0 deletions(-)
+ src/server/worldserver/worldserver.conf.dist       |  104 +
+ 45 files changed, 20888 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/auth_rbac.sql
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world_bots.sql
@@ -700,10 +700,10 @@ index 0000000..6abbc1c
 +UPDATE `creature_template` SET exp:=3, dmg_multiplier:=1.0, attackpower:=0, mindmg:= 2, maxdmg:= 3, minlevel:=85, maxlevel:=85, baseattacktime:=2000, rangeattacktime:=2000, minrangedmg:=0, maxrangedmg:=0, rangedattackpower:=0, dynamicflags:=0, speed_walk:=1.2, speed_run:=1.3, InhabitType:=3, health_mod:=1, mana_mod:=1, armor_mod:=1, mechanic_immune_mask:=1, flags_extra:=@FLAGS_EX, AIName='' where entry between 70001 and 70248 and name='Voidwalker';
 diff --git a/src/server/game/AI/NpcBots/bot_GridNotifiers.h b/src/server/game/AI/NpcBots/bot_GridNotifiers.h
 new file mode 100644
-index 0000000..ee9e33a
+index 0000000..9da1ef3
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_GridNotifiers.h
-@@ -0,0 +1,562 @@
+@@ -0,0 +1,586 @@
 +/*
 +Name: bot_GridNotifiers
 +%Complete: 95+
@@ -719,6 +719,8 @@ index 0000000..ee9e33a
 +#include "SpellAuras.h"
 +#include "bot_ai.h"
 +
++uint8 PvP = 1;
++
 +class NearestHostileUnitCheck
 +{
 +    public:
@@ -726,6 +728,8 @@ index 0000000..ee9e33a
 +        me(unit), m_range(dist), byspell(magic), ai(m_ai), AttackCCed(targetCCed) { }
 +        bool operator()(Unit* u)
 +        {
++            if (!PvP && (u->ToPlayer() || (u->ToCreature() && u->ToCreature()->GetBotAI())))
++                return false;
 +            if (!me->IsWithinDistInMap(u, m_range))
 +                return false;
 +            if (!u->IsInCombat())
@@ -765,6 +769,8 @@ index 0000000..ee9e33a
 +        me(unit), m_range(dist), checksteal(stealable), ai(m_ai) { }
 +        bool operator()(Unit* u)
 +        {
++            if (!PvP && (u->ToPlayer() || (u->ToCreature() && u->ToCreature()->GetBotAI())))
++                return false;
 +            if (u->IsWithinDistInMap(me, m_range) &&
 +                u->IsAlive() &&
 +                u->InSamePhase(me) &&
@@ -849,6 +855,8 @@ index 0000000..ee9e33a
 +        explicit PolyUnitCheck(Unit const* unit, float dist, Unit const* currTarget) : me(unit), m_range(dist), mytar(currTarget) {}
 +        bool operator()(Unit* u)
 +        {
++            if (!PvP && (u->ToPlayer() || (u->ToCreature() && u->ToCreature()->GetBotAI())))
++                return false;
 +            if (u == mytar)
 +                return false;
 +            if (!me->IsWithinDistInMap(u, m_range))
@@ -904,6 +912,8 @@ index 0000000..ee9e33a
 +        explicit FearUnitCheck(Unit const* unit, float dist = 30) : me(unit), m_range(dist) {}
 +        bool operator()(Unit* u)
 +        {
++            if (!PvP && (u->ToPlayer() || (u->ToCreature() && u->ToCreature()->GetBotAI())))
++                return false;
 +            if (!me->IsWithinDistInMap(u, m_range))
 +                return false;
 +            if (!u->InSamePhase(me))
@@ -951,6 +961,8 @@ index 0000000..ee9e33a
 +        explicit StunUnitCheck(Unit const* unit, float dist = 20) : me(unit), m_range(dist) {}
 +        bool operator()(Unit* u)
 +        {
++            if (!PvP && (u->ToPlayer() || (u->ToCreature() && u->ToCreature()->GetBotAI())))
++                return false;
 +            if (!me->IsWithinDistInMap(u, m_range))
 +                return false;
 +            if (!u->IsInCombat())
@@ -1018,6 +1030,8 @@ index 0000000..ee9e33a
 +        explicit UndeadCCUnitCheck(Unit const* unit, float dist = 30, uint32 spell = 0) : me(unit), m_range(dist), m_spellId(spell) { if (!spell) return; }
 +        bool operator()(Unit* u)
 +        {
++            if (!PvP && (u->ToPlayer() || (u->ToCreature() && u->ToCreature()->GetBotAI())))
++                return false;
 +            if (!me->IsWithinDistInMap(u, m_range))
 +                return false;
 +            if (!u->InSamePhase(me))
@@ -1066,6 +1080,8 @@ index 0000000..ee9e33a
 +        { if (!spell) return; }
 +        bool operator()(Unit* u)
 +        {
++            if (!PvP && (u->ToPlayer() || (u->ToCreature() && u->ToCreature()->GetBotAI())))
++                return false;
 +            if (u == curtar)
 +                return false;
 +            if (!me->IsWithinDistInMap(u, m_range))
@@ -1113,6 +1129,8 @@ index 0000000..ee9e33a
 +        me(unit), min_range(mindist), max_range(maxdist), m_friend(friendly), m_spell(spell) {}
 +        bool operator()(Unit* u)
 +        {
++            if (!m_friend && !PvP && (u->ToPlayer() || (u->ToCreature() && u->ToCreature()->GetBotAI())))
++                return false;
 +            if (min_range > 0.1f && me->GetDistance(u) < min_range)
 +                return false;
 +            if (!me->IsWithinDistInMap(u, max_range))
@@ -1162,6 +1180,8 @@ index 0000000..ee9e33a
 +        me(unit), m_range(dist), m_splashrange(splashdist), mytar(currtarget), ai(m_ai) {}
 +        bool operator()(Unit* u)
 +        {
++            if (!PvP && (u->ToPlayer() || (u->ToCreature() && u->ToCreature()->GetBotAI())))
++                return false;
 +            if (u == mytar)
 +                return false;//We need to find SECONDARY target
 +            if (!u->IsInCombat())
@@ -1193,6 +1213,8 @@ index 0000000..ee9e33a
 +        me(unit), min_range(mindist), max_range(maxdist), ai(m_ai) { }
 +        bool operator()(Unit* u)
 +        {
++            if (!PvP && (u->ToPlayer() || (u->ToCreature() && u->ToCreature()->GetBotAI())))
++                return false;
 +            if (u != me->GetVictim() &&//check hunter_bot::hunter_botAI::CheckTranquil(uint32)
 +                u->IsWithinDistInMap(me, max_range) &&
 +                u->GetDistance(me) > min_range &&
@@ -1235,6 +1257,8 @@ index 0000000..ee9e33a
 +        me(unit), max_range(maxdist), min_range(mindist), ai(m_ai), m_forCC(forCC) { }
 +        bool operator()(Unit* u)
 +        {
++            if (!PvP && (u->ToPlayer() || (u->ToCreature() && u->ToCreature()->GetBotAI())))
++                return false;
 +            if (!me->IsWithinDistInMap(u, max_range))
 +                return false;
 +            if (min_range > 0.1f && me->GetDistance(u) < min_range)
@@ -1268,10 +1292,10 @@ index 0000000..ee9e33a
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..5f4301f
+index 0000000..022a152
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,4701 @@
+@@ -0,0 +1,4708 @@
 +/*
 +NpcBot System by Graff (onlysuffering@gmail.com)
 +Original patch from: LordPsyan https://bitbucket.org/lordpsyan/trinitycore-patches/src/3b8b9072280e/Individual/11185-BOTS-NPCBots.patch
@@ -1369,6 +1393,7 @@ index 0000000..5f4301f
 +    dmgmod_melee = Creature::_GetDamageMod(me->GetCreatureTemplate()->rank);
 +    dmgmod_spell = me->GetSpellDamageMod(me->GetCreatureTemplate()->rank);
 +    healTargetIconFlags = sConfigMgr->GetIntDefault("Bot.HealTargetIconsMask", 8);
++    PvP = sConfigMgr->GetIntDefault("Bot.PvP", 1);
 +}
 +bot_ai::~bot_ai(){}
 +
@@ -2419,7 +2444,7 @@ index 0000000..5f4301f
 +    }
 +
 +    value *= crit_mod;
-+    RefreshAura(CRITS, int8(value / 3.f) + mylevel / 42);
++    RefreshAura(CRITS, int8(value / 3.f) + 1);
 +    if (myclass == CLASS_PRIEST)
 +        RefreshAura(HOLYCRIT, int8(value / 6.f)); //add holy crit to healers
 +
@@ -2446,9 +2471,9 @@ index 0000000..5f4301f
 +    //Forceful Deflection: 12.5% (half of base 25%) of strength (use max stat) goes to parry rating (~1% parry per 67 rating at 80)
 +    if (myclass == CLASS_DEATH_KNIGHT/* && mylevel >= 55*/)
 +        value += (stat / 8.f) / (float(mylevel) - (13.f / (float(mylevel - 40) / 40.f))); //~20 at 55, ~34 at 60 and 67 at 80
-+    if (value > 40.f)
-+        value = 40.f;
-+    float parryAndDodge = value; //set temp value, this is needed to keep total avoidance within 65%
++    if (value > 35.f)
++        value = 35.f;
++    float parryAndDodge = value; //set temp value, this is needed to keep total avoidance within 40%
 +    RefreshAura(PARRY, int8(value/6.f)); //6% per stack aplied
 +
 +    //DODGE
@@ -2471,10 +2496,10 @@ index 0000000..5f4301f
 +    value *= dodge_mod;
 +    if (master->GetBotTankGuid() == me->GetGUID())
 +        value += 10.f;
-+    if (value > 40.f)
-+        value = 40.f;
-+    if (parryAndDodge + value > 40.f)
-+        value = 40.f - parryAndDodge; //do not allow avoidance to be more than 65% (base 5+5)
++    if (value > 35.f)
++        value = 35.f;
++    if (parryAndDodge + value > 35.f)
++        value = 35.f - parryAndDodge; //do not allow avoidance to be more than 40% (base 5+5)
 +    RefreshAura(DODGE, int8(value / 5.f));
 +
 +    //BLOCK
@@ -3093,6 +3118,8 @@ index 0000000..5f4301f
 +bool bot_ai::CanBotAttack(Unit* target, int8 byspell) const
 +{
 +    if (!target) return false;
++    if (!PvP && (target->ToPlayer() || (target->ToCreature() && target->ToCreature()->GetBotAI())))
++        return false;
 +    uint8 followdist = master->GetBotFollowDist();
 +    float foldist = _getAttackDistance(float(followdist));
 +    return
@@ -3120,6 +3147,8 @@ index 0000000..5f4301f
 +        if (Creature* pet = me->GetBotsPet())
 +            mytar = pet->GetVictim();
 +
++    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "bot_ai::getTarget(): bot: %s, PvP = %u", me->GetName().c_str(), PvP);
++
 +    if (u && u == mytar)
 +    {
 +        //TC_LOG_ERROR(LOG_FILTER_PLAYER, "bot %s continues attack common target %s", me->GetName().c_str(), u->GetName().c_str());
@@ -3134,7 +3163,7 @@ index 0000000..5f4301f
 +        return NULL;
 +    }
 +
-+    if (u && (master->IsInCombat() || u->IsInCombat()) && !InDuel(u) && !IsInBotParty(u))
++    if (u && (master->IsInCombat() || u->IsInCombat()) && !InDuel(u) && !IsInBotParty(u) && !(!PvP && (u->ToPlayer() || (u->ToCreature() && u->ToCreature()->GetBotAI()))))
 +    {
 +        //TC_LOG_ERROR(LOG_FILTER_PLAYER, "bot %s starts attack master's target %s", me->GetName().c_str(), u->GetName().c_str());
 +        return u;
@@ -4066,6 +4095,7 @@ index 0000000..5f4301f
 +            break;
 +    }
 +    stammod -= 0.3f;
++    stammod *= 0.75f;
 +    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "stammod: %f", stammod);
 +
 +    //manually pick up stamina from bot's buffs
@@ -4148,8 +4178,9 @@ index 0000000..5f4301f
 +        case CLASS_MAGE: case CLASS_WARLOCK:   manamod = 10.5f; break;
 +        default:                                                break;
 +    }
-+    //manamod += 1.f;//custom
-+    //manamod *= 0.70f;//custom
++
++    manamod *= 0.75f; //custom
++
 +    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "Manamod: %f", manamod);
 +    float intValue = me->GetTotalStatValue(STAT_INTELLECT);
 +    intValue = std::max(intValue - 18.f, 1.f); //remove base int (not calculated into mana)
@@ -21494,10 +21525,10 @@ index 171627b..05ae43e 100644
  };
  
 diff --git a/src/server/worldserver/worldserver.conf.dist b/src/server/worldserver/worldserver.conf.dist
-index dfd382c..d30f3ba 100644
+index dfd382c..9a8226a 100644
 --- a/src/server/worldserver/worldserver.conf.dist
 +++ b/src/server/worldserver/worldserver.conf.dist
-@@ -2978,3 +2978,101 @@ PacketSpoof.BanDuration = 86400
+@@ -2978,3 +2978,107 @@ PacketSpoof.BanDuration = 86400
  
  #
  ###################################################################################################
@@ -21596,6 +21627,12 @@ index dfd382c..d30f3ba 100644
 +#        Default: 0
 +
 +Bot.Cost = 0
++
++#    Bot.PvP
++#        If set to 0 bots will not attack  players or other bots
++#        Default: 1
++
++Bot.PvP = 1
 +
 +#
 +###################################################################################################
