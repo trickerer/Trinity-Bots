@@ -1,6 +1,6 @@
-From 645414196803b2e9ce55831a8ba0f86fe6c372bd Mon Sep 17 00:00:00 2001
+From 15bd69a5411bb3f061c261e3a4accabfa9d4e3ce Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Sun, 6 Oct 2013 22:59:12 +0700
+Date: Wed, 16 Oct 2013 11:50:34 +0700
 Subject: [PATCH] NPCBots
 
 ---
@@ -8,9 +8,11 @@ Subject: [PATCH] NPCBots
  sql/Bots/character_NPC_bots.sql                    |   28 +
  ...world_bot_helper_locales_gossip_menu_option.sql |   92 +
  sql/Bots/world_bots.sql                            |  555 +++
+ sql/Bots/world_creature_template_outfits.sql       |   43 +
+ src/server/game/AI/NpcBots/QBots/botQ_Airen.cpp    |  121 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  594 +++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 4735 ++++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |  523 +++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 4782 ++++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |  525 +++
  src/server/game/AI/NpcBots/bot_death_knight_ai.cpp | 1727 +++++++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1185 +++++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       | 1210 +++++
@@ -26,35 +28,41 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/NpcBots/bothelper.h             |   32 +
  src/server/game/Accounts/RBAC.h                    |   14 +
  src/server/game/CMakeLists.txt                     |    1 +
- src/server/game/Entities/Creature/Creature.cpp     |  223 +
- src/server/game/Entities/Creature/Creature.h       |   52 +
+ src/server/game/Entities/Creature/Creature.cpp     |  230 +
+ src/server/game/Entities/Creature/Creature.h       |   54 +
  .../game/Entities/Creature/TemporarySummon.cpp     |    8 +
  src/server/game/Entities/Object/Object.cpp         |   11 +
- src/server/game/Entities/Player/Player.cpp         | 1066 +++++
+ src/server/game/Entities/Player/Player.cpp         | 1069 +++++
  src/server/game/Entities/Player/Player.h           |   66 +
  src/server/game/Entities/Totem/Totem.cpp           |    7 +
  src/server/game/Entities/Unit/StatSystem.cpp       |    4 +
  src/server/game/Entities/Unit/Unit.cpp             |  214 +
+ src/server/game/Globals/ObjectMgr.cpp              |   72 +
+ src/server/game/Globals/ObjectMgr.h                |   20 +
  src/server/game/Groups/Group.cpp                   |   12 +
  src/server/game/Groups/Group.h                     |    3 +
  src/server/game/Handlers/CharacterHandler.cpp      |   33 +
  src/server/game/Handlers/MiscHandler.cpp           |   35 +
- src/server/game/Handlers/NPCHandler.cpp            |   16 +
+ src/server/game/Handlers/NPCHandler.cpp            |   33 +
+ src/server/game/Handlers/SpellHandler.cpp          |   30 +
  src/server/game/Maps/Map.cpp                       |    3 +
- src/server/game/Scripting/ScriptLoader.cpp         |   24 +
+ src/server/game/Scripting/ScriptLoader.cpp         |   30 +
  src/server/game/Server/WorldSession.cpp            |   17 +
  src/server/game/Server/WorldSession.h              |   26 +
+ src/server/game/World/World.cpp                    |    3 +
  src/server/scripts/Spells/spell_priest.cpp         |    4 +
  .../Database/Implementation/CharacterDatabase.cpp  |   14 +
  .../Database/Implementation/CharacterDatabase.h    |   10 +
  .../Database/Implementation/WorldDatabase.cpp      |    4 +
  .../shared/Database/Implementation/WorldDatabase.h |    4 +
  src/server/worldserver/worldserver.conf.dist       |  104 +
- 46 files changed, 21010 insertions(+), 0 deletions(-)
+ 52 files changed, 21383 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/auth_rbac.sql
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world_bot_helper_locales_gossip_menu_option.sql
  create mode 100644 sql/Bots/world_bots.sql
+ create mode 100644 sql/Bots/world_creature_template_outfits.sql
+ create mode 100644 src/server/game/AI/NpcBots/QBots/botQ_Airen.cpp
  create mode 100644 src/server/game/AI/NpcBots/bot_GridNotifiers.h
  create mode 100644 src/server/game/AI/NpcBots/bot_ai.cpp
  create mode 100644 src/server/game/AI/NpcBots/bot_ai.h
@@ -798,6 +806,182 @@ index 0000000..5c4ddd2
 +
 +-- pets
 +UPDATE `creature_template` SET exp:=2, dmg_multiplier:=1.0, attackpower:=0, mindmg:= 2, maxdmg:= 3, minlevel:=80, maxlevel:=80, baseattacktime:=2000, rangeattacktime:=2000, minrangedmg:=0, maxrangedmg:=0, rangedattackpower:=0, dynamicflags:=0, speed_walk:=1.2, speed_run:=1.3, InhabitType:=3, health_mod:=1, mana_mod:=1, armor_mod:=1, mechanic_immune_mask:=1, flags_extra:=@FLAGS_EX, AIName='' where entry between 70001 and 70248 and name='Voidwalker';
+diff --git a/sql/Bots/world_creature_template_outfits.sql b/sql/Bots/world_creature_template_outfits.sql
+new file mode 100644
+index 0000000..475b1d8
+--- /dev/null
++++ b/sql/Bots/world_creature_template_outfits.sql
+@@ -0,0 +1,43 @@
++	
++
++    -- --------------------------------------------------------
++    -- Host:                         localhost
++    -- Server version:               5.6.10 - MySQL Community Server (GPL)
++    -- Server OS:                    Win64
++    -- HeidiSQL Version:             8.0.0.4491
++    -- --------------------------------------------------------
++     
++    /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
++    /*!40101 SET NAMES utf8 */;
++    /*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
++    /*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
++     
++    -- Dumping structure for table e2_w.creature_template_outfits
++    CREATE TABLE IF NOT EXISTS `creature_template_outfits` (
++      `entry` INT(10) UNSIGNED NOT NULL,
++      `race` tinyint(3) UNSIGNED NOT NULL DEFAULT '1',
++      `gender` tinyint(3) UNSIGNED NOT NULL DEFAULT '0' COMMENT '0 for male, 1 for female',
++      `skin` tinyint(3) UNSIGNED NOT NULL DEFAULT '0',
++      `face` tinyint(3) UNSIGNED NOT NULL DEFAULT '0',
++      `hair` tinyint(3) UNSIGNED NOT NULL DEFAULT '0',
++      `haircolor` tinyint(3) UNSIGNED NOT NULL DEFAULT '0',
++      `facialhair` tinyint(3) UNSIGNED NOT NULL DEFAULT '0',
++      `head` INT(10) UNSIGNED NOT NULL DEFAULT '0',
++      `shoulders` INT(10) UNSIGNED NOT NULL DEFAULT '0',
++      `body` INT(10) UNSIGNED NOT NULL DEFAULT '0',
++      `chest` INT(10) UNSIGNED NOT NULL DEFAULT '0',
++      `waist` INT(10) UNSIGNED NOT NULL DEFAULT '0',
++      `legs` INT(10) UNSIGNED NOT NULL DEFAULT '0',
++      `feet` INT(10) UNSIGNED NOT NULL DEFAULT '0',
++      `wrists` INT(10) UNSIGNED NOT NULL DEFAULT '0',
++      `hands` INT(10) UNSIGNED NOT NULL DEFAULT '0',
++      `back` INT(10) UNSIGNED NOT NULL DEFAULT '0',
++      `tabard` INT(10) UNSIGNED NOT NULL DEFAULT '0',
++      PRIMARY KEY  (`entry`)
++    ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
++     
++    -- Data exporting was unselected.
++    /*!40101 SET SQL_MODE=IFNULL(@OLD_SQL_MODE, '') */;
++    /*!40014 SET FOREIGN_KEY_CHECKS=IF(@OLD_FOREIGN_KEY_CHECKS IS NULL, 1, @OLD_FOREIGN_KEY_CHECKS) */;
++    /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
++
+diff --git a/src/server/game/AI/NpcBots/QBots/botQ_Airen.cpp b/src/server/game/AI/NpcBots/QBots/botQ_Airen.cpp
+new file mode 100644
+index 0000000..81b07aa
+--- /dev/null
++++ b/src/server/game/AI/NpcBots/QBots/botQ_Airen.cpp
+@@ -0,0 +1,121 @@
++#include "bot_ai.h"
++#include "Group.h"
++#include "Player.h"
++#include "ScriptedGossip.h"
++#include "ScriptMgr.h"
++#include "SpellAuras.h"
++#include "WorldSession.h"
++/*
++Bot Quest npc Airen by Graff onlysuffering@gmail.com
++Complete - 0%
++TODO:
++*/
++#define ACT                 GOSSIP_ACTION_INFO_DEF
++
++class Airen_chapter1 : public CreatureScript
++{
++public:
++    Airen_chapter1() : CreatureScript("npc_Airen_qI") { }
++
++    CreatureAI* GetAI(Creature* creature) const OVERRIDE
++    {
++        return new Airen_AI(creature);
++    }
++
++    bool OnGossipHello(Player* player, Creature* creature)
++    {
++        player->PlayerTalkClass->GetGossipMenu().AddMenuItem(-1, GOSSIP_ICON_CHAT, "nothing here", 6000, ACT + 1, "nothing here either", 0 * COPPER, true);
++        player->PlayerTalkClass->SendGossipMenu(creature->GetEntry(), creature->GetGUID());
++
++        std::ostringstream msg;
++        msg << "..." << player->GetName() << ", huh?";
++        bot_ai::BotSpeak(msg.str(), CHAT_MSG_WHISPER, LANG_UNIVERSAL, creature->GetGUID(), player->GetGUID());
++
++        return true;
++    }
++
++    bool OnGossipSelect(Player* player, Creature* creature, uint32 sender, uint32 action)
++    {
++        player->PlayerTalkClass->ClearMenus();
++
++        switch (sender)
++        {
++            case 6000:
++            {
++                if (action == ACT + 1)
++                {
++                    if (!player->HasEnoughMoney(1 * COPPER))
++                    {
++                        player->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, creature, 0, 0);
++                        break;
++                    }
++                    player->ModifyMoney(-(1 * COPPER));
++                }
++
++                break;
++            }
++            default:
++                break;
++        }
++
++        player->CLOSE_GOSSIP_MENU();
++        return true;
++    }
++
++    bool OnGossipSelectCode(Player* player, Creature* creature, uint32 sender, uint32 action, char const* code)
++    {
++        player->PlayerTalkClass->ClearMenus();
++        std::string answer = "asd";
++
++        switch (sender)
++        {
++            case 6000:
++            {
++                if (action == ACT + 1 && code == answer)
++                    bot_ai::BotSpeak("hehe", CHAT_MSG_YELL, LANG_UNIVERSAL, creature->GetGUID(), player->GetGUID());
++                break;
++            }
++        }
++
++        player->CLOSE_GOSSIP_MENU();
++        return true;
++    }
++
++    struct Airen_AI : public ScriptedAI
++    {
++        Airen_AI(Creature* creature) : ScriptedAI(creature) { }
++
++        void EnterCombat(Unit*) { }
++        void Aggro(Unit*) { }
++        void AttackStart(Unit*) { }
++        void KilledUnit(Unit*) { }
++        void EnterEvadeMode() { }
++        void MoveInLineOfSight(Unit*) { }
++        void JustDied(Unit*) { me->DisappearAndDie(); }
++
++        void UpdateAI(uint32 /*diff*/)
++        {
++        }
++
++        void Reset()
++        {
++            me->SetCreateHealth(213000213);
++            me->SetMaxHealth(me->GetCreateHealth());
++            me->SetFullHealth();
++
++            me->setPowerType(POWER_RAGE);
++            me->SetMaxPower(POWER_RAGE, 10000);
++            me->SetPower(POWER_RAGE, me->GetMaxPower(POWER_RAGE));
++        }
++
++        void DamageTaken(Unit* /*u*/, uint32& damage)
++        {
++            damage = me->GetHealth() > 1 ? 1 : 0;
++        }
++    };
++};
++
++void AddSC_BotQuests_chapter1()
++{
++    new Airen_chapter1();
++}
 diff --git a/src/server/game/AI/NpcBots/bot_GridNotifiers.h b/src/server/game/AI/NpcBots/bot_GridNotifiers.h
 new file mode 100644
 index 0000000..37e36d6
@@ -1400,10 +1584,10 @@ index 0000000..37e36d6
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..d370f0a
+index 0000000..e9e32a1
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,4735 @@
+@@ -0,0 +1,4782 @@
 +/*
 +NpcBot System by Graff (onlysuffering@gmail.com)
 +Original patch from: LordPsyan https://bitbucket.org/lordpsyan/trinitycore-patches/src/3b8b9072280e/Individual/11185-BOTS-NPCBots.patch
@@ -3526,26 +3710,19 @@ index 0000000..d370f0a
 +    if (GetBotCommandState() != COMMAND_FOLLOW)
 +        return;
 +
-+    //DEBUG
-+    if (master->IsMounted() && me->IsMounted())
-+    {
-+        if ((master->HasAuraType(SPELL_AURA_FLY) || master->HasUnitMovementFlag(MOVEMENTFLAG_CAN_FLY) || master->HasUnitMovementFlag(MOVEMENTFLAG_FLYING)))
-+        {
-+            //creature don't benefit from mount flight speed, so force it
-+            if (me->GetSpeed(MOVE_FLIGHT) != master->GetSpeed(MOVE_FLIGHT)/2)
-+            me->SetSpeed(MOVE_FLIGHT, master->GetSpeed(MOVE_FLIGHT)/2);
-+        }
-+        return;
-+    }
 +    bool aura = me->HasAuraType(SPELL_AURA_MOUNTED);
 +    bool mounted = me->IsMounted();
 +    if ((!master->IsMounted() || aura != mounted || (me->IsInCombat() && opponent)) && (aura || mounted))
 +    {
++        const_cast<CreatureTemplate*>(me->GetCreatureTemplate())->InhabitType &= ~INHABIT_AIR;
 +        me->RemoveAurasByType(SPELL_AURA_MOUNTED);
++        //me->RemoveUnitMovementFlag(MOVEMENTFLAG_HOVER);
++        me->SetCanFly(false);
++        me->SetDisableGravity(false);
++        me->RemoveUnitMovementFlag(MOVEMENTFLAG_FALLING);
 +        me->Dismount();
 +        return;
 +    }
-+    //END DEBUG
 +    if (me->IsInCombat() || IsCasting() || me->HasUnitMovementFlag(MOVEMENTFLAG_SWIMMING)) //IsInWater() is too much calculations
 +        return;
 +    //fly
@@ -4638,7 +4815,22 @@ index 0000000..d370f0a
 +        uint32 auraname = spell->Effects[i].ApplyAuraName;
 +        //remove pet on mount
 +        if (auraname == SPELL_AURA_MOUNTED)
++        {
 +            me->SetBotsPetDied();
++            if (master->HasAuraType(SPELL_AURA_MOD_INCREASE_VEHICLE_FLIGHT_SPEED) ||
++                master->HasAuraType(SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED))
++            {
++                const_cast<CreatureTemplate*>(me->GetCreatureTemplate())->InhabitType |= INHABIT_AIR;
++                //me->AddUnitMovementFlag(MOVEMENTFLAG_HOVER);
++                me->SetCanFly(true);
++                me->SetDisableGravity(true);
++                me->SetSpeed(MOVE_FLIGHT, master->GetSpeedRate(MOVE_FLIGHT) * 1.37f);
++                me->SetSpeed(MOVE_RUN, master->GetSpeedRate(MOVE_FLIGHT) * 1.37f);
++            }
++            else
++                me->SetSpeed(MOVE_RUN, master->GetSpeedRate(MOVE_RUN) * 1.25f);
++        }
++
 +        //update stats
 +        if (auraname == SPELL_AURA_MOD_STAT)
 +        {
@@ -6139,12 +6331,51 @@ index 0000000..d370f0a
 +            gameobjectName = title;
 +    }
 +}
++
++void bot_ai::BotSpeak(std::string const& text, uint8 msgtype, uint32 language, uint64 speaker, uint64 receiver)
++{
++    if (msgtype == CHAT_MSG_WHISPER)
++        language = LANG_UNIVERSAL;
++
++    std::string _text(text);
++    //sScriptMgr->OnPlayerChat(this, CHAT_MSG_SAY, language, _text);
++
++    WorldPacket data(SMSG_MESSAGECHAT, 200);
++    //BuildPlayerChat(&data, msgType, _text, language);
++    data << uint8(msgtype);
++    data << uint32(language);
++    data << uint64(speaker);
++    data << uint32(0);                 // constant unknown time
++    data << uint64(speaker);
++    data << uint32(text.length() + 1);
++    data << text;
++    data << uint8(0);
++
++    if (msgtype == CHAT_MSG_WHISPER)
++    {
++        ASSERT(receiver || "BotSpeak(): no receiver for whisper!");
++        ASSERT(IS_PLAYER_GUID(receiver) || "BotSpeak(): whisper receiver is not a player!");
++
++        if (Player* res = ObjectAccessor::FindPlayer(receiver))
++            res->GetSession()->SendPacket(&data);
++    }
++    else
++    {
++        if (Unit* snd = ObjectAccessor::FindUnit(speaker))
++        {
++            float dist = std::max<float>(sWorld->getFloatConfig(CONFIG_LISTEN_RANGE_SAY), sWorld->getFloatConfig(CONFIG_LISTEN_RANGE_YELL) * 0.5f);
++            Trinity::MessageDistDeliverer notifier(snd, &data, dist, false);
++            snd->VisitNearbyWorldObject(dist, notifier);
++        }
++    }
++    //SendMessageToSetInRange(&data, sWorld->getFloatConfig(CONFIG_LISTEN_RANGE_SAY), true);
++}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..37530f4
+index 0000000..d17106e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,523 @@
+@@ -0,0 +1,525 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -6397,6 +6628,8 @@ index 0000000..37530f4
 +        virtual bool Unequip(uint8 /*slot*/) { return false; }
 +        virtual bool Equip(uint32 /*itemId*/, uint8 /*slot*/) { return false; }
 +        virtual bool ResetEquipment(uint8 /*slot*/) { return false; }
++
++        static void BotSpeak(std::string const& text, uint8 msgtype, uint32 language, uint64 sender, uint64 receiver);
 +
 +    protected:
 +        static uint32 InitSpell(Unit* caster, uint32 spell);
@@ -18116,7 +18349,7 @@ index 0000000..ad80e31
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 0000000..5017573
+index 0000000..66efd45
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
 @@ -0,0 +1,639 @@
@@ -18222,7 +18455,7 @@ index 0000000..5017573
 +
 +        if (!*args)
 +        {
-+            if (uint64 selection = handler->GetSession()->GetPlayer()->GetSelection())
++            if (uint64 selection = handler->GetSession()->GetPlayer()->GetTarget())
 +            {
 +                if (group->IsMember(selection))
 +                {
@@ -18348,17 +18581,17 @@ index 0000000..5017573
 +    static bool HandleNpcBotInfoCommand(ChatHandler* handler, const char* /*args*/)
 +    {
 +        Player* owner = handler->GetSession()->GetPlayer();
-+        if (!owner->GetSelection())
++        if (!owner->GetTarget())
 +        {
 +            handler->PSendSysMessage(".npcbot info");
-+            handler->PSendSysMessage("Lists NpcBots count of each class owned by selected player. You can use this on self and your party memebers");
++            handler->PSendSysMessage("Lists NpcBots count of each class owned by selected player. You can use this on self and your party members");
 +            handler->SetSentErrorMessage(true);
 +            return false;
 +        }
 +        Player* master = owner->GetSelectedPlayer();
 +        if (!master || (owner->GetGroup() ? !owner->GetGroup()->IsMember(master->GetGUID()) : master->GetGUID() != owner->GetGUID()))
 +        {
-+            handler->PSendSysMessage("You should select self or one of your party memebers.");
++            handler->PSendSysMessage("You should select self or one of your party members.");
 +            handler->SetSentErrorMessage(true);
 +            return false;
 +        }
@@ -18506,7 +18739,7 @@ index 0000000..5017573
 +    static bool HandleNpcBotRemoveCommand(ChatHandler* handler, const char* /*args*/)
 +    {
 +        Player* owner = handler->GetSession()->GetPlayer();
-+        uint64 guid = owner->GetSelection();
++        uint64 guid = owner->GetTarget();
 +        if (!guid)
 +        {
 +            handler->PSendSysMessage(".npcbot remove");
@@ -18568,7 +18801,7 @@ index 0000000..5017573
 +        Player* owner = handler->GetSession()->GetPlayer();
 +        Player* master = NULL;
 +        bool all = false;
-+        uint64 guid = owner->GetSelection();
++        uint64 guid = owner->GetTarget();
 +        if (!guid)
 +        {
 +            handler->PSendSysMessage(".npcbot reset");
@@ -18666,7 +18899,7 @@ index 0000000..5017573
 +    static bool HandleNpcBotAddCommand(ChatHandler* handler, const char* args)
 +    {
 +        Player* owner = handler->GetSession()->GetPlayer();
-+        uint64 sel = owner->GetSelection();
++        uint64 sel = owner->GetTarget();
 +        if (!*args || sel != owner->GetGUID())
 +        {
 +            handler->PSendSysMessage(".npcbot add");
@@ -19228,11 +19461,11 @@ index 0000000..1310b4d
 +
 +#endif
 diff --git a/src/server/game/Accounts/RBAC.h b/src/server/game/Accounts/RBAC.h
-index 039492d..bece1aa 100644
+index e12e683..fe8eb53 100644
 --- a/src/server/game/Accounts/RBAC.h
 +++ b/src/server/game/Accounts/RBAC.h
-@@ -682,6 +682,20 @@ enum RBACPermissions
-     RBAC_PERM_COMMAND_DEBUG_PHASE                            = 776, // Only 4.3.4
+@@ -680,6 +680,20 @@ enum RBACPermissions
+     RBAC_PERM_COMMAND_WP_SHOW                                = 774,
  
      // custom permissions 1000+
 +
@@ -19265,7 +19498,7 @@ index f455610..e49ba96 100644
    ${CMAKE_CURRENT_SOURCE_DIR}/AI/EventAI
    ${CMAKE_CURRENT_SOURCE_DIR}/AI/ScriptedAI
 diff --git a/src/server/game/Entities/Creature/Creature.cpp b/src/server/game/Entities/Creature/Creature.cpp
-index 169d5fe..750cef8 100644
+index 4efd78d..dcaffe4 100644
 --- a/src/server/game/Entities/Creature/Creature.cpp
 +++ b/src/server/game/Entities/Creature/Creature.cpp
 @@ -54,6 +54,9 @@
@@ -19278,10 +19511,10 @@ index 169d5fe..750cef8 100644
  TrainerSpell const* TrainerSpellData::Find(uint32 spell_id) const
  {
      TrainerSpellMap::const_iterator itr = spellList.find(spell_id);
-@@ -165,6 +168,14 @@ m_creatureInfo(NULL), m_creatureData(NULL), m_path_id(0), m_formation(NULL)
-     ResetLootMode(); // restore default loot mode
+@@ -166,6 +169,15 @@ m_creatureInfo(NULL), m_creatureData(NULL), m_path_id(0), m_formation(NULL)
      TriggerJustRespawned = false;
      m_isTempWorldObject = false;
+     _focusSpell = NULL;
 +
 +    //bot
 +    m_bot_owner = NULL;
@@ -19290,10 +19523,11 @@ index 169d5fe..750cef8 100644
 +    m_bot_class = CLASS_NONE;
 +    bot_AI = NULL;
 +    m_canUpdate = true;
++    //end bot
  }
  
  Creature::~Creature()
-@@ -233,6 +244,8 @@ void Creature::RemoveCorpse(bool setSpawnTime)
+@@ -234,6 +246,8 @@ void Creature::RemoveCorpse(bool setSpawnTime)
  {
      if (getDeathState() != CORPSE)
          return;
@@ -19302,7 +19536,7 @@ index 169d5fe..750cef8 100644
  
      m_corpseRemoveTime = time(NULL);
      setDeathState(DEAD);
-@@ -442,6 +455,11 @@ bool Creature::UpdateEntry(uint32 Entry, uint32 team, const CreatureData* data)
+@@ -443,6 +457,11 @@ bool Creature::UpdateEntry(uint32 Entry, uint32 team, const CreatureData* data)
  
  void Creature::Update(uint32 diff)
  {
@@ -19314,7 +19548,7 @@ index 169d5fe..750cef8 100644
      if (IsAIEnabled && TriggerJustRespawned)
      {
          TriggerJustRespawned = false;
-@@ -1245,6 +1263,11 @@ bool Creature::LoadCreatureFromDB(uint32 guid, Map* map, bool addToMap)
+@@ -1246,6 +1265,11 @@ bool Creature::LoadCreatureFromDB(uint32 guid, Map* map, bool addToMap)
  
  void Creature::LoadEquipment(int8 id, bool force /*= true*/)
  {
@@ -19326,7 +19560,7 @@ index 169d5fe..750cef8 100644
      if (id == 0)
      {
          if (force)
-@@ -2102,6 +2125,9 @@ void Creature::SetInCombatWithZone()
+@@ -2103,6 +2127,9 @@ void Creature::SetInCombatWithZone()
  
  uint32 Creature::GetShieldBlockValue() const                  //dunno mob block value
  {
@@ -19336,11 +19570,10 @@ index 169d5fe..750cef8 100644
      return (getLevel()/2 + uint32(GetStat(STAT_STRENGTH)/20));
  }
  
-@@ -2640,3 +2666,200 @@ void Creature::SetDisplayId(uint32 modelId)
-         SetFloatValue(UNIT_FIELD_COMBATREACH, minfo->combat_reach * GetObjectScale());
-     }
+@@ -2679,3 +2706,206 @@ void Creature::ReleaseFocus(Spell const* focusSpell)
+         ClearUnitState(UNIT_STATE_ROTATING);
  }
-+
+ 
 +uint8 Creature::GetBotClass() const
 +{
 +    switch (m_bot_class)
@@ -19537,8 +19770,15 @@ index 169d5fe..750cef8 100644
 +{
 +    return bot_AI && bot_AI->ResetEquipment(slot);
 +}
++
++bool Creature::IsQuestBot() const
++{
++    return
++        m_creatureInfo->Entry >= 71000 && m_creatureInfo->Entry < 72000 &&
++        (m_creatureInfo->unit_flags2 & UNIT_FLAG2_ALLOW_ENEMY_INTERACT);
++}
 diff --git a/src/server/game/Entities/Creature/Creature.h b/src/server/game/Entities/Creature/Creature.h
-index b720a06..5a2fec1 100644
+index 3a07d9c..95b943d 100644
 --- a/src/server/game/Entities/Creature/Creature.h
 +++ b/src/server/game/Entities/Creature/Creature.h
 @@ -37,6 +37,11 @@ class Player;
@@ -19553,9 +19793,9 @@ index b720a06..5a2fec1 100644
  enum CreatureFlagsExtra
  {
      CREATURE_FLAG_EXTRA_INSTANCE_BIND   = 0x00000001,       // creature kill bind instance with killer and killer's group
-@@ -703,6 +708,44 @@ class Creature : public Unit, public GridObject<Creature>, public MapCreature
- 
-         bool m_isTempWorldObject; //true when possessed
+@@ -708,6 +713,46 @@ class Creature : public Unit, public GridObject<Creature>, public MapCreature
+         void FocusTarget(Spell const* focusSpell, WorldObject const* target);
+         void ReleaseFocus(Spell const* focusSpell);
  
 +        //Bot commands
 +        Player* GetBotOwner() const { return m_bot_owner; }
@@ -19593,12 +19833,14 @@ index b720a06..5a2fec1 100644
 +        bool Unequip(uint8 slot) const;
 +        bool Equip(uint32 itemId, uint8 slot) const;
 +        bool ResetEquipment(uint8 slot) const;
-+        //Bot commands
++        //advanced
++        bool IsQuestBot() const;
++        //End Bot commands
 +
      protected:
          bool CreateFromProto(uint32 guidlow, uint32 Entry, uint32 vehId, uint32 team, const CreatureData* data = NULL);
          bool InitEntry(uint32 entry, uint32 team=ALLIANCE, const CreatureData* data=NULL);
-@@ -753,6 +796,15 @@ class Creature : public Unit, public GridObject<Creature>, public MapCreature
+@@ -758,6 +803,15 @@ class Creature : public Unit, public GridObject<Creature>, public MapCreature
          bool IsInvisibleDueToDespawn() const;
          bool CanAlwaysSee(WorldObject const* obj) const;
      private:
@@ -19634,7 +19876,7 @@ index 05bedf9..99f959f 100644
  }
  
 diff --git a/src/server/game/Entities/Object/Object.cpp b/src/server/game/Entities/Object/Object.cpp
-index 5a787f9..6293f4d 100644
+index 9d77e14..f734e2f 100644
 --- a/src/server/game/Entities/Object/Object.cpp
 +++ b/src/server/game/Entities/Object/Object.cpp
 @@ -2212,6 +2212,11 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
@@ -19663,7 +19905,7 @@ index 5a787f9..6293f4d 100644
  
      return summon;
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index 8217682..92b64bf 100644
+index 9ada25b..f796412 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -78,6 +78,10 @@
@@ -19696,7 +19938,7 @@ index 8217682..92b64bf 100644
          // 4.2.3. Give XP to player.
          player->GiveXP(xp, _victim, _groupRate);
          if (Pet* pet = player->GetPet())
-@@ -860,6 +876,29 @@ Player::Player(WorldSession* session): Unit(true)
+@@ -859,6 +875,29 @@ Player::Player(WorldSession* session): Unit(true)
  
      m_ChampioningFaction = 0;
  
@@ -19726,7 +19968,7 @@ index 8217682..92b64bf 100644
      for (uint8 i = 0; i < MAX_POWERS; ++i)
          m_powerFraction[i] = 0;
  
-@@ -914,6 +953,16 @@ Player::~Player()
+@@ -913,6 +952,16 @@ Player::~Player()
      delete m_achievementMgr;
      delete m_reputationMgr;
  
@@ -19743,7 +19985,7 @@ index 8217682..92b64bf 100644
      sWorld->DecreasePlayerCount();
  }
  
-@@ -1837,6 +1886,17 @@ void Player::Update(uint32 p_time)
+@@ -1836,6 +1885,17 @@ void Player::Update(uint32 p_time)
      //because we don't want player's ghost teleported from graveyard
      if (IsHasDelayedTeleport() && IsAlive())
          TeleportTo(m_teleport_dest, m_teleport_options);
@@ -19761,7 +20003,7 @@ index 8217682..92b64bf 100644
  }
  
  void Player::setDeathState(DeathState s)
-@@ -2213,6 +2273,13 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
+@@ -2212,6 +2272,13 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
          if (!sMapMgr->CanPlayerEnter(mapid, this, false))
              return false;
  
@@ -19775,7 +20017,7 @@ index 8217682..92b64bf 100644
          //I think this always returns true. Correct me if I am wrong.
          // If the map is not created, assume it is possible to enter it.
          // It will be created in the WorldPortAck.
-@@ -2460,6 +2527,978 @@ void Player::RemoveFromWorld()
+@@ -2459,6 +2526,978 @@ void Player::RemoveFromWorld()
      }
  }
  
@@ -20754,7 +20996,17 @@ index 8217682..92b64bf 100644
  void Player::RegenerateAll()
  {
      //if (m_regenTimer <= 500)
-@@ -2941,6 +3980,26 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
+@@ -2736,6 +3775,9 @@ Creature* Player::GetNPCIfCanInteractWith(uint64 guid, uint32 npcflagmask)
+ 
+     // not enemy
+     if (creature->IsHostileTo(this))
++    //npcbot
++    if (!creature->IsQuestBot())
++    //end npcbot
+         return NULL;
+ 
+     // not unfriendly
+@@ -2940,6 +3982,26 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
  {
      if (group)
      {
@@ -20781,7 +21033,7 @@ index 8217682..92b64bf 100644
          group->RemoveMember(guid, method, kicker, reason);
          group = NULL;
      }
-@@ -4993,6 +6052,13 @@ void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmC
+@@ -4992,6 +6054,13 @@ void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmC
              stmt->setUInt32(0, guid);
              trans->Append(stmt);
  
@@ -20796,7 +21048,7 @@ index 8217682..92b64bf 100644
              break;
          }
 diff --git a/src/server/game/Entities/Player/Player.h b/src/server/game/Entities/Player/Player.h
-index bac7944..187a37c 100644
+index fee542a..4aa463f 100644
 --- a/src/server/game/Entities/Player/Player.h
 +++ b/src/server/game/Entities/Player/Player.h
 @@ -52,6 +52,11 @@ class PlayerSocial;
@@ -20811,7 +21063,7 @@ index bac7944..187a37c 100644
  typedef std::deque<Mail*> PlayerMails;
  
  #define PLAYER_MAX_SKILLS           127
-@@ -2295,6 +2300,42 @@ class Player : public Unit, public GridObject<Player>
+@@ -2296,6 +2301,42 @@ class Player : public Unit, public GridObject<Player>
          std::string GetMapAreaAndZoneString();
          std::string GetCoordsMapAreaAndZoneString();
  
@@ -20920,10 +21172,10 @@ index d2b7fc6..22a59ef 100644
  }
  
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index ef684fc..20bef38 100644
+index 74c5014..90f24ba 100644
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
-@@ -345,6 +345,17 @@ void Unit::Update(uint32 p_time)
+@@ -344,6 +344,17 @@ void Unit::Update(uint32 p_time)
                  m_CombatTimer -= p_time;
          }
      }
@@ -20941,7 +21193,7 @@ index ef684fc..20bef38 100644
  
      // not implemented before 3.0.2
      if (uint32 base_att = getAttackTimer(BASE_ATTACK))
-@@ -576,6 +587,12 @@ uint32 Unit::DealDamage(Unit* victim, uint32 damage, CleanDamage const* cleanDam
+@@ -578,6 +589,12 @@ uint32 Unit::DealDamage(Unit* victim, uint32 damage, CleanDamage const* cleanDam
          if (pet && pet->IsAlive())
              pet->AI()->OwnerAttackedBy(this);
  
@@ -20954,7 +21206,7 @@ index ef684fc..20bef38 100644
          if (victim->ToPlayer()->GetCommandStatus(CHEAT_GOD))
              return 0;
      }
-@@ -988,6 +1005,11 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
+@@ -990,6 +1007,11 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
          case SPELL_DAMAGE_CLASS_RANGED:
          case SPELL_DAMAGE_CLASS_MELEE:
          {
@@ -20966,7 +21218,7 @@ index ef684fc..20bef38 100644
              // Physical Damage
              if (damageSchoolMask & SPELL_SCHOOL_MASK_NORMAL)
              {
-@@ -1045,6 +1067,11 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
+@@ -1047,6 +1069,11 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
          case SPELL_DAMAGE_CLASS_NONE:
          case SPELL_DAMAGE_CLASS_MAGIC:
          {
@@ -20978,7 +21230,7 @@ index ef684fc..20bef38 100644
              // If crit add critical bonus
              if (crit)
              {
-@@ -1161,6 +1188,11 @@ void Unit::CalculateMeleeDamage(Unit* victim, uint32 damage, CalcDamageInfo* dam
+@@ -1163,6 +1190,11 @@ void Unit::CalculateMeleeDamage(Unit* victim, uint32 damage, CalcDamageInfo* dam
      // Script Hook For CalculateMeleeDamage -- Allow scripts to change the Damage pre class mitigation calculations
      sScriptMgr->ModifyMeleeDamage(damageInfo->target, damageInfo->attacker, damage);
  
@@ -20990,7 +21242,7 @@ index ef684fc..20bef38 100644
      // Calculate armor reduction
      if (IsDamageReducedByArmor((SpellSchoolMask)(damageInfo->damageSchoolMask)))
      {
-@@ -10428,6 +10460,7 @@ bool Unit::isSpellCrit(Unit* victim, SpellInfo const* spellProto, SpellSchoolMas
+@@ -10424,6 +10456,7 @@ bool Unit::isSpellCrit(Unit* victim, SpellInfo const* spellProto, SpellSchoolMas
      //! Mobs can't crit with spells. Player Totems can
      //! Fire Elemental (from totem) can too - but this part is a hack and needs more research
      if (IS_CREATURE_GUID(GetGUID()) && !(IsTotem() && IS_PLAYER_GUID(GetOwnerGUID())) && GetEntry() != 15438)
@@ -20998,7 +21250,7 @@ index ef684fc..20bef38 100644
          return false;
  
      // not critting spell
-@@ -13128,6 +13161,11 @@ bool Unit::HandleStatModifier(UnitMods unitMod, UnitModifierType modifierType, f
+@@ -13124,6 +13157,11 @@ bool Unit::HandleStatModifier(UnitMods unitMod, UnitModifierType modifierType, f
              break;
      }
  
@@ -21010,7 +21262,7 @@ index ef684fc..20bef38 100644
      return true;
  }
  
-@@ -16547,6 +16585,182 @@ uint32 Unit::GetModelForForm(ShapeshiftForm form) const
+@@ -16543,6 +16581,182 @@ uint32 Unit::GetModelForForm(ShapeshiftForm form) const
                  break;
          }
      }
@@ -21193,6 +21445,141 @@ index ef684fc..20bef38 100644
  
      uint32 modelid = 0;
      SpellShapeshiftEntry const* formEntry = sSpellShapeshiftStore.LookupEntry(form);
+diff --git a/src/server/game/Globals/ObjectMgr.cpp b/src/server/game/Globals/ObjectMgr.cpp
+index 2f309c0..288b4ad 100644
+--- a/src/server/game/Globals/ObjectMgr.cpp
++++ b/src/server/game/Globals/ObjectMgr.cpp
+@@ -7718,6 +7718,78 @@ SkillRangeType GetSkillRangeType(SkillLineEntry const* pSkill, bool racial)
+     }
+ }
+ 
++void ObjectMgr::LoadCreatureOutfits()
++{
++    uint32 oldMSTime = getMSTime();
++
++    _creatureOutfitStore.clear();                           // for reload case (test only)
++
++    //                                                 0     1      2      3     4     5       6           7
++    QueryResult result = WorldDatabase.Query("SELECT entry, race, gender, skin, face, hair, haircolor, facialhair, "
++        //8       9        10    11     12     13    14     15     16     17     18
++        "head, shoulders, body, chest, waist, legs, feet, wrists, hands, back, tabard FROM creature_template_outfits");
++
++    if (!result)
++    {
++        TC_LOG_ERROR(LOG_FILTER_SERVER_LOADING, ">> Loaded 0 creature outfits. DB table `creature_template_outfits` is empty!");
++        return;
++    }
++
++    uint32 count = 0;
++
++    do
++    {
++        Field* fields = result->Fetch();
++
++        uint32 i = 0;
++        uint32 entry   = fields[i++].GetUInt32();
++
++        if (!GetCreatureTemplate(entry))
++        {
++            TC_LOG_ERROR(LOG_FILTER_SERVER_LOADING, ">> Creature entry %u in `creature_template_outfits`, but not in `creature_template`!", entry);
++            continue;
++        }
++
++        CreatureOutfit co; // const, shouldnt be changed after saving
++        co.race         = fields[i++].GetUInt8();
++        const ChrRacesEntry* rEntry = sChrRacesStore.LookupEntry(co.race);
++        if (!rEntry)
++        {
++            TC_LOG_ERROR(LOG_FILTER_SERVER_LOADING, ">> Creature entry %u in `creature_template_outfits` has incorrect race (%u).", entry, uint32(co.race));
++            continue;
++        }
++        co.gender       = fields[i++].GetUInt8();
++        // Set correct displayId
++        switch (co.gender)
++        {
++            case GENDER_FEMALE: _creatureTemplateStore[entry].Modelid1    = rEntry->model_f;    break;
++            case GENDER_MALE:   _creatureTemplateStore[entry].Modelid1    = rEntry->model_m;    break;
++            default:
++                TC_LOG_ERROR(LOG_FILTER_SERVER_LOADING, ">> Creature entry %u in `creature_template_outfits` has invalid gender %u", entry, uint32(co.gender));
++                continue;
++        }
++        _creatureTemplateStore[entry].Modelid2 = 0;
++        _creatureTemplateStore[entry].Modelid3 = 0;
++        _creatureTemplateStore[entry].Modelid4 = 0;
++        _creatureTemplateStore[entry].unit_flags2 |= UNIT_FLAG2_MIRROR_IMAGE; // Needed so client requests mirror packet
++
++        co.skin         = fields[i++].GetUInt8();
++        co.face         = fields[i++].GetUInt8();
++        co.hair         = fields[i++].GetUInt8();
++        co.haircolor    = fields[i++].GetUInt8();
++        co.facialhair   = fields[i++].GetUInt8();
++        for (uint32 j = 0; j != MAX_CREATURE_OUTFIT_DISPLAYS; ++j)
++            co.outfit[j]    = fields[i+j].GetUInt32();
++
++        _creatureOutfitStore[entry] = co;
++
++        ++count;
++    }
++    while (result->NextRow());
++
++    TC_LOG_INFO(LOG_FILTER_SERVER_LOADING, ">> Loaded %u creature outfits in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
++}
++
+ void ObjectMgr::LoadGameTele()
+ {
+     uint32 oldMSTime = getMSTime();
+diff --git a/src/server/game/Globals/ObjectMgr.h b/src/server/game/Globals/ObjectMgr.h
+index e44333c..ce23570 100644
+--- a/src/server/game/Globals/ObjectMgr.h
++++ b/src/server/game/Globals/ObjectMgr.h
+@@ -144,6 +144,21 @@ struct GameTele
+ 
+ typedef UNORDERED_MAP<uint32, GameTele > GameTeleContainer;
+ 
++#define MAX_CREATURE_OUTFIT_DISPLAYS 11
++struct CreatureOutfit
++{
++    uint8 race;
++    uint8 gender;
++    uint8 face;
++    uint8 skin;
++    uint8 hair;
++    uint8 facialhair;
++    uint8 haircolor;
++    uint32 outfit[MAX_CREATURE_OUTFIT_DISPLAYS];
++};
++
++typedef UNORDERED_MAP<uint32, CreatureOutfit > CreatureOutfitContainer;
++
+ enum ScriptsType
+ {
+     SCRIPTS_FIRST = 1,
+@@ -966,6 +981,7 @@ class ObjectMgr
+ 
+         void LoadNPCSpellClickSpells();
+ 
++        void LoadCreatureOutfits();
+         void LoadGameTele();
+ 
+         void LoadGossipMenu();
+@@ -1160,6 +1176,8 @@ class ObjectMgr
+         bool AddGameTele(GameTele& data);
+         bool DeleteGameTele(std::string const& name);
+ 
++        CreatureOutfitContainer const& GetCreatureOutfitMap() const { return _creatureOutfitStore; }
++
+         TrainerSpellData const* GetNpcTrainerSpells(uint32 entry) const
+         {
+             CacheTrainerSpellContainer::const_iterator  iter = _cacheTrainerSpellStore.find(entry);
+@@ -1304,6 +1322,8 @@ class ObjectMgr
+         PageTextContainer _pageTextStore;
+         InstanceTemplateContainer _instanceTemplateStore;
+ 
++        CreatureOutfitContainer _creatureOutfitStore;
++
+     private:
+         void LoadScripts(ScriptsType type);
+         void CheckScripts(ScriptsType type, std::set<int32>& ids);
 diff --git a/src/server/game/Groups/Group.cpp b/src/server/game/Groups/Group.cpp
 index 8ec6aac..5ac8fe1 100644
 --- a/src/server/game/Groups/Group.cpp
@@ -21317,7 +21704,7 @@ index f079d6a..d30639b 100644
      delete holder;
  }
 diff --git a/src/server/game/Handlers/MiscHandler.cpp b/src/server/game/Handlers/MiscHandler.cpp
-index f65641e..81bb3ef 100644
+index 7145358..0681d30 100644
 --- a/src/server/game/Handlers/MiscHandler.cpp
 +++ b/src/server/game/Handlers/MiscHandler.cpp
 @@ -56,6 +56,9 @@
@@ -21384,7 +21771,7 @@ index f65641e..81bb3ef 100644
          {
              go->AI()->GossipSelect(_player, menuId, gossipListId);
 diff --git a/src/server/game/Handlers/NPCHandler.cpp b/src/server/game/Handlers/NPCHandler.cpp
-index e3921ee..defc147 100644
+index e3921ee..a03fd30 100644
 --- a/src/server/game/Handlers/NPCHandler.cpp
 +++ b/src/server/game/Handlers/NPCHandler.cpp
 @@ -38,6 +38,9 @@
@@ -21397,7 +21784,7 @@ index e3921ee..defc147 100644
  enum StableResultCode
  {
      STABLE_ERR_MONEY        = 0x01,                         // "you don't have enough money"
-@@ -295,6 +298,19 @@ void WorldSession::HandleGossipHelloOpcode(WorldPacket& recvData)
+@@ -295,6 +298,36 @@ void WorldSession::HandleGossipHelloOpcode(WorldPacket& recvData)
      uint64 guid;
      recvData >> guid;
  
@@ -21412,13 +21799,71 @@ index e3921ee..defc147 100644
 +        _player->GetBotHelper()->OnGossipHello(_player);
 +        return;
 +    }
++    else if (IS_CREATURE_GUID(guid))
++    {
++        if (Creature* qBot = ObjectAccessor::GetCreatureOrPetOrVehicle(*_player, guid))
++        {
++            if (qBot->IsQuestBot() &&
++                (_player->IsAlive() || qBot->GetCreatureTemplate()->type_flags & CREATURE_TYPEFLAGS_GHOST) &&
++                (qBot->IsAlive() || (qBot->GetCreatureTemplate()->type_flags & CREATURE_TYPEFLAGS_DEAD_INTERACT)))
++            {
++                if (!sScriptMgr->OnGossipHello(_player, qBot))
++                {
++                    TC_LOG_ERROR(LOG_FILTER_NETWORKIO, "WORLD: HandleGossipHelloOpcode - qBot %s (Entry: %u) returned false on gossip hello.",
++                        qBot->GetName().c_str(), qBot->GetEntry());
++                }
++                return;
++            }
++        }
++    }
 +    //end Bot
 +
      Creature* unit = GetPlayer()->GetNPCIfCanInteractWith(guid, UNIT_NPC_FLAG_NONE);
      if (!unit)
      {
+diff --git a/src/server/game/Handlers/SpellHandler.cpp b/src/server/game/Handlers/SpellHandler.cpp
+index 418709c..e4135d8 100644
+--- a/src/server/game/Handlers/SpellHandler.cpp
++++ b/src/server/game/Handlers/SpellHandler.cpp
+@@ -568,6 +568,36 @@ void WorldSession::HandleMirrorImageDataRequest(WorldPacket& recvData)
+     if (!unit)
+         return;
+ 
++    //bot
++    if (unit->ToCreature())
++    {
++        CreatureOutfitContainer const& outfits = sObjectMgr->GetCreatureOutfitMap();
++        CreatureOutfitContainer::const_iterator it = outfits.find(unit->GetEntry());
++        if (it != outfits.end())
++        {
++            WorldPacket data(SMSG_MIRRORIMAGE_DATA, 68);
++            data << uint64(guid);
++            data << uint32(unit->GetNativeDisplayId()); // displayId
++            data << uint8(it->second.race);             // race
++            data << uint8(it->second.gender);           // gender
++            data << uint8(unit->getClass());            // class
++            data << uint8(it->second.skin);             // skin
++            data << uint8(it->second.face);             // face
++            data << uint8(it->second.hair);             // hair
++            data << uint8(it->second.haircolor);        // haircolor
++            data << uint8(it->second.facialhair);       // facialhair
++            data << uint32(0);                          // guildId
++
++            // item displays
++            for (uint8 i = 0; i != MAX_CREATURE_OUTFIT_DISPLAYS; ++i)
++                data << uint32(it->second.outfit[i]);
++
++            SendPacket(&data);
++            return;
++        }
++    }
++    //end bot
++
+     if (!unit->HasAuraType(SPELL_AURA_CLONE_CASTER))
+         return;
+ 
 diff --git a/src/server/game/Maps/Map.cpp b/src/server/game/Maps/Map.cpp
-index 04c2c22..c7550f8 100644
+index 4660489..6382dec 100644
 --- a/src/server/game/Maps/Map.cpp
 +++ b/src/server/game/Maps/Map.cpp
 @@ -2186,7 +2186,10 @@ uint32 Map::GetPlayersCountExceptGMs() const
@@ -21433,10 +21878,10 @@ index 04c2c22..c7550f8 100644
  }
  
 diff --git a/src/server/game/Scripting/ScriptLoader.cpp b/src/server/game/Scripting/ScriptLoader.cpp
-index 31323a6..6c6031c 100644
+index 31323a6..55c25cf 100644
 --- a/src/server/game/Scripting/ScriptLoader.cpp
 +++ b/src/server/game/Scripting/ScriptLoader.cpp
-@@ -1394,6 +1394,18 @@ void AddBattlegroundScripts()
+@@ -1394,6 +1394,21 @@ void AddBattlegroundScripts()
  
  #ifdef SCRIPTS
  /* This is where custom scripts' loading functions should be declared. */
@@ -21452,10 +21897,13 @@ index 31323a6..6c6031c 100644
 +void AddSC_warlock_bot();
 +void AddSC_warrior_bot();
 +void AddSC_script_bot_commands();
++//advanced
++void AddSC_BotQuests_chapter1();
++//end Bots
  
  #endif
  
-@@ -1401,6 +1413,18 @@ void AddCustomScripts()
+@@ -1401,6 +1416,21 @@ void AddCustomScripts()
  {
  #ifdef SCRIPTS
      /* This is where custom scripts should be added. */
@@ -21471,6 +21919,9 @@ index 31323a6..6c6031c 100644
 +    AddSC_warlock_bot();
 +    AddSC_warrior_bot();
 +    AddSC_script_bot_commands();
++    //advanced
++    AddSC_BotQuests_chapter1();
++    //end Bots
  
  #endif
  }
@@ -21546,6 +21997,20 @@ index 3842a45..c2f047a 100644
  /// Player session in the World
  class WorldSession
  {
+diff --git a/src/server/game/World/World.cpp b/src/server/game/World/World.cpp
+index 8ca2e1d..669bef1 100644
+--- a/src/server/game/World/World.cpp
++++ b/src/server/game/World/World.cpp
+@@ -1428,6 +1428,9 @@ void World::SetInitialWorldSettings()
+     TC_LOG_INFO(LOG_FILTER_SERVER_LOADING, "Loading Creature templates...");
+     sObjectMgr->LoadCreatureTemplates();
+ 
++    TC_LOG_INFO(LOG_FILTER_SERVER_LOADING, "Loading Creature template outfits...");     // must be after LoadCreatureTemplates
++    sObjectMgr->LoadCreatureOutfits();
++
+     TC_LOG_INFO(LOG_FILTER_SERVER_LOADING, "Loading Equipment templates...");           // must be after LoadCreatureTemplates
+     sObjectMgr->LoadEquipmentTemplates();
+ 
 diff --git a/src/server/scripts/Spells/spell_priest.cpp b/src/server/scripts/Spells/spell_priest.cpp
 index 0d3da30..41db076 100644
 --- a/src/server/scripts/Spells/spell_priest.cpp
