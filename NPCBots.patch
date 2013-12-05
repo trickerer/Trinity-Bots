@@ -1,6 +1,6 @@
-From 15bd69a5411bb3f061c261e3a4accabfa9d4e3ce Mon Sep 17 00:00:00 2001
+From eb103b192921cf3005e0eab1b1d7bd9b2b3f1397 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Wed, 16 Oct 2013 11:50:34 +0700
+Date: Thu, 5 Dec 2013 10:49:41 +0700
 Subject: [PATCH] NPCBots
 
 ---
@@ -37,7 +37,7 @@ Subject: [PATCH] NPCBots
  src/server/game/Entities/Totem/Totem.cpp           |    7 +
  src/server/game/Entities/Unit/StatSystem.cpp       |    4 +
  src/server/game/Entities/Unit/Unit.cpp             |  214 +
- src/server/game/Globals/ObjectMgr.cpp              |   72 +
+ src/server/game/Globals/ObjectMgr.cpp              |   76 +
  src/server/game/Globals/ObjectMgr.h                |   20 +
  src/server/game/Groups/Group.cpp                   |   12 +
  src/server/game/Groups/Group.h                     |    3 +
@@ -56,7 +56,7 @@ Subject: [PATCH] NPCBots
  .../Database/Implementation/WorldDatabase.cpp      |    4 +
  .../shared/Database/Implementation/WorldDatabase.h |    4 +
  src/server/worldserver/worldserver.conf.dist       |  104 +
- 52 files changed, 21383 insertions(+), 0 deletions(-)
+ 52 files changed, 21387 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/auth_rbac.sql
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world_bot_helper_locales_gossip_menu_option.sql
@@ -82,7 +82,7 @@ Subject: [PATCH] NPCBots
 
 diff --git a/sql/Bots/auth_rbac.sql b/sql/Bots/auth_rbac.sql
 new file mode 100644
-index 0000000..61e1eea
+index 0000000..bcee894
 --- /dev/null
 +++ b/sql/Bots/auth_rbac.sql
 @@ -0,0 +1,27 @@
@@ -101,18 +101,18 @@ index 0000000..61e1eea
 +(@NPCB_PERM+8,'npcbot revive'),
 +(@NPCB_PERM+9,'maintank (mt)');
 +
-+DELETE FROM `rbac_role_permissions` WHERE `permissionId` BETWEEN @NPCB_PERM AND @NPCB_PERM+9;
-+INSERT INTO `rbac_role_permissions` (`roleId`,`permissionId`) VALUES
-+('1',@NPCB_PERM+0),
-+('1',@NPCB_PERM+1),
-+('1',@NPCB_PERM+2),
-+('1',@NPCB_PERM+3),
-+('1',@NPCB_PERM+4),
-+('1',@NPCB_PERM+5),
-+('1',@NPCB_PERM+6),
-+('1',@NPCB_PERM+7),
-+('2',@NPCB_PERM+8),
-+('1',@NPCB_PERM+9);
++DELETE FROM `rbac_linked_permissions` WHERE `linkedId` BETWEEN @NPCB_PERM AND @NPCB_PERM+9;
++INSERT INTO `rbac_linked_permissions` (`Id`,`linkedId`) VALUES
++('199',@NPCB_PERM+0),
++('199',@NPCB_PERM+1),
++('199',@NPCB_PERM+2),
++('199',@NPCB_PERM+3),
++('199',@NPCB_PERM+4),
++('199',@NPCB_PERM+5),
++('199',@NPCB_PERM+6),
++('199',@NPCB_PERM+7),
++('198',@NPCB_PERM+8),
++('199',@NPCB_PERM+9);
 diff --git a/sql/Bots/character_NPC_bots.sql b/sql/Bots/character_NPC_bots.sql
 new file mode 100644
 index 0000000..adf17ee
@@ -1584,7 +1584,7 @@ index 0000000..37e36d6
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..e9e32a1
+index 0000000..ce4c27c
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
 @@ -0,0 +1,4782 @@
@@ -2914,7 +2914,7 @@ index 0000000..e9e32a1
 +{
 +    if (petType == PET_TYPE_NONE || petType >= MAX_PET_TYPES) return;
 +    if (!shouldUpdateStats && !force) return;
-+    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "setStats(): Updating pet bot %s, type: %u, level %u, owner: %s, master: %s", me->GetName().c_str(), petType, mylevel, m_creatureOwner->GetName().c_str(), master->GetName().c_str());
++    //TC_LOG_ERROR("entities.player", "setStats(): Updating pet bot %s, type: %u, level %u, owner: %s, master: %s", me->GetName().c_str(), petType, mylevel, m_creatureOwner->GetName().c_str(), master->GetName().c_str());
 +
 +    //LEVEL
 +    if (me->getLevel() != mylevel)
@@ -3243,14 +3243,14 @@ index 0000000..e9e32a1
 +        return false;
 +    //if (!spellInfo->IsPassive())
 +    //{
-+    //    TC_LOG_ERROR(LOG_FILTER_PLAYER, "bot_ai::RefreshAura(): %s received spell %u (%s) which is not a passive spell!", target->GetName().c_str(), spell, spellInfo->SpellName[0]);
++    //    TC_LOG_ERROR("entities.player", "bot_ai::RefreshAura(): %s received spell %u (%s) which is not a passive spell!", target->GetName().c_str(), spell, spellInfo->SpellName[0]);
 +    //    //return false;
 +    //}
 +    if (target->HasAura(spell))
 +        target->RemoveAurasDueToSpell(spell);
 +
 +    //if (count > 15)
-+    //    TC_LOG_ERROR(LOG_FILTER_PLAYER, "bot_ai::RefreshAura(): %s's aura count for spell %u (%s) is greater than 15... (%i)", target->GetName().c_str(), spell, spellInfo->SpellName, count);
++    //    TC_LOG_ERROR("entities.player", "bot_ai::RefreshAura(): %s's aura count for spell %u (%s) is greater than 15... (%i)", target->GetName().c_str(), spell, spellInfo->SpellName, count);
 +
 +    for (uint8 i = 0; i < count; ++i)
 +        target->AddAura(spellInfo, MAX_EFFECT_MASK, target);
@@ -3429,11 +3429,11 @@ index 0000000..e9e32a1
 +        if (Creature* pet = me->GetBotsPet())
 +            mytar = pet->GetVictim();
 +
-+    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "bot_ai::getTarget(): bot: %s, PvP = %u", me->GetName().c_str(), PvP);
++    //TC_LOG_ERROR("entities.player", "bot_ai::getTarget(): bot: %s, PvP = %u", me->GetName().c_str(), PvP);
 +
 +    if (u && u == mytar)
 +    {
-+        //TC_LOG_ERROR(LOG_FILTER_PLAYER, "bot %s continues attack common target %s", me->GetName().c_str(), u->GetName().c_str());
++        //TC_LOG_ERROR("entities.player", "bot %s continues attack common target %s", me->GetName().c_str(), u->GetName().c_str());
 +        return u;//forced
 +    }
 +    //Follow if...
@@ -3441,19 +3441,19 @@ index 0000000..e9e32a1
 +    float foldist = _getAttackDistance(float(followdist));
 +    if (!u && master->IsAlive() && (me->GetDistance(master) > foldist || (mytar && master->GetDistance(mytar) > foldist && me->GetDistance(master) > foldist)))
 +    {
-+        //TC_LOG_ERROR(LOG_FILTER_PLAYER, "bot %s cannot attack target %s, too far away", me->GetName().c_str(), mytar ? mytar->GetName().c_str() : "");
++        //TC_LOG_ERROR("entities.player", "bot %s cannot attack target %s, too far away", me->GetName().c_str(), mytar ? mytar->GetName().c_str() : "");
 +        return NULL;
 +    }
 +
 +    if (u && (master->IsInCombat() || u->IsInCombat()) && !InDuel(u) && !IsInBotParty(u) && !(!PvP && (u->ToPlayer() || (u->ToCreature() && u->ToCreature()->GetBotAI()))))
 +    {
-+        //TC_LOG_ERROR(LOG_FILTER_PLAYER, "bot %s starts attack master's target %s", me->GetName().c_str(), u->GetName().c_str());
++        //TC_LOG_ERROR("entities.player", "bot %s starts attack master's target %s", me->GetName().c_str(), u->GetName().c_str());
 +        return u;
 +    }
 +
 +    if (CanBotAttack(mytar, byspell) && !InDuel(mytar))
 +    {
-+        //TC_LOG_ERROR(LOG_FILTER_PLAYER, "bot %s continues attack its target %s", me->GetName().c_str(), mytar->GetName().c_str());
++        //TC_LOG_ERROR("entities.player", "bot %s continues attack its target %s", me->GetName().c_str(), mytar->GetName().c_str());
 +        if (me->GetDistance(mytar) > (ranged ? 20.f : 5.f) && m_botCommandState != COMMAND_STAY && m_botCommandState != COMMAND_FOLLOW)
 +            reset = true;
 +        return mytar;
@@ -3475,7 +3475,7 @@ index 0000000..e9e32a1
 +                (bot->IsInCombat() || u->IsInCombat()) &&
 +                (master->isDead() || master->GetDistance(u) < foldist))
 +            {
-+                //TC_LOG_ERROR(LOG_FILTER_PLAYER, "bot %s hooked %s's victim %s", me->GetName().c_str(), bot->GetName().c_str(), u->GetName().c_str());
++                //TC_LOG_ERROR("entities.player", "bot %s hooked %s's victim %s", me->GetName().c_str(), bot->GetName().c_str(), u->GetName().c_str());
 +                return u;
 +            }
 +            Creature* pet = bot->GetIAmABot() ? bot->GetBotsPet() : NULL;
@@ -3485,7 +3485,7 @@ index 0000000..e9e32a1
 +                (pet->IsInCombat() || u->IsInCombat()) &&
 +                (master->isDead() || master->GetDistance(u) < foldist))
 +            {
-+                //TC_LOG_ERROR(LOG_FILTER_PLAYER, "bot %s hooked %s's victim %s", me->GetName().c_str(), pet->GetName().c_str(), u->GetName().c_str());
++                //TC_LOG_ERROR("entities.player", "bot %s hooked %s's victim %s", me->GetName().c_str(), pet->GetName().c_str(), u->GetName().c_str());
 +                return u;
 +            }
 +        }
@@ -3502,7 +3502,7 @@ index 0000000..e9e32a1
 +                (pl->IsInCombat() || u->IsInCombat()) &&
 +                (master->isDead() || master->GetDistance(u) < foldist))
 +            {
-+                //TC_LOG_ERROR(LOG_FILTER_PLAYER, "bot %s hooked %s's victim %s", me->GetName().c_str(), pl->GetName().c_str(), u->GetName().c_str());
++                //TC_LOG_ERROR("entities.player", "bot %s hooked %s's victim %s", me->GetName().c_str(), pl->GetName().c_str(), u->GetName().c_str());
 +                return u;
 +            }
 +            if (!pl->HaveBot()) continue;
@@ -3517,7 +3517,7 @@ index 0000000..e9e32a1
 +                    (bot->IsInCombat() || u->IsInCombat()) &&
 +                    (master->isDead() || master->GetDistance(u) < foldist))
 +                {
-+                    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "bot %s hooked %s's victim %s", me->GetName().c_str(), bot->GetName().c_str(), u->GetName().c_str());
++                    //TC_LOG_ERROR("entities.player", "bot %s hooked %s's victim %s", me->GetName().c_str(), bot->GetName().c_str(), u->GetName().c_str());
 +                    return u;
 +                }
 +                Creature* pet = bot->GetIAmABot() ? bot->GetBotsPet() : NULL;
@@ -3529,7 +3529,7 @@ index 0000000..e9e32a1
 +                    (pet->IsInCombat() || u->IsInCombat()) &&
 +                    (master->isDead() || master->GetDistance(u) < foldist))
 +                {
-+                    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "bot %s hooked %s's victim %s", me->GetName().c_str(), pet->GetName().c_str(), u->GetName().c_str());
++                    //TC_LOG_ERROR("entities.player", "bot %s hooked %s's victim %s", me->GetName().c_str(), pet->GetName().c_str(), u->GetName().c_str());
 +                    return u;
 +                }
 +            }
@@ -3558,7 +3558,7 @@ index 0000000..e9e32a1
 +
 +    if (t && opponent && t != opponent)
 +    {
-+        //TC_LOG_ERROR(LOG_FILTER_PLAYER, "bot %s has Found new target %s", me->GetName().c_str(), t->GetName().c_str());
++        //TC_LOG_ERROR("entities.player", "bot %s has Found new target %s", me->GetName().c_str(), t->GetName().c_str());
 +        reset = true;
 +    }
 +    return t;
@@ -4336,10 +4336,10 @@ index 0000000..e9e32a1
 +//Including health calcs, set and regeneration
 +void bot_minion_ai::_OnHealthUpdate(uint8 myclass, uint8 mylevel) const
 +{
-+    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "_OnHealthUpdate(): updating bot %s", me->GetName().c_str());
++    //TC_LOG_ERROR("entities.player", "_OnHealthUpdate(): updating bot %s", me->GetName().c_str());
 +    float pct = me->GetHealthPct();// needs for regeneration
 +    uint32 m_basehp = classinfo.basehealth;
-+    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "class base health: %u", m_basehp);
++    //TC_LOG_ERROR("entities.player", "class base health: %u", m_basehp);
 +    me->SetCreateHealth(m_basehp);
 +    float stammod;
 +    switch (myclass)
@@ -4400,7 +4400,7 @@ index 0000000..e9e32a1
 +    }
 +    stammod -= 0.3f;
 +    stammod *= 0.75f;
-+    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "stammod: %f", stammod);
++    //TC_LOG_ERROR("entities.player", "stammod: %f", stammod);
 +
 +    //manually pick up stamina from bot's buffs
 +    float stamValue = me->GetTotalStatValue(STAT_STAMINA);
@@ -4409,7 +4409,7 @@ index 0000000..e9e32a1
 +    for (uint8 i = 0; i != BOT_INVENTORY_SIZE; ++i)
 +        stamValue += 1.f * (static_cast<BotStat>(_stats[i])[ITEM_MOD_STAMINA]);
 +
-+    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "bot's stats to health add: Stamina (%f), value: %f", stamValue, stamValue * 10.f);
++    //TC_LOG_ERROR("entities.player", "bot's stats to health add: Stamina (%f), value: %f", stamValue, stamValue * 10.f);
 +    int32 hp_add = int32(stamValue * 10.f);
 +
 +    for (uint8 i = 0; i != BOT_INVENTORY_SIZE; ++i)
@@ -4420,7 +4420,7 @@ index 0000000..e9e32a1
 +    float base_stam = master->GetModifierValue(UNIT_MOD_STAT_STAMINA, BASE_VALUE);
 +    base_stam = std::max(base_stam - 18.f, 0.f); //remove base stamina (not calculated into health)
 +    stamValue = base_stam * master->GetModifierValue(UNIT_MOD_STAT_STAMINA, BASE_PCT) * total_pct;
-+    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "stat to health add: Stamina (%f), value: %f", stamValue, stamValue*stammod);
++    //TC_LOG_ERROR("entities.player", "stat to health add: Stamina (%f), value: %f", stamValue, stamValue*stammod);
 +    hp_add += int32(stamValue * stammod);
 +    //float stamstat = stat * 0.5f;
 +    //if (stamValue > stamstat)
@@ -4435,19 +4435,19 @@ index 0000000..e9e32a1
 +    //}
 +    //sLog->outBasic("health to add after master's stat mod: %i", hp_add);
 +    int32 miscVal = me->getGender() * mylevel;
-+    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "health to remove from gender mod: %i", -miscVal);
++    //TC_LOG_ERROR("entities.player", "health to remove from gender mod: %i", -miscVal);
 +    hp_add -= miscVal;//less hp for females lol
-+    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "health to add after gender mod: %i", hp_add);
++    //TC_LOG_ERROR("entities.player", "health to add after gender mod: %i", hp_add);
 +    //miscVal = myrace*(mylevel/5);
-+    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "health to add from race mod: %i", miscVal);
++    //TC_LOG_ERROR("entities.player", "health to add from race mod: %i", miscVal);
 +    //hp_add += miscVal;//draenei tanks lol
-+    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "health to add after race mod: %i", hp_add);
++    //TC_LOG_ERROR("entities.player", "health to add after race mod: %i", hp_add);
 +    miscVal = master->GetNpcBotSlot(me->GetGUID()) * (mylevel / 5);
-+    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "health to remove from slot mod: %i", -miscVal);
++    //TC_LOG_ERROR("entities.player", "health to remove from slot mod: %i", -miscVal);
 +    hp_add -= miscVal;
-+    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "health to add after slot mod: %i", hp_add);
++    //TC_LOG_ERROR("entities.player", "health to add after slot mod: %i", hp_add);
 +    uint32 m_totalhp = m_basehp + hp_add; //m_totalhp = uint32(float(m_basehp + hp_add) * stammod);
-+    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "total base health: %u", m_totalhp);
++    //TC_LOG_ERROR("entities.player", "total base health: %u", m_totalhp);
 +    uint32 bonuspct = 0;
 +    bonuspct += 35 * (master->GetBotTankGuid() == me->GetGUID());
 +    bonuspct += 8 * (GetBotStance() == DEATH_KNIGHT_FROST_PRESENCE);
@@ -4455,7 +4455,7 @@ index 0000000..e9e32a1
 +        m_totalhp = (m_totalhp * (100 + bonuspct)) / 100;
 +    me->SetModifierValue(UNIT_MOD_HEALTH, BASE_VALUE, float(m_totalhp)); //replaces base hp at max lvl
 +    me->UpdateMaxHealth();//will use our values we just set (update base health and buffs)
-+    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "overall hp: %u", me->GetMaxHealth());
++    //TC_LOG_ERROR("entities.player", "overall hp: %u", me->GetMaxHealth());
 +    me->SetHealth(uint32(0.5f + float(me->GetMaxHealth()) * pct / 100.f)); //restore pct
 +    if (!me->IsInCombat())
 +        me->SetHealth(me->GetHealth() + m_basehp / 100 + me->getLevel() / 2); //regenerate
@@ -4466,10 +4466,10 @@ index 0000000..e9e32a1
 +{
 +    if (me->getPowerType() != POWER_MANA)
 +        return;
-+    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "_OnManaUpdate(): updating bot %s", me->GetName().c_str());
++    //TC_LOG_ERROR("entities.player", "_OnManaUpdate(): updating bot %s", me->GetName().c_str());
 +    float pct = (float(me->GetPower(POWER_MANA)) * 100.f) / float(me->GetMaxPower(POWER_MANA));
 +    float m_basemana = classinfo.basemana > 0 ? classinfo.basemana : me->GetCreateMana();
-+    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "classinfo base mana = %f", m_basemana);
++    //TC_LOG_ERROR("entities.player", "classinfo base mana = %f", m_basemana);
 +    me->SetCreateMana(m_basemana); //set base mana, critical
 +    float manamod = 15.f; //here we set mana multiplier from intellect as we gain mana from MASTER's stats mostly
 +    switch (myclass)
@@ -4485,7 +4485,7 @@ index 0000000..e9e32a1
 +
 +    manamod *= 0.75f; //custom
 +
-+    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "Manamod: %f", manamod);
++    //TC_LOG_ERROR("entities.player", "Manamod: %f", manamod);
 +    float intValue = me->GetTotalStatValue(STAT_INTELLECT);
 +    intValue = std::max(intValue - 18.f, 1.f); //remove base int (not calculated into mana)
 +
@@ -4495,7 +4495,7 @@ index 0000000..e9e32a1
 +        m_basemana += 3.f * (static_cast<BotStat>(_stats[i])[ITEM_MOD_MANA]);
 +    }
 +
-+    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "bot's stats to mana add: Int (%f), value: %f", intValue, intValue * manamod);
++    //TC_LOG_ERROR("entities.player", "bot's stats to mana add: Int (%f), value: %f", intValue, intValue * manamod);
 +    m_basemana += intValue * 15.f;
 +    //pick up master's intellect from items if master has mana
 +    if (master->getPowerType() == POWER_MANA)
@@ -4506,26 +4506,26 @@ index 0000000..e9e32a1
 +    }
 +    else // pick up maxstat
 +        intValue = stat * 0.5f;
-+    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "mana add from master's stat: %f", intValue * manamod);
++    //TC_LOG_ERROR("entities.player", "mana add from master's stat: %f", intValue * manamod);
 +    m_basemana += intValue * manamod;
-+    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "base mana + mana from master's intellect or stat: %f", m_basemana);
++    //TC_LOG_ERROR("entities.player", "base mana + mana from master's intellect or stat: %f", m_basemana);
 +    //intValue = me->GetTotalAuraModValue(UNIT_MOD_STAT_INTELLECT);
 +    //sLog->outBasic("Intellect from buffs: %f", intValue);
 +    //m_basemana += uint32(intValue) * manamod;
 +    //sLog->outBasic("base mana + mana from intellect + mana from buffs: %u", m_basemana);
 +    uint8 otherVal = me->getGender() * 3 * mylevel;
-+    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "mana to add from gender mod: %u", otherVal);
++    //TC_LOG_ERROR("entities.player", "mana to add from gender mod: %u", otherVal);
 +    m_basemana += float(otherVal); //more mana for females lol
-+    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "base mana after gender mod: %f", m_basemana);
++    //TC_LOG_ERROR("entities.player", "base mana after gender mod: %f", m_basemana);
 +    otherVal = master->GetNpcBotSlot(me->GetGUID()) * (mylevel / 5); //only to make mana unique
-+    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "mana to remove from slot mod: %i", -int8(otherVal));
++    //TC_LOG_ERROR("entities.player", "mana to remove from slot mod: %i", -int8(otherVal));
 +    m_basemana -= otherVal;
-+    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "base mana after slot mod: %f", m_basemana);
++    //TC_LOG_ERROR("entities.player", "base mana after slot mod: %f", m_basemana);
 +    float m_totalmana = m_basemana;
-+    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "total mana to set: %f", m_totalmana);
++    //TC_LOG_ERROR("entities.player", "total mana to set: %f", m_totalmana);
 +    me->SetModifierValue(UNIT_MOD_MANA, BASE_VALUE, m_totalmana);
 +    me->UpdateMaxPower(POWER_MANA);
-+    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "Overall mana to set: %u", me->GetMaxPower(POWER_MANA));
++    //TC_LOG_ERROR("entities.player", "Overall mana to set: %u", me->GetMaxPower(POWER_MANA));
 +    if (tempMana)
 +    {
 +        me->SetPower(POWER_MANA, tempMana);
@@ -5204,7 +5204,7 @@ index 0000000..e9e32a1
 +
 +            player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "BACK", 6100, GOSSIP_ACTION_INFO_DEF + 2);
 +
-+            //TC_LOG_ERROR(LOG_FILTER_PLAYER, "OnGossipSelect(bot): added %u item(s) to list of %s (requester: %s)",
++            //TC_LOG_ERROR("entities.player", "OnGossipSelect(bot): added %u item(s) to list of %s (requester: %s)",
 +            //    counter, me->GetName().c_str(), player->GetName().c_str());
 +
 +            break;
@@ -6903,7 +6903,7 @@ index 0000000..d17106e
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_death_knight_ai.cpp b/src/server/game/AI/NpcBots/bot_death_knight_ai.cpp
 new file mode 100644
-index 0000000..51b0a6a
+index 0000000..ed1781a
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_death_knight_ai.cpp
 @@ -0,0 +1,1727 @@
@@ -7006,7 +7006,7 @@ index 0000000..51b0a6a
 +                    ////debug
 +                    //for (uint8 i = 0; i != NUM_RUNE_TYPES; ++i)
 +                    //    if (runecost[i])
-+                    //        TC_LOG_FATAL(LOG_FILTER_PLAYER, "doCast():: DK bot %s has casted spell %u (%s) without %u rune(s) (type %u)!",
++                    //        TC_LOG_FATAL("entities.player", "doCast():: DK bot %s has casted spell %u (%s) without %u rune(s) (type %u)!",
 +                    //            me->GetName().c_str(), spellId, spellInfo->SpellName[0], runecost[i], i);
 +                }
 +                //runic power gain: all dk spells are instant but some have no unit target so
@@ -9827,7 +9827,7 @@ index 0000000..f04c171
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_hunter_ai.cpp b/src/server/game/AI/NpcBots/bot_hunter_ai.cpp
 new file mode 100644
-index 0000000..99dfc49
+index 0000000..45a1359
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_hunter_ai.cpp
 @@ -0,0 +1,1210 @@
@@ -10181,7 +10181,7 @@ index 0000000..99dfc49
 +                if (shot->GetSpellInfo()->Id != AUTO_SHOT)
 +                {
 +                    ////casting some other autorepeat spell, wtf?
-+                    //TC_LOG_ERROR(LOG_FILTER_PLAYER, "CheckAutoShot(): Bot %s is casting autorepeatable spell %u (%s) during check!",
++                    //TC_LOG_ERROR("entities.player", "CheckAutoShot(): Bot %s is casting autorepeatable spell %u (%s) during check!",
 +                    //    me->GetName().c_str(), shot->GetSpellInfo()->Id, shot->GetSpellInfo()->SpellName[0]);
 +
 +                    return;
@@ -12032,7 +12032,7 @@ index 0000000..f2430b6
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 new file mode 100644
-index 0000000..b98bb0a
+index 0000000..969c722
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 @@ -0,0 +1,1116 @@
@@ -12775,7 +12775,7 @@ index 0000000..b98bb0a
 +            {
 +                float aftercrit = 0.f;
 +                //Fanaticism: 18% additional critical chance for all Judgements (not shure which check is right)
-+                if (lvl >= 45 && (spellInfo->Category == SPELLCATEGORY_JUDGEMENT || spellInfo->GetSpellSpecific() == SPELL_SPECIFIC_JUDGEMENT))
++                if (lvl >= 45 && (spellInfo->GetCategory() == SPELLCATEGORY_JUDGEMENT || spellInfo->GetSpellSpecific() == SPELL_SPECIFIC_JUDGEMENT))
 +                    aftercrit += 18.f;
 +
 +                if (aftercrit > 0.f)
@@ -12792,8 +12792,8 @@ index 0000000..b98bb0a
 +                pctbonus += 0.15f;
 +            //The Art of War (damage part): 10% bonus damage for Judgements, Crusader Strike and Divine Storm
 +            if (lvl >= 40 &&
-+                (spellInfo->Category == SPELLCATEGORY_JUDGEMENT ||
-+                spellInfo->GetSpellSpecific() == SPELL_SPECIFIC_JUDGEMENT || 
++                (spellInfo->GetCategory() == SPELLCATEGORY_JUDGEMENT ||
++                spellInfo->GetSpellSpecific() == SPELL_SPECIFIC_JUDGEMENT ||
 +                spellId == CRUSADER_STRIKE ||
 +                spellId == DIVINE_STORM))
 +                pctbonus += 0.1f;
@@ -15155,7 +15155,7 @@ index 0000000..1a4bf2c
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_shaman_ai.cpp b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 new file mode 100644
-index 0000000..4ad9adc
+index 0000000..4b16fe4
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 @@ -0,0 +1,1403 @@
@@ -15312,7 +15312,7 @@ index 0000000..4ad9adc
 +                        if (!to)
 +                        {
 +                            _totems[i].first = 0;
-+                            //TC_LOG_ERROR(LOG_FILTER_PLAYER, "%s has lost totem in slot %u! Despawned normally?", me->GetName().c_str(), i);
++                            //TC_LOG_ERROR("entities.player", "%s has lost totem in slot %u! Despawned normally?", me->GetName().c_str(), i);
 +                            continue;
 +                        }
 +
@@ -16032,7 +16032,7 @@ index 0000000..4ad9adc
 +            TempSummon* totem = summon->ToTempSummon();
 +            if (!totem || !totem->ToTotem())
 +            {
-+                TC_LOG_ERROR(LOG_FILTER_PLAYER, "SummonedCreatureDespawn(): Shaman bot %s has despawned summon %s which is not a temp summon or not a totem...", me->GetName().c_str(), summon->GetName().c_str());
++                TC_LOG_ERROR("entities.player", "SummonedCreatureDespawn(): Shaman bot %s has despawned summon %s which is not a temp summon or not a totem...", me->GetName().c_str(), summon->GetName().c_str());
 +                return;
 +            }
 +
@@ -16052,7 +16052,7 @@ index 0000000..4ad9adc
 +                    slot = T_AIR;
 +                    break;
 +                default:
-+                    TC_LOG_ERROR(LOG_FILTER_PLAYER, "SummonedCreatureDespawn(): Shaman bot %s has despawned totem %s with unknown type %u", me->GetName().c_str(), summon->GetName().c_str(), totem->m_Properties->Id);
++                    TC_LOG_ERROR("entities.player", "SummonedCreatureDespawn(): Shaman bot %s has despawned totem %s with unknown type %u", me->GetName().c_str(), summon->GetName().c_str(), totem->m_Properties->Id);
 +                    return;
 +            }
 +
@@ -16064,7 +16064,7 @@ index 0000000..4ad9adc
 +            TempSummon* totem = summon->ToTempSummon();
 +            if (!totem || !totem->ToTotem())
 +            {
-+                TC_LOG_ERROR(LOG_FILTER_PLAYER, "OnBotSummon(): Shaman bot %s has summoned creature %s which is not a temp summon or not a totem...", me->GetName().c_str(), summon->GetName().c_str());
++                TC_LOG_ERROR("entities.player", "OnBotSummon(): Shaman bot %s has summoned creature %s which is not a temp summon or not a totem...", me->GetName().c_str(), summon->GetName().c_str());
 +                return;
 +            }
 +
@@ -16086,7 +16086,7 @@ index 0000000..4ad9adc
 +                    slot = T_AIR;
 +                    break;
 +                default:
-+                    TC_LOG_ERROR(LOG_FILTER_PLAYER, "OnBotSummon(): Shaman bot %s has summoned totem %s with unknown type %u", me->GetName().c_str(), summon->GetName().c_str(), totem->m_Properties->Id);
++                    TC_LOG_ERROR("entities.player", "OnBotSummon(): Shaman bot %s has summoned totem %s with unknown type %u", me->GetName().c_str(), summon->GetName().c_str(), totem->m_Properties->Id);
 +                    return;
 +            }
 +
@@ -16099,7 +16099,7 @@ index 0000000..4ad9adc
 +            _totems[slot].second.pos.Relocate(*summon);
 +            _totems[slot].second.effradius = std::max<float>(radius, 20.f) + 5.f;
 +
-+            //TC_LOG_ERROR(LOG_FILTER_PLAYER, "shaman bot: summoned %s (type %u) at x='%f', y='%f', z='%f'",
++            //TC_LOG_ERROR("entities.player", "shaman bot: summoned %s (type %u) at x='%f', y='%f', z='%f'",
 +            //    summon->GetName().c_str(), slot, _totems[slot].second.GetPositionX(), _totems[slot].second.GetPositionY(), _totems[slot].second.GetPositionZ());
 +
 +            summon->SetDisplayId(me->GetModelForTotem(PlayerTotemType(totem->m_Properties->Id)));
@@ -16245,7 +16245,7 @@ index 0000000..4ad9adc
 +                    Unit* to = sObjectAccessor->FindUnit(_totems[i].first);
 +                    if (!to)
 +                    {
-+                        //TC_LOG_ERROR(LOG_FILTER_PLAYER, "%s has no totem in slot %u during remove!", me->GetName().c_str(), i);
++                        //TC_LOG_ERROR("entities.player", "%s has no totem in slot %u during remove!", me->GetName().c_str(), i);
 +                        continue;
 +                    }
 +                    to->ToTotem()->UnSummon();
@@ -18994,7 +18994,7 @@ index 0000000..66efd45
 +}
 diff --git a/src/server/game/AI/NpcBots/bothelper.cpp b/src/server/game/AI/NpcBots/bothelper.cpp
 new file mode 100644
-index 0000000..2fcfe4c
+index 0000000..dfec4f3
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bothelper.cpp
 @@ -0,0 +1,424 @@
@@ -19404,7 +19404,7 @@ index 0000000..2fcfe4c
 +{
 +    if (textId >= MAX_STRINGS)
 +    {
-+        TC_LOG_ERROR(LOG_FILTER_PLAYER, "botgiver:GetLocaleStringForTextID:: unknown text id: %u!", uint32(textId));
++        TC_LOG_ERROR("misc", "botgiver:GetLocaleStringForTextID:: unknown text id: %u!", textId);
 +        return textValue;
 +    }
 +
@@ -19413,7 +19413,7 @@ index 0000000..2fcfe4c
 +
 +    if (localeIdx < 0)
 +    {
-+        TC_LOG_ERROR(LOG_FILTER_PLAYER, "botgiver:GetLocaleStringForTextID:: unknown locale: %i! Sending default locale text...", localeIdx);
++        TC_LOG_ERROR("misc", "botgiver:GetLocaleStringForTextID:: unknown locale: %i! Sending default locale text...", localeIdx);
 +        return textValue;
 +    }
 +
@@ -19461,7 +19461,7 @@ index 0000000..1310b4d
 +
 +#endif
 diff --git a/src/server/game/Accounts/RBAC.h b/src/server/game/Accounts/RBAC.h
-index e12e683..fe8eb53 100644
+index b18996f..66e13d2 100644
 --- a/src/server/game/Accounts/RBAC.h
 +++ b/src/server/game/Accounts/RBAC.h
 @@ -680,6 +680,20 @@ enum RBACPermissions
@@ -19486,24 +19486,24 @@ index e12e683..fe8eb53 100644
  };
  
 diff --git a/src/server/game/CMakeLists.txt b/src/server/game/CMakeLists.txt
-index f455610..e49ba96 100644
+index be39972..84047c4 100644
 --- a/src/server/game/CMakeLists.txt
 +++ b/src/server/game/CMakeLists.txt
-@@ -129,6 +129,7 @@ include_directories(
-   ${CMAKE_CURRENT_SOURCE_DIR}/Achievements
+@@ -130,6 +130,7 @@ include_directories(
    ${CMAKE_CURRENT_SOURCE_DIR}/Addons
    ${CMAKE_CURRENT_SOURCE_DIR}/AI
-+  ${CMAKE_CURRENT_SOURCE_DIR}/AI/NpcBots
    ${CMAKE_CURRENT_SOURCE_DIR}/AI/CoreAI
-   ${CMAKE_CURRENT_SOURCE_DIR}/AI/EventAI
++  ${CMAKE_CURRENT_SOURCE_DIR}/AI/NpcBots
    ${CMAKE_CURRENT_SOURCE_DIR}/AI/ScriptedAI
+   ${CMAKE_CURRENT_SOURCE_DIR}/AI/SmartScripts
+   ${CMAKE_CURRENT_SOURCE_DIR}/AuctionHouse
 diff --git a/src/server/game/Entities/Creature/Creature.cpp b/src/server/game/Entities/Creature/Creature.cpp
-index 4efd78d..dcaffe4 100644
+index 7974e07..862ff93 100644
 --- a/src/server/game/Entities/Creature/Creature.cpp
 +++ b/src/server/game/Entities/Creature/Creature.cpp
 @@ -54,6 +54,9 @@
  
- // apply implementation of the singletons
+ #include "Transport.h"
  
 +// npcbot
 +#include "bot_ai.h"
@@ -19548,7 +19548,7 @@ index 4efd78d..dcaffe4 100644
      if (IsAIEnabled && TriggerJustRespawned)
      {
          TriggerJustRespawned = false;
-@@ -1246,6 +1265,11 @@ bool Creature::LoadCreatureFromDB(uint32 guid, Map* map, bool addToMap)
+@@ -1258,6 +1277,11 @@ bool Creature::LoadCreatureFromDB(uint32 guid, Map* map, bool addToMap)
  
  void Creature::LoadEquipment(int8 id, bool force /*= true*/)
  {
@@ -19560,7 +19560,7 @@ index 4efd78d..dcaffe4 100644
      if (id == 0)
      {
          if (force)
-@@ -2103,6 +2127,9 @@ void Creature::SetInCombatWithZone()
+@@ -2115,6 +2139,9 @@ void Creature::SetInCombatWithZone()
  
  uint32 Creature::GetShieldBlockValue() const                  //dunno mob block value
  {
@@ -19570,7 +19570,7 @@ index 4efd78d..dcaffe4 100644
      return (getLevel()/2 + uint32(GetStat(STAT_STRENGTH)/20));
  }
  
-@@ -2679,3 +2706,206 @@ void Creature::ReleaseFocus(Spell const* focusSpell)
+@@ -2691,3 +2718,206 @@ void Creature::ReleaseFocus(Spell const* focusSpell)
          ClearUnitState(UNIT_STATE_ROTATING);
  }
  
@@ -19778,7 +19778,7 @@ index 4efd78d..dcaffe4 100644
 +        (m_creatureInfo->unit_flags2 & UNIT_FLAG2_ALLOW_ENEMY_INTERACT);
 +}
 diff --git a/src/server/game/Entities/Creature/Creature.h b/src/server/game/Entities/Creature/Creature.h
-index 3a07d9c..95b943d 100644
+index cab00be..c288fd9 100644
 --- a/src/server/game/Entities/Creature/Creature.h
 +++ b/src/server/game/Entities/Creature/Creature.h
 @@ -37,6 +37,11 @@ class Player;
@@ -19793,7 +19793,7 @@ index 3a07d9c..95b943d 100644
  enum CreatureFlagsExtra
  {
      CREATURE_FLAG_EXTRA_INSTANCE_BIND   = 0x00000001,       // creature kill bind instance with killer and killer's group
-@@ -708,6 +713,46 @@ class Creature : public Unit, public GridObject<Creature>, public MapCreature
+@@ -676,6 +681,46 @@ class Creature : public Unit, public GridObject<Creature>, public MapObject
          void FocusTarget(Spell const* focusSpell, WorldObject const* target);
          void ReleaseFocus(Spell const* focusSpell);
  
@@ -19840,9 +19840,9 @@ index 3a07d9c..95b943d 100644
      protected:
          bool CreateFromProto(uint32 guidlow, uint32 Entry, uint32 vehId, uint32 team, const CreatureData* data = NULL);
          bool InitEntry(uint32 entry, uint32 team=ALLIANCE, const CreatureData* data=NULL);
-@@ -758,6 +803,15 @@ class Creature : public Unit, public GridObject<Creature>, public MapCreature
-         bool IsInvisibleDueToDespawn() const;
+@@ -726,6 +771,15 @@ class Creature : public Unit, public GridObject<Creature>, public MapObject
          bool CanAlwaysSee(WorldObject const* obj) const;
+ 
      private:
 +        //bot system
 +        Player* m_bot_owner;
@@ -19857,7 +19857,7 @@ index 3a07d9c..95b943d 100644
  
          //WaypointMovementGenerator vars
 diff --git a/src/server/game/Entities/Creature/TemporarySummon.cpp b/src/server/game/Entities/Creature/TemporarySummon.cpp
-index 05bedf9..99f959f 100644
+index 9fee6b8..604bc08 100644
 --- a/src/server/game/Entities/Creature/TemporarySummon.cpp
 +++ b/src/server/game/Entities/Creature/TemporarySummon.cpp
 @@ -253,6 +253,14 @@ void TempSummon::UnSummon(uint32 msTime)
@@ -19876,10 +19876,10 @@ index 05bedf9..99f959f 100644
  }
  
 diff --git a/src/server/game/Entities/Object/Object.cpp b/src/server/game/Entities/Object/Object.cpp
-index 9d77e14..f734e2f 100644
+index 675504c..b662d3a 100644
 --- a/src/server/game/Entities/Object/Object.cpp
 +++ b/src/server/game/Entities/Object/Object.cpp
-@@ -2212,6 +2212,11 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
+@@ -2210,6 +2210,11 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
              summon = new Puppet(properties, summoner);
              break;
          case UNIT_MASK_TOTEM:
@@ -19891,7 +19891,7 @@ index 9d77e14..f734e2f 100644
              summon = new Totem(properties, summoner);
              break;
          case UNIT_MASK_MINION:
-@@ -2233,6 +2238,12 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
+@@ -2231,6 +2236,12 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
      AddToMap(summon->ToCreature());
      summon->InitSummon();
  
@@ -19905,7 +19905,7 @@ index 9d77e14..f734e2f 100644
  
      return summon;
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index 9ada25b..f796412 100644
+index 2eed8e9..0928505 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -78,6 +78,10 @@
@@ -19985,7 +19985,7 @@ index 9ada25b..f796412 100644
      sWorld->DecreasePlayerCount();
  }
  
-@@ -1836,6 +1885,17 @@ void Player::Update(uint32 p_time)
+@@ -1833,6 +1882,17 @@ void Player::Update(uint32 p_time)
      //because we don't want player's ghost teleported from graveyard
      if (IsHasDelayedTeleport() && IsAlive())
          TeleportTo(m_teleport_dest, m_teleport_options);
@@ -20003,7 +20003,7 @@ index 9ada25b..f796412 100644
  }
  
  void Player::setDeathState(DeathState s)
-@@ -2212,6 +2272,13 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
+@@ -2211,6 +2271,13 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
          if (!sMapMgr->CanPlayerEnter(mapid, this, false))
              return false;
  
@@ -20017,7 +20017,7 @@ index 9ada25b..f796412 100644
          //I think this always returns true. Correct me if I am wrong.
          // If the map is not created, assume it is possible to enter it.
          // It will be created in the WorldPortAck.
-@@ -2459,6 +2526,978 @@ void Player::RemoveFromWorld()
+@@ -2444,6 +2511,978 @@ void Player::RemoveFromWorld()
      }
  }
  
@@ -20348,7 +20348,7 @@ index 9ada25b..f796412 100644
 +    }
 +    if (!botentry || !botrace || !botclass)
 +    {
-+        TC_LOG_ERROR(LOG_FILTER_PLAYER, "ERROR! CreateBot(): player %s (%u) trying to create bot with entry = %u, race = %u, class = %u, ignored", GetName().c_str(), GetGUIDLow(), botentry, botrace, botclass);
++        TC_LOG_ERROR("entities.player", "ERROR! CreateBot(): player %s (%u) trying to create bot with entry = %u, race = %u, class = %u, ignored", GetName().c_str(), GetGUIDLow(), botentry, botrace, botclass);
 +        for (uint8 pos = 0; pos != GetMaxNpcBots(); ++pos)
 +            if (m_botmap[pos]->m_entry == botentry)
 +                ClearBotMustBeCreated(pos, false);
@@ -20418,7 +20418,7 @@ index 9ada25b..f796412 100644
 +    }
 +    if (!_set)
 +    {
-+        TC_LOG_ERROR(LOG_FILTER_PLAYER, "character %s (%u) is failed to create npcbot! Removing all bots", GetName().c_str(), GetGUIDLow());
++        TC_LOG_ERROR("entities.player", "character %s (%u) is failed to create npcbot! Removing all bots", GetName().c_str(), GetGUIDLow());
 +
 +        m_bot->CombatStop();
 +        m_bot->CleanupsBeforeDelete();
@@ -20717,7 +20717,7 @@ index 9ada25b..f796412 100644
 +            ChatHandler ch(GetSession());
 +            ch.PSendSysMessage("ERROR! unknown bot_class %u", bot_class);
 +            ch.SetSentErrorMessage(true);
-+            TC_LOG_ERROR(LOG_FILTER_PLAYER, "Player::CreateNPCBot() player %u(%s) tried to create bot of unknown/unsupported class %u!", GetGUIDLow(), GetName().c_str(), bot_class);
++            TC_LOG_ERROR("entities.player", "Player::CreateNPCBot() player %u(%s) tried to create bot of unknown/unsupported class %u!", GetGUIDLow(), GetName().c_str(), bot_class);
 +            return;
 +    }
 +
@@ -20757,7 +20757,7 @@ index 9ada25b..f796412 100644
 +    PreparedQueryResult result = WorldDatabase.Query(stmt);
 +    if (!result)
 +    {
-+        TC_LOG_FATAL(LOG_FILTER_PLAYER, "Player::CreateNPCBot() CANNOT create bot of class %u, not found in DB", bot_class);
++        TC_LOG_FATAL("entities.player", "Player::CreateNPCBot() CANNOT create bot of class %u, not found in DB", bot_class);
 +        return;
 +    }
 +
@@ -20996,7 +20996,7 @@ index 9ada25b..f796412 100644
  void Player::RegenerateAll()
  {
      //if (m_regenTimer <= 500)
-@@ -2736,6 +3775,9 @@ Creature* Player::GetNPCIfCanInteractWith(uint64 guid, uint32 npcflagmask)
+@@ -2721,6 +3760,9 @@ Creature* Player::GetNPCIfCanInteractWith(uint64 guid, uint32 npcflagmask)
  
      // not enemy
      if (creature->IsHostileTo(this))
@@ -21006,7 +21006,7 @@ index 9ada25b..f796412 100644
          return NULL;
  
      // not unfriendly
-@@ -2940,6 +3982,26 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
+@@ -2925,6 +3967,26 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
  {
      if (group)
      {
@@ -21033,7 +21033,7 @@ index 9ada25b..f796412 100644
          group->RemoveMember(guid, method, kicker, reason);
          group = NULL;
      }
-@@ -4992,6 +6054,13 @@ void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmC
+@@ -4977,6 +6039,13 @@ void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmC
              stmt->setUInt32(0, guid);
              trans->Append(stmt);
  
@@ -21048,7 +21048,7 @@ index 9ada25b..f796412 100644
              break;
          }
 diff --git a/src/server/game/Entities/Player/Player.h b/src/server/game/Entities/Player/Player.h
-index fee542a..4aa463f 100644
+index 6aa19b5..fab610b 100644
 --- a/src/server/game/Entities/Player/Player.h
 +++ b/src/server/game/Entities/Player/Player.h
 @@ -52,6 +52,11 @@ class PlayerSocial;
@@ -21172,10 +21172,10 @@ index d2b7fc6..22a59ef 100644
  }
  
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index 74c5014..90f24ba 100644
+index 54db2da..0a10124 100644
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
-@@ -344,6 +344,17 @@ void Unit::Update(uint32 p_time)
+@@ -342,6 +342,17 @@ void Unit::Update(uint32 p_time)
                  m_CombatTimer -= p_time;
          }
      }
@@ -21193,7 +21193,7 @@ index 74c5014..90f24ba 100644
  
      // not implemented before 3.0.2
      if (uint32 base_att = getAttackTimer(BASE_ATTACK))
-@@ -578,6 +589,12 @@ uint32 Unit::DealDamage(Unit* victim, uint32 damage, CleanDamage const* cleanDam
+@@ -579,6 +590,12 @@ uint32 Unit::DealDamage(Unit* victim, uint32 damage, CleanDamage const* cleanDam
          if (pet && pet->IsAlive())
              pet->AI()->OwnerAttackedBy(this);
  
@@ -21206,7 +21206,7 @@ index 74c5014..90f24ba 100644
          if (victim->ToPlayer()->GetCommandStatus(CHEAT_GOD))
              return 0;
      }
-@@ -990,6 +1007,11 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
+@@ -991,6 +1008,11 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
          case SPELL_DAMAGE_CLASS_RANGED:
          case SPELL_DAMAGE_CLASS_MELEE:
          {
@@ -21218,7 +21218,7 @@ index 74c5014..90f24ba 100644
              // Physical Damage
              if (damageSchoolMask & SPELL_SCHOOL_MASK_NORMAL)
              {
-@@ -1047,6 +1069,11 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
+@@ -1048,6 +1070,11 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
          case SPELL_DAMAGE_CLASS_NONE:
          case SPELL_DAMAGE_CLASS_MAGIC:
          {
@@ -21230,7 +21230,7 @@ index 74c5014..90f24ba 100644
              // If crit add critical bonus
              if (crit)
              {
-@@ -1163,6 +1190,11 @@ void Unit::CalculateMeleeDamage(Unit* victim, uint32 damage, CalcDamageInfo* dam
+@@ -1164,6 +1191,11 @@ void Unit::CalculateMeleeDamage(Unit* victim, uint32 damage, CalcDamageInfo* dam
      // Script Hook For CalculateMeleeDamage -- Allow scripts to change the Damage pre class mitigation calculations
      sScriptMgr->ModifyMeleeDamage(damageInfo->target, damageInfo->attacker, damage);
  
@@ -21242,7 +21242,7 @@ index 74c5014..90f24ba 100644
      // Calculate armor reduction
      if (IsDamageReducedByArmor((SpellSchoolMask)(damageInfo->damageSchoolMask)))
      {
-@@ -10424,6 +10456,7 @@ bool Unit::isSpellCrit(Unit* victim, SpellInfo const* spellProto, SpellSchoolMas
+@@ -10428,6 +10460,7 @@ bool Unit::isSpellCrit(Unit* victim, SpellInfo const* spellProto, SpellSchoolMas
      //! Mobs can't crit with spells. Player Totems can
      //! Fire Elemental (from totem) can too - but this part is a hack and needs more research
      if (IS_CREATURE_GUID(GetGUID()) && !(IsTotem() && IS_PLAYER_GUID(GetOwnerGUID())) && GetEntry() != 15438)
@@ -21250,7 +21250,7 @@ index 74c5014..90f24ba 100644
          return false;
  
      // not critting spell
-@@ -13124,6 +13157,11 @@ bool Unit::HandleStatModifier(UnitMods unitMod, UnitModifierType modifierType, f
+@@ -13128,6 +13161,11 @@ bool Unit::HandleStatModifier(UnitMods unitMod, UnitModifierType modifierType, f
              break;
      }
  
@@ -21262,7 +21262,7 @@ index 74c5014..90f24ba 100644
      return true;
  }
  
-@@ -16543,6 +16581,182 @@ uint32 Unit::GetModelForForm(ShapeshiftForm form) const
+@@ -16548,6 +16586,182 @@ uint32 Unit::GetModelForForm(ShapeshiftForm form) const
                  break;
          }
      }
@@ -21446,10 +21446,10 @@ index 74c5014..90f24ba 100644
      uint32 modelid = 0;
      SpellShapeshiftEntry const* formEntry = sSpellShapeshiftStore.LookupEntry(form);
 diff --git a/src/server/game/Globals/ObjectMgr.cpp b/src/server/game/Globals/ObjectMgr.cpp
-index 2f309c0..288b4ad 100644
+index 3d56225..691a1c9 100644
 --- a/src/server/game/Globals/ObjectMgr.cpp
 +++ b/src/server/game/Globals/ObjectMgr.cpp
-@@ -7718,6 +7718,78 @@ SkillRangeType GetSkillRangeType(SkillLineEntry const* pSkill, bool racial)
+@@ -7736,6 +7736,82 @@ SkillRangeType GetSkillRangeType(SkillLineEntry const* pSkill, bool racial)
      }
  }
  
@@ -21466,7 +21466,7 @@ index 2f309c0..288b4ad 100644
 +
 +    if (!result)
 +    {
-+        TC_LOG_ERROR(LOG_FILTER_SERVER_LOADING, ">> Loaded 0 creature outfits. DB table `creature_template_outfits` is empty!");
++        TC_LOG_ERROR("server.loading", ">> Loaded 0 creature outfits. DB table `creature_template_outfits` is empty!");
 +        return;
 +    }
 +
@@ -21477,30 +21477,34 @@ index 2f309c0..288b4ad 100644
 +        Field* fields = result->Fetch();
 +
 +        uint32 i = 0;
-+        uint32 entry   = fields[i++].GetUInt32();
++        uint32 entry     = fields[i++].GetUInt32();
 +
 +        if (!GetCreatureTemplate(entry))
 +        {
-+            TC_LOG_ERROR(LOG_FILTER_SERVER_LOADING, ">> Creature entry %u in `creature_template_outfits`, but not in `creature_template`!", entry);
++            TC_LOG_ERROR("server.loading", ">> Creature entry %u in `creature_template_outfits`, but not in `creature_template`!", entry);
 +            continue;
 +        }
 +
 +        CreatureOutfit co; // const, shouldnt be changed after saving
-+        co.race         = fields[i++].GetUInt8();
-+        const ChrRacesEntry* rEntry = sChrRacesStore.LookupEntry(co.race);
++        co.race          = fields[i++].GetUInt8();
++        ChrRacesEntry const* rEntry = sChrRacesStore.LookupEntry(co.race);
 +        if (!rEntry)
 +        {
-+            TC_LOG_ERROR(LOG_FILTER_SERVER_LOADING, ">> Creature entry %u in `creature_template_outfits` has incorrect race (%u).", entry, uint32(co.race));
++            TC_LOG_ERROR("server.loading", ">> Creature entry %u in `creature_template_outfits` has incorrect race (%u).", entry, uint32(co.race));
 +            continue;
 +        }
-+        co.gender       = fields[i++].GetUInt8();
++        co.gender        = fields[i++].GetUInt8();
 +        // Set correct displayId
 +        switch (co.gender)
 +        {
-+            case GENDER_FEMALE: _creatureTemplateStore[entry].Modelid1    = rEntry->model_f;    break;
-+            case GENDER_MALE:   _creatureTemplateStore[entry].Modelid1    = rEntry->model_m;    break;
++            case GENDER_FEMALE:
++                _creatureTemplateStore[entry].Modelid1 = rEntry->model_f;
++                break;
++            case GENDER_MALE:
++                _creatureTemplateStore[entry].Modelid1 = rEntry->model_m;
++                break;
 +            default:
-+                TC_LOG_ERROR(LOG_FILTER_SERVER_LOADING, ">> Creature entry %u in `creature_template_outfits` has invalid gender %u", entry, uint32(co.gender));
++                TC_LOG_ERROR("server.loading", ">> Creature entry %u in `creature_template_outfits` has invalid gender %u", entry, uint32(co.gender));
 +                continue;
 +        }
 +        _creatureTemplateStore[entry].Modelid2 = 0;
@@ -21508,13 +21512,13 @@ index 2f309c0..288b4ad 100644
 +        _creatureTemplateStore[entry].Modelid4 = 0;
 +        _creatureTemplateStore[entry].unit_flags2 |= UNIT_FLAG2_MIRROR_IMAGE; // Needed so client requests mirror packet
 +
-+        co.skin         = fields[i++].GetUInt8();
-+        co.face         = fields[i++].GetUInt8();
-+        co.hair         = fields[i++].GetUInt8();
-+        co.haircolor    = fields[i++].GetUInt8();
-+        co.facialhair   = fields[i++].GetUInt8();
++        co.skin          = fields[i++].GetUInt8();
++        co.face          = fields[i++].GetUInt8();
++        co.hair          = fields[i++].GetUInt8();
++        co.haircolor     = fields[i++].GetUInt8();
++        co.facialhair    = fields[i++].GetUInt8();
 +        for (uint32 j = 0; j != MAX_CREATURE_OUTFIT_DISPLAYS; ++j)
-+            co.outfit[j]    = fields[i+j].GetUInt32();
++            co.outfit[j] = fields[i+j].GetUInt32();
 +
 +        _creatureOutfitStore[entry] = co;
 +
@@ -21522,14 +21526,14 @@ index 2f309c0..288b4ad 100644
 +    }
 +    while (result->NextRow());
 +
-+    TC_LOG_INFO(LOG_FILTER_SERVER_LOADING, ">> Loaded %u creature outfits in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
++    TC_LOG_INFO("server.loading", ">> Loaded %u creature outfits in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
 +}
 +
  void ObjectMgr::LoadGameTele()
  {
      uint32 oldMSTime = getMSTime();
 diff --git a/src/server/game/Globals/ObjectMgr.h b/src/server/game/Globals/ObjectMgr.h
-index e44333c..ce23570 100644
+index bf835ed..1d130f8 100644
 --- a/src/server/game/Globals/ObjectMgr.h
 +++ b/src/server/game/Globals/ObjectMgr.h
 @@ -144,6 +144,21 @@ struct GameTele
@@ -21562,7 +21566,7 @@ index e44333c..ce23570 100644
          void LoadGameTele();
  
          void LoadGossipMenu();
-@@ -1160,6 +1176,8 @@ class ObjectMgr
+@@ -1166,6 +1182,8 @@ class ObjectMgr
          bool AddGameTele(GameTele& data);
          bool DeleteGameTele(std::string const& name);
  
@@ -21571,7 +21575,7 @@ index e44333c..ce23570 100644
          TrainerSpellData const* GetNpcTrainerSpells(uint32 entry) const
          {
              CacheTrainerSpellContainer::const_iterator  iter = _cacheTrainerSpellStore.find(entry);
-@@ -1304,6 +1322,8 @@ class ObjectMgr
+@@ -1310,6 +1328,8 @@ class ObjectMgr
          PageTextContainer _pageTextStore;
          InstanceTemplateContainer _instanceTemplateStore;
  
@@ -21581,10 +21585,10 @@ index e44333c..ce23570 100644
          void LoadScripts(ScriptsType type);
          void CheckScripts(ScriptsType type, std::set<int32>& ids);
 diff --git a/src/server/game/Groups/Group.cpp b/src/server/game/Groups/Group.cpp
-index 8ec6aac..5ac8fe1 100644
+index 272fd89..b4c8c1a 100644
 --- a/src/server/game/Groups/Group.cpp
 +++ b/src/server/game/Groups/Group.cpp
-@@ -110,6 +110,9 @@ bool Group::Create(Player* leader)
+@@ -106,6 +106,9 @@ bool Group::Create(Player* leader)
      if (m_groupType & GROUPTYPE_RAID)
          _initRaidSubGroupsCounter();
  
@@ -21594,7 +21598,7 @@ index 8ec6aac..5ac8fe1 100644
      if (!isLFGGroup())
          m_lootMethod = GROUP_LOOT;
  
-@@ -365,6 +368,8 @@ bool Group::AddMember(Player* player)
+@@ -361,6 +364,8 @@ bool Group::AddMember(Player* player)
  
      SubGroupCounterIncrease(subGroup);
  
@@ -21603,7 +21607,7 @@ index 8ec6aac..5ac8fe1 100644
      player->SetGroupInvite(NULL);
      if (player->GetGroup())
      {
-@@ -380,6 +385,7 @@ bool Group::AddMember(Player* player)
+@@ -376,6 +381,7 @@ bool Group::AddMember(Player* player)
      InstanceGroupBind* bind = GetBoundInstance(player);
      if (bind && bind->save->GetInstanceId() == player->GetInstanceId())
          player->m_InstanceValid = true;
@@ -21611,7 +21615,7 @@ index 8ec6aac..5ac8fe1 100644
  
      if (!isRaidGroup())                                      // reset targetIcons for non-raid-groups
      {
-@@ -405,6 +411,8 @@ bool Group::AddMember(Player* player)
+@@ -401,6 +407,8 @@ bool Group::AddMember(Player* player)
      SendUpdate();
      sScriptMgr->OnGroupAddMember(this, player->GetGUID());
  
@@ -21620,7 +21624,7 @@ index 8ec6aac..5ac8fe1 100644
      if (!IsLeader(player->GetGUID()) && !isBGGroup() && !isBFGroup())
      {
          // reset the new member's instances, unless he is currently in one of them
-@@ -480,6 +488,7 @@ bool Group::AddMember(Player* player)
+@@ -476,6 +484,7 @@ bool Group::AddMember(Player* player)
  
      if (m_maxEnchantingLevel < player->GetSkillValue(SKILL_ENCHANTING))
          m_maxEnchantingLevel = player->GetSkillValue(SKILL_ENCHANTING);
@@ -21628,7 +21632,7 @@ index 8ec6aac..5ac8fe1 100644
  
      return true;
  }
-@@ -603,6 +612,9 @@ bool Group::RemoveMember(uint64 guid, const RemoveMethod& method /*= GROUP_REMOV
+@@ -599,6 +608,9 @@ bool Group::RemoveMember(uint64 guid, const RemoveMethod& method /*= GROUP_REMOV
          }
  
          if (m_memberMgr.getSize() < ((isLFGGroup() || isBGGroup()) ? 1u : 2u))
@@ -21639,7 +21643,7 @@ index 8ec6aac..5ac8fe1 100644
  
          return true;
 diff --git a/src/server/game/Groups/Group.h b/src/server/game/Groups/Group.h
-index 356a1a5..190a855 100644
+index 0f55aba..b859d56 100644
 --- a/src/server/game/Groups/Group.h
 +++ b/src/server/game/Groups/Group.h
 @@ -307,6 +307,9 @@ class Group
@@ -21653,7 +21657,7 @@ index 356a1a5..190a855 100644
          bool _setMembersGroup(uint64 guid, uint8 group);
          void _homebindIfInstance(Player* player);
 diff --git a/src/server/game/Handlers/CharacterHandler.cpp b/src/server/game/Handlers/CharacterHandler.cpp
-index f079d6a..d30639b 100644
+index 25164b8..b48a644 100644
 --- a/src/server/game/Handlers/CharacterHandler.cpp
 +++ b/src/server/game/Handlers/CharacterHandler.cpp
 @@ -48,6 +48,9 @@
@@ -21704,7 +21708,7 @@ index f079d6a..d30639b 100644
      delete holder;
  }
 diff --git a/src/server/game/Handlers/MiscHandler.cpp b/src/server/game/Handlers/MiscHandler.cpp
-index 7145358..0681d30 100644
+index 4da0d82..777a21c 100644
 --- a/src/server/game/Handlers/MiscHandler.cpp
 +++ b/src/server/game/Handlers/MiscHandler.cpp
 @@ -56,6 +56,9 @@
@@ -21716,7 +21720,7 @@ index 7145358..0681d30 100644
 +
  void WorldSession::HandleRepopRequestOpcode(WorldPacket& recvData)
  {
-     TC_LOG_DEBUG(LOG_FILTER_NETWORKIO, "WORLD: Recvd CMSG_REPOP_REQUEST Message");
+     TC_LOG_DEBUG("network", "WORLD: Recvd CMSG_REPOP_REQUEST Message");
 @@ -111,6 +114,16 @@ void WorldSession::HandleGossipSelectOptionOpcode(WorldPacket& recvData)
              return;
          }
@@ -21726,7 +21730,7 @@ index 7145358..0681d30 100644
 +    {
 +        if (guid != _player->GetGUID())
 +        {
-+            TC_LOG_ERROR(LOG_FILTER_NETWORKIO, "WORLD: HandleGossipSelectOptionOpcode - Player (GUID: %u) not found.", uint32(GUID_LOPART(guid)));
++            TC_LOG_ERROR("network", "WORLD: HandleGossipSelectOptionOpcode - Player (GUID: %u) not found.", uint32(GUID_LOPART(guid)));
 +            return;
 +        }
 +    }
@@ -21743,7 +21747,7 @@ index 7145358..0681d30 100644
 +        {
 +            if (!_player->GetBotHelper())
 +            {
-+                TC_LOG_ERROR(LOG_FILTER_NETWORKIO, "WORLD: HandleGossipSelectOptionOpcode - Player (GUID: %u) do not have a helper on gossip select.", uint32(GUID_LOPART(guid)));
++                TC_LOG_ERROR("network", "WORLD: HandleGossipSelectOptionOpcode - Player (GUID: %u) do not have a helper on gossip select.", uint32(GUID_LOPART(guid)));
 +                return;
 +            }
 +            //_player->GetBotHelper()->OnCodedGossipSelect(_player, _player->PlayerTalkClass->GetGossipOptionSender(gossipListId), _player->PlayerTalkClass->GetGossipOptionAction(gossipListId), code.c_str());
@@ -21761,7 +21765,7 @@ index 7145358..0681d30 100644
 +        {
 +            if (!_player->GetBotHelper())
 +            {
-+                TC_LOG_ERROR(LOG_FILTER_NETWORKIO, "WORLD: HandleGossipSelectOptionOpcode - Player (GUID: %u) do not have a helper on gossip select.", uint32(GUID_LOPART(guid)));
++                TC_LOG_ERROR("network", "WORLD: HandleGossipSelectOptionOpcode - Player (GUID: %u) do not have a helper on gossip select.", uint32(GUID_LOPART(guid)));
 +                return;
 +            }
 +            _player->GetBotHelper()->OnGossipSelect(_player, _player->PlayerTalkClass->GetGossipOptionSender(gossipListId), _player->PlayerTalkClass->GetGossipOptionAction(gossipListId));
@@ -21771,7 +21775,7 @@ index 7145358..0681d30 100644
          {
              go->AI()->GossipSelect(_player, menuId, gossipListId);
 diff --git a/src/server/game/Handlers/NPCHandler.cpp b/src/server/game/Handlers/NPCHandler.cpp
-index e3921ee..a03fd30 100644
+index 39489e7..2808ee2 100644
 --- a/src/server/game/Handlers/NPCHandler.cpp
 +++ b/src/server/game/Handlers/NPCHandler.cpp
 @@ -38,6 +38,9 @@
@@ -21793,7 +21797,7 @@ index e3921ee..a03fd30 100644
 +    {
 +        if (!_player->GetBotHelper())
 +        {
-+            TC_LOG_ERROR(LOG_FILTER_NETWORKIO, "WORLD: HandleGossipSelectOptionOpcode - Player (GUID: %u) do not have a helper on gossip hello.", uint32(GUID_LOPART(guid)));
++            TC_LOG_ERROR("network", "WORLD: HandleGossipSelectOptionOpcode - Player (GUID: %u) do not have a helper on gossip hello.", uint32(GUID_LOPART(guid)));
 +            return;
 +        }
 +        _player->GetBotHelper()->OnGossipHello(_player);
@@ -21809,7 +21813,7 @@ index e3921ee..a03fd30 100644
 +            {
 +                if (!sScriptMgr->OnGossipHello(_player, qBot))
 +                {
-+                    TC_LOG_ERROR(LOG_FILTER_NETWORKIO, "WORLD: HandleGossipHelloOpcode - qBot %s (Entry: %u) returned false on gossip hello.",
++                    TC_LOG_ERROR("network", "WORLD: HandleGossipHelloOpcode - qBot %s (Entry: %u) returned false on gossip hello.",
 +                        qBot->GetName().c_str(), qBot->GetEntry());
 +                }
 +                return;
@@ -21822,10 +21826,10 @@ index e3921ee..a03fd30 100644
      if (!unit)
      {
 diff --git a/src/server/game/Handlers/SpellHandler.cpp b/src/server/game/Handlers/SpellHandler.cpp
-index 418709c..e4135d8 100644
+index b264b0d..4fa119d 100644
 --- a/src/server/game/Handlers/SpellHandler.cpp
 +++ b/src/server/game/Handlers/SpellHandler.cpp
-@@ -568,6 +568,36 @@ void WorldSession::HandleMirrorImageDataRequest(WorldPacket& recvData)
+@@ -566,6 +566,36 @@ void WorldSession::HandleMirrorImageDataRequest(WorldPacket& recvData)
      if (!unit)
          return;
  
@@ -21863,10 +21867,10 @@ index 418709c..e4135d8 100644
          return;
  
 diff --git a/src/server/game/Maps/Map.cpp b/src/server/game/Maps/Map.cpp
-index 4660489..6382dec 100644
+index 6f99ee0..b30ef0f 100644
 --- a/src/server/game/Maps/Map.cpp
 +++ b/src/server/game/Maps/Map.cpp
-@@ -2186,7 +2186,10 @@ uint32 Map::GetPlayersCountExceptGMs() const
+@@ -2487,7 +2487,10 @@ uint32 Map::GetPlayersCountExceptGMs() const
      uint32 count = 0;
      for (MapRefManager::const_iterator itr = m_mapRefManager.begin(); itr != m_mapRefManager.end(); ++itr)
          if (!itr->GetSource()->IsGameMaster())
@@ -21878,10 +21882,10 @@ index 4660489..6382dec 100644
  }
  
 diff --git a/src/server/game/Scripting/ScriptLoader.cpp b/src/server/game/Scripting/ScriptLoader.cpp
-index 31323a6..55c25cf 100644
+index 28fe883..535ffa5 100644
 --- a/src/server/game/Scripting/ScriptLoader.cpp
 +++ b/src/server/game/Scripting/ScriptLoader.cpp
-@@ -1394,6 +1394,21 @@ void AddBattlegroundScripts()
+@@ -1426,6 +1426,21 @@ void AddBattlegroundScripts()
  
  #ifdef SCRIPTS
  /* This is where custom scripts' loading functions should be declared. */
@@ -21903,7 +21907,7 @@ index 31323a6..55c25cf 100644
  
  #endif
  
-@@ -1401,6 +1416,21 @@ void AddCustomScripts()
+@@ -1433,6 +1448,21 @@ void AddCustomScripts()
  {
  #ifdef SCRIPTS
      /* This is where custom scripts should be added. */
@@ -21926,10 +21930,10 @@ index 31323a6..55c25cf 100644
  #endif
  }
 diff --git a/src/server/game/Server/WorldSession.cpp b/src/server/game/Server/WorldSession.cpp
-index c60b094..c4fbdf1 100644
+index 82cc1c9..9b8e5e0 100644
 --- a/src/server/game/Server/WorldSession.cpp
 +++ b/src/server/game/Server/WorldSession.cpp
-@@ -419,6 +419,20 @@ bool WorldSession::Update(uint32 diff, PacketFilter& updater)
+@@ -429,6 +429,20 @@ bool WorldSession::Update(uint32 diff, PacketFilter& updater)
  /// %Log the player out
  void WorldSession::LogoutPlayer(bool save)
  {
@@ -21950,7 +21954,7 @@ index c60b094..c4fbdf1 100644
      // finish pending transfers before starting the logout
      while (_player && _player->IsBeingTeleportedFar())
          HandleMoveWorldportAckOpcode();
-@@ -512,6 +526,9 @@ void WorldSession::LogoutPlayer(bool save)
+@@ -522,6 +536,9 @@ void WorldSession::LogoutPlayer(bool save)
          // remove player from the group if he is:
          // a) in group; b) not in raid group; c) logging out normally (not being kicked or disconnected)
          if (_player->GetGroup() && !_player->GetGroup()->isRaidGroup() && m_Socket)
@@ -21961,7 +21965,7 @@ index c60b094..c4fbdf1 100644
  
          //! Send update to group and reset stored max enchanting level
 diff --git a/src/server/game/Server/WorldSession.h b/src/server/game/Server/WorldSession.h
-index 3842a45..c2f047a 100644
+index 2d7ec9c..e86c1d3 100644
 --- a/src/server/game/Server/WorldSession.h
 +++ b/src/server/game/Server/WorldSession.h
 @@ -192,6 +192,32 @@ class CharacterCreateInfo
@@ -21998,17 +22002,17 @@ index 3842a45..c2f047a 100644
  class WorldSession
  {
 diff --git a/src/server/game/World/World.cpp b/src/server/game/World/World.cpp
-index 8ca2e1d..669bef1 100644
+index d8dc19c..3aea810 100644
 --- a/src/server/game/World/World.cpp
 +++ b/src/server/game/World/World.cpp
-@@ -1428,6 +1428,9 @@ void World::SetInitialWorldSettings()
-     TC_LOG_INFO(LOG_FILTER_SERVER_LOADING, "Loading Creature templates...");
+@@ -1431,6 +1431,9 @@ void World::SetInitialWorldSettings()
+     TC_LOG_INFO("server.loading", "Loading Creature templates...");
      sObjectMgr->LoadCreatureTemplates();
  
-+    TC_LOG_INFO(LOG_FILTER_SERVER_LOADING, "Loading Creature template outfits...");     // must be after LoadCreatureTemplates
++    TC_LOG_INFO("server.loading", "Loading Creature template outfits...");     // must be after LoadCreatureTemplates
 +    sObjectMgr->LoadCreatureOutfits();
 +
-     TC_LOG_INFO(LOG_FILTER_SERVER_LOADING, "Loading Equipment templates...");           // must be after LoadCreatureTemplates
+     TC_LOG_INFO("server.loading", "Loading Equipment templates...");           // must be after LoadCreatureTemplates
      sObjectMgr->LoadEquipmentTemplates();
  
 diff --git a/src/server/scripts/Spells/spell_priest.cpp b/src/server/scripts/Spells/spell_priest.cpp
@@ -22041,7 +22045,7 @@ index 0d3da30..41db076 100644
              }
  
 diff --git a/src/server/shared/Database/Implementation/CharacterDatabase.cpp b/src/server/shared/Database/Implementation/CharacterDatabase.cpp
-index fdb71dd..e2a34a5 100644
+index da99d6c..a891627 100644
 --- a/src/server/shared/Database/Implementation/CharacterDatabase.cpp
 +++ b/src/server/shared/Database/Implementation/CharacterDatabase.cpp
 @@ -600,4 +600,18 @@ void CharacterDatabaseConnection::DoPrepareStatements()
@@ -22064,7 +22068,7 @@ index fdb71dd..e2a34a5 100644
 +        "equipHead, equipShoulders, equipChest, equipWaist, equipLegs, equipFeet, equipWrist, equipHands, equipBack, equipBody, equipFinger1, equipFinger2, equipTrinket1, equipTrinket2, equipNeck FROM character_npcbot WHERE owner = ? AND entry = ?", CONNECTION_SYNCH);
  }
 diff --git a/src/server/shared/Database/Implementation/CharacterDatabase.h b/src/server/shared/Database/Implementation/CharacterDatabase.h
-index 4aeee0a..411bbaf3 100644
+index aa47fb5..a5439ec 100644
 --- a/src/server/shared/Database/Implementation/CharacterDatabase.h
 +++ b/src/server/shared/Database/Implementation/CharacterDatabase.h
 @@ -532,6 +532,16 @@ enum CharacterDatabaseStatements
@@ -22085,10 +22089,10 @@ index 4aeee0a..411bbaf3 100644
  };
  
 diff --git a/src/server/shared/Database/Implementation/WorldDatabase.cpp b/src/server/shared/Database/Implementation/WorldDatabase.cpp
-index 4128047..2c6e7c3 100644
+index f27ee2b..d1de3dd 100644
 --- a/src/server/shared/Database/Implementation/WorldDatabase.cpp
 +++ b/src/server/shared/Database/Implementation/WorldDatabase.cpp
-@@ -93,4 +93,8 @@ void WorldDatabaseConnection::DoPrepareStatements()
+@@ -91,4 +91,8 @@ void WorldDatabaseConnection::DoPrepareStatements()
      PrepareStatement(WORLD_DEL_DISABLES, "DELETE FROM disables WHERE entry = ? AND sourceType = ?", CONNECTION_ASYNC);
      // 0: uint8
      PrepareStatement(WORLD_SEL_REQ_XP, "SELECT xp_for_next_level FROM player_xp_for_level WHERE lvl = ?", CONNECTION_SYNCH);
@@ -22098,10 +22102,10 @@ index 4128047..2c6e7c3 100644
 +    PrepareStatement(WORLD_SEL_NPCBOT_PET_LEVELSTATS, "SELECT hp, mana, armor, str, agi, sta, inte, spi FROM pet_levelstats WHERE creature_entry = ? AND level = ?", CONNECTION_SYNCH);
  }
 diff --git a/src/server/shared/Database/Implementation/WorldDatabase.h b/src/server/shared/Database/Implementation/WorldDatabase.h
-index 171627b..05ae43e 100644
+index 0126cdc..92cb76d 100644
 --- a/src/server/shared/Database/Implementation/WorldDatabase.h
 +++ b/src/server/shared/Database/Implementation/WorldDatabase.h
-@@ -114,6 +114,10 @@ enum WorldDatabaseStatements
+@@ -112,6 +112,10 @@ enum WorldDatabaseStatements
      WORLD_DEL_DISABLES,
      WORLD_SEL_REQ_XP,
  
@@ -22113,10 +22117,10 @@ index 171627b..05ae43e 100644
  };
  
 diff --git a/src/server/worldserver/worldserver.conf.dist b/src/server/worldserver/worldserver.conf.dist
-index 23db333..b891e83 100644
+index 4e594fc..3e79acb 100644
 --- a/src/server/worldserver/worldserver.conf.dist
 +++ b/src/server/worldserver/worldserver.conf.dist
-@@ -2858,3 +2858,107 @@ PacketSpoof.BanDuration = 86400
+@@ -2816,3 +2816,107 @@ PacketSpoof.BanDuration = 86400
  
  #
  ###################################################################################################
