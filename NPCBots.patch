@@ -1,6 +1,6 @@
-From eb103b192921cf3005e0eab1b1d7bd9b2b3f1397 Mon Sep 17 00:00:00 2001
+From e6bb69fbfd1ff9327a5f01a451dbde68b06a3649 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Thu, 5 Dec 2013 10:49:41 +0700
+Date: Sat, 7 Dec 2013 16:47:54 +0700
 Subject: [PATCH] NPCBots
 
 ---
@@ -11,13 +11,13 @@ Subject: [PATCH] NPCBots
  sql/Bots/world_creature_template_outfits.sql       |   43 +
  src/server/game/AI/NpcBots/QBots/botQ_Airen.cpp    |  121 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  594 +++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 4782 ++++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |  525 +++
- src/server/game/AI/NpcBots/bot_death_knight_ai.cpp | 1727 +++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 4789 ++++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |  531 +++
+ src/server/game/AI/NpcBots/bot_death_knight_ai.cpp | 1732 +++++++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1185 +++++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       | 1210 +++++
- src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  983 ++++
- src/server/game/AI/NpcBots/bot_paladin_ai.cpp      | 1116 +++++
+ src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  999 ++++
+ src/server/game/AI/NpcBots/bot_paladin_ai.cpp      | 1122 +++++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       | 1034 +++++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  955 ++++
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       | 1403 ++++++
@@ -56,7 +56,7 @@ Subject: [PATCH] NPCBots
  .../Database/Implementation/WorldDatabase.cpp      |    4 +
  .../shared/Database/Implementation/WorldDatabase.h |    4 +
  src/server/worldserver/worldserver.conf.dist       |  104 +
- 52 files changed, 21387 insertions(+), 0 deletions(-)
+ 52 files changed, 21427 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/auth_rbac.sql
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world_bot_helper_locales_gossip_menu_option.sql
@@ -1584,10 +1584,10 @@ index 0000000..37e36d6
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..ce4c27c
+index 0000000..7aeadd1
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,4782 @@
+@@ -0,0 +1,4789 @@
 +/*
 +NpcBot System by Graff (onlysuffering@gmail.com)
 +Original patch from: LordPsyan https://bitbucket.org/lordpsyan/trinitycore-patches/src/3b8b9072280e/Individual/11185-BOTS-NPCBots.patch
@@ -1603,6 +1603,7 @@ index 0000000..ce4c27c
 +#include "CellImpl.h"
 +#include "Chat.h"
 +#include "Config.h"
++#include "GameEventMgr.h"
 +#include "GridNotifiers.h"
 +#include "GridNotifiersImpl.h"
 +#include "ScriptedGossip.h"
@@ -3762,7 +3763,13 @@ index 0000000..ce4c27c
 +        uint32 mount = 0;
 +        Unit::AuraEffectList const &mounts = master->GetAuraEffectsByType(SPELL_AURA_MOUNTED);
 +        if (!mounts.empty())
-+            mount = mounts.front()->GetId();
++        {
++            //Winter Veil addition
++            if (sGameEventMgr->IsActiveEvent(GAME_EVENT_WINTER_VEIL))
++                mount = master->CanFly() ? REINDEER_FLY : REINDEER;
++            else
++                mount = mounts.front()->GetId();
++        }
 +        if (mount)
 +        {
 +            if (me->HasAuraType(SPELL_AURA_MOUNTED))
@@ -6372,10 +6379,10 @@ index 0000000..ce4c27c
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..d17106e
+index 0000000..2530c42
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,525 @@
+@@ -0,0 +1,531 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -6390,6 +6397,7 @@ index 0000000..d17106e
 +
 +enum CommonValues
 +{
++//MISC
 +    BOT_ENTRY_BEGIN                     = 70001,
 +    BOT_ENTRY_END                       = 70248,
 +//COMMON SPELLS
@@ -6430,7 +6438,12 @@ index 0000000..d17106e
 +    RCP      /*Rogue Class Passive*/    = 21184,//-27% threat caused
 +    DEFENSIVE_STANCE_PASSIVE            = 7376, //+ 400% threat 10% damage reduction
 +//COMMON GOSSIPS
-+    GOSSIP_SERVE_MASTER                 = 2279  //"I live only to serve the master."
++    GOSSIP_SERVE_MASTER                 = 2279, //"I live only to serve the master."
++//COMMON GAMEEVENTS
++    GAME_EVENT_WINTER_VEIL              = 2,
++//COMMON MOUNTS SPELLS
++    REINDEER                            = 25859,
++    REINDEER_FLY                        = 44827
 +};
 +
 +enum BotStances
@@ -6903,11 +6916,12 @@ index 0000000..d17106e
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_death_knight_ai.cpp b/src/server/game/AI/NpcBots/bot_death_knight_ai.cpp
 new file mode 100644
-index 0000000..ed1781a
+index 0000000..45de5c0
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_death_knight_ai.cpp
-@@ -0,0 +1,1727 @@
+@@ -0,0 +1,1732 @@
 +#include "bot_ai.h"
++#include "GameEventMgr.h"
 +#include "Group.h"
 +#include "Player.h"
 +#include "ScriptMgr.h"
@@ -8093,6 +8107,10 @@ index 0000000..ed1781a
 +                    horn->SetDuration(dur);
 +                    horn->SetMaxDuration(dur);
 +                }
++
++                //Winter Veil addition
++                if (sGameEventMgr->IsActiveEvent(GAME_EVENT_WINTER_VEIL))
++                    me->AddAura(44755, target); //snowflakes
 +            }
 +
 +            if (target == me)
@@ -11043,11 +11061,12 @@ index 0000000..45a1359
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_mage_ai.cpp b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 new file mode 100644
-index 0000000..f2430b6
+index 0000000..1429d1d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
-@@ -0,0 +1,983 @@
+@@ -0,0 +1,999 @@
 +#include "bot_ai.h"
++#include "GameEventMgr.h"
 +#include "Group.h"
 +#include "Player.h"
 +#include "ScriptMgr.h"
@@ -11650,7 +11669,7 @@ index 0000000..f2430b6
 +            OnSpellHit(caster, spell);
 +        }
 +
-+        void SpellHitTarget(Unit* /*target*/, SpellInfo const* spell)
++        void SpellHitTarget(Unit* target, SpellInfo const* spell)
 +        {
 +            if (aftercastTargetGuid != 0)
 +            {
@@ -11660,8 +11679,10 @@ index 0000000..f2430b6
 +                    aftercastTargetGuid = 0;
 +                    return;
 +                }
++
 +                Player* pTarget = sObjectAccessor->FindPlayer(aftercastTargetGuid);
 +                aftercastTargetGuid = 0;
++
 +                if (!pTarget/* || me->GetDistance(pTarget) > 15*/)
 +                    return;
 +
@@ -11714,6 +11735,19 @@ index 0000000..f2430b6
 +                            break;
 +                    }
 +                }
++
++                return;
++            }
++
++            //Winter Veil addition
++            uint32 spellId = spell->Id;
++            if (sGameEventMgr->IsActiveEvent(GAME_EVENT_WINTER_VEIL))
++            {
++                if (SPELL_SCHOOL_MASK_FROST & spell->GetSchoolMask())
++                    me->AddAura(44755, target); //snowflakes
++
++                if (spellId == FROSTBOLT && urand(1,100) <= 10)
++                    me->CastSpell(target, 25686, true); //10% super snowball
 +            }
 +        }
 +
@@ -11754,7 +11788,7 @@ index 0000000..f2430b6
 +            FireBlast_cd = 0;
 +            DragonBreath_cd = 0;
 +            Living_Bomb_cd = 0;
-+            Combustion_cd = 30000;//30 sec for reset
++            Combustion_cd = 30000; //30 sec for reset
 +            Ice_Barrier_cd = 0;
 +            Iceblock_cd = 0;
 +            ConeofCold_cd = 0;
@@ -11862,11 +11896,11 @@ index 0000000..f2430b6
 +            else if (level >= 10)
 +                FROSTBITE = FROSTBITE1;
 +            if (level >= 60)
-+                RefreshAura(FROSTBITE,3);//3x
++                RefreshAura(FROSTBITE,3); //3x
 +            else if (level >= 30)
-+                RefreshAura(FROSTBITE,2);//2x
++                RefreshAura(FROSTBITE,2); //2x
 +            else if (level >= 10)
-+                RefreshAura(FROSTBITE);//1x
++                RefreshAura(FROSTBITE); //1x
 +            //Shattered Barrier
 +            if (level >= 45)
 +                RefreshAura(SHATTERED_BARRIER);
@@ -11923,9 +11957,9 @@ index 0000000..f2430b6
 +                RefreshAura(IMPROVED_COUNTERSPELL1); //2 sec
 +            //Firestarter
 +            if (level >= 55)
-+                RefreshAura(FIRESTARTER2);//100% chance
++                RefreshAura(FIRESTARTER2); //100% chance
 +            else if (level >= 45)
-+                RefreshAura(FIRESTARTER1);//50% chance
++                RefreshAura(FIRESTARTER1); //50% chance
 +            //Spells
 +            if (LIVINGBOMB)
 +                RefreshAura(GLYPH_LIVING_BOMB);
@@ -12032,10 +12066,10 @@ index 0000000..f2430b6
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 new file mode 100644
-index 0000000..969c722
+index 0000000..2223334
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
-@@ -0,0 +1,1116 @@
+@@ -0,0 +1,1122 @@
 +#include "bot_ai.h"
 +#include "Group.h"
 +#include "Player.h"
@@ -12279,7 +12313,7 @@ index 0000000..969c722
 +            if (doCast(target, HOLY_SHOCK))
 +            {
 +                if (urand(1,100) > 20) //Daybreak: 20% to not trigger HS CD, only GCD
-+                    HS_Timer = target->ToCreature() ? 3500 : 5000;
++                    HS_Timer = 5000;
 +                return true;
 +            }
 +            return false;
@@ -12332,7 +12366,7 @@ index 0000000..969c722
 +                        }
 +                    case 2:
 +                        if (GC_Timer > diff) return false;
-+                        if (FLASH_OF_LIGHT && doCast(target, FLASH_OF_LIGHT))
++                        if (FLASH_OF_LIGHT && doCast(target, FLASH_OF_LIGHT, me->HasAura(THE_ART_OF_WAR_BUFF)))
 +                            return true;
 +                    case 3:
 +                        if (GC_Timer > diff) return false;
@@ -12362,7 +12396,7 @@ index 0000000..969c722
 +                if (doCast(target, HOLY_LIGHT))
 +                    return true;
 +            if (FLASH_OF_LIGHT && (hp < 90 || GetLostHP(target) > 1500))
-+                if (doCast(target, FLASH_OF_LIGHT))
++                if (doCast(target, FLASH_OF_LIGHT, me->HasAura(THE_ART_OF_WAR_BUFF)))
 +                    return true;
 +            return false;
 +        }//end HealTarget
@@ -12830,6 +12864,12 @@ index 0000000..969c722
 +        void SpellHitTarget(Unit* target, SpellInfo const* spell)
 +        {
 +            uint32 spellId = spell->Id;
++
++            if ((spellId == EXORCISM || spellId == FLASH_OF_LIGHT) && me->HasAura(THE_ART_OF_WAR_BUFF))
++            {
++                //Art of War: consume buff
++                me->RemoveAura(THE_ART_OF_WAR_BUFF, 0, 0, AURA_REMOVE_BY_EXPIRE);
++            }
 +
 +            if (spellId == BLESSING_OF_KINGS || spellId == BLESSING_OF_MIGHT ||
 +                spellId == BLESSING_OF_WISDOM || spellId == BLESSING_OF_SANCTUARY)
