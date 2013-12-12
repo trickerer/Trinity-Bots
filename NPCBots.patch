@@ -1,4 +1,4 @@
-From e59b938912dba14a5b8ece1ca2939d8e3528b6e1 Mon Sep 17 00:00:00 2001
+From 3bd1b8a270fc64425765e83c5246c8202d245af3 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
 Date: Thu, 12 Dec 2013 15:39:59 +0700
 Subject: [PATCH] NPCBots
@@ -15,7 +15,7 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/NpcBots/bot_ai.h                |  543 +++
  src/server/game/AI/NpcBots/bot_death_knight_ai.cpp | 1680 +++++++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1165 +++++
- src/server/game/AI/NpcBots/bot_hunter_ai.cpp       | 1165 +++++
+ src/server/game/AI/NpcBots/bot_hunter_ai.cpp       | 1151 +++++
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  991 ++++
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      | 1100 +++++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       | 1008 ++++
@@ -56,7 +56,7 @@ Subject: [PATCH] NPCBots
  .../Database/Implementation/WorldDatabase.cpp      |    4 +
  .../shared/Database/Implementation/WorldDatabase.h |    4 +
  src/server/worldserver/worldserver.conf.dist       |  104 +
- 52 files changed, 21162 insertions(+), 0 deletions(-)
+ 52 files changed, 21148 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/auth_rbac.sql
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world_bot_helper_locales_gossip_menu_option.sql
@@ -9879,10 +9879,10 @@ index 0000000..a12e445
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_hunter_ai.cpp b/src/server/game/AI/NpcBots/bot_hunter_ai.cpp
 new file mode 100644
-index 0000000..6a93e3d
+index 0000000..e38ea51
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_hunter_ai.cpp
-@@ -0,0 +1,1165 @@
+@@ -0,0 +1,1151 @@
 +#include "bot_ai.h"
 +#include "Player.h"
 +#include "ScriptMgr.h"
@@ -10120,34 +10120,24 @@ index 0000000..6a93e3d
 +            if (!ASPECT_OF_THE_VIPER && !ASPECT_OF_THE_PACK)
 +                return;
 +
-+            uint8 needaspect = ASPECT_NONE;
++            uint32 needaspect = 0;
 +            uint8 pct = GetManaPCT(me);
 +
 +            if (ASPECT_OF_THE_VIPER && pct < 25)
-+                needaspect = ASPECT_VIPER;
-+            else if (ASPECT_OF_THE_PACK && (pct > 50 || Aspect == ASPECT_NONE))
-+                needaspect = ASPECT_PACK;
++                needaspect = ASPECT_OF_THE_VIPER;
++            else if (ASPECT_OF_THE_PACK && (pct > 70 || !Aspect))
++                needaspect = ASPECT_OF_THE_PACK;
 +
-+            if (needaspect == ASPECT_NONE || needaspect == Aspect)
++            if (!needaspect || (needaspect == Aspect && HasAuraName(me, needaspect)))
 +            {
-+                Aspect_Timer = 1000;
++                Aspect_Timer = 2000;
 +                return;
 +            }
 +
-+            switch (Aspect)
-+            {
-+                case ASPECT_VIPER:
-+                    me->RemoveAurasDueToSpell(ASPECT_OF_THE_VIPER);
-+                    break;
-+                case ASPECT_PACK:
-+                    me->RemoveAurasDueToSpell(ASPECT_OF_THE_PACK);
-+                    break;
-+                case ASPECT_NONE:
-+                default:
-+                    break;
-+            }
++            if (Aspect)
++                me->RemoveAurasDueToSpell(Aspect);
 +
-+            if (doCast(me, (needaspect == ASPECT_VIPER ? ASPECT_OF_THE_VIPER : ASPECT_OF_THE_PACK)))
++            if (doCast(me, needaspect))
 +            {
 +                Aspect = needaspect;
 +                GC_Timer = 800;
@@ -10850,11 +10840,11 @@ index 0000000..6a93e3d
 +            ScorpidSting_Timer = 0;
 +            Aspect_Timer = 0;
 +
++            Aspect = 0;
++
 +            stingTargetGuid = 0;
 +
 +            markTarget = NULL;
-+
-+            Aspect = ASPECT_NONE;
 +
 +            if (master)
 +            {
@@ -10961,9 +10951,9 @@ index 0000000..6a93e3d
 +    private:
 +        typedef UNORDERED_MAP<uint32 /*spellId*/, int32 /*manaCost*/> ManaRestoreList;
 +        ManaRestoreList TotH;
-+        uint8 Aspect;
 +        uint32 Trap_cd;
 +        uint32 ScorpidSting_Timer, Aspect_Timer;
++        uint32 Aspect;
 +        uint64 stingTargetGuid;
 +        Unit* markTarget;
 +
@@ -11024,10 +11014,6 @@ index 0000000..6a93e3d
 +
 +        enum HunterSpecial
 +        {
-+            ASPECT_NONE,
-+            ASPECT_PACK,
-+            ASPECT_VIPER,
-+
 +            IMPROVED_CONCUSSION                 = 28445,
 +            IMPROVED_WING_CLIP_NORMAL           = 47168,
 +            IMPROVED_WING_CLIP_EX               = 35963,
