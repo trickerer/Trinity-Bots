@@ -1,4 +1,4 @@
-From 3bd1b8a270fc64425765e83c5246c8202d245af3 Mon Sep 17 00:00:00 2001
+From cf8c9847f8c324e812a639286bc5486fbdc7b96b Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
 Date: Thu, 12 Dec 2013 15:39:59 +0700
 Subject: [PATCH] NPCBots
@@ -11,8 +11,8 @@ Subject: [PATCH] NPCBots
  sql/Bots/world_creature_template_outfits.sql       |   42 +
  src/server/game/AI/NpcBots/QBots/botQ_Airen.cpp    |  121 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  594 +++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 4884 ++++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |  543 +++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 4930 ++++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |  547 +++
  src/server/game/AI/NpcBots/bot_death_knight_ai.cpp | 1680 +++++++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1165 +++++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       | 1151 +++++
@@ -56,7 +56,7 @@ Subject: [PATCH] NPCBots
  .../Database/Implementation/WorldDatabase.cpp      |    4 +
  .../shared/Database/Implementation/WorldDatabase.h |    4 +
  src/server/worldserver/worldserver.conf.dist       |  104 +
- 52 files changed, 21148 insertions(+), 0 deletions(-)
+ 52 files changed, 21198 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/auth_rbac.sql
  create mode 100644 sql/Bots/character_NPC_bots.sql
  create mode 100644 sql/Bots/world_bot_helper_locales_gossip_menu_option.sql
@@ -1583,10 +1583,10 @@ index 0000000..37e36d6
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..839537a
+index 0000000..4f81f29
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,4884 @@
+@@ -0,0 +1,4930 @@
 +#include "bot_ai.h"
 +#include "bot_GridNotifiers.h"
 +#include "CellImpl.h"
@@ -1657,6 +1657,8 @@ index 0000000..839537a
 +    master = me->GetBotOwner();
 +    m_spellpower = 0;
 +    m_block = 1;
++    m_expertise = 0;
++    m_spellpen = 0;
 +    haste = 0;
 +    hit = 0.f;
 +    regen_mp5 = 0.f;
@@ -2482,6 +2484,8 @@ index 0000000..839537a
 +        ch.PSendSysMessage("spell damage mult: %f", dmgmult_spell);
 +        ch.PSendSysMessage("mana regen: %f", regen_mp5/* - (int32(regen_mp5) % 45)*/);
 +        ch.PSendSysMessage("haste: %u *10 pct", haste);
++        ch.PSendSysMessage("expertise: %i (-%.2f)", m_expertise, float(m_expertise) * 0.25f);
++        ch.PSendSysMessage("spell penetration: %i", m_spellpen);
 +        for (uint8 i = SPELL_SCHOOL_HOLY; i != MAX_SPELL_SCHOOL; ++i)
 +        {
 +            const char* resist = NULL;
@@ -2673,7 +2677,7 @@ index 0000000..839537a
 +    //HASTE
 +    value = 0.f;
 +    for (uint8 i = CR_HASTE_MELEE; i != CR_HASTE_SPELL + 1; ++i)
-+        if (float rating = master->GetRatingBonusValue(CombatRating(i)))
++        if (float rating = std::min<float>(master->GetRatingBonusValue(CombatRating(i)), 30.f))
 +            if (rating > value) //master got some haste
 +                value = rating; //get hightest pct
 +    for (uint8 i = EQUIPMENT_SLOT_BACK; i < EQUIPMENT_SLOT_END; ++i)
@@ -2721,6 +2725,29 @@ index 0000000..839537a
 +    hit = value / 3.f;
 +    RefreshAura(PRECISION,  int8(hit) + mylevel / 39); //melee
 +    RefreshAura(PRECISION2, int8(hit) + mylevel / 39); //spell
++
++    //EXPERTISE
++    if (ap_mod > 0.f) //don't bother casters
++    {
++        m_expertise = master->GetTotalAuraModifier(SPELL_AURA_MOD_EXPERTISE) * 2; //lots of expertise for bots
++
++        if (mylevel >= 20)
++        {
++            for (uint8 i = 0; i != BOT_INVENTORY_SIZE; ++i)
++            {
++                //~8.0 ER = 1 expertise at 80
++                float tempval = _stats[i][ITEM_MOD_EXPERTISE_RATING];
++                m_expertise += int32(2.f * (tempval / (8.0f * (float(mylevel - 10) / 70.f))));
++            }
++        }
++
++        if (m_expertise < 20)
++            RefreshAura(EXPERTISE,  int8(m_expertise / 5)  + mylevel / 39); //5  expertise + 10
++        else
++            RefreshAura(EXPERTISE2, int8(m_expertise / 10) + mylevel / 39); //10 expertise + 20
++    }
++    else
++        m_expertise = 0;
 +
 +    //CRIT
 +    //chose melee or ranged cuz crit rating increases melee/spell, and hunter benefits from agility
@@ -2871,6 +2898,25 @@ index 0000000..839537a
 +            else/*if (regen_mp5 > 150.f)*/RefreshAura(MANAREGEN45, int8(regen_mp5/45.f)  + mylevel / 20);
 +        }
 +    }
++
++    //SPELL PENETRATION
++    if (mylevel >= 30 && spp_mod > 0.f)
++    {
++        m_spellpen = master->GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_TARGET_RESISTANCE, SPELL_SCHOOL_MASK_SPELL) / 2;
++
++        for (uint8 i = 0; i != BOT_INVENTORY_SIZE; ++i)
++        {
++            //~1 SPPR = 1 spell penetration
++            m_spellpen += 5 * _stats[i][ITEM_MOD_SPELL_PENETRATION];
++        }
++
++        if (m_spellpen < 25)
++            RefreshAura(SPELL_PEN_5,  int8(m_spellpen / 5)  + mylevel / 20); //5  sppen + 20
++        else
++            RefreshAura(SPELL_PEN_20, int8(m_spellpen / 20) + mylevel / 40); //20 sppen + 40
++    }
++    else
++        m_spellpen = 0;
 +
 +    //SPELL POWER
 +    if (mylevel >= 40 && spp_mod > 0.f)
@@ -6473,10 +6519,10 @@ index 0000000..839537a
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..7ce41e5
+index 0000000..ac9dc61
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,543 @@
+@@ -0,0 +1,547 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -6514,6 +6560,8 @@ index 0000000..7ce41e5
 +    FIREDAM_86                          = 33816,//86 fire spp
 +    MANAREGEN45                         = 35867,//45 mp5
 +    MANAREGEN100                        = 45216,//100 mp5
++    SPELL_PEN_5                         = 31921,//5 sppen
++    SPELL_PEN_20                        = 26283,//20 sppen
 +  //2) Talents
 +    HASTE    /*Gift of the EarthMother*/= 51183,//rank 5 10% spell haste
 +    HASTE2   /*Blood Frenzy - warrior*/ = 29859,//rank2 10% haste, bonus for rend (warriors only)//13789//rank 3 10% haste 6% dodge
@@ -6526,6 +6574,8 @@ index 0000000..7ce41e5
 +    PRECISION /*Precision - warrior*/   = 29592,//rank 3 3% melee hit
 +    PRECISION2/*Precision - mage*/      = 29440,//rank 3 3% spell hit
 +    DMG_TAKEN/*Deadened Nerves - rogue*/= 31383,//rank 3 (-6%)
++    EXPERTISE /*Weapon Expertise-rogue*/= 30919,//rank 1 5 expertise
++    EXPERTISE2/*Weapon Expertise-rogue*/= 30920,//rank 2 10 expertise
 +  //3) Pet/Special
 +    THREAT   /*Tank Class Passive*/     = 57339,//+43% threat
 +    BOR      /*Blood of Rhino - pet*/   = 53482,//rank 2 +40% healing taken
@@ -6833,7 +6883,7 @@ index 0000000..7ce41e5
 +        float stat, atpower, maxdist, regen_mp5, hit,
 +            ap_mod, spp_mod, crit_mod;
 +        uint64 aftercastTargetGuid;
-+        int32 cost, value, sppower, m_spellpower;
++        int32 cost, value, sppower, m_spellpower, m_expertise, m_spellpen;
 +        uint32 GC_Timer, temptimer, checkAurasTimer, wait, currentSpell, tempMana, m_block;
 +        uint8 clear_cd, haste, healTargetIconFlags;
 +        bool doHealth, doMana, shouldUpdateStats;
