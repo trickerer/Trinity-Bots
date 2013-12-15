@@ -4,7 +4,7 @@ CREATE TABLE `character_npcbot` (
   `entry` int(10) default NULL,
   `race` tinyint(3) default NULL,
   `class` tinyint(3) default NULL,
-  `istank` tinyint(3) default NULL,
+  `roles` tinyint(3) default NULL,
   `equipMhEx` int(10) default NULL,
   `equipOhEx` int(10) default NULL,
   `equipRhEx` int(10) default NULL,
