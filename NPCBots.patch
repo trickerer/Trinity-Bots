@@ -1,4 +1,4 @@
-From 29f3e6101c54f48d3df25ea336cf096c9a699123 Mon Sep 17 00:00:00 2001
+From 2e71603bcd5f6ecc38a4cee5840f9e8fa34fda1f Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
 Date: Thu, 12 Jun 2014 08:39:54 +0700
 Subject: [PATCH] NPCBots
@@ -9,8 +9,8 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/NpcBots/QBots/botQ_Airen.cpp    |  121 +
  src/server/game/AI/NpcBots/bot_Events.h            |  133 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  724 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 7927 ++++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |  888 +++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 7975 ++++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |  893 +++
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |  968 +++
  src/server/game/AI/NpcBots/bot_death_knight_ai.cpp | 1620 ++++
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        | 1116 +++
@@ -19,11 +19,11 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      | 1092 +++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  985 +++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  828 ++
- src/server/game/AI/NpcBots/bot_shaman_ai.cpp       | 1285 ++++
+ src/server/game/AI/NpcBots/bot_shaman_ai.cpp       | 1286 ++++
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  519 ++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1063 +++
  src/server/game/AI/NpcBots/botcommands.cpp         |  937 +++
- src/server/game/AI/NpcBots/botmgr.cpp              |  817 ++
+ src/server/game/AI/NpcBots/botmgr.cpp              |  821 ++
  src/server/game/AI/NpcBots/botmgr.h                |  109 +
  src/server/game/CMakeLists.txt                     |    1 +
  src/server/game/DungeonFinding/LFGMgr.cpp          |  159 +
@@ -55,7 +55,7 @@ Subject: [PATCH] NPCBots
  .../Database/Implementation/WorldDatabase.cpp      |    5 +
  .../shared/Database/Implementation/WorldDatabase.h |    5 +
  src/server/worldserver/worldserver.conf.dist       |  115 +
- 51 files changed, 25409 insertions(+), 0 deletions(-)
+ 51 files changed, 25467 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_bots.sql
  create mode 100644 sql/Bots/world_bots.sql
  create mode 100644 src/server/game/AI/NpcBots/QBots/botQ_Airen.cpp
@@ -1505,10 +1505,10 @@ index 0000000..a53e73a
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..5bef9bd
+index 0000000..83eaf87
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,7927 @@
+@@ -0,0 +1,7975 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -1631,6 +1631,7 @@ index 0000000..5bef9bd
 +    GC_Timer = 0;
 +    lastdiff = 0;
 +    _bootTimer = -1;
++    _updateTimerMedium = 0;
 +    checkAurasTimer = 20;
 +    roleTimer = 0;
 +    cost = 0;
@@ -1654,6 +1655,34 @@ index 0000000..5bef9bd
 +uint16 bot_ai::Rand() const
 +{
 +    return IAmFree() ? urand(0, 100) : urand(0, 100 + (master->GetNpcBotsCount() - 1) * 10);
++}
++
++void bot_ai::BotSay(char const* text, Player* target)
++{
++    if (!target && master->GetTypeId() == TYPEID_PLAYER)
++        target = master;
++    if (!target)
++        return;
++
++    me->MonsterSay(text, LANG_UNIVERSAL, target);
++}
++void bot_ai::BotWhisper(char const* text, Player* target)
++{
++    if (!target && master->GetTypeId() == TYPEID_PLAYER)
++        target = master;
++    if (!target)
++        return;
++
++    me->MonsterWhisper(text, target);
++}
++void bot_ai::BotYell(char const* text, Player* target)
++{
++    if (!target && master->GetTypeId() == TYPEID_PLAYER)
++        target = master;
++    if (!target)
++        return;
++
++    me->MonsterYell(text, LANG_UNIVERSAL, target);
 +}
 +
 +bool bot_ai::SetBotOwner(Player* newowner)
@@ -1904,7 +1933,7 @@ index 0000000..5bef9bd
 +    {
 +        //std::ostringstream msg;
 +        //msg << "casting " << spellInfo->SpellName[0] << " on " << victim->GetName();
-+        //me->MonsterWhisper(msg.str().c_str(), master);
++        //BotWhisper(msg.str().c_str(), master);
 +        me->Relocate(victim);
 +    }
 +
@@ -2117,6 +2146,9 @@ index 0000000..5bef9bd
 +                return;
 +        }
 +
++        if (me->HasAura(BERSERK))
++            return;
++
 +        std::list<uint64> targets;
 +        GetNearbyFriendlyTargetsList(targets, 30);
 +        for (std::list<uint64>::const_iterator itr = targets.begin(); itr != targets.end(); ++itr)
@@ -2224,6 +2256,9 @@ index 0000000..5bef9bd
 +
 +    if (IAmFree())
 +    {
++        if (me->HasAura(BERSERK))
++            return;
++
 +        WorldObject* playerOrCorpse = GetNearbyRezTarget(30);
 +        if (!playerOrCorpse)
 +            return;
@@ -2235,7 +2270,7 @@ index 0000000..5bef9bd
 +        if (doCast(target, REZZ)) //rezzing it
 +        {
 +            if (Player* player = playerOrCorpse->GetTypeId() == TYPEID_PLAYER ? playerOrCorpse->ToPlayer() : sObjectAccessor->FindPlayer(playerOrCorpse->ToCorpse()->GetOwnerGUID()))
-+                me->MonsterWhisper("Rezzing You", player);
++                BotWhisper("Rezzing You", player);
 +            rezz_cd = 20;
 +        }
 +
@@ -2264,7 +2299,7 @@ index 0000000..5bef9bd
 +
 +        if (doCast(target, REZZ))//rezzing it
 +        {
-+            me->MonsterWhisper("Rezzing You", master);
++            BotWhisper("Rezzing You", master);
 +            rezz_cd = 60;
 +        }
 +        return;
@@ -2291,12 +2326,12 @@ index 0000000..5bef9bd
 +
 +        if (doCast(target, REZZ))//rezzing it
 +        {
-+            me->MonsterWhisper("Rezzing You", tPlayer);
++            BotWhisper("Rezzing You", tPlayer);
 +            if (tPlayer != master)
 +            {
 +                std::string rezstr = "Rezzing ";
 +                rezstr += tPlayer->GetName();
-+                me->MonsterWhisper(rezstr.c_str(), master);
++                BotWhisper(rezstr.c_str(), master);
 +            }
 +            rezz_cd = 60;
 +            return;
@@ -2311,6 +2346,7 @@ index 0000000..5bef9bd
 +    if (me->getLevel() < 10 || pTarget->getLevel() < 10) return;
 +    if (me->IsMounted()) return;
 +    if (IsCasting() || Feasting()) return;
++
 +    if (IAmFree())
 +    {
 +        if (CureTarget(me, cureSpell, diff))
@@ -2318,6 +2354,9 @@ index 0000000..5bef9bd
 +        if (Creature* pet = me->GetBotsPet())
 +            if (CureTarget(pet, cureSpell, diff))
 +                return;
++
++        if (me->HasAura(BERSERK))
++            return;
 +
 +        std::list<uint64> targets;
 +        GetNearbyFriendlyTargetsList(targets, 38);
@@ -2328,6 +2367,7 @@ index 0000000..5bef9bd
 +
 +        return;
 +    }
++
 +    if (!master->GetMap()->IsRaid() && Rand() > 75) return;
 +    //TC_LOG_ERROR("entities.player", "%s: CureGroup() on %s", me->GetName().c_str(), pTarget->GetName().c_str());
 +    Group* pGroup = pTarget->GetGroup();
@@ -2607,7 +2647,12 @@ index 0000000..5bef9bd
 +            ch.PSendSysMessage("Attack time offhand: %.2f (%.1f DPS)", attSpeed,
 +                ((unit->GetFloatValue(UNIT_FIELD_MINOFFHANDDAMAGE) + unit->GetFloatValue(UNIT_FIELD_MAXOFFHANDDAMAGE)) / 2) * unit->GetModifierValue(UNIT_MOD_DAMAGE_OFFHAND, BASE_PCT) * unit->GetModifierValue(UNIT_MOD_DAMAGE_OFFHAND, TOTAL_PCT) / attSpeed);
 +        }
-+        if (unit != me || me->GetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + 2))
++        if (unit != me ||
++            (me->GetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + 2) &&
++            GetBotClass() != BOT_CLASS_PALADIN &&
++            GetBotClass() != BOT_CLASS_DEATH_KNIGHT &&
++            GetBotClass() != BOT_CLASS_DRUID &&
++            GetBotClass() != BOT_CLASS_SHAMAN))
 +        {
 +            type = RANGED_ATTACK;
 +            attSpeed = (unit->GetAttackTime(type) * unit->m_modAttackSpeedPct[type])/1000.f;
@@ -2917,11 +2962,12 @@ index 0000000..5bef9bd
 +    //CRIT
 +    if (crit_mod > 0.0f)
 +    {
-+        //assume 1 agi = 0.025% crit
 +        value = IAmFree() ? mylevel / 4 : mylevel / 16; //+20%/+5% at 80
-+        value += 0.025f * (me->GetTotalStatValue(STAT_AGILITY) - 18 + _getTotalBotStat(BOT_ITEM_MOD_AGILITY));
 +
-+        //crit from intellect - just for fun
++        if (GtChanceToMeleeCritEntry const* critRatio = sGtChanceToMeleeCritStore.LookupEntry((GetPlayerClass()-1)*GT_MAX_LEVEL + mylevel-1))
++            value += (me->GetTotalStatValue(STAT_AGILITY) - 18 + _getTotalBotStat(BOT_ITEM_MOD_AGILITY)) * critRatio->ratio * 100.0f;
++
++        //crit from intellect
 +        if (GtChanceToSpellCritEntry const* critRatio = sGtChanceToSpellCritStore.LookupEntry((GetPlayerClass()-1)*GT_MAX_LEVEL + mylevel-1))
 +            value += (me->GetTotalStatValue(STAT_INTELLECT) - 18 + _getTotalBotStat(BOT_ITEM_MOD_INTELLECT)) * critRatio->ratio * 100.f;
 +
@@ -2970,6 +3016,9 @@ index 0000000..5bef9bd
 +    if (dodge_mod > 0.0f)
 +    {
 +        value = 5.0f + (IAmFree() ? mylevel / 8 : mylevel / 16); //+10%/+5% at 80
++
++        if (GtChanceToMeleeCritEntry  const* dodgeRatio = sGtChanceToMeleeCritStore.LookupEntry((GetPlayerClass()-1)*GT_MAX_LEVEL + mylevel-1))
++            value += (me->GetTotalStatValue(STAT_AGILITY) - 18 + _getTotalBotStat(BOT_ITEM_MOD_AGILITY)) * dodgeRatio->ratio * 100.0f;
 +
 +        if (mylevel >= 10)
 +        {
@@ -3307,7 +3356,7 @@ index 0000000..5bef9bd
 +                return;
 +            }
 +            SetBotCommandState(COMMAND_STAY);
-+            me->MonsterWhisper("Standing Still.", player);
++            BotWhisper("Standing Still.", player);
 +            break;
 +        case TEXT_EMOTE_WAVE:
 +            if (!IsMinionAI())
@@ -3318,7 +3367,7 @@ index 0000000..5bef9bd
 +                return;
 +            }
 +            SetBotCommandState(COMMAND_FOLLOW, true);
-+            me->MonsterWhisper("Following!", player);
++            BotWhisper("Following!", player);
 +            break;
 +        default:
 +            break;
@@ -3545,28 +3594,6 @@ index 0000000..5bef9bd
 +        //update flags
 +        if (!me->IsInCombat() && !_evadeMode && _atHome && !me->HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP))
 +            me->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
-+
-+        //send stats update for group frames
-+        if (me->IsInWorld() && !IAmFree())
-+        {
-+            if (Group* gr = master->GetGroup())
-+            {
-+                WorldPacket data;
-+                BuildGrouUpdatePacket(&data);
-+
-+                Player* member;
-+                for (GroupReference* itr = gr->GetFirstMember(); itr != NULL; itr = itr->next())
-+                {
-+                    member = itr->GetSource();
-+                    if (member/* && !member->IsWithinDist(me, member->GetSightRange(), false)*/)
-+                        member->GetSession()->SendPacket(&data);
-+                }
-+            }
-+
-+            //update pvp state
-+            if (me->GetByteValue(UNIT_FIELD_BYTES_2, 1) != master->GetByteValue(UNIT_FIELD_BYTES_2, 1))
-+                me->SetByteValue(UNIT_FIELD_BYTES_2, 1, master->GetByteValue(UNIT_FIELD_BYTES_2, 1));
-+        }
 +    }
 +}
 +void bot_pet_ai::CheckAuras(bool /*force*/)
@@ -5424,7 +5451,7 @@ index 0000000..5bef9bd
 +    {
 +        case 0: //any kind of fail
 +        {
-+            me->MonsterSay("...", LANG_UNIVERSAL, player);
++            BotSay("...", player);
 +            break;
 +        }
 +        case 1: //return to main menu
@@ -5459,7 +5486,7 @@ index 0000000..5bef9bd
 +                        std::string errorstr = "I can't conjure ";
 +                        errorstr += iswater ? "water" : "food";
 +                        errorstr += " yet";
-+                        me->MonsterWhisper(errorstr.c_str(), player);
++                        BotWhisper(errorstr.c_str(), player);
 +                        //player->PlayerTalkClass->ClearMenus();
 +                        //return OnGossipHello(player, me);
 +                        break;
@@ -5474,13 +5501,13 @@ index 0000000..5bef9bd
 +                    {
 +                        foodspell->finish(false);
 +                        delete foodspell;
-+                        me->MonsterWhisper("I can't do it right now", player);
++                        BotWhisper("I can't do it right now", player);
 +                    }
 +                    else
 +                    {
 +                        aftercastTargetGuid = player->GetGUID();
 +                        foodspell->prepare(&targets);
-+                        me->MonsterWhisper("Here you go...", player);
++                        BotWhisper("Here you go...", player);
 +                    }
 +                    break;
 +                }
@@ -5550,7 +5577,7 @@ index 0000000..5bef9bd
 +                msg << " in slot " << uint32(i) << " (" << _getNameForSlot(i + 1) << ')';
 +                if (i < BOT_SLOT_RANGED && einfo->ItemEntry[i] == item->GetEntry())
 +                    msg << " |cffe6cc80|h[!standard item!]|h|r";
-+                me->MonsterWhisper(msg.str().c_str(), player);
++                BotWhisper(msg.str().c_str(), player);
 +            }
 +
 +            break;
@@ -5574,7 +5601,7 @@ index 0000000..5bef9bd
 +            if (slot < BOT_SLOT_RANGED && einfo->ItemEntry[slot] == item->GetEntry())
 +                msg << " |cffe6cc80|h[!standard item!]|h|r";
 +
-+            me->MonsterWhisper(msg.str().c_str(), player);
++            BotWhisper(msg.str().c_str(), player);
 +
 +            //break; //no break here - return to menu
 +        }
@@ -5738,7 +5765,7 @@ index 0000000..5bef9bd
 +        case GOSSIP_SENDER_UNEQUIP: //equips change s3: Unequip DEPRECATED
 +        {
 +            if (_unequip(action - (GOSSIP_ACTION_INFO_DEF + 1)))
-+                me->MonsterSay("Hm...", LANG_UNIVERSAL, player);
++                BotSay("Hm...", player);
 +            break;
 +        }
 +        case GOSSIP_SENDER_UNEQUIP_ALL:
@@ -5749,7 +5776,7 @@ index 0000000..5bef9bd
 +                {
 +                    std::ostringstream estr;
 +                    estr << "Cannot reset equipment in slot " << uint32(i) << " (" << _getNameForSlot(i + 1) << ")!";
-+                    me->MonsterWhisper(estr.str().c_str(), player);
++                    BotWhisper(estr.str().c_str(), player);
 +                }
 +            }
 +            break;
@@ -5812,7 +5839,6 @@ index 0000000..5bef9bd
 +            }
 +
 +            if (found && _equip(sender - GOSSIP_SENDER_EQUIP_AUTOEQUIP_EQUIP, item)){}
-+                //me->MonsterSay(RAND<char*>("Fine", "Very well", "Alright", "Yeah", "Good", "Okay"), LANG_UNIVERSAL, player);
 +
 +            //break;
 +        }
@@ -5979,7 +6005,6 @@ index 0000000..5bef9bd
 +        case GOSSIP_SENDER_EQUIP_RESET: //equips change s4a: reset equipment
 +        {
 +            if (_resetEquipment(action - (GOSSIP_ACTION_INFO_DEF + 1))){}
-+                //me->MonsterSay(RAND<char*>("Fine", "Very well", "Alright", "Yeah"), LANG_UNIVERSAL, player);
 +            break;
 +        }
 +        //equips change s4b: Equip item
@@ -6040,7 +6065,6 @@ index 0000000..5bef9bd
 +            }
 +
 +            if (found && _equip(sender - GOSSIP_SENDER_EQUIP, item)){}
-+                //me->MonsterSay(RAND<char*>("Fine", "Very well", "Alright", "Yeah", "Good", "Okay"), LANG_UNIVERSAL, player);
 +            break;
 +        }
 +        case GOSSIP_SENDER_ROLES_TOGGLE: //ROLES 2: set/unset
@@ -6089,7 +6113,7 @@ index 0000000..5bef9bd
 +                //if (currentSpell == itr->second.first) continue; //prevent spam
 +                basespell = itr->first; //always valid
 +                if (!CanUseManually(basespell)) continue;
-+                if (!IsSpellReady(basespell, 0, false, 1500)) continue;
++                if (!IsSpellReady(basespell, 0, false, 5000)) continue;
 +                spellInfo = sSpellMgr->GetSpellInfo(basespell); //always valid
 +
 +                std::ostringstream name;
@@ -6104,77 +6128,76 @@ index 0000000..5bef9bd
 +        }
 +        case GOSSIP_SENDER_HIRE:
 +        {
-+            if (_ownerGuid)
++            int32 reason = action - GOSSIP_ACTION_INFO_DEF;
++            if (!reason)
 +            {
-+                std::ostringstream ostr;
-+                std::string name;
-+                ostr << "Go away. I serve my master ";
-+                if (sObjectMgr->GetPlayerNameByGUID(MAKE_NEW_GUID(_ownerGuid, 0, HIGHGUID_PLAYER), name))
-+                    ostr << name;
++                if (_ownerGuid)
++                {
++                    std::ostringstream ostr;
++                    std::string name;
++                    ostr << "Go away. I serve my master ";
++                    if (sObjectMgr->GetPlayerNameByGUID(MAKE_NEW_GUID(_ownerGuid, 0, HIGHGUID_PLAYER), name))
++                        ostr << name;
++                    else
++                        ostr << "unknown (" << _ownerGuid << ')';
++                    BotSay(ostr.str().c_str(), player);
++                    ChatHandler ch(player->GetSession());
++                    ch.PSendSysMessage("%s will not join you until owner dismisses %s", me->GetName().c_str(), (me->getGender() == GENDER_MALE ? "him" : "her"));
++                    break;
++                }
++
++                if (SetBotOwner(player))
++                    BotWhisper("I am ready", player);
 +                else
-+                    ostr << "unknown (" << _ownerGuid << ')';
-+                me->MonsterSay(ostr.str().c_str(), LANG_UNIVERSAL, player);
-+                ChatHandler ch(player->GetSession());
-+                ch.PSendSysMessage("%s will not join you until owner dismisses %s", me->GetName().c_str(), (me->getGender() == GENDER_MALE ? "him" : "her"));
++                    BotSay("...", player);
++            }
++            else if (reason == -1)
++            {
++                me->setFaction(14);
++                if (Creature* pet = me->GetBotsPet())
++                    pet->setFaction(14);
++                BotYell("Die!", player);
++                me->Attack(player, IsMelee());
++                break;
 +            }
 +            else
 +            {
-+                int32 reason = action - GOSSIP_ACTION_INFO_DEF;
-+                if (!reason)
++                ChatHandler ch(player->GetSession());
++                switch (reason)
 +                {
-+                    if (SetBotOwner(player))
-+                        me->MonsterWhisper("I am ready", player);
-+                    else
-+                        me->MonsterSay("...", LANG_UNIVERSAL, player);
-+                }
-+                else if (reason == -1)
-+                {
-+                    me->setFaction(14);
-+                    if (Creature* pet = me->GetBotsPet())
-+                        pet->setFaction(14);
-+                    me->MonsterYell("Die!", LANG_UNIVERSAL, player);
-+                    me->Attack(player, IsMelee());
-+                    break;
-+                }
-+                else
-+                {
-+                    ChatHandler ch(player->GetSession());
-+                    switch (reason)
++                    case 1: //has owner, unexpected
++                        ch.PSendSysMessage("%s will not join you, already has master: %s",
++                            me->GetName().c_str(), master->GetName().c_str());
++                        break;
++                    case 2: //max npcbots exceed
++                        ch.PSendSysMessage("You exceed max npcbots (%u)", BotMgr::GetMaxNpcBots());
++                        break;
++                    case 3: //not enough money
 +                    {
-+                        case 1: //has owner, unexpected
-+                            ch.PSendSysMessage("%s will not join you, already has master: %s",
-+                                me->GetName().c_str(), master->GetName().c_str());
-+                            break;
-+                        case 2: //max npcbots exceed
-+                            ch.PSendSysMessage("You exceed max npcbots (%u)", BotMgr::GetMaxNpcBots());
-+                            break;
-+                        case 3: //not enough money
-+                        {
-+                            std::string str = "You don't have enough money (";
-+                            str += BotMgr::GetNpcBotCostStr(player->getLevel(), me);
-+                            str += ")!";
-+                            ch.SendSysMessage(str.c_str());
-+                            player->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, 0, 0, 0);
-+                            break;
-+                        }
-+                        case 4: //class bots exceed
-+                        {
-+                            uint8 count = 0;
-+                            BotMap const* map = player->GetBotMgr()->GetBotMap();
-+                            for (BotMap::const_iterator itr = map->begin(); itr != map->end(); ++itr)
-+                                if (itr->second->GetBotClass() == GetBotClass())
-+                                    ++count;
-+
-+                            ch.PSendSysMessage("You cannot have more bots of that class! %u of %u",
-+                                count, _maxClassNpcBots);
-+                            break;
-+                        }
-+                        default:
-+                            break;
++                        std::string str = "You don't have enough money (";
++                        str += BotMgr::GetNpcBotCostStr(player->getLevel(), me);
++                        str += ")!";
++                        ch.SendSysMessage(str.c_str());
++                        player->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, 0, 0, 0);
++                        break;
 +                    }
++                    case 4: //class bots exceed
++                    {
++                        uint8 count = 0;
++                        BotMap const* map = player->GetBotMgr()->GetBotMap();
++                        for (BotMap::const_iterator itr = map->begin(); itr != map->end(); ++itr)
++                            if (itr->second->GetBotClass() == GetBotClass())
++                                ++count;
 +
-+                    me->MonsterSay("...", LANG_UNIVERSAL, player);
++                        ch.PSendSysMessage("You cannot have more bots of that class! %u of %u",
++                            count, _maxClassNpcBots);
++                        break;
++                    }
++                    default:
++                        break;
 +                }
++
++                BotSay("...", player);
 +            }
 +            break;
 +        }
@@ -6191,7 +6214,6 @@ index 0000000..5bef9bd
 +                {
 +                    std::ostringstream estr;
 +                    estr << "Cannot reset equipment in slot " << uint32(i) << " (" << _getNameForSlot(i + 1) << ")! Cannot dismiss bot!";
-+                    //me->MonsterWhisper(estr.str().c_str(), player);
 +                    ChatHandler ch(player->GetSession());
 +                    ch.SendSysMessage(estr.str().c_str());
 +                    abort = true;
@@ -6214,11 +6236,11 @@ index 0000000..5bef9bd
 +                me->setFaction(14);
 +                if (Creature* pet = me->GetBotsPet())
 +                    pet->setFaction(14);
-+                me->MonsterSay("Fool...", LANG_UNIVERSAL, player);
++                BotSay("Fool...", player);
 +                me->Attack(player, IsMelee());
 +            }
 +            else
-+                me->MonsterSay("...", LANG_UNIVERSAL, player);
++                BotSay("...", player);
 +
 +            break;
 +        }
@@ -6507,7 +6529,6 @@ index 0000000..5bef9bd
 +            int8 distance = std::min<uint8>((uint8)atoi(dist), 75);
 +
 +            player->SetBotFollowDist(distance);
-+            //me->MonsterSay(RAND<char*>("Fine", "Very well", "Alright", "Yeah"), LANG_UNIVERSAL, player);
 +
 +            player->CLOSE_GOSSIP_MENU();
 +            return OnGossipSelect(player, creature, GOSSIP_SENDER_FORMATION, action);
@@ -6535,7 +6556,7 @@ index 0000000..5bef9bd
 +    {
 +        //annoy master
 +        if (!IAmFree())
-+            me->MonsterWhisper("Why am I trying to summon unknown pet!?", master);
++            BotWhisper("Why am I trying to summon unknown pet!?", master);
 +        return;
 +    }
 +    float x(0),y(0),z(0);
@@ -6545,7 +6566,7 @@ index 0000000..5bef9bd
 +    if (!m_botsPet)
 +    {
 +        if (!IAmFree())
-+            me->MonsterWhisper("Failed to summon pet!", master);
++            BotWhisper("Failed to summon pet!", master);
 +        return;
 +    }
 +
@@ -6837,8 +6858,9 @@ index 0000000..5bef9bd
 +        }
 +        else if (item->InventoryType == INVTYPE_2HWEAPON)
 +        {
-+            //warriors can equip any 2H weapon in any slot
-+            if (_botclass == BOT_CLASS_WARRIOR && me->getLevel() >= 60)
++            //warriors can equip any 2H weapon in any hand
++            if (_botclass == BOT_CLASS_WARRIOR && me->getLevel() >= 60 &&
++                (slot == BOT_SLOT_MAINHAND || slot == BOT_SLOT_OFFHAND))
 +                return true;
 +            //2H weapons for casters - only staves
 +            if ((_botclass == BOT_CLASS_MAGE || _botclass == BOT_CLASS_PRIEST ||
@@ -6988,7 +7010,7 @@ index 0000000..5bef9bd
 +                return true;
 +            if (item->InventoryType == INVTYPE_NECK && slot == BOT_SLOT_NECK)
 +                return true;
-+            if (item->InventoryType == INVTYPE_HOLDABLE && slot == BOT_SLOT_OFFHAND)
++            if (item->InventoryType == INVTYPE_HOLDABLE && slot == BOT_SLOT_OFFHAND && _canUseOffHand())
 +                return true;
 +        }
 +        else if (item->SubClass == ITEM_SUBCLASS_ARMOR_LIBRAM)
@@ -7031,7 +7053,6 @@ index 0000000..5bef9bd
 +            istr << "Cannot unequip ";
 +            _AddItemLink(master, item, iistr);
 +            istr << iistr.str() << " for some stupid reason! Sending through mail";
-+            //me->MonsterWhisper(istr.str().c_str(), master);
 +            ChatHandler ch(master->GetSession());
 +            ch.SendSysMessage(istr.str().c_str());
 +
@@ -7109,19 +7130,11 @@ index 0000000..5bef9bd
 +        //same id
 +        if (oldItem->GetEntry() == newItemId)
 +            return false;
-+        ////obly better items are accepted
-+        //if (oldItem->GetTemplate()->GetItemLevelIncludingQuality() > newItem->GetTemplate()->GetItemLevelIncludingQuality() &&
-+        //    (slot >= BOT_SLOT_RANGED || einfo->ItemEntry[slot] != oldItem->GetEntry()) &&
-+        //    (IAmFree() || !master->IsGameMaster()))
-+        //{
-+        //    me->MonsterSay("I don't need your junk...", LANG_UNIVERSAL, master);
-+        //    return false;
-+        //}
 +    }
 +
 +    if (!_unequip(slot))
 +    {
-+        me->MonsterSay("You have no space for my current item", LANG_UNIVERSAL, master);
++        BotSay("You have no space for my current item", master);
 +        return false;
 +    }
 +
@@ -7134,7 +7147,7 @@ index 0000000..5bef9bd
 +            msg << "Cannot find ";
 +            _AddItemLink(master, newItem, msg);
 +            msg << " (id: " << uint32(newItemId) << ")!";
-+            me->MonsterWhisper(msg.str().c_str(), master);
++            BotWhisper(msg.str().c_str(), master);
 +
 +            TC_LOG_ERROR("entities.player",
 +                "minion_ai::_equip(): player %s (guidLow: %u) is trying to make bot %s (id: %u) equip item: %s (id: %u, guidLow: %u) but either does not have this item or does not own it",
@@ -7147,7 +7160,7 @@ index 0000000..5bef9bd
 +        newItem->SetUInt64Value(ITEM_FIELD_OWNER, 0);
 +    }
 +
-+    if (slot < BOT_SLOT_RANGED && proto->Class == ITEM_CLASS_WEAPON) //skip relics
++    if (slot < BOT_SLOT_RANGED)
 +    {
 +        if (CanChangeEquip(slot + 1))
 +            me->SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + slot, newItemId);
@@ -7954,10 +7967,7 @@ index 0000000..5bef9bd
 +    for (uint8 i = 0; i != BOT_SLOT_RANGED; ++i)
 +    {
 +        if (CanChangeEquip(i + 1) && _equips[i])
-+        {
-+            if (_equips[i]->GetTemplate()->Class == ITEM_CLASS_WEAPON)
-+                me->SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + i, _equips[i]->GetEntry());
-+        }
++            me->SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + i, _equips[i]->GetEntry());
 +        else if (einfo->ItemEntry[i])
 +            me->SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + i, einfo->ItemEntry[i]);
 +    }
@@ -8126,7 +8136,7 @@ index 0000000..5bef9bd
 +            return;
 +
 +        if (!IsTempBot())
-+            me->MonsterWhisper("Hey...", master);
++            BotWhisper("Hey...", master);
 +        return;
 +    }
 +}
@@ -8819,6 +8829,38 @@ index 0000000..5bef9bd
 +{
 +    lastdiff = diff;
 +
++    if (_updateTimerMedium <= diff)
++    {
++        _updateTimerMedium = 500;
++
++        //Medium-timed updates
++
++        //send stats update for group frames
++        if (me->IsInWorld() && !IAmFree())
++        {
++            if (Group* gr = master->GetGroup())
++            {
++                if (gr->IsMember(me->GetGUID()))
++                {
++                    WorldPacket data;
++                    BuildGrouUpdatePacket(&data);
++
++                    Player* member;
++                    for (GroupReference* itr = gr->GetFirstMember(); itr != NULL; itr = itr->next())
++                    {
++                        member = itr->GetSource();
++                        if (member/* && !member->IsWithinDist(me, member->GetSightRange(), false)*/)
++                            member->GetSession()->SendPacket(&data);
++                    }
++                }
++            }
++
++            //update pvp state
++            if (me->GetByteValue(UNIT_FIELD_BYTES_2, 1) != master->GetByteValue(UNIT_FIELD_BYTES_2, 1))
++                me->SetByteValue(UNIT_FIELD_BYTES_2, 1, master->GetByteValue(UNIT_FIELD_BYTES_2, 1));
++        }
++    }
++
 +    if (!me->IsAlive())
 +        return false;
 +
@@ -8859,6 +8901,8 @@ index 0000000..5bef9bd
 +
 +    if (_bootTimer > int32(diff))   _bootTimer -= diff;
 +    else if (_bootTimer > 0)        _bootTimer = 0;
++
++    if (_updateTimerMedium > diff)  _updateTimerMedium -= diff;
 +}
 +
 +void bot_pet_ai::CommonTimers(uint32 diff)
@@ -9089,6 +9133,10 @@ index 0000000..5bef9bd
 +
 +    master->m_Controlled.insert(me);
 +    me->CastSpell(me, COSMETIC_TELEPORT_EFFECT, true);
++
++    //update group member online state
++    if (Group* gr = master->GetGroup())
++        gr->SendUpdate();
 +
 +    return true;
 +}
@@ -9438,10 +9486,10 @@ index 0000000..5bef9bd
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..9aacd65
+index 0000000..234a9a8
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,888 @@
+@@ -0,0 +1,893 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -10058,6 +10106,10 @@ index 0000000..9aacd65
 +
 +        void BuildGrouUpdatePacket(WorldPacket* data);
 +
++        void BotSay(char const* text, Player* target = NULL);
++        void BotWhisper(char const* text, Player* target = NULL);
++        void BotYell(char const* text, Player* target = NULL);
++
 +        typedef std::pair<uint32 /*spellId*/, uint32 /*cooldown*/> BotSpell;
 +        typedef std::unordered_map<uint32 /*spellId_1*/, BotSpell /*spell*/> BotSpellMap;
 +
@@ -10094,6 +10146,7 @@ index 0000000..9aacd65
 +        bool _temp;
 +
 +        int32 _bootTimer;
++        uint32 _updateTimerMedium;
 +
 +        EventProcessor events;
 +
@@ -11306,7 +11359,7 @@ index 0000000..1534d17
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_death_knight_ai.cpp b/src/server/game/AI/NpcBots/bot_death_knight_ai.cpp
 new file mode 100644
-index 0000000..70b84e8
+index 0000000..bc1f280
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_death_knight_ai.cpp
 @@ -0,0 +1,1620 @@
@@ -11735,7 +11788,7 @@ index 0000000..70b84e8
 +            if (target && doCast(target, GetSpell(HYSTERIA_1)))
 +            {
 +                if (target->GetTypeId() == TYPEID_PLAYER)
-+                    me->MonsterWhisper("Hysteria on You!", target->ToPlayer());
++                    BotWhisper("Hysteria on You!", target->ToPlayer());
 +
 +                GC_Timer = 800;
 +                return;
@@ -12932,7 +12985,7 @@ index 0000000..70b84e8
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_druid_ai.cpp b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 new file mode 100644
-index 0000000..3323af5
+index 0000000..3c68739
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 @@ -0,0 +1,1116 @@
@@ -13704,12 +13757,12 @@ index 0000000..3323af5
 +            if (iTarget && doCast(iTarget, INNERVATE))
 +            {
 +                if (iTarget->GetTypeId() == TYPEID_PLAYER)
-+                    me->MonsterWhisper("Innervate on You!", iTarget->ToPlayer());
++                    BotWhisper("Innervate on You!", iTarget->ToPlayer());
 +                else if (!IAmFree())
 +                {
 +                    std::ostringstream msg;
 +                    msg << "Innervate on " << (iTarget == me ? "myself" : iTarget->GetName()) << '!';
-+                    me->MonsterWhisper(msg.str().c_str(), master);
++                    BotWhisper(msg.str().c_str(), master);
 +                }
 +
 +                return;
@@ -13754,7 +13807,7 @@ index 0000000..3323af5
 +                    me->Relocate(*target);
 +
 +                if (doCast(target, GetSpell(REBIRTH_1))) //rezzing
-+                    me->MonsterWhisper("Rezzing You", master);
++                    BotWhisper("Rezzing You", master);
 +
 +                return;
 +            }
@@ -13779,7 +13832,7 @@ index 0000000..3323af5
 +
 +                if (doCast(target, GetSpell(REBIRTH_1))) //rezzing
 +                {
-+                    me->MonsterWhisper("Rezzing You", tPlayer);
++                    BotWhisper("Rezzing You", tPlayer);
 +                    return;
 +                }
 +            }
@@ -16060,7 +16113,7 @@ index 0000000..04e33db
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 new file mode 100644
-index 0000000..1926873
+index 0000000..1b6a328
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 @@ -0,0 +1,1092 @@
@@ -16327,7 +16380,7 @@ index 0000000..1926873
 +            {
 +                if (doCast(target, GetSpell(HAND_OF_PROTECTION_1)))
 +                {
-+                    me->MonsterWhisper("BOP on you!", target->ToPlayer());
++                    BotWhisper("BOP on you!", target->ToPlayer());
 +
 +                    //debug
 +                    if (!HasAuraName(target, FORBEARANCE_AURA))
@@ -16350,7 +16403,7 @@ index 0000000..1926873
 +                        {
 +                            if (doCast(target, GetSpell(LAY_ON_HANDS_1)))
 +                            {
-+                                me->MonsterWhisper("Lay of Hands on you!", target->ToPlayer());
++                                BotWhisper("Lay of Hands on you!", target->ToPlayer());
 +                                return true;
 +                            }
 +                        }
@@ -17158,7 +17211,7 @@ index 0000000..1926873
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_priest_ai.cpp b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 new file mode 100644
-index 0000000..7f8b708
+index 0000000..92652a4
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 @@ -0,0 +1,985 @@
@@ -17480,12 +17533,12 @@ index 0000000..7f8b708
 +                {
 +                    GC_Timer = temptimer;
 +                    if (target->GetTypeId() == TYPEID_PLAYER)
-+                        me->MonsterWhisper("Guardian Spirit on you!", target->ToPlayer());
++                        BotWhisper("Guardian Spirit on you!", target->ToPlayer());
 +                    else if (!IAmFree())
 +                    {
 +                        std::ostringstream msg;
 +                        msg << "Guardian Spirit on " << (target == me ? "myself" : target->GetName()) << '!';
-+                        me->MonsterWhisper(msg.str().c_str(), master);
++                        BotWhisper(msg.str().c_str(), master);
 +                    }
 +
 +                    return true;
@@ -17506,12 +17559,12 @@ index 0000000..7f8b708
 +                {
 +                    GC_Timer = temptimer;
 +                    if (target->GetTypeId() == TYPEID_PLAYER)
-+                        me->MonsterWhisper("Pain Suppression on you!", target->ToPlayer());
++                        BotWhisper("Pain Suppression on you!", target->ToPlayer());
 +                    else if (!IAmFree())
 +                    {
 +                        std::ostringstream msg;
 +                        msg << "Guardin Spirit on " << (target == me ? "myself" : target->GetName()) << '!';
-+                        me->MonsterWhisper(msg.str().c_str(), master);
++                        BotWhisper(msg.str().c_str(), master);
 +                    }
 +
 +                    return true;
@@ -18983,10 +19036,10 @@ index 0000000..26f76bc
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_shaman_ai.cpp b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 new file mode 100644
-index 0000000..f76ffe3
+index 0000000..b6832fa
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
-@@ -0,0 +1,1285 @@
+@@ -0,0 +1,1286 @@
 +#include "bot_ai.h"
 +#include "botmgr.h"
 +#include "Group.h"
@@ -19122,6 +19175,7 @@ index 0000000..f76ffe3
 +                    temptimer = GC_Timer;
 +                    if (doCast(me, GetSpell(BLOODLUST_1)))
 +                    {
++                        SetSpellCooldown(BLOODLUST_1, 300000); //5 minutes
 +                        GC_Timer = temptimer;
 +                        return;
 +                    }
@@ -22811,10 +22865,10 @@ index 0000000..badd170
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 0000000..5e8760b
+index 0000000..6353a2b
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,817 @@
+@@ -0,0 +1,821 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "botmgr.h"
@@ -23197,6 +23251,10 @@ index 0000000..5e8760b
 +        bot->IsAIEnabled = true;
 +        return;
 +    }
++
++    //update group member online state
++    if (Group* gr = bot->GetBotOwner()->GetGroup())
++        gr->SendUpdate();
 +
 +    //bot->Relocate(x, y, z);
 +    TeleportFinishEvent* finishEvent = new TeleportFinishEvent(bot->GetBotMinionAI()/*, newMap->GetId(), newMap->GetInstanceId(), x, y, z, ori*/);
