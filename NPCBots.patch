@@ -1,4 +1,4 @@
-From 2e71603bcd5f6ecc38a4cee5840f9e8fa34fda1f Mon Sep 17 00:00:00 2001
+From cf3b519df0c5cbfcd422ee889de93920279d41ad Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
 Date: Thu, 12 Jun 2014 08:39:54 +0700
 Subject: [PATCH] NPCBots
@@ -9,7 +9,7 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/NpcBots/QBots/botQ_Airen.cpp    |  121 +
  src/server/game/AI/NpcBots/bot_Events.h            |  133 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  724 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 7975 ++++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 7989 ++++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |  893 +++
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |  968 +++
  src/server/game/AI/NpcBots/bot_death_knight_ai.cpp | 1620 ++++
@@ -17,17 +17,17 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       | 1084 +++
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  910 +++
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      | 1092 +++
- src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  985 +++
+ src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  986 +++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  828 ++
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       | 1286 ++++
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  519 ++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      | 1063 +++
  src/server/game/AI/NpcBots/botcommands.cpp         |  937 +++
- src/server/game/AI/NpcBots/botmgr.cpp              |  821 ++
+ src/server/game/AI/NpcBots/botmgr.cpp              |  822 ++
  src/server/game/AI/NpcBots/botmgr.h                |  109 +
  src/server/game/CMakeLists.txt                     |    1 +
  src/server/game/DungeonFinding/LFGMgr.cpp          |  159 +
- src/server/game/Entities/Creature/Creature.cpp     |  441 ++
+ src/server/game/Entities/Creature/Creature.cpp     |  444 ++
  src/server/game/Entities/Creature/Creature.h       |   81 +
  .../game/Entities/Creature/TemporarySummon.cpp     |   10 +
  src/server/game/Entities/Object/Object.cpp         |   16 +
@@ -45,6 +45,7 @@ Subject: [PATCH] NPCBots
  src/server/game/Maps/Map.cpp                       |   27 +
  src/server/game/Maps/MapManager.cpp                |   80 +
  src/server/game/Movement/MotionMaster.cpp          |   14 +
+ src/server/game/OutdoorPvP/OutdoorPvP.cpp          |   17 +
  src/server/game/Scripting/ScriptLoader.cpp         |   32 +
  src/server/game/Server/WorldSession.cpp            |    4 +
  src/server/game/Spells/Spell.cpp                   |   20 +
@@ -55,7 +56,7 @@ Subject: [PATCH] NPCBots
  .../Database/Implementation/WorldDatabase.cpp      |    5 +
  .../shared/Database/Implementation/WorldDatabase.h |    5 +
  src/server/worldserver/worldserver.conf.dist       |  115 +
- 51 files changed, 25467 insertions(+), 0 deletions(-)
+ 52 files changed, 25503 insertions(+), 0 deletions(-)
  create mode 100644 sql/Bots/character_bots.sql
  create mode 100644 sql/Bots/world_bots.sql
  create mode 100644 src/server/game/AI/NpcBots/QBots/botQ_Airen.cpp
@@ -1505,10 +1506,10 @@ index 0000000..a53e73a
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..83eaf87
+index 0000000..7cf9850
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,7975 @@
+@@ -0,0 +1,7989 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -1916,7 +1917,7 @@ index 0000000..83eaf87
 +    }
 +
 +    //check cooldown
-+    if (!IsSpellReady(m_botSpellInfo->GetFirstRankSpell()->Id, lastdiff))
++    if (!IsSpellReady(m_botSpellInfo->GetFirstRankSpell()->Id, lastdiff, false))
 +        return false;
 +
 +    //remove shapeshifts manually to restore powers/stats
@@ -2063,7 +2064,7 @@ index 0000000..83eaf87
 +    if (JumpingFlyingOrFalling())
 +        return;
 +
-+    if (st == COMMAND_FOLLOW && ((!me->isMoving() && !IsCasting() && master->IsAlive()) || force))
++    if (st == COMMAND_FOLLOW && !IsChanneling() && ((!me->isMoving() && !IsCasting() && master->IsAlive()) || force))
 +    {
 +        if (!me->IsInMap(master)) return;
 +        if (CCed(me, true)/* || master->HasUnitState(UNIT_STATE_FLEEING)*/) return;
@@ -2578,13 +2579,20 @@ index 0000000..83eaf87
 +            rank = talentcost;
 +        else if (learnSpellInfo && learnSpellInfo->GetNextRankSpell())
 +            rank = spellInfo->GetRank();
++        else if (spellInfo->GetNextRankSpell())
++            rank = spellInfo->GetRank();
 +        if (rank > 0)
 +            spellmsg << " Rank " << rank;
 +        if (talentcost > 0)
 +            spellmsg << " [talent]";
 +        if (spellInfo->IsPassive())
 +            spellmsg << " [passive]";
++        if ((spellInfo->Attributes & SPELL_ATTR0_HIDDEN_CLIENTSIDE) ||
++            (spellInfo->AttributesEx & SPELL_ATTR1_DONT_DISPLAY_IN_AURA_BAR))
++            spellmsg << " [hidden]";
 +        if (unit->GetTypeId() == TYPEID_PLAYER && unit->ToPlayer()->HasSpell(id))
++            spellmsg << " [known]";
++        else if (unit == me && GetSpell(spellInfo->GetFirstRankSpell()->Id))
 +            spellmsg << " [known]";
 +
 +        ch.PSendSysMessage(spellmsg.str().c_str());
@@ -8612,6 +8620,12 @@ index 0000000..83eaf87
 +
 +        me->AddObjectToRemoveList();
 +    }
++    else
++    {
++        if (Group* gr = master->GetGroup())
++            if (gr->IsMember(me->GetGUID()))
++                gr->SendUpdate();
++    }
 +}
 +
 +void bot_minion_ai::MoveInLineOfSight(Unit* /*u*/)
@@ -9136,7 +9150,8 @@ index 0000000..83eaf87
 +
 +    //update group member online state
 +    if (Group* gr = master->GetGroup())
-+        gr->SendUpdate();
++        if (gr->IsMember(me->GetGUID()))
++            gr->SendUpdate();
 +
 +    return true;
 +}
@@ -17211,10 +17226,10 @@ index 0000000..1b6a328
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_priest_ai.cpp b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 new file mode 100644
-index 0000000..92652a4
+index 0000000..07411a5
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
-@@ -0,0 +1,985 @@
+@@ -0,0 +1,986 @@
 +#include "bot_ai.h"
 +#include "botmgr.h"
 +#include "Group.h"
@@ -17619,7 +17634,8 @@ index 0000000..92652a4
 +                GC_Timer > diff || me->GetExactDist(target) > 30 || Rand() > 20)
 +                return false;
 +
-+            if (IsSpellReady(FEAR_WARD_1, false) && !target->HasAura(GetSpell(FEAR_WARD_1)) &&
++            if (IsSpellReady(FEAR_WARD_1, diff, false) &&
++                !target->HasAuraTypeWithMiscvalue(SPELL_AURA_MECHANIC_IMMUNITY, MECHANIC_FEAR) &&
 +                doCast(target, GetSpell(FEAR_WARD_1)))
 +            {
 +                GC_Timer = 800;
@@ -22865,10 +22881,10 @@ index 0000000..badd170
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 0000000..6353a2b
+index 0000000..6341e62
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,821 @@
+@@ -0,0 +1,822 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "botmgr.h"
@@ -23254,7 +23270,8 @@ index 0000000..6353a2b
 +
 +    //update group member online state
 +    if (Group* gr = bot->GetBotOwner()->GetGroup())
-+        gr->SendUpdate();
++        if (gr->IsMember(bot->GetGUID()))
++            gr->SendUpdate();
 +
 +    //bot->Relocate(x, y, z);
 +    TeleportFinishEvent* finishEvent = new TeleportFinishEvent(bot->GetBotMinionAI()/*, newMap->GetId(), newMap->GetInstanceId(), x, y, z, ori*/);
@@ -24027,7 +24044,7 @@ index d353efb..6c9a705 100644
      player.accept = LfgAnswer(accept);
  
 diff --git a/src/server/game/Entities/Creature/Creature.cpp b/src/server/game/Entities/Creature/Creature.cpp
-index 9052791..12fe07d 100644
+index 9052791..d8aa734 100644
 --- a/src/server/game/Entities/Creature/Creature.cpp
 +++ b/src/server/game/Entities/Creature/Creature.cpp
 @@ -54,6 +54,10 @@
@@ -24083,7 +24100,17 @@ index 9052791..12fe07d 100644
              if (m_groupLootTimer && lootingGroupLowGUID)
              {
                  if (m_groupLootTimer <= diff)
-@@ -539,8 +564,15 @@ void Creature::Update(uint32 diff)
+@@ -518,6 +543,9 @@ void Creature::Update(uint32 diff)
+ 
+             // creature can be dead after Unit::Update call
+             // CORPSE/DEAD state will processed at next tick (in other case death timer will be updated unexpectedly)
++            //npcbot - skip dead state for bots (handled by AI)
++            if (!bot_AI)
++            //end npcbot
+             if (!IsAlive())
+                 break;
+ 
+@@ -539,8 +567,15 @@ void Creature::Update(uint32 diff)
                  // do not allow the AI to be changed during update
                  m_AI_locked = true;
                  i_AI->UpdateAI(diff);
@@ -24099,7 +24126,7 @@ index 9052791..12fe07d 100644
  
              // creature can be dead after UpdateAI call
              // CORPSE/DEAD state will processed at next tick (in other case death timer will be updated unexpectedly)
-@@ -593,6 +625,11 @@ void Creature::Update(uint32 diff)
+@@ -593,6 +628,11 @@ void Creature::Update(uint32 diff)
  
  void Creature::RegenerateMana()
  {
@@ -24111,7 +24138,7 @@ index 9052791..12fe07d 100644
      uint32 curValue = GetPower(POWER_MANA);
      uint32 maxValue = GetMaxPower(POWER_MANA);
  
-@@ -628,6 +665,11 @@ void Creature::RegenerateMana()
+@@ -628,6 +668,11 @@ void Creature::RegenerateMana()
  
  void Creature::RegenerateHealth()
  {
@@ -24123,7 +24150,7 @@ index 9052791..12fe07d 100644
      if (!isRegeneratingHealth())
          return;
  
-@@ -1255,6 +1297,23 @@ bool Creature::LoadCreatureFromDB(uint32 guid, Map* map, bool addToMap)
+@@ -1255,6 +1300,23 @@ bool Creature::LoadCreatureFromDB(uint32 guid, Map* map, bool addToMap)
  
      m_creatureData = data;
  
@@ -24147,7 +24174,7 @@ index 9052791..12fe07d 100644
      if (addToMap && !GetMap()->AddToMap(this))
          return false;
      return true;
-@@ -1268,6 +1327,11 @@ void Creature::SetCanDualWield(bool value)
+@@ -1268,6 +1330,11 @@ void Creature::SetCanDualWield(bool value)
  
  void Creature::LoadEquipment(int8 id, bool force /*= true*/)
  {
@@ -24159,7 +24186,7 @@ index 9052791..12fe07d 100644
      if (id == 0)
      {
          if (force)
-@@ -2128,6 +2192,11 @@ void Creature::SetInCombatWithZone()
+@@ -2128,6 +2195,11 @@ void Creature::SetInCombatWithZone()
  
  uint32 Creature::GetShieldBlockValue() const                  //dunno mob block value
  {
@@ -24171,7 +24198,7 @@ index 9052791..12fe07d 100644
      return (getLevel()/2 + uint32(GetStat(STAT_STRENGTH)/20));
  }
  
-@@ -2211,6 +2280,11 @@ void Creature::ProhibitSpellSchool(SpellSchoolMask idSchoolMask, uint32 unTimeMs
+@@ -2211,6 +2283,11 @@ void Creature::ProhibitSpellSchool(SpellSchoolMask idSchoolMask, uint32 unTimeMs
                  ai->SpellInterrupted(unSpellId, unTimeMs);
          }
      }
@@ -24183,7 +24210,7 @@ index 9052791..12fe07d 100644
  }
  
  bool Creature::HasSpell(uint32 spellID) const
-@@ -2704,3 +2778,370 @@ void Creature::ReleaseFocus(Spell const* focusSpell)
+@@ -2704,3 +2781,370 @@ void Creature::ReleaseFocus(Spell const* focusSpell)
          ClearUnitState(UNIT_STATE_ROTATING);
  }
  
@@ -26279,6 +26306,34 @@ index 55f745d..43f75a5 100644
      float moveTimeHalf = speedZ / Movement::gravity;
      float dist = 2 * moveTimeHalf * speedXY;
      _owner->GetClosePoint(x, y, z, _owner->GetObjectSize(), dist, angle);
+diff --git a/src/server/game/OutdoorPvP/OutdoorPvP.cpp b/src/server/game/OutdoorPvP/OutdoorPvP.cpp
+index cacec14..70d5f02 100644
+--- a/src/server/game/OutdoorPvP/OutdoorPvP.cpp
++++ b/src/server/game/OutdoorPvP/OutdoorPvP.cpp
+@@ -308,6 +308,23 @@ bool OPvPCapturePoint::Update(uint32 diff)
+     if (!fact_diff)
+         return false;
+ 
++    //npcbots - count bots as players but 2 times less affect and only if there is a players difference
++    uint32 botsCount[2];
++
++    for (uint8 team = 0; team != 2; ++team)
++    {
++        botsCount[team] = 0;
++
++        for (PlayerSet::iterator itr = m_activePlayers[team].begin(); itr != m_activePlayers[team].end(); ++itr)
++        {
++            if (Player* player = ObjectAccessor::FindPlayer(*itr))
++                botsCount[team] += player->GetNpcBotsCount();
++        }
++    }
++
++    fact_diff += 0.5f * float(botsCount[0] - botsCount[1]) * diff / OUTDOORPVP_OBJECTIVE_UPDATE_INTERVAL;
++    //end npcbot
++
+     uint32 Challenger = 0;
+     float maxDiff = m_maxSpeed * diff;
+ 
 diff --git a/src/server/game/Scripting/ScriptLoader.cpp b/src/server/game/Scripting/ScriptLoader.cpp
 index 7365d59..3dfd34c 100644
 --- a/src/server/game/Scripting/ScriptLoader.cpp
