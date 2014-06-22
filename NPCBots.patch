@@ -1,4 +1,4 @@
-From a189be78120f8086f06b5a34b360a04fdd4eefe1 Mon Sep 17 00:00:00 2001
+From 4e7fd2d60e9cde7de37ce113b3a979e8c127702b Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
 Date: Thu, 12 Jun 2014 08:39:54 +0700
 Subject: [PATCH] NPCBots
@@ -21512,7 +21512,7 @@ index 0000000..d5eac66
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warrior_ai.cpp b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 new file mode 100644
-index 0000000..f159dcc
+index 0000000..ae1cd04
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 @@ -0,0 +1,1915 @@
@@ -21527,7 +21527,7 @@ index 0000000..f159dcc
 +//#include "WorldSession.h"
 +/*
 +Warrior NpcBot (reworked by Graff onlysuffering@gmail.com)
-+Complete - 92-97%
++Complete - 94-97%
 +*/
 +class warrior_bot : public CreatureScript
 +{
@@ -22031,8 +22031,9 @@ index 0000000..f159dcc
 +                    return;
 +            }
 +            //DISARM
-+            if (IsSpellReady(DISARM_1, diff) && meleedist <= 5 && rage > rcost(DISARM_1) && Rand() < 50 &&
-+                !opponent->HasAuraType(SPELL_AURA_MOD_DISARM) &&
++            if (IsSpellReady(DISARM_1, diff) && meleedist <= 5 && rage > rcost(DISARM_1) &&
++                opponent->GetHealth() > me->GetMaxHealth() / 4 &&
++                !opponent->HasAuraType(SPELL_AURA_MOD_DISARM) && Rand() < 50 &&
 +                (defensiveStance || stancetimer <= diff))
 +            {
 +                //check weapons
@@ -22079,7 +22080,7 @@ index 0000000..f159dcc
 +            }
 +            //Recklessness
 +            if (IsSpellReady(RECKLESSNESS_1, diff) && HasRole(BOT_ROLE_DPS) && !IsTank() &&
-+                (m_attackers.size() > 3 || opponent->GetHealth() > me->GetHealth() * 10) && Rand() < 20 &&
++                b_attackers.size() < 2 && opponent->GetHealth() > (me->GetMaxHealth() * 3) && Rand() < 20 &&
 +                (berserkerStance || stanceChange(diff, 3)))
 +            {
 +                if (doCast(me, GetSpell(RECKLESSNESS_1)))
@@ -22121,7 +22122,7 @@ index 0000000..f159dcc
 +                    doCast(opponent, GetSpell(SUNDER_1)))
 +                    return;
 +            }
-+            //SS //no GCD //no rage (glyph)
++            //SS //no GCD
 +            if (IsSpellReady(SWEEPING_STRIKES_1, diff, false) && HasRole(BOT_ROLE_DPS) && !IsTank() &&
 +                dist <= 20 && rage > rcost(SWEEPING_STRIKES_1) &&
 +                (battleStance || berserkerStance || stancetimer <= diff) && Rand() < 25 &&
@@ -22602,6 +22603,9 @@ index 0000000..f159dcc
 +                //Warrior T8 Protection Bonus (id: 64933): 10% additional critical chance for Devastate (tanks only)
 +                if (lvl >= 78 && IsTank() && spellId == GetSpell(DEVASTATE_1))
 +                    aftercrit += 10.f;
++                //Recklessness: 100% additional critical chance for damaging abilities
++                if (damage > 0 && me->HasAura(GetSpell(RECKLESSNESS_1)))
++                    aftercrit += 100.f;
 +
 +                //second roll (may be illogical)
 +                if (aftercrit > 0.f)
@@ -22727,8 +22731,8 @@ index 0000000..f159dcc
 +            //Improved Hamstring (id: 24428): -2 rage cost for Hamstring (for bot Piercing Howl also)
 +            if (lvl >= 25 && (spellId == GetSpell(HAMSTRING_1) || spellId == GetSpell(PIERCING_HOWL_1)))
 +                flatbonus += 20;
-+            //Focused Rage: -3 rage cost for all abilities (using rage)
-+            if (lvl >= 40 && spellInfo->PowerType == POWER_RAGE)
++            //Focused Rage: -3 rage cost for all offensive abilities (using rage)
++            if (lvl >= 40 && spellInfo->PowerType == POWER_RAGE && !spellInfo->IsPositive())
 +                flatbonus += 30;
 +            //Glyph of Resonating Power: -5 rage cost for Thunder Clap
 +            if (lvl >= 15 && spellId == GetSpell(THUNDER_CLAP_1))
@@ -22748,7 +22752,7 @@ index 0000000..f159dcc
 +            //float pctbonus = 0.0f;
 +
 +            //100% mods
-+            //Improved Slam: -100% sec cast time for Slam
++            //Improved Slam: -100% cast time for Slam
 +            if (lvl >= 40 && spellId == GetSpell(SLAM_1) && me->HasAura(BLOODSURGE_BUFF))
 +                timebonus += casttime;
 +
@@ -22787,7 +22791,7 @@ index 0000000..f159dcc
 +                spellId == GetSpell(RECKLESSNESS_1)))
 +                timebonus += 60000;
 +            //Unrelenting Assault (part 1): -4 sec cooldown for Overpower and Revenge (not for tanks)
-+            if (lvl >= 50 && (spellId == GetSpell(OVERPOWER_1) || spellId == GetSpell(REVENGE_1)))
++            if (lvl >= 50 && !IsTank() && (spellId == GetSpell(OVERPOWER_1) || spellId == GetSpell(REVENGE_1)))
 +                timebonus += 4000;
 +            //Improved Intercept: -10 sec cooldown for Intercept
 +            if (lvl >= 30 && spellId == GetSpell(INTERCEPT_1))
@@ -22809,7 +22813,7 @@ index 0000000..f159dcc
 +                timebonus += 60000;
 +            //Glyph of Spell Reflection: -1 sec cooldown for Spell Reflection
 +            if (lvl >= 65 && spellId == GetSpell(SPELL_REFLECTION_1))
-+                timebonus += 60000;
++                timebonus += 1000;
 +            //Glyph of Whirlwind: -2 sec cooldown for Whirlwind
 +            if (lvl >= 36 && spellId == GetSpell(WHIRLWIND_1))
 +                timebonus += 2000;
@@ -22838,6 +22842,9 @@ index 0000000..f159dcc
 +            //Improved Mortal Strike (part 2): -1 sec cooldown for Mortal Strike
 +            if (lvl >= 25 && spellId == GetSpell(MORTALSTRIKE_1))
 +                timebonus += 1000;
++            //Warrior T9 2P Bonus (id: 67269): -2 sec cooldown for Taunt (tanks only)
++            if (lvl >= 68 && IsTank() && spellId == GetSpell(TAUNT_1))
++                timebonus += 2000;
 +
 +            cooldown = std::max<int32>((float(cooldown) * (1.0f - pctbonus)) - timebonus, 0);
 +        }
@@ -22869,35 +22876,10 @@ index 0000000..f159dcc
 +            if (spellId == GetSpell(SHIELD_WALL_1))
 +            {
 +                BotWhisper("Shield Wall used!");
-+                //uint32 cd = 300000;
-+                //ApplyBotSpellCooldownMods(sSpellMgr->GetSpellInfo(GetSpell(SHIELD_WALL_1)), cd);
-+                SetSpellCooldown(RETALIATION_1, 12000);
-+                //SetSpellCooldown(SHIELD_WALL_1, cd);
-+                SetSpellCooldown(RECKLESSNESS_1, 12000);
-+            }
-+            if (spellId == GetSpell(RETALIATION_1))
-+            {
-+                //custom ability - no cooldown
-+                uint32 cd = 300000;
-+                ApplyBotSpellCooldownMods(sSpellMgr->GetSpellInfo(GetSpell(RETALIATION_1)), cd);
-+                SetSpellCooldown(RETALIATION_1, cd);
-+                SetSpellCooldown(SHIELD_WALL_1, 12000);
-+                SetSpellCooldown(RECKLESSNESS_1, 12000);
-+                return;
-+            }
-+            if (spellId == GetSpell(RECKLESSNESS_1))
-+            {
-+                //custom ability - no cooldown
-+                uint32 cd = 300000;
-+                ApplyBotSpellCooldownMods(sSpellMgr->GetSpellInfo(GetSpell(RECKLESSNESS_1)), cd);
-+                SetSpellCooldown(RETALIATION_1, 12000);
-+                SetSpellCooldown(SHIELD_WALL_1, 12000);
-+                SetSpellCooldown(RECKLESSNESS_1, cd);
-+                return;
 +            }
 +            if (spellId == GetSpell(OVERPOWER_1))
 +            {
-+                //suctom
++                //custom
 +                float gcd = 1500.f;
 +                ApplyBotSpellGlobalCooldownMods(spellInfo, gcd);
 +                GC_Timer = uint32(gcd);
@@ -22954,6 +22936,17 @@ index 0000000..f159dcc
 +                stancetimer = 2100 - me->getLevel() * 20; //500 on 80
 +                GC_Timer = temptimer;
 +            }
++            if (spellId == GetSpell(RETALIATION_1))
++            {
++                //Increase duration by 3 sec and give 10 additional charges to bot
++                if (Aura* ret = me->GetAura(spellId, me->GetGUID()))
++                {
++                    uint32 dur = ret->GetDuration() + 3000;
++                    ret->SetDuration(dur);
++                    ret->SetMaxDuration(dur);
++                    ret->SetCharges(ret->GetCharges() + 10);
++                }
++            }
 +            if (spellId == GetSpell(BERSERKERRAGE_1))
 +            {
 +                //Improved Berserker Rage: 20 rage bonus when used
@@ -22996,6 +22989,13 @@ index 0000000..f159dcc
 +        {
 +            uint32 spellId = spell->Id;
 +
++            if (GetSpell(RECKLESSNESS_1))
++            {
++                //Recklessness: handle charge drop
++                AuraEffect* eff = me->GetAuraEffect(GetSpell(RECKLESSNESS_1), EFFECT_0, me->GetGUID());
++                if (eff && eff->IsAffectedOnSpell(spell))
++                    eff->GetBase()->DropCharge(AURA_REMOVE_BY_EXPIRE);
++            }
 +            if (spellId == GetSpell(PIERCING_HOWL_1))
 +            {
 +                //Piercing Howl: 4 sec duraion increase (exclude players)
@@ -23163,8 +23163,8 @@ index 0000000..f159dcc
 +            InitSpellMap(BATTLESTANCE_1);
 +   /*Quest*/lvl >= 10 ? InitSpellMap(DEFENSIVESTANCE_1) : RemoveSpell(DEFENSIVESTANCE_1);
 +   /*Quest*/lvl >= 30 ? InitSpellMap(BERSERKERSTANCE_1) : RemoveSpell(BERSERKERSTANCE_1);
-+ /*Special*/lvl >= 50 ? InitSpellMap(RECKLESSNESS_1) : RemoveSpell(RECKLESSNESS_1);
-+ /*Special*/lvl >= 20 ? InitSpellMap(RETALIATION_1) : RemoveSpell(RETALIATION_1);
++            InitSpellMap(RECKLESSNESS_1);
++            InitSpellMap(RETALIATION_1);
 +  /*Talent*/lvl >= 30 ? InitSpellMap(DEATHWISH_1) : RemoveSpell(DEATHWISH_1);
 +            InitSpellMap(VICTORY_RUSH_1);
 +            InitSpellMap(THUNDER_CLAP_1);
@@ -23260,10 +23260,10 @@ index 0000000..f159dcc
 +                    return !berserkerStance;
 +                case SWEEPING_STRIKES_1:
 +                    return battleStance || berserkerStance;
-+                //case RETALIATION_1:
-+                //    return battleStance;
-+                //case RECKLESSNESS_1:
-+                //    return berserkerStance;
++                case RETALIATION_1:
++                    return battleStance;
++                case RECKLESSNESS_1:
++                    return berserkerStance;
 +                case SHIELD_WALL_1:
 +                    return CanBlock() && defensiveStance;
 +                case SHIELD_BLOCK_1:
@@ -23331,8 +23331,8 @@ index 0000000..f159dcc
 +            BATTLESTANCE_1                          = 2457,
 +            DEFENSIVESTANCE_1                       = 71,
 +            BERSERKERSTANCE_1                       = 2458,
-+            RECKLESSNESS_1                          = 13847,//1719, original warrior spell
-+            RETALIATION_1                           = 22857,//20230, original warrior spell
++            RECKLESSNESS_1                          = 1719,
++            RETALIATION_1                           = 20230,
 +  /*Talent*/DEATHWISH_1                             = 12292,
 +            VICTORY_RUSH_1                          = 34428,
 +            THUNDER_CLAP_1                          = 6343,
