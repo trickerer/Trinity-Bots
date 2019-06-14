@@ -2,8 +2,8 @@ DROP TABLE IF EXISTS `characters_npcbot`;
 CREATE TABLE `characters_npcbot` (
   `entry` int(10) unsigned NOT NULL COMMENT 'creature_template.entry',
   `owner` int(10) unsigned NOT NULL DEFAULT '0' COMMENT 'characters.guid (lowguid)',
-  `roles` tinyint(3) unsigned NOT NULL COMMENT 'bitmask: tank(1),dps(2),heal(4),ranged(8)',
-  `faction` int(10) unsigned NOT NULL DEFAULT '14',
+  `roles` smallint(5) unsigned NOT NULL COMMENT 'bitmask: tank(1),dps(2),heal(4),ranged(8)',
+  `faction` int(10) unsigned NOT NULL DEFAULT '35',
   `equipMhEx` int(10) unsigned NOT NULL DEFAULT '0',
   `equipOhEx` int(10) unsigned NOT NULL DEFAULT '0',
   `equipRhEx` int(10) unsigned NOT NULL DEFAULT '0',
