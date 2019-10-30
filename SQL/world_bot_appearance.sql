@@ -1,3 +1,4 @@
+-- Handmade data, very sensitive
 DROP TABLE IF EXISTS `creature_template_npcbot_appearance`;
 
 CREATE TABLE `creature_template_npcbot_appearance` (
