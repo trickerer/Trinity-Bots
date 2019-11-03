@@ -77,7 +77,7 @@ Merge worldserver.conf.dist into your worldserver.conf file (NPCBot mod settings
 Apply SQL files from /TrinityCore/sql/Bots/ to your DB (files starting with `characters_` and `world_` go into your `characters` and `world` DB respectively):
 ```
 1_world_bot_appearance.sql
-2_world_creture_template_npcbot_extras.sql
+2_world_bot_extras.sql
 3_world_bots.sql
 4_world_generate_bot_equips.sql
 character_bots.sql
@@ -461,7 +461,7 @@ Lastly, all NPCBots will have the following extra options:
 - Nevermind
 ```
 `_You are dismissed_` will remove the NPCBot from your control. They will become pissed off, throw all their gear at you and return back to their spawn location. They will also become enraged for 5 minutes to the point of starting attacking anyone attempting to hire them
-- `Nevermind` will simply close out the Gossip menu
+`_Nevermind_` will simply close out the Gossip menu
 
 ### NPCBot Config Settings
 Just check your worldserver.conf for the info (scroll to the bottom)
