@@ -2,7 +2,7 @@
 
 # [ THE NPCBOTS MANUAL ]
 >Compiled by: Trickerer (onlysuffering @ Gmail dot Com)  
->Version 0.5 - 30 Oct 2019  
+>Version 0.7 - 04 Nov 2019  
 >Original version by: Thesawolf (@ Gmail dot Com) Version 0.3 - 20 July 2016 [here](https://github.com/thesawolf/TrinityCore/blob/TrinityCoreLegacy/README_Bots.md)
 
 ---------------------------------------
@@ -21,7 +21,8 @@
         - [NPCBot Grouping](#markdown-header-npcbot-grouping)
         - [NPCBot Extras](#markdown-header-npcbot-extras)
     - [NPCBot Config Settings](#markdown-header-npcbot-config-settings)
-    - [NPCBot NPCBot Occupations](#markdown-header-npcbot-occupations)
+    - [NPCBot Extra Classes](#markdown-header-npcbot-extra-classes)
+    - [NPCBot Occupations](#markdown-header-npcbot-occupations)
 3. [Guide Changelog](#markdown-header-guide-changelog)
 
 ---------------------------------------
@@ -464,7 +465,151 @@ Lastly, all NPCBots will have the following extra options:
 `_Nevermind_` will simply close out the Gossip menu
 
 ### NPCBot Config Settings
-Just check your worldserver.conf for the info (scroll to the bottom)
+If some config settings look ambiguous to you, this section may help you
+
+- **`NpcBot.BaseFollowDistance`**
+    - This parameter determines formation size and enemy chase cutoff distance
+    - Value range: **0-100**
+    - Not saved between log-ins  
+    Explanation. Bots group around you in a formation where tanks are in front, melee are on the sides and ranged are in the back. The distance they keep from you is not changed if value of this parameter is 30 or less. Past 30 it is increased linearly up to additional 10 yards between you and a your bots. The distance at which bots start attacking incoming enemies is determined by this parameter as well. This is distance between *you* and the enemy and is about 75% of this paramenter's value. If bot's attack target moves outside of this range bot stops attacking it (unless you attack this target as well) and retreats. **This means** that if this parameter is set low bot actions and chase movement may become erratic. Is this parameter is set to **0** bots will act passively unless you point an attack targets (with your melee attack, only works in combat); this may be useful in case you want bots to attack and retreat, or in situation where blind attack is dangerous and you need bots to attack only targets you want them to
+- **`NpcBot.XpReduction`**
+    - This parameter allows you to set XP gain percent penalty for players using bots during leveling
+    - Value range: **0-90**  
+    Explanation. XP amount is reduced by a percentage for every used bot after first one (it doesn't matter if bots are in group with you or not). Two bots are able to do much more damage than one player, especially on low levels. Bots also open great potential for grind. So you may want to punish your players a little. The formula is: **(100 - X \* (Y - 1))%** XP gained, where **X** is XP reduction and **Y** is bots count. *Example: XP reduction is 10, bots count = 4; XP gained: 100 - 10 * (4 - 1) = 70% XP gained*. In any case, overall XP reduction from this parameter will never exceed 90%
+- **`NpcBot.HealTargetIconsMask`**
+    - This parameter allows players to mark units not under player's control as friends using Target Icons  
+    Explanation. Sometimes you need to protect targets other that yourself, escort quests are a good example. With this parameter activated players can set *Raid Icon* on a target they want bots to care about. Bots will treat said target as a member of player's party, heal it if needed and assist it in combat. Parameter itself is a bit mask and consists of a combination of values assigned to each target icon: **Star - 1, Circle - 2, Diamond - 4, Triangle - 8, Moon - 16, Square - 32, Cross - 64, Skull - 128**. *Example: Star, Diamond and Triangle = 1 + 4 + 8 = 13*
+- **`NpcBot.Cost`**
+    - This parameter determines how much money player has to pay to hire a bot
+    - This is how much money player has to pay **at level 80**, for lower levels cost is reduced:
+        - level  1-10: cost / 5000
+        - level 11-20: cost / 100
+        - level 21-30: cost / 20
+        - level 31-40: cost / 5
+        - level  41+:  cost / 80 \* level  
+    Explanation. The value you set is in copper (1 silver = 100 copper, 1 gold = 100 silver = 10000 copper). Rare and Elite bots cost more (**x2** for Rare and **x5** for Elite)
+- **`NpcBot.Movements.InterruptFood`**
+    - This parameter determines if bots should stop eating and drinking if they move  
+    Explanation. By default this parameter is disabled to prevent bots' food and drinks spam since bots try to eat and drink when they have the chance, which is every time they don't do anything even for a fraction of a second
+- **`NpcBot.EquipmentDisplay.Enable`**
+    - This parameter allows bots to display equipped items other than weapons on their model  
+    Explanation. Normally, for creatures game client only draws default model determined by model ID. This parameter force feeds clients information about unit model and items in equipment slots which is generated at server side; so instead of default model client draws player model components including skin color, face, facial hair and others including "equipped" items. The only problem players may encounter comes from a game client bug which can cause a crash at game exit (client crash, not server crash) with error \#132. This bug can be reproduced by changing base model of unit having UNIT_FLAG2_MIRROR_IMAGE more than 4 times in a short period of time, so bots being polymorphed or druids shapeshifting have higher chance of causing this problem
+
+### NPCBot Extra Classes
+#### General Information
+NPCBot mod features several custom classes inspired by Warcraft III. These bots are ranked Rare, Elite or Rareelite, have different mana increase rate and cannot drink to restore mana, have increased level and hire cost, may have minimum player level requirement. Also, control magic affects them much less, even less than is does players. They are not intended to be as effective as normal classes and/or balanced at any given level. Their main purpose is to support you and other bots. For basic information on certain class use Gossip Menu and click `<Study the creature>`. If you need more info keep on reading  
+
+#### Blademaster
+*(Disabled on master branch)*  
+**Rank: Rare**  
+**Level Bonus: +1**  
+**Minimum player level: 1**  
+**Equipment affects visual: no**  
+**Number included: 1**  
+**Class specifics:** Very high attack speed, equipped weapon does not affect attack speed, attack power from stats: agility x9, cannot crit with normal attacks, cannot dodge or parry, bonus armor penetration 80%  
+Equippable weapon: 2h swords, 2h axes and polearms  
+Equippable armor: any (no shield)  
+Abilities:
+
+- Netherwalk. Blademaster becomes invisible and moves faster for 30 seconds. If Blademaster breaks invisibility to attack, he will deal 150% damage on first attack
+- Mirror Image. Blademaster disappears, creating 1-3 illusions of himself (depends on hero's level). Also dispells all magic from him. Mirror Images deal no real damage and take 200% damage themselves
+- Critical Strike (passive). Gives 15% chance to deal critical strike for x2-x4 times normal damage (depends on hero's level)
+- Bladestorm (not implemented)  
+
+**Additional info:** Blademaster stands out as a class with highest single target damage capabilities and ability to almost one-shot most things if geared properly. Unfortunately, due to changes in movement mechanic, Blademaster's critical strike animation can not longer be emulated, and thus this class was disabled on master branch  
+
+#### Obsidian Destroyer
+**Rank: Rareelite**  
+**Level Bonus: +3**  
+**Minimum player level: 60**  
+**Equipment affects visual: weapons only**  
+**Number included: 2**  
+**Class specifics:** *Very* high resistances, *negative* mana regeneration which cannot be countered by passive mana regeneration effects (like item mp5 stats), cannot mount, no melee attack, stamina bonus +50%, armor bonus: +50%, all damage taken reduced by 33%, attack power from stats: strength x2, spellpower bonus: 50% attack power + 200% intellect + wands, cannot eat  
+Equippable weapon: wand**s**  
+Equippable armor: mail/plate (no shield), **no jewelry or cape**  
+Abilities:
+
+- Devour Magic. Dispels up to 2 magic effect from enemies, up to 2 magic effects and 2 curse effects from allies and damaging summoned units in 20 yards dest area, restoring caster's mana and health (20% mana and 5% health for every dispelled effect)
+- Shadow Blast. Empowered attack that deals increased splash damage to targets in a rather large area. Main target takes more damage than others
+- Drain Mana. Drains all mana from a random ***friendly*** unit. The amount drained is limited by Obsidian Destroyer's maximum mana. **This ability cannot be disabled**
+- Replenish Mana. Energizes surrounding party and raid members within 15 yards for 1% of their maximum mana, affecting up to 10 targets. *This ability drains all mana*
+- Replenish Health. Heals surrounding party and raid members within 15 yards for 2% of their maximum health, affecting up to 10 targets. *This ability drains all mana*
+- Shadow Armor (passive). Restores mana equal to a percentage of damage taken. This ability only triggers when damage taken is enough to restore 10% of Obsidian Destroyer's mana  
+
+**Additional info:** Obsidian Destroyer in fact derives from a non-hero unit, but received elite status because of the ability to deal insane amounts of damage given the chance, support party of any kind, dispel, purge AND tank at the same time, utilizing abilities of original unit's both forms: statue form and true form  
+
+#### Archmage
+**Rank: Rare**  
+**Level Bonus: +1**  
+**Minimum player level: 20**  
+**Equipment affects visual: no**  
+**Number included: 1**  
+**Class specifics:** Always mounted (ground mount only), no melee attack, armor bonus: 500% intellect, spell damage taken reduced by 35%, spellpower bonus: 100% intellect  
+Equippable weapon: staves  
+Equippable armor: cloth (no shield)  
+Abilities:
+
+- Blizzard. It looks like your typical mage Blizzard but it's in fact a little different. It has no chill effects or anything, but has higher base damage and scales much more with spellpower
+- Summon Water Elemental. Archmage Water Elemental has 1 minute duration and 20 sec cooldown, cannot run out of mana and deals more damage since W3 Archmage could have 3 active Elementals
+- Brilliance Aura. Increases maximum mana by 10% and mana regeneration by 100% of party and raid members within 40 yards
+- Mass Teleport (not implemented)  
+
+**Additional info:** Archmage is most valued for his support capabilities in large groups, although he is very squishy  
+
+#### Dreadlord
+**Rank: Rareelite**  
+**Level Bonus: +3**  
+**Minimum player level: 60**  
+**Equipment affects visual: no**  
+**Number included: 5**  
+**Class specifics:** High resistances, cannot mount, stamina bonus +20%, armor bonus: +50%, all damage taken reduced by 15%, critical strike rating x2, attack power from stats: strength x8, spellpower bonus: 200% stength  
+Equippable weapon: axes, maces, swords, 2h axes, 2h maces, 2h swords, polearms, staves, fist weapons, daggers  
+Equippable armor: plate (no shield)  
+Abilities:
+
+- Carrion Swarm. This ability damages enemies in a very large and long frontal cone, healing Dreadlord for 100% effective damage dealt, can easily restore all health to the Dreadlord, high mana cost. Carrion Swarm deals double damage to incapacitated targets
+- Sleep. Puts enemy to sleep for 60 seconds and reduces armor by 100% for the duration. Damage over time effects do not interrupt this effect, only direct damage does
+- Vampiric Aura. Increases physical critical damage by 5% and heals party and raid members within 40 yards for 25% (100% for Dreadlord) of damage dealt by melee physical attacks. This heal generates no threat
+- Infernal. Summons an Infernal Servant at dest location, damaging and stunning enemy units in the area. Infernal is very resistant to magic and its stats scale with Dreadlord's stats. Infernal burns, dealing damage to surrounding enemies every 2 seconds, 180 sec duration  
+
+**Additional info:** Dreadlord is most useful in a big party with a lot of melee classes and also can be very annoying in pvp if packed with enough haste and armor penetration  
+
+#### Spell Breaker
+**Rank: Rare**  
+**Level Bonus: +1**  
+**Minimum player level: 20**  
+**Equipment affects visual: no**  
+**Number included: 5**  
+**Class specifics:** All spell damage reduced by 75%, armor penalty: -30%, attack power from stats: strength x5, block chance + 90%, spellpower bonus: 200% stength  
+Equippable weapon: axes, maces, swords, fist weapons, daggers  
+Equippable armor: mail/plate  
+Abilities:
+
+- Steal Magic. Steals benefical spell from an enemy an transfers it to a nearby ally, or removes a negative spell from an ally and transfers it to a nearby enemy, affects magic and curse effects. Transferred effect duration is limited to a maximum of 5 minutes *and minimum of 5 seconds*
+- Feedback (passive). Melee attacks burn target's mana dealing arcane damage. Amount burned is equal to melee damage dealt increased by spell power
+- Control Magic (not implemented)  
+
+**Additional info:** Spell Breaker is mostly pure support class incappable of dealing any serious damage, but may also make quick work of some hapless caster, burning all his mana in seconds  
+
+#### Dark Ranger
+**Rank: Rareelite**  
+**Level Bonus: +3**  
+**Minimum player level: 40**  
+**Equipment affects visual: no**  
+**Number included: 5**  
+**Class specifics:** Undead, damage generates no threat, sneak mode if not moving, spell damage taken reduced by 35%, attack power from stats: agility x5 + intellect x2, armor penetration bonus: 50%, crit bonus +20%, dodge bonus +30%, spellpower bonus: 50% intellect  
+Equippable weapon: swords, daggers, bows  
+Equippable armor: cloth/leather (no shield)  
+Abilities:
+
+- Silence. Silences an enemy and nearby targets for 8 seconds. Maximum of 5 targets, 15 sec cooldown
+- Black Arrow. Fires a cursed arrow dealing 150% weapon damage and additional damage over time. If affected target dies from Dark Ranger's damage, Dark Minion will spawn from the corpse (does not apply to players), leaving a pile of gore (lootable). Deals 5 times more damage if target is under 20% health. Only affects humanoids, beasts and dragonkin. If target unit's rank is rare, elite of rareelite, spawns elite Minion instead. Maximum 5 Minions, Minions live for 80 seconds and are immune to healing effects
+- Drain Life. Drains health from an enemy every second for 5 seconds starting with 0 (6 total ticks), healing Dark Ranger for 200% of the drained amount
+- Charm (not implemented)
+- Taunt (Dark Minion). Taunts an enemy within melee range to attack Dark Minion instead of Dark Ranger for 5 seconds. One-time use
+- Improved Blocking (Dark Minion). Increases chance to block an attack by 60-100% (depends on caster's level) for 6 seconds. One-time use  
+
+**Additional info:** Dark Ranger has most use in solo combined with healer, or as a support in big group due to Silence low cooldown and no other mana sinks  
 
 ### NPCBot Occupations
 #### Database
@@ -495,6 +640,9 @@ Bots are being added to world at server loading (after Map System is started)
 ---------------------------------------
 ## Guide Changelog
 
+- **Version 0.7** (_04 Nov 2019_)
+    - Added config disambiguation
+    - Added info on extra classes
 - **Version 0.5** (_30 Oct 2019_)
     - Markdown style fix
 - **Version 0.4** (_17 Oct 2019_)
