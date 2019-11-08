@@ -1,4 +1,6 @@
-### This mod was last updated: 30 Oct 2019. TrinityCore revision: [84937337da](https://github.com/TrinityCore/TrinityCore/commit/84937337da) ###
+### This mod was last updated:
+### last version: 30 Oct 2019, TrinityCore revision: [84937337da](https://github.com/TrinityCore/TrinityCore/commit/84937337da)
+### 2013 version: 12 Dec 2013. TrinityCore revision: [385e2dba37](https://github.com/TrinityCore/TrinityCore/commit/385e2dba37)
 
 # [ THE NPCBOTS MANUAL ]
 >Compiled by: Trickerer (onlysuffering @ Gmail dot Com)  
@@ -643,6 +645,8 @@ Bots are being added to world at server loading (after Map System is started)
 - **Version 0.7** (_04 Nov 2019_)
     - Added config disambiguation
     - Added info on extra classes
+- **Version 0.5.1** (_3 Nov 2019_)
+    - Update for branch time-stop-2013
 - **Version 0.5** (_30 Oct 2019_)
     - Markdown style fix
 - **Version 0.4** (_17 Oct 2019_)
