@@ -1,4 +1,4 @@
-From c53b4b699c30efccbd4af68ae574ac43cb2cd6c8 Mon Sep 17 00:00:00 2001
+From 65422e3cb1756c2d743bf4b95a5c56d70737684a Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
 Date: Fri, 8 Nov 2019 18:24:55 +0700
 Subject: [PATCH] NPCBots2013
@@ -11,7 +11,7 @@ Subject: [PATCH] NPCBots2013
  sql/Bots/character_bots.sql                        |    26 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1176 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 12394 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 12401 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   494 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   380 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   926 ++
@@ -94,7 +94,7 @@ Subject: [PATCH] NPCBots2013
  .../Database/Implementation/CharacterDatabase.cpp  |    15 +
  .../Database/Implementation/CharacterDatabase.h    |    11 +
  src/server/worldserver/worldserver.conf.dist       |   174 +
- 90 files changed, 52807 insertions(+), 9 deletions(-)
+ 90 files changed, 52814 insertions(+), 9 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -2803,10 +2803,10 @@ index 0000000..08c8da2
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..5a38755
+index 0000000..a28b0c4
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,12394 @@
+@@ -0,0 +1,12401 @@
 +#include "bot_ai.h"
 +//#include "botcommon.h"
 +#include "bot_Events.h"
@@ -4417,6 +4417,7 @@ index 0000000..5a38755
 +        botstring << "\nspell damage mult: " << float(_mult_dmg_spell);
 +        botstring << "\nhealing done mult: " << float(_mult_healing);
 +        botstring << "\nspell power: " << int32(me->SpellBaseDamageBonusDone(SPELL_SCHOOL_MASK_MAGIC));
++        botstring << "\nhealth regen_5 bonus: " << int32(_getTotalBotStat(BOT_STAT_MOD_HEALTH_REGEN));
 +        if (me->GetMaxPower(POWER_MANA) > 1)
 +        {
 +            botstring << "\nmana regen_5 casting: " << float((_botclass == BOT_CLASS_SPHYNX ? -1.f : 1.f) * me->GetFloatValue(UNIT_FIELD_POWER_REGEN_INTERRUPTED_FLAT_MODIFIER) * sWorld->getRate(RATE_POWER_MANA) * 5.0f);
@@ -6324,9 +6325,14 @@ index 0000000..5a38755
 +    {
 +        regenTimer -= REGEN_CD;
 +        // Regen Health
-+        if ((!me->IsInCombat() || me->IsPolymorphed() || CanRegenInCombat()) && me->GetHealth() < me->GetMaxHealth())
++        int32 baseRegen = int32(_getTotalBotStat(BOT_STAT_MOD_HEALTH_REGEN));
++        if ((!me->IsInCombat() || me->IsPolymorphed() || CanRegenInCombat() || baseRegen > 0 ||
++            me->HasAuraType(SPELL_AURA_MOD_REGEN_DURING_COMBAT) || me->HasAuraType(SPELL_AURA_MOD_HEALTH_REGEN_IN_COMBAT)) &&
++            me->GetHealth() < me->GetMaxHealth())
 +        {
 +            int32 add = me->IsInCombat() ? 0 : IAmFree() && !me->GetVictim() ? me->GetMaxHealth() / 32 : 5 + me->GetCreateHealth() / 256;
++            if (baseRegen > 0)
++                add += std::max<int32>(baseRegen / 5, 1);
 +
 +            //cannot eat
 +            if (_botclass == BOT_CLASS_SPHYNX)
@@ -10319,7 +10325,7 @@ index 0000000..5a38755
 +        if (!ignoreItemLevel)
 +            if (slot > BOT_SLOT_RANGED || einfo->ItemEntry[slot] != oldProto->ItemId)
 +                if (IAmFree() || !master->IsGameMaster())
-+                    if (oldProto->GetItemLevelIncludingQuality() > item->GetItemLevelIncludingQuality())
++                    if (oldProto->ItemLevel > item->ItemLevel)
 +                        return false;
 +    }
 +
@@ -11412,6 +11418,7 @@ index 0000000..5a38755
 +                    case ITEM_MOD_MANA_REGENERATION:
 +                    case ITEM_MOD_ARMOR_PENETRATION_RATING:
 +                    case ITEM_MOD_SPELL_POWER:
++                    case ITEM_MOD_HEALTH_REGEN:
 +                    case ITEM_MOD_SPELL_PENETRATION:
 +                    case ITEM_MOD_BLOCK_VALUE:
 +                    case ITEM_MOD_SPELL_HEALING_DONE:   // deprecated
@@ -39332,7 +39339,7 @@ index 0000000..6292948
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warrior_ai.cpp b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 new file mode 100644
-index 0000000..738a856
+index 0000000..b6d3076
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 @@ -0,0 +1,2128 @@
@@ -39953,7 +39960,7 @@ index 0000000..738a856
 +                !opponent->HasAuraTypeWithFamilyFlags(SPELL_AURA_MOD_MELEE_HASTE, SPELLFAMILY_WARRIOR, 0x80)) ||
 +                FindSplashTarget(7.5f, opponent, 15.f)))
 +            {
-+                if (_inStance(4) || stanceChange(diff, 4))
++                if (_inStance(4) || (me->getLevel() >= 20 && stanceChange(diff, 4)))
 +                {
 +                    if (doCast(me, GetSpell(THUNDER_CLAP_1)))
 +                        return;
@@ -40005,7 +40012,7 @@ index 0000000..738a856
 +                (opponent->isMoving() || opponent->GetTypeId() == TYPEID_PLAYER) && dist < 5 && rage >= rcost(HAMSTRING_1) &&
 +                !opponent->HasAuraWithMechanic(1<<MECHANIC_SNARE))
 +            {
-+                if (_inStance(5) || stanceChange(diff, 5))
++                if (_inStance(5) || (me->getLevel() >= 15 && stanceChange(diff, 5)))
 +                    if (doCast(opponent, GetSpell(HAMSTRING_1)))
 +                        return;
 +            }
@@ -40126,7 +40133,7 @@ index 0000000..738a856
 +                !(opponent->GetTypeId() == TYPEID_UNIT &&
 +                (opponent->ToCreature()->GetCreatureTemplate()->MechanicImmuneMask & (1<<(MECHANIC_BLEED-1)))) &&
 +                !opponent->GetAuraEffect(SPELL_AURA_PERIODIC_DAMAGE, SPELLFAMILY_WARRIOR, 0x20, 0x0, 0x0, me->GetGUID()) &&
-+                (_inStance(4) || (stancetimer <= diff && stanceChange(diff, 4))))
++                (_inStance(4) || (me->getLevel() >= 15 && stanceChange(diff, 4))))
 +            {
 +                if (doCast(opponent, GetSpell(REND_1)))
 +                    return;
@@ -40152,7 +40159,7 @@ index 0000000..738a856
 +                me->GetAuraEffect(SPELL_AURA_ABILITY_IGNORE_AURASTATE, SPELLFAMILY_WARRIOR, 2961, 0)
 +                /*me->HasAura(TASTE_FOR_BLOOD_BUFF)*/))
 +            {
-+                if (_inStance(1) || stanceChange(diff, 1))
++                if (_inStance(1) || (me->getLevel() >= 15 && stanceChange(diff, 1)))
 +                {
 +                    if (doCast(opponent, GetSpell(OVERPOWER_1)))
 +                        return;
