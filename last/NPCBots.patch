@@ -1,4 +1,4 @@
-From d0839952c131c81445a1d8f39e47d7e5f5d0b3f4 Mon Sep 17 00:00:00 2001
+From 5f44260bcfa58955837da92b8d425c21de242c99 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
 Date: Fri, 8 Nov 2019 18:11:25 +0700
 Subject: [PATCH] NPCBots
@@ -14,7 +14,7 @@ Subject: [PATCH] NPCBots
  .../Database/Implementation/CharacterDatabase.h    |    11 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1179 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 12501 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 12525 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   501 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   382 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   928 ++
@@ -38,8 +38,8 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/NpcBots/botdatamgr.h            |    77 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   135 +
  src/server/game/AI/NpcBots/botdpstracker.h         |    36 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  1206 ++
- src/server/game/AI/NpcBots/botmgr.h                |   154 +
+ src/server/game/AI/NpcBots/botmgr.cpp              |  1237 ++
+ src/server/game/AI/NpcBots/botmgr.h                |   159 +
  src/server/game/AI/NpcBots/bpet_ai.cpp             |  2200 ++++
  src/server/game/AI/NpcBots/bpet_ai.h               |   167 +
  src/server/game/AI/NpcBots/bpet_archmage.cpp       |   136 +
@@ -101,8 +101,8 @@ Subject: [PATCH] NPCBots
  src/server/scripts/Spells/spell_warrior.cpp        |     6 +
  src/server/shared/DataStores/DBCStructure.h        |     2 +-
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
- src/server/worldserver/worldserver.conf.dist       |   174 +
- 98 files changed, 53141 insertions(+), 14 deletions(-)
+ src/server/worldserver/worldserver.conf.dist       |   192 +
+ 98 files changed, 53219 insertions(+), 14 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -2881,10 +2881,10 @@ index 0000000..3a35169
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..6c25adf
+index 0000000..88564e9
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,12501 @@
+@@ -0,0 +1,12525 @@
 +#include "bot_ai.h"
 +//#include "botcommon.h"
 +#include "bot_Events.h"
@@ -5350,7 +5350,13 @@ index 0000000..6c25adf
 +            value += 20.f;
 +        }
 +
-+        crit = value;
++        if (BotMgr::IsBotStatsLimitsEnabled())
++            crit = std::min<float>(value, BotMgr::GetBotStatLimitCrit());
++        else
++            crit = value;
++
++        if (crit < 0.0f)
++            crit = 0.0f;
 +    }
 +    else
 +        crit = 0.0f;
@@ -5391,7 +5397,13 @@ index 0000000..6c25adf
 +        if (_botclass == BOT_CLASS_HUNTER && mylevel >= 20)
 +            value += 3.f;
 +
-+        parry = value;
++        if (BotMgr::IsBotStatsLimitsEnabled())
++            parry = std::min<float>(value, BotMgr::GetBotStatLimitParry());
++        else
++            parry = value;
++
++        if (parry < 0.0f)
++            parry = 0.0f;
 +    }
 +    else
 +        parry = 0.0f;
@@ -5433,7 +5445,13 @@ index 0000000..6c25adf
 +            value += 30.f;
 +        }
 +
-+        dodge = value;
++        if (BotMgr::IsBotStatsLimitsEnabled())
++            dodge = std::min<float>(value, BotMgr::GetBotStatLimitDodge());
++        else
++            dodge = value;
++
++        if (dodge < 0.0f)
++            dodge = 0.0f;
 +    }
 +    else
 +        dodge = 0.0f;
@@ -5451,7 +5469,13 @@ index 0000000..6c25adf
 +        value += defbonus * 0.04f;
 +
 +        //base block chance is capped at 75%
-+        block = std::min<float>(value, 75.0f);
++        if (BotMgr::IsBotStatsLimitsEnabled())
++            block = std::min<float>(value, BotMgr::GetBotStatLimitBlock());
++        else
++            block = std::min<float>(value, 75.0f);
++
++        if (block < 0.0f)
++            block = 0.0f;
 +
 +        //Spellbreaker wears tall shield so should always block
 +        if (_botclass == BOT_CLASS_SPELLBREAKER)
@@ -44061,10 +44085,10 @@ index 0000000..ddb6150
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 0000000..c36c0db
+index 0000000..8f5cf10
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,1206 @@
+@@ -0,0 +1,1237 @@
 +#include "bot_ai.h"
 +#include "botdpstracker.h"
 +#include "bot_Events.h"
@@ -44117,6 +44141,11 @@ index 0000000..c36c0db
 +bool _enableclass_dreadlord;
 +bool _enableclass_spellbreaker;
 +bool _enableclass_darkranger;
++bool _botStatLimits;
++float _botStatLimits_dodge;
++float _botStatLimits_parry;
++float _botStatLimits_block;
++float _botStatLimits_crit;
 +float _mult_dmg_physical;
 +float _mult_dmg_spell;
 +float _mult_healing;
@@ -44227,9 +44256,9 @@ index 0000000..c36c0db
 +    _basefollowdist         = sConfigMgr->GetIntDefault("NpcBot.BaseFollowDistance", 30);
 +    _xpReductionNpcBots     = sConfigMgr->GetIntDefault("NpcBot.XpReduction", 0);
 +    _healTargetIconFlags    = sConfigMgr->GetIntDefault("NpcBot.HealTargetIconsMask", 0);
-+    _mult_dmg_physical      = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Physical", 1.0);
-+    _mult_dmg_spell         = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Spell", 1.0);
-+    _mult_healing           = sConfigMgr->GetFloatDefault("NpcBot.Mult.Healing", 1.0);
++    _mult_dmg_physical      = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Physical", 1.0f);
++    _mult_dmg_spell         = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Spell", 1.0f);
++    _mult_healing           = sConfigMgr->GetFloatDefault("NpcBot.Mult.Healing", 1.0f);
 +    _enableNpcBotsDungeons  = sConfigMgr->GetBoolDefault("NpcBot.Enable.Dungeon", true);
 +    _enableNpcBotsRaids     = sConfigMgr->GetBoolDefault("NpcBot.Enable.Raid", false);
 +    _enableNpcBotsBGs       = sConfigMgr->GetBoolDefault("NpcBot.Enable.BG", false);
@@ -44250,6 +44279,11 @@ index 0000000..c36c0db
 +    _enableclass_dreadlord  = sConfigMgr->GetBoolDefault("NpcBot.NewClasses.Dreadlord.Enable", true);
 +    _enableclass_spellbreaker=sConfigMgr->GetBoolDefault("NpcBot.NewClasses.SpellBreaker.Enable", true);
 +    _enableclass_darkranger = sConfigMgr->GetBoolDefault("NpcBot.NewClasses.DarkRanger.Enable", true);
++    _botStatLimits          = sConfigMgr->GetBoolDefault("NpcBot.Stats.Limits.Enable", false);
++    _botStatLimits_dodge    = sConfigMgr->GetFloatDefault("NpcBot.Stats.Limits.Dodge", 95.0f);
++    _botStatLimits_parry    = sConfigMgr->GetFloatDefault("NpcBot.Stats.Limits.Parry", 95.0f);
++    _botStatLimits_block    = sConfigMgr->GetFloatDefault("NpcBot.Stats.Limits.Block", 95.0f);
++    _botStatLimits_crit     = sConfigMgr->GetFloatDefault("NpcBot.Stats.Limits.Crit", 95.0f);
 +
 +    //limits
 +    _mult_dmg_physical      = std::max<float>(_mult_dmg_physical, 0.1f);
@@ -44339,6 +44373,27 @@ index 0000000..c36c0db
 +        default:
 +            return true;
 +    }
++}
++
++bool BotMgr::IsBotStatsLimitsEnabled()
++{
++    return _botStatLimits;
++}
++float BotMgr::GetBotStatLimitDodge()
++{
++    return _botStatLimits_dodge;
++}
++float BotMgr::GetBotStatLimitParry()
++{
++    return _botStatLimits_parry;
++}
++float BotMgr::GetBotStatLimitBlock()
++{
++    return _botStatLimits_block;
++}
++float BotMgr::GetBotStatLimitCrit()
++{
++    return _botStatLimits_crit;
 +}
 +
 +uint8 BotMgr::GetNpcBotXpReduction()
@@ -45273,10 +45328,10 @@ index 0000000..c36c0db
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.h b/src/server/game/AI/NpcBots/botmgr.h
 new file mode 100644
-index 0000000..09fec61
+index 0000000..3194337
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.h
-@@ -0,0 +1,154 @@
+@@ -0,0 +1,159 @@
 +#ifndef _BOTMGR_H
 +#define _BOTMGR_H
 +
@@ -45337,6 +45392,11 @@ index 0000000..09fec61
 +        static bool ShowEquippedCloak();
 +        static bool ShowEquippedHelm();
 +        static bool IsClassEnabled(uint8 m_class);
++        static bool IsBotStatsLimitsEnabled();
++        static float GetBotStatLimitDodge();
++        static float GetBotStatLimitParry();
++        static float GetBotStatLimitBlock();
++        static float GetBotStatLimitCrit();
 +
 +        static void Initialize();
 +        static void ReloadConfig();
@@ -55151,10 +55211,10 @@ index 00dde89..0d15298 100644
  char constexpr ItemExtendedCostEntryfmt[] = "niiiiiiiiiiiiiix";
  char constexpr ItemLimitCategoryEntryfmt[] = "nxxxxxxxxxxxxxxxxxii";
 diff --git a/src/server/worldserver/worldserver.conf.dist b/src/server/worldserver/worldserver.conf.dist
-index 58694ad..3abdb90 100644
+index 58694ad..fa5209e 100644
 --- a/src/server/worldserver/worldserver.conf.dist
 +++ b/src/server/worldserver/worldserver.conf.dist
-@@ -4073,3 +4073,177 @@ Metric.OverallStatusInterval = 1
+@@ -4073,3 +4073,195 @@ Metric.OverallStatusInterval = 1
  
  #
  ###################################################################################################
@@ -55329,6 +55389,24 @@ index 58694ad..3abdb90 100644
 +NpcBot.NewClasses.Dreadlord.Enable         = 1
 +NpcBot.NewClasses.SpellBreaker.Enable      = 1
 +NpcBot.NewClasses.DarkRanger.Enable        = 1
++
++#    NpcBot.Stats.Limits.Enable
++#        Description: Enable or disable stats limits for bots.
++#        Default:     0 - Disabled
++
++NpcBot.Stats.Limits.Enable = 0
++
++#
++#    NpcBot.Stats.Limit.<Stat>
++#        Description: Set dodge, parry, block and crit chance percentage limit for bots.
++#        Note:        Some bot classes may ignore some of these values.
++#        Note2:       Auras can still increase these stats above limit.
++#        Default:     95.0 (95%)
++
++NpcBot.Stats.Limits.Dodge = 95.0
++NpcBot.Stats.Limits.Parry = 95.0
++NpcBot.Stats.Limits.Block = 95.0
++NpcBot.Stats.Limits.Crit  = 95.0
 +
 +#
 +###################################################################################################

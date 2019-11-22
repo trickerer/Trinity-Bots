@@ -1,4 +1,4 @@
-From 6c966e5cf666c2f75a0cc91c0017d4478f80d93b Mon Sep 17 00:00:00 2001
+From 1818275e106be541783b4c605453b99f9067f858 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
 Date: Fri, 8 Nov 2019 18:24:55 +0700
 Subject: [PATCH] NPCBots2013
@@ -11,7 +11,7 @@ Subject: [PATCH] NPCBots2013
  sql/Bots/character_bots.sql                        |    26 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1176 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 12392 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 12416 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   494 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   380 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   926 ++
@@ -35,8 +35,8 @@ Subject: [PATCH] NPCBots2013
  src/server/game/AI/NpcBots/botdatamgr.h            |    77 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   135 +
  src/server/game/AI/NpcBots/botdpstracker.h         |    36 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  1142 ++
- src/server/game/AI/NpcBots/botmgr.h                |   152 +
+ src/server/game/AI/NpcBots/botmgr.cpp              |  1173 ++
+ src/server/game/AI/NpcBots/botmgr.h                |   157 +
  src/server/game/AI/NpcBots/bpet_ai.cpp             |  2193 ++++
  src/server/game/AI/NpcBots/bpet_ai.h               |   166 +
  src/server/game/AI/NpcBots/bpet_archmage.cpp       |   132 +
@@ -93,8 +93,8 @@ Subject: [PATCH] NPCBots2013
  src/server/scripts/Spells/spell_shaman.cpp         |    10 +
  .../Database/Implementation/CharacterDatabase.cpp  |    15 +
  .../Database/Implementation/CharacterDatabase.h    |    11 +
- src/server/worldserver/worldserver.conf.dist       |   174 +
- 90 files changed, 52869 insertions(+), 9 deletions(-)
+ src/server/worldserver/worldserver.conf.dist       |   192 +
+ 90 files changed, 52947 insertions(+), 9 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -2803,10 +2803,10 @@ index 0000000..08c8da2
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..f3cec1e
+index 0000000..5984d6a
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,12392 @@
+@@ -0,0 +1,12416 @@
 +#include "bot_ai.h"
 +//#include "botcommon.h"
 +#include "bot_Events.h"
@@ -5248,7 +5248,13 @@ index 0000000..f3cec1e
 +            value += 20.f;
 +        }
 +
-+        crit = value;
++        if (BotMgr::IsBotStatsLimitsEnabled())
++            crit = std::min<float>(value, BotMgr::GetBotStatLimitCrit());
++        else
++            crit = value;
++
++        if (crit < 0.0f)
++            crit = 0.0f;
 +    }
 +    else
 +        crit = 0.0f;
@@ -5289,7 +5295,13 @@ index 0000000..f3cec1e
 +        if (_botclass == BOT_CLASS_HUNTER && mylevel >= 20)
 +            value += 3.f;
 +
-+        parry = value;
++        if (BotMgr::IsBotStatsLimitsEnabled())
++            parry = std::min<float>(value, BotMgr::GetBotStatLimitParry());
++        else
++            parry = value;
++
++        if (parry < 0.0f)
++            parry = 0.0f;
 +    }
 +    else
 +        parry = 0.0f;
@@ -5331,7 +5343,13 @@ index 0000000..f3cec1e
 +            value += 30.f;
 +        }
 +
-+        dodge = value;
++        if (BotMgr::IsBotStatsLimitsEnabled())
++            dodge = std::min<float>(value, BotMgr::GetBotStatLimitDodge());
++        else
++            dodge = value;
++
++        if (dodge < 0.0f)
++            dodge = 0.0f;
 +    }
 +    else
 +        dodge = 0.0f;
@@ -5349,7 +5367,13 @@ index 0000000..f3cec1e
 +        value += defbonus * 0.04f;
 +
 +        //base block chance is capped at 75%
-+        block = std::min<float>(value, 75.0f);
++        if (BotMgr::IsBotStatsLimitsEnabled())
++            block = std::min<float>(value, BotMgr::GetBotStatLimitBlock());
++        else
++            block = std::min<float>(value, 75.0f);
++
++        if (block < 0.0f)
++            block = 0.0f;
 +
 +        //Spellbreaker wears tall shield so should always block
 +        if (_botclass == BOT_CLASS_SPELLBREAKER)
@@ -43706,10 +43730,10 @@ index 0000000..e164a57
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 0000000..192573f
+index 0000000..c01dac4
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,1142 @@
+@@ -0,0 +1,1173 @@
 +#include "bot_ai.h"
 +#include "botdpstracker.h"
 +#include "bot_Events.h"
@@ -43760,6 +43784,11 @@ index 0000000..192573f
 +bool _enableclass_dreadlord;
 +bool _enableclass_spellbreaker;
 +bool _enableclass_darkranger;
++bool _botStatLimits;
++float _botStatLimits_dodge;
++float _botStatLimits_parry;
++float _botStatLimits_block;
++float _botStatLimits_crit;
 +float _mult_dmg_physical;
 +float _mult_dmg_spell;
 +float _mult_healing;
@@ -43811,9 +43840,9 @@ index 0000000..192573f
 +    _basefollowdist         = sConfigMgr->GetIntDefault("NpcBot.BaseFollowDistance", 30);
 +    _xpReductionNpcBots     = sConfigMgr->GetIntDefault("NpcBot.XpReduction", 0);
 +    _healTargetIconFlags    = sConfigMgr->GetIntDefault("NpcBot.HealTargetIconsMask", 0);
-+    _mult_dmg_physical      = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Physical", 1.0);
-+    _mult_dmg_spell         = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Spell", 1.0);
-+    _mult_healing           = sConfigMgr->GetFloatDefault("NpcBot.Mult.Healing", 1.0);
++    _mult_dmg_physical      = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Physical", 1.0f);
++    _mult_dmg_spell         = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Spell", 1.0f);
++    _mult_healing           = sConfigMgr->GetFloatDefault("NpcBot.Mult.Healing", 1.0f);
 +    _enableNpcBotsDungeons  = sConfigMgr->GetBoolDefault("NpcBot.Enable.Dungeon", true);
 +    _enableNpcBotsRaids     = sConfigMgr->GetBoolDefault("NpcBot.Enable.Raid", false);
 +    _enableNpcBotsBGs       = sConfigMgr->GetBoolDefault("NpcBot.Enable.BG", false);
@@ -43834,6 +43863,11 @@ index 0000000..192573f
 +    _enableclass_dreadlord  = sConfigMgr->GetBoolDefault("NpcBot.NewClasses.Dreadlord.Enable", true);
 +    _enableclass_spellbreaker=sConfigMgr->GetBoolDefault("NpcBot.NewClasses.SpellBreaker.Enable", true);
 +    _enableclass_darkranger = sConfigMgr->GetBoolDefault("NpcBot.NewClasses.DarkRanger.Enable", true);
++    _botStatLimits          = sConfigMgr->GetBoolDefault("NpcBot.Stats.Limits.Enable", false);
++    _botStatLimits_dodge    = sConfigMgr->GetFloatDefault("NpcBot.Stats.Limits.Dodge", 95.0f);
++    _botStatLimits_parry    = sConfigMgr->GetFloatDefault("NpcBot.Stats.Limits.Parry", 95.0f);
++    _botStatLimits_block    = sConfigMgr->GetFloatDefault("NpcBot.Stats.Limits.Block", 95.0f);
++    _botStatLimits_crit     = sConfigMgr->GetFloatDefault("NpcBot.Stats.Limits.Crit", 95.0f);
 +
 +    //limits
 +    _mult_dmg_physical      = std::max<float>(_mult_dmg_physical, 0.1f);
@@ -43923,6 +43957,27 @@ index 0000000..192573f
 +        default:
 +            return true;
 +    }
++}
++
++bool BotMgr::IsBotStatsLimitsEnabled()
++{
++    return _botStatLimits;
++}
++float BotMgr::GetBotStatLimitDodge()
++{
++    return _botStatLimits_dodge;
++}
++float BotMgr::GetBotStatLimitParry()
++{
++    return _botStatLimits_parry;
++}
++float BotMgr::GetBotStatLimitBlock()
++{
++    return _botStatLimits_block;
++}
++float BotMgr::GetBotStatLimitCrit()
++{
++    return _botStatLimits_crit;
 +}
 +
 +uint8 BotMgr::GetNpcBotXpReduction()
@@ -44854,10 +44909,10 @@ index 0000000..192573f
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.h b/src/server/game/AI/NpcBots/botmgr.h
 new file mode 100644
-index 0000000..0d86636
+index 0000000..32a8b06
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.h
-@@ -0,0 +1,152 @@
+@@ -0,0 +1,157 @@
 +#ifndef _BOTMGR_H
 +#define _BOTMGR_H
 +
@@ -44918,6 +44973,11 @@ index 0000000..0d86636
 +        static bool ShowEquippedCloak();
 +        static bool ShowEquippedHelm();
 +        static bool IsClassEnabled(uint8 m_class);
++        static bool IsBotStatsLimitsEnabled();
++        static float GetBotStatLimitDodge();
++        static float GetBotStatLimitParry();
++        static float GetBotStatLimitBlock();
++        static float GetBotStatLimitCrit();
 +
 +        static void Initialize();
 +        static void ReloadConfig();
@@ -54863,10 +54923,10 @@ index aa47fb5..f9e0dbc 100644
  };
  
 diff --git a/src/server/worldserver/worldserver.conf.dist b/src/server/worldserver/worldserver.conf.dist
-index 4e594fc..3e91d1c 100644
+index 4e594fc..fe2ba0d 100644
 --- a/src/server/worldserver/worldserver.conf.dist
 +++ b/src/server/worldserver/worldserver.conf.dist
-@@ -2816,3 +2816,177 @@ PacketSpoof.BanDuration = 86400
+@@ -2816,3 +2816,195 @@ PacketSpoof.BanDuration = 86400
  
  #
  ###################################################################################################
@@ -54877,55 +54937,55 @@ index 4e594fc..3e91d1c 100644
 +#
 +#    NpcBot.Enable
 +#        Description: Enables NpcBot system.
-+#        Default:   1 - enable
-+#                   0 - disable
++#        Default:     1 - enable
++#                     0 - disable
 +
 +NpcBot.Enable = 1
 +
 +#    NpcBot.MaxBots
 +#        Description: Maximum number of bots allowed for players.
-+#        Default:   1
-+#        Max:       39
++#        Default:     1
++#        Max:         39
 +
 +NpcBot.MaxBots = 1
 +
 +#    NpcBot.MaxBotsPerClass
 +#        Description: Maximum bots of each class allowed for players.
-+#        Default:   0 - no limit
++#        Default:     0 - no limit
 +
 +NpcBot.MaxBotsPerClass = 0
 +
 +#    NpcBot.BaseFollowDistance
 +#        Description: Default bot follow distance.
-+#        Note: This parameter determines bots' formation size, distance at which bots
-+#                   will chase and attack enemies.
-+#        Note2: This parameter is set for each player at login.
-+#        Default:   30
++#        Note:        This parameter determines bots' formation size, distance at which bots
++#                     will chase and attack enemies.
++#        Note2:       This parameter is set for each player at login.
++#        Default:     30
 +
 +NpcBot.BaseFollowDistance = 30
 +
 +#    NpcBot.XpReduction
 +#        Description: XP percent penalty for each bot used starting with second.
-+#        Example: 3 bots, xp reduction is 20: ((3-1)*20) = 40%, 60% exp gained only.
-+#        Note: Maximum overall xp reduction is 90%.
-+#        Default:   0
++#        Example:     3 bots, xp reduction is 20: ((3-1)*20) = 40%, 60% exp gained only.
++#        Note:        Maximum overall xp reduction is 90%.
++#        Default:     0
 +
 +NpcBot.XpReduction = 0
 +
 +#    NpcBot.HealTargetIconsMask
 +#        Description: Icon number bitmask which bots use to search for additional
-+#                   targets to heal (out of party).
-+#        Note: Many creatures cannot accept heal.
-+#        Example: to check Star, Triangle and Square we need 1 + 8 + 32 = 41.
-+#        Default:   0 (Disable)
-+#                   1 - Star
-+#                   2 - Circle
-+#                   4 - Diamond
-+#                   8 - Triangle
-+#                   16 - Moon
-+#                   32 - Square
-+#                   64 - Cross
-+#                   128 - Skull
++#                     targets to buff, heal and protect (out of party).
++#        Note:        Many creatures cannot accept heal.
++#        Example:     To check Star, Triangle and Square we need 1 + 8 + 32 = 41.
++#        Default:     0 (Disable)
++#                     1 - Star
++#                     2 - Circle
++#                     4 - Diamond
++#                     8 - Triangle
++#                     16 - Moon
++#                     32 - Square
++#                     64 - Cross
++#                     128 - Skull
 +
 +NpcBot.HealTargetIconsMask = 0
 +
@@ -54933,9 +54993,9 @@ index 4e594fc..3e91d1c 100644
 +#    NpcBot.Mult.Damage.Spell
 +#    NpcBot.Mult.Healing
 +#        Description: Multipliers for bots' damage and healing. Allows to balance bots vs players.
-+#        Default:   1.0
-+#        Minimum:   0.1
-+#        Maximum:  10.0
++#        Default:     1.0
++#        Minimum:     0.1
++#        Maximum:    10.0
 +
 +NpcBot.Mult.Damage.Physical = 1.0
 +NpcBot.Mult.Damage.Spell    = 1.0
@@ -54947,11 +55007,11 @@ index 4e594fc..3e91d1c 100644
 +#    NpcBot.Enable.Arena
 +#    NpcBot.Enable.DungeonFinder
 +#        Description: Allow bots to enter PvE/PvP areas and Dungeon Finder query.
-+#        Default:   1 - (NpcBot.Enable.Dungeon)
-+#                   0 - (NpcBot.Enable.Raid)
-+#                   0 - (NpcBot.Enable.BG)
-+#                   0 - (NpcBot.Enable.Arena)
-+#                   1 - (NpcBot.Enable.DungeonFinder)
++#        Default:     1 - (NpcBot.Enable.Dungeon)
++#                     0 - (NpcBot.Enable.Raid)
++#                     0 - (NpcBot.Enable.BG)
++#                     0 - (NpcBot.Enable.Arena)
++#                     1 - (NpcBot.Enable.DungeonFinder)
 +
 +NpcBot.Enable.Dungeon       = 1
 +NpcBot.Enable.Raid          = 0
@@ -54962,78 +55022,78 @@ index 4e594fc..3e91d1c 100644
 +#    NpcBot.Limit.Dungeon
 +#    NpcBot.Limit.Raid
 +#        Description: Enable/Disable instance players limitation rules for bots.
-+#        Default:   1 - (NpcBot.Limit.Dungeon)
-+#                   1 - (NpcBot.Limit.Raid)
++#        Default:     1 - (NpcBot.Limit.Dungeon)
++#                     1 - (NpcBot.Limit.Raid)
 +
 +NpcBot.Limit.Dungeon = 1
 +NpcBot.Limit.Raid    = 1
 +
 +#    NpcBot.Cost
 +#        Description: Bot recruitment cost (in copper).
-+#        Note: This value is for level 80 characters, for lower levels cost is reduced greatly.
-+#        Default:   1000000 (100 gold)
++#        Note:        This value is for level 80 characters, for lower levels cost is reduced greatly.
++#        Default:     1000000 (100 gold)
 +
 +NpcBot.Cost = 1000000
 +
 +#    NpcBot.UpdateDelay.Base
 +#        Description: Base delay between bot AI update cycles (in milliseconds).
-+#        Note: This parameter allows you to increase reaction time and slow down bots in general.
-+#                   This may be useful if you want to balance bots in PvP.
-+#        Note2: This value is added on top of existing semi-randomized delay.
-+#        Default:   0 (No additional delay)
++#        Note:        This parameter allows you to increase reaction time and slow down bots in general.
++#                     This may be useful if you want to balance bots in PvP.
++#        Note2:       This value is added on top of existing semi-randomized delay.
++#        Default:     0 (No additional delay)
 +
 +NpcBot.UpdateDelay.Base = 0
 +
 +#    NpcBot.PvP
 +#        Description: Allow bots to attack player-controlled units (players, pets, bots, etc.).
-+#        Note: This rule only applies to player-controlled bots.
-+#        Default:   1
++#        Note:        This rule only applies to player-controlled bots.
++#        Default:     1
 +
 +NpcBot.PvP = 1
 +
 +#    NpcBot.Movements.InterruptFood
 +#        Description: Remove food and drink auras when starting to move.
-+#        Note: Bots don't use food or drink if not standing still.
-+#        Default:   0 - (Do not interrupt)
-+#                   1 - (Interrupt food and drink)
++#        Note:        Bots don't use food or drink if not standing still.
++#        Default:     0 - (Do not interrupt)
++#                     1 - (Interrupt food and drink)
 +
 +NpcBot.Movements.InterruptFood = 0
 +
 +#    NpcBot.EquipmentDisplay.Enable
 +#        Description: Enable displaying equipment changes other than weapons on bot models.
-+#        Note: Client limits equipment updates to
-+#                   1) relog
-+#                   2) taking a taxi flight
-+#                   3) teleporting between maps
-+#                   4) not seeing this bot for 3 minutes
-+#                   5) bot changing displayId (polymorph, shapeshift, etc.)
-+#        Note2: If client registers (5) of a single bot 3+ times
-+#                   said client will crash at exiting game (Error #132) unless (4) happens.
-+#        Note3: changing this setting requires server restart.
-+#        Note4: bots having no equipment will not appear naked.
-+#        Default:   1 - (Enabled)
-+#                   0 - (Disabled)
++#        Note:        Client limits equipment updates to
++#                     1) relog
++#                     2) taking a taxi flight
++#                     3) teleporting between maps
++#                     4) not seeing this bot for 3 minutes
++#                     5) bot changing displayId (polymorph, shapeshift, etc.)
++#        Note2:       If client registers (5) of a single bot 3+ times
++#                     said client may crash at exiting game (Error #132) unless (4) happens.
++#        Note3:       Changing this setting requires server restart.
++#        Note4:       Bots having no equipment will not appear naked.
++#        Default:     1 - (Enabled)
++#                     0 - (Disabled)
 +
 +NpcBot.EquipmentDisplay.Enable = 1
 +
 +#    NpcBot.EquipmentDisplay.ShowCloak
 +#    NpcBot.EquipmentDisplay.ShowHelm
 +#        Description: Equipment display rules.
-+#        Default:   1 - (NpcBot.EquipmentDisplay.ShowCloak)
-+#                   1 - (NpcBot.EquipmentDisplay.ShowHelm)
++#        Default:     1 - (NpcBot.EquipmentDisplay.ShowCloak)
++#                     1 - (NpcBot.EquipmentDisplay.ShowHelm)
 +
 +NpcBot.EquipmentDisplay.ShowCloak = 1
 +NpcBot.EquipmentDisplay.ShowHelm  = 1
 +
 +#    NpcBot.NewClasses.<Class>.Enable
 +#        Description: Allow players to hire bots of non-standard classes.
-+#        Note: Some bot abilities may be unbalanced or game breaking under certain circumstances.
-+#        Default:   1 - (NpcBot.NewClasses.Blademaster.Enable)
-+#                   1 - (NpcBot.NewClasses.ObsidianDestroyer.Enable)
-+#                   1 - (NpcBot.NewClasses.Archmage.Enable)
-+#                   1 - (NpcBot.NewClasses.Dreadlord.Enable)
-+#                   1 - (NpcBot.NewClasses.SpellBreaker.Enable)
-+#                   1 - (NpcBot.NewClasses.DarkRanger.Enable)
++#        Note:        Some bot abilities may be unbalanced or game breaking under certain circumstances.
++#        Default:     1 - (NpcBot.NewClasses.Blademaster.Enable)
++#                     1 - (NpcBot.NewClasses.ObsidianDestroyer.Enable)
++#                     1 - (NpcBot.NewClasses.Archmage.Enable)
++#                     1 - (NpcBot.NewClasses.Dreadlord.Enable)
++#                     1 - (NpcBot.NewClasses.SpellBreaker.Enable)
++#                     1 - (NpcBot.NewClasses.DarkRanger.Enable)
 +
 +NpcBot.NewClasses.Blademaster.Enable       = 1
 +NpcBot.NewClasses.ObsidianDestroyer.Enable = 1
@@ -55041,6 +55101,24 @@ index 4e594fc..3e91d1c 100644
 +NpcBot.NewClasses.Dreadlord.Enable         = 1
 +NpcBot.NewClasses.SpellBreaker.Enable      = 1
 +NpcBot.NewClasses.DarkRanger.Enable        = 1
++
++#    NpcBot.Stats.Limits.Enable
++#        Description: Enable or disable stats limits for bots.
++#        Default:     0 - Disabled
++
++NpcBot.Stats.Limits.Enable = 0
++
++#
++#    NpcBot.Stats.Limit.<Stat>
++#        Description: Set dodge, parry, block and crit chance percentage limit for bots.
++#        Note:        Some bot classes may ignore some of these values.
++#        Note2:       Auras can still increase these stats above limit.
++#        Default:     95.0 (95%)
++
++NpcBot.Stats.Limits.Dodge = 95.0
++NpcBot.Stats.Limits.Parry = 95.0
++NpcBot.Stats.Limits.Block = 95.0
++NpcBot.Stats.Limits.Crit  = 95.0
 +
 +#
 +###################################################################################################
