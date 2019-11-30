@@ -1,4 +1,4 @@
-From 5f44260bcfa58955837da92b8d425c21de242c99 Mon Sep 17 00:00:00 2001
+From cb4d63dc1b540a6ede50ed74b5d466b115b132c7 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
 Date: Fri, 8 Nov 2019 18:11:25 +0700
 Subject: [PATCH] NPCBots
@@ -64,7 +64,7 @@ Subject: [PATCH] NPCBots
  .../Entities/Creature/enuminfo_CreatureData.cpp    |     8 +-
  src/server/game/Entities/Object/Object.cpp         |    63 +
  src/server/game/Entities/Player/KillRewarder.cpp   |    15 +
- src/server/game/Entities/Player/Player.cpp         |   141 +
+ src/server/game/Entities/Player/Player.cpp         |   144 +
  src/server/game/Entities/Player/Player.h           |    25 +
  src/server/game/Entities/Totem/Totem.cpp           |    11 +
  src/server/game/Entities/Unit/StatSystem.cpp       |    46 +-
@@ -102,7 +102,7 @@ Subject: [PATCH] NPCBots
  src/server/shared/DataStores/DBCStructure.h        |     2 +-
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/worldserver/worldserver.conf.dist       |   192 +
- 98 files changed, 53219 insertions(+), 14 deletions(-)
+ 98 files changed, 53222 insertions(+), 14 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -51967,7 +51967,7 @@ index 02d0fa8..a8091bf 100644
          player->GiveXP(xp, _victim, _groupRate);
          if (Pet* pet = player->GetPet())
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index d0570fd..e379cc3 100644
+index d0570fd..14ed1db 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -100,6 +100,11 @@
@@ -52081,7 +52081,7 @@ index d0570fd..e379cc3 100644
      UpdateObjectVisibility();
  }
  
-@@ -2507,6 +2562,46 @@ void Player::RemoveFromGroup(Group* group, ObjectGuid guid, RemoveMethod method
+@@ -2507,6 +2562,49 @@ void Player::RemoveFromGroup(Group* group, ObjectGuid guid, RemoveMethod method
      if (!group)
          return;
  
@@ -52113,6 +52113,9 @@ index d0570fd..e379cc3 100644
 +        {
 +            if (Player* member = itr->GetSource())
 +            {
++                if (!member->HaveBot())
++                    continue;
++
 +                if (Creature* bot = member->GetBotMgr()->GetBot(guid))
 +                {
 +                    member->GetBotMgr()->RemoveBotFromGroup(bot, false);
@@ -52128,7 +52131,7 @@ index d0570fd..e379cc3 100644
      group->RemoveMember(guid, method, kicker, reason);
  }
  
-@@ -2675,6 +2770,11 @@ void Player::GiveLevel(uint8 level)
+@@ -2675,6 +2773,11 @@ void Player::GiveLevel(uint8 level)
      SendQuestGiverStatusMultiple();
  
      sScriptMgr->OnPlayerLevelChanged(this, oldLevel);
@@ -52140,7 +52143,7 @@ index d0570fd..e379cc3 100644
  }
  
  void Player::InitTalentForLevel()
-@@ -4421,6 +4521,12 @@ void Player::DeleteFromDB(ObjectGuid playerguid, uint32 accountId, bool updateRe
+@@ -4421,6 +4524,12 @@ void Player::DeleteFromDB(ObjectGuid playerguid, uint32 accountId, bool updateRe
              trans->Append(stmt);
  
              Corpse::DeleteFromDB(playerguid, trans);
@@ -52153,7 +52156,7 @@ index d0570fd..e379cc3 100644
              break;
          }
          // The character gets unlinked from the account, the name gets freed up and appears as deleted ingame
-@@ -6821,6 +6927,36 @@ bool Player::RewardHonor(Unit* victim, uint32 groupsize, int32 honor, bool pvpto
+@@ -6821,6 +6930,36 @@ bool Player::RewardHonor(Unit* victim, uint32 groupsize, int32 honor, bool pvpto
              UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL, 1, 0, victim);
              UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_SPECIAL_PVP_KILL, 1, 0, victim);
          }
@@ -52190,7 +52193,7 @@ index d0570fd..e379cc3 100644
          else
          {
              if (!victim->ToCreature()->IsRacialLeader())
-@@ -21914,6 +22050,11 @@ void Player::UpdatePvP(bool state, bool _override)
+@@ -21914,6 +22053,11 @@ void Player::UpdatePvP(bool state, bool _override)
          pvpInfo.EndTimer = GameTime::GetGameTime() + 300;
          SetPvP(state);
      }
@@ -52347,7 +52350,7 @@ index 6ba1ba8..440d546 100644
      float totalPct         = addTotalPct ? GetPctModifierValue(unitMod, TOTAL_PCT) : 1.0f;
      float dmgMultiplier    = GetCreatureTemplate()->ModDamage; // = ModDamage * _GetDamageMod(rank);
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index 68b3322..306dd94 100644
+index 68b3322..1da9607 100644
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
 @@ -74,6 +74,10 @@
