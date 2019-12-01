@@ -1,4 +1,4 @@
-From cb4d63dc1b540a6ede50ed74b5d466b115b132c7 Mon Sep 17 00:00:00 2001
+From 9ab6662e11c741f7cb122fa72fa90fcede681a79 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
 Date: Fri, 8 Nov 2019 18:11:25 +0700
 Subject: [PATCH] NPCBots
@@ -14,7 +14,7 @@ Subject: [PATCH] NPCBots
  .../Database/Implementation/CharacterDatabase.h    |    11 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1179 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 12525 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 12527 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   501 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   382 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   928 ++
@@ -83,7 +83,7 @@ Subject: [PATCH] NPCBots
  src/server/game/Server/WorldSession.cpp            |     4 +
  src/server/game/Spells/Auras/SpellAuraEffects.cpp  |    67 +
  src/server/game/Spells/Auras/SpellAuras.cpp        |    23 +
- src/server/game/Spells/Spell.cpp                   |   119 +
+ src/server/game/Spells/Spell.cpp                   |   124 +
  src/server/game/Spells/Spell.h                     |     3 +
  src/server/game/Spells/SpellEffects.cpp            |   159 +
  src/server/game/Spells/SpellInfo.cpp               |    22 +
@@ -102,7 +102,7 @@ Subject: [PATCH] NPCBots
  src/server/shared/DataStores/DBCStructure.h        |     2 +-
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/worldserver/worldserver.conf.dist       |   192 +
- 98 files changed, 53222 insertions(+), 14 deletions(-)
+ 98 files changed, 53229 insertions(+), 14 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -462,7 +462,7 @@ index 0000000..82a7bca
 +(70555,'Detrae',0,3,12,11,19,4);
 diff --git a/sql/Bots/2_world_bot_extras.sql b/sql/Bots/2_world_bot_extras.sql
 new file mode 100644
-index 0000000..0cd6d8d
+index 0000000..bec5686
 --- /dev/null
 +++ b/sql/Bots/2_world_bot_extras.sql
 @@ -0,0 +1,359 @@
@@ -514,7 +514,7 @@ index 0000000..0cd6d8d
 +('70035', '1', '11'),
 +('70036', '1', '11'),
 +('70037', '1', '11'),
-+('70038', '1', '10'),
++('70038', '1', '4'),
 +('70051', '2', '1'),
 +('70052', '2', '3'),
 +('70053', '2', '1'),
@@ -2881,10 +2881,10 @@ index 0000000..3a35169
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..88564e9
+index 0000000..be59083
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,12525 @@
+@@ -0,0 +1,12527 @@
 +#include "bot_ai.h"
 +//#include "botcommon.h"
 +#include "bot_Events.h"
@@ -3634,7 +3634,8 @@ index 0000000..88564e9
 +        x += aheadDist * std::cos(master->GetOrientation());
 +        y += aheadDist * std::sin(master->GetOrientation());
 +    }
-+    master->UpdateGroundPositionZ(x, y, z);
++    if (!me->CanFly())
++        me->UpdateGroundPositionZ(x, y, z);
 +    if (me->GetPositionZ() < z)
 +        z += 0.5f; //prevent going underground
 +
@@ -7497,7 +7498,7 @@ index 0000000..88564e9
 +                master->HasAuraType(SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED))
 +            {
 +                //TC_LOG_ERROR("entities.unit", "OnSpellHit: modding flight speed");
-+                const_cast<CreatureTemplate*>(me->GetCreatureTemplate())->Movement.Flight = CreatureFlightMovementType::DisableGravity;
++                const_cast<CreatureTemplate*>(me->GetCreatureTemplate())->Movement.Flight = CreatureFlightMovementType::CanFly;
 +                me->SetCanFly(true);
 +                me->SetDisableGravity(true);
 +                if (Aura* mount = me->GetAura(spell->Id))
@@ -7505,9 +7506,10 @@ index 0000000..88564e9
 +                    //TC_LOG_ERROR("entities.unit", "OnSpellHit: found aura");
 +                    for (uint8 j = 0; j != MAX_SPELL_EFFECTS; ++j)
 +                    {
-+                        //if (spell->Effects[j].ApplyAuraName != SPELL_AURA_MOD_INCREASE_VEHICLE_FLIGHT_SPEED &&
-+                        //    spell->Effects[j].ApplyAuraName != SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED)
-+                        //    continue;
++                        if (spell->Effects[j].ApplyAuraName != SPELL_AURA_MOD_INCREASE_VEHICLE_FLIGHT_SPEED &&
++                            spell->Effects[j].ApplyAuraName != SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED &&
++                            spell->Effects[j].ApplyAuraName != SPELL_AURA_MOD_INCREASE_MOUNTED_SPEED)
++                            continue;
 +                        if (AuraEffect* meff = mount->GetEffect(j))
 +                        {
 +                            meff->ChangeAmount(meff->GetAmount() * 3);
@@ -53986,7 +53988,7 @@ index b1d9ae7..5fa64df 100644
                              break;
  
 diff --git a/src/server/game/Spells/Spell.cpp b/src/server/game/Spells/Spell.cpp
-index 740f7af..542ddf2 100644
+index 740f7af..2dec014 100644
 --- a/src/server/game/Spells/Spell.cpp
 +++ b/src/server/game/Spells/Spell.cpp
 @@ -553,6 +553,15 @@ m_caster((info->HasAttribute(SPELL_ATTR6_CAST_BY_CHARMER) && caster->GetCharmerO
@@ -54175,7 +54177,19 @@ index 740f7af..542ddf2 100644
                  if (!unitCaster->GetGuardianPet())
                  {
                      if (m_triggeredByAuraSpell)              // not report pet not existence for triggered spells
-@@ -5963,6 +6062,14 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* param1 /*= nullptr*/, uint
+@@ -5270,6 +5369,11 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* param1 /*= nullptr*/, uint
+                 return SPELL_FAILED_NOT_IN_ARENA;
+ 
+     // zone check
++    //npcbot: do not check location for bots (to avoid crash introduced in TC rev. 5cb8409f1ee57e8d)
++    if (m_caster->GetTypeId() == TYPEID_UNIT && m_caster->ToCreature()->IsNPCBot())
++    {}
++    else
++    //end npcbot
+     if (m_caster->GetTypeId() != TYPEID_PLAYER || !m_caster->ToPlayer()->IsGameMaster())
+     {
+         uint32 zone, area;
+@@ -5963,6 +6067,14 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* param1 /*= nullptr*/, uint
      {
          if (Unit* unitCaster = m_caster->ToUnit())
          {
@@ -54190,7 +54204,7 @@ index 740f7af..542ddf2 100644
              if (m_spellInfo->NeedsExplicitUnitTarget())
              {
                  if (!unitCaster->GetComboPoints(m_targets.GetUnitTarget()))
-@@ -6300,6 +6407,11 @@ SpellCastResult Spell::CheckRange(bool strict) const
+@@ -6300,6 +6412,11 @@ SpellCastResult Spell::CheckRange(bool strict) const
      float minRange, maxRange;
      std::tie(minRange, maxRange) = GetMinMaxRange(strict);
  
@@ -54202,7 +54216,7 @@ index 740f7af..542ddf2 100644
      // dont check max_range to strictly after cast
      if (m_spellInfo->RangeEntry && m_spellInfo->RangeEntry->type != SPELL_RANGE_MELEE && !strict)
          maxRange += std::min(MAX_SPELL_RANGE_TOLERANCE, maxRange*0.1f); // 10% but no more than MAX_SPELL_RANGE_TOLERANCE
-@@ -7609,6 +7721,13 @@ SpellCastResult Spell::CanOpenLock(uint32 effIndex, uint32 lockId, SkillType& sk
+@@ -7609,6 +7726,13 @@ SpellCastResult Spell::CanOpenLock(uint32 effIndex, uint32 lockId, SkillType& sk
                      skillValue = m_CastItem || m_caster->GetTypeId() != TYPEID_PLAYER ?
                          0 : m_caster->ToPlayer()->GetSkillValue(skillId);
  
@@ -55214,7 +55228,7 @@ index 00dde89..0d15298 100644
  char constexpr ItemExtendedCostEntryfmt[] = "niiiiiiiiiiiiiix";
  char constexpr ItemLimitCategoryEntryfmt[] = "nxxxxxxxxxxxxxxxxxii";
 diff --git a/src/server/worldserver/worldserver.conf.dist b/src/server/worldserver/worldserver.conf.dist
-index 58694ad..fa5209e 100644
+index 58694ad..0aa98e0 100644
 --- a/src/server/worldserver/worldserver.conf.dist
 +++ b/src/server/worldserver/worldserver.conf.dist
 @@ -4073,3 +4073,195 @@ Metric.OverallStatusInterval = 1
@@ -55400,7 +55414,7 @@ index 58694ad..fa5209e 100644
 +NpcBot.Stats.Limits.Enable = 0
 +
 +#
-+#    NpcBot.Stats.Limit.<Stat>
++#    NpcBot.Stats.Limits.<Stat>
 +#        Description: Set dodge, parry, block and crit chance percentage limit for bots.
 +#        Note:        Some bot classes may ignore some of these values.
 +#        Note2:       Auras can still increase these stats above limit.
