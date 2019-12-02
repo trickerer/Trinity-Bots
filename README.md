@@ -1,5 +1,5 @@
 ### This mod was last updated:
-### last version: 30 Oct 2019, TrinityCore revision: [84937337da](https://github.com/TrinityCore/TrinityCore/commit/84937337da)
+### last version: 01 Dec 2019, TrinityCore revision: [e0835b4673](https://github.com/TrinityCore/TrinityCore/commit/e0835b4673)
 ### 2013 version: 12 Dec 2013. TrinityCore revision: [385e2dba37](https://github.com/TrinityCore/TrinityCore/commit/385e2dba37)
 
 # [ THE NPCBOTS MANUAL ]
@@ -88,6 +88,8 @@ character_bots.sql
 And after that you are ready to go
 
 ### NPCBot Commands
+First of all, to list your bot's stats, use `/bonk` on him (Warning: big list)  
+
 Note that some commands may not be available to all accounts (depending on their access level and permissions set in the RBAC tables). You may need to change your account permissions to enable usage of some commands
 Most NPCBot commands are divised by persmissions into two groups: player commands and GM commands
 ```
@@ -502,7 +504,7 @@ If some config settings look ambiguous to you, this section may help you
 NPCBot mod features several custom classes inspired by Warcraft III. These bots are ranked Rare, Elite or Rareelite, have different mana increase rate and cannot drink to restore mana, have increased level and hire cost, may have minimum player level requirement. Also, control magic affects them much less, even less than is does players. They are not intended to be as effective as normal classes and/or balanced at any given level. Their main purpose is to support you and other bots. For basic information on certain class use Gossip Menu and click `<Study the creature>`. If you need more info keep on reading  
 
 #### Blademaster
-*(Disabled on master branch)*  
+*(Disabled in last version)*  
 **Rank: Rare**  
 **Level Bonus: +1**  
 **Minimum player level: 1**  
@@ -518,7 +520,7 @@ Abilities:
 - Critical Strike (passive). Gives 15% chance to deal critical strike for x2-x4 times normal damage (depends on hero's level)
 - Bladestorm (not implemented)  
 
-**Additional info:** Blademaster stands out as a class with highest single target damage capabilities and ability to almost one-shot most things if geared properly. Unfortunately, due to changes in movement mechanic, Blademaster's critical strike animation can not longer be emulated, and thus this class was disabled on master branch  
+**Additional info:** Blademaster stands out as a class with highest single target damage capabilities and ability to almost one-shot most things if geared properly. Unfortunately, due to changes in movement mechanic, Blademaster's critical strike animation can not longer be emulated, and thus this class was disabled in last version  
 
 #### Obsidian Destroyer
 **Rank: Rareelite**  
@@ -582,7 +584,7 @@ Abilities:
 **Minimum player level: 20**  
 **Equipment affects visual: no**  
 **Number included: 5**  
-**Class specifics:** All spell damage reduced by 75%, armor penalty: -30%, attack power from stats: strength x5, block chance + 90%, spellpower bonus: 200% stength  
+**Class specifics:** All spell damage taken reduced by 75%, armor penalty: -30%, attack power from stats: strength x5, block chance + 90%, spellpower bonus: 200% stength  
 Equippable weapon: axes, maces, swords, fist weapons, daggers  
 Equippable armor: mail/plate  
 Abilities:
