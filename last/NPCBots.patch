@@ -1,6 +1,6 @@
-From 8a0586874bfb41b9424518627fd75736a082276d Mon Sep 17 00:00:00 2001
+From c669a027a3fe777d2fdf661c6c9c5e107b901bdc Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Mon, 2 Dec 2019 10:39:17 +0700
+Date: Wed, 11 Dec 2019 12:25:47 +0700
 Subject: [PATCH] NPCBots
 
 ---
@@ -32,9 +32,9 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/NpcBots/bot_sphynx_ai.cpp       |   595 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  1916 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2141 ++++
- src/server/game/AI/NpcBots/botcommands.cpp         |  1023 ++
+ src/server/game/AI/NpcBots/botcommands.cpp         |  1046 ++
  src/server/game/AI/NpcBots/botcommon.h             |   582 +
- src/server/game/AI/NpcBots/botdatamgr.cpp          |   366 +
+ src/server/game/AI/NpcBots/botdatamgr.cpp          |   367 +
  src/server/game/AI/NpcBots/botdatamgr.h            |    77 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   135 +
  src/server/game/AI/NpcBots/botdpstracker.h         |    36 +
@@ -102,7 +102,7 @@ Subject: [PATCH] NPCBots
  src/server/shared/DataStores/DBCStructure.h        |     2 +-
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/worldserver/worldserver.conf.dist       |   192 +
- 98 files changed, 53225 insertions(+), 14 deletions(-)
+ 98 files changed, 53249 insertions(+), 14 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -25570,7 +25570,7 @@ index 0000000..709095d
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_mage_ai.cpp b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 new file mode 100644
-index 0000000..0347d97
+index 0000000..d50b561
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 @@ -0,0 +1,1611 @@
@@ -26904,8 +26904,8 @@ index 0000000..0347d97
 +                if (SPELL_SCHOOL_MASK_FROST & spell->GetSchoolMask())
 +                    me->AddAura(44755, target); //snowflakes
 +
-+                if (baseId == FROSTBOLT_1 && urand(1,100) <= 10)
-+                    me->CastSpell(target, 25686, true); //10% super snowball
++                //if (baseId == FROSTBOLT_1 && urand(1,100) <= 10)
++                //    me->CastSpell(target, 25686, true); //10% super snowball
 +            }
 +        }
 +
@@ -41832,10 +41832,10 @@ index 0000000..cd95130
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 0000000..a75db26
+index 0000000..2e0e6bd
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
-@@ -0,0 +1,1023 @@
+@@ -0,0 +1,1046 @@
 +#include "bot_ai.h"
 +#include "botmgr.h"
 +#include "botdatamgr.h"
@@ -41893,6 +41893,7 @@ index 0000000..a75db26
 +            { "raid",       GM_COMMANDS,            false, &HandleNpcBotDebugRaidCommand,           "" },
 +            { "mount",      GM_COMMANDS,            false, &HandleNpcBotDebugMountCommand,          "" },
 +            { "spellvisual",GM_COMMANDS,            false, &HandleNpcBotDebugSpellVisualCommand,    "" },
++            { "states",     GM_COMMANDS,            false, &HandleNpcBotDebugStatesCommand,         "" },
 +        };
 +
 +        static std::vector<ChatCommand> npcbotSetCommandTable =
@@ -41928,6 +41929,28 @@ index 0000000..a75db26
 +            { "npcbot",     PLAYER_COMMANDS,        false, nullptr,                   "", npcbotCommandTable },
 +        };
 +        return commandTable;
++    }
++
++    static bool HandleNpcBotDebugStatesCommand(ChatHandler* handler, const char* /*args*/)
++    {
++        Unit* target = handler->getSelectedUnit();
++        if (!target)
++        {
++            handler->SendSysMessage("No target selected");
++            return true;
++        }
++
++        uint8 const MAX_UNIT_STATES = 29;
++        std::ostringstream ostr;
++        ostr << "Listing states for " << target->GetName() << ":";
++        for (uint8 i = 0; i != MAX_UNIT_STATES; ++i)
++        {
++            if (target->HasUnitState(1 << i))
++                ostr << "\n    0x" << std::hex << (1 << i);
++        }
++
++        handler->SendSysMessage(ostr.str().c_str());
++        return true;
 +    }
 +
 +    static bool HandleNpcBotDebugRaidCommand(ChatHandler* handler, const char* /*args*/)
@@ -43449,10 +43472,10 @@ index 0000000..6414b82
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.cpp b/src/server/game/AI/NpcBots/botdatamgr.cpp
 new file mode 100644
-index 0000000..3cdee1f
+index 0000000..ae692a8
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.cpp
-@@ -0,0 +1,366 @@
+@@ -0,0 +1,367 @@
 +#include "botdatamgr.h"
 +#include "Item.h"
 +#include "Map.h"
@@ -43539,6 +43562,7 @@ index 0000000..3cdee1f
 +    if (!result)
 +    {
 +        TC_LOG_INFO("server.loading", ">> Spawned 0 npcbots. Table `characters_npcbot` is empty!");
++        allBotsLoaded = true;
 +        return;
 +    }
 +
