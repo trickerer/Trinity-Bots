@@ -1,31 +1,33 @@
 ### This mod was last updated:
-### last version: 30 Apr 2020, TrinityCore revision: [d3578c3474](https://github.com/TrinityCore/TrinityCore/commit/d3578c3474)
+### last version: 14 May 2020, TrinityCore revision: [e2434e4f47](https://github.com/TrinityCore/TrinityCore/commit/e2434e4f47)
 ### 2013 version: 12 Dec 2013. TrinityCore revision: [385e2dba37](https://github.com/TrinityCore/TrinityCore/commit/385e2dba37)
 
 # [ THE NPCBOTS MANUAL ]
 >Compiled by: Trickerer (onlysuffering @ Gmail dot Com)  
->Version 0.7 - 04 Nov 2019  
+>Version 0.8 - 15 May 2020  
 >Original version by: Thesawolf (@ Gmail dot Com) Version 0.3 - 20 July 2016 [here](https://github.com/thesawolf/TrinityCore/blob/TrinityCoreLegacy/README_Bots.md)
 
 ---------------------------------------
 ### Contents
-1. [Introduction](#markdown-header-introduction)
-2. [NPCBots](#markdown-header-npcbots)
-    - [NPCBot Mod Installation](#markdown-header-npcbot-install)
-    - [NPCBot Commands](#markdown-header-npcbot-commands)
-    - [NPCBot Control and Usage](#markdown-header-npcbot-control-and-usage)
-        - [NPCBot Getting Started](#markdown-header-npcbot-getting-started)
-        - [NPCBot Getting Around](#markdown-header-npcbot-getting-around)
-        - [NPCBot Equipment](#markdown-header-npcbot-equipment)
-        - [NPCBot Roles](#markdown-header-npcbot-roles)
-        - [NPCBot Formation](#markdown-header-npcbot-formation)
-        - [NPCBot Abilities](#markdown-header-npcbot-abilities)
-        - [NPCBot Grouping](#markdown-header-npcbot-grouping)
-        - [NPCBot Extras](#markdown-header-npcbot-extras)
-    - [NPCBot Config Settings](#markdown-header-npcbot-config-settings)
-    - [NPCBot Extra Classes](#markdown-header-npcbot-extra-classes)
-    - [NPCBot Occupations](#markdown-header-npcbot-occupations)
-3. [Guide Changelog](#markdown-header-guide-changelog)
+1. [Introduction](#introduction)
+2. [NPCBots](#npcbots)
+    - [NPCBot Mod Installation](#npcbot-mod-installation)
+    - [NPCBot Commands](#npcbot-commands)
+    - [NPCBot Control and Usage](#npcbot-control-and-usage)
+        - [NPCBot Getting Started](#npcbot-getting-started)
+        - [NPCBot Getting Around](#npcbot-getting-around)
+        - [NPCBot Equipment](#npcbot-equipment)
+        - [NPCBot Roles](#npcbot-roles)
+        - [NPCBot Formation](#npcbot-formation)
+        - [NPCBot Abilities](#npcbot-abilities)
+        - [NPCBot Talents](#npcbot-talents)
+        - [NPCBot Grouping](#npcbot-grouping)
+            - [Raid Group Frames](#raid-group-frames)
+        - [NPCBot Extras](#npcbot-extras)
+    - [NPCBot Config Settings](#npcbot-config-settings)
+    - [NPCBot Extra Classes](#npcbot-extra-classes)
+    - [NPCBot Occupations](#npcbot-occupations)
+3. [Guide Changelog](#guide-changelog)
 
 ---------------------------------------
 ## Introduction
@@ -77,14 +79,15 @@ Download NPCBots.patch and put it into your TrinityCore folder
 Apply the patch using `patch -p1 < NPCBots.patch` command (creating new files)  
 (Re)run CMake and (re)build  
 Merge worldserver.conf.dist into your worldserver.conf file (NPCBot mod settings)  
-Apply SQL files from /TrinityCore/sql/Bots/ to your DB (files starting with `characters_` and `world_` go into your `characters` and `world` DB respectively):
+Apply SQL files from `/TrinityCore/sql/Bots/` to your DB (files starting with `characters_` and `world_` go into your `characters` and `world` DB respectively):
 ```
 1_world_bot_appearance.sql
 2_world_bot_extras.sql
 3_world_bots.sql
 4_world_generate_bot_equips.sql
-character_bots.sql
+characters_bots.sql
 ```
+Apply SQL update files from `/TrinityCore/sql/Bots/updates` to your DB  
 And after that you are ready to go
 
 ### NPCBot Commands
@@ -147,6 +150,11 @@ _TARGET_ indicates that command is used on a selected unit
         **Example Usage:**  
             - `.npcbot set owner 312` (sets the selected NPCBot owner to the player with guid 312)  
             - `.npcb s o Myplayer` (sets the selected NPCBot owner to the player by name `Myplayer`)  
+    - **`spec <NUMBER> _TARGET_`** -- forces a spec change for selected NPCBot  
+        - NUMBER = a number from **1** to **3**  
+        - _TARGET_ = selected NPCBot  
+        **Example Usage:**  
+            - `.npcbot set spec 2` (selected NPCBot will instantly respec into feral/combat/fury/demonology depending on NPCBot's class)  
 - **`revive _TARGET_`** -- (GM command) revives NPCBot(s)  
     - _TARGET_ = selected NPCBot (revives this NPCBot)  
     - _TARGET_ = selected player (revives all NPCBots of selected player)  
@@ -157,13 +165,18 @@ _TARGET_ indicates that command is used on a selected unit
     - (No arguments)  
     **Example Usage:**  
         - `.npcbot reloadconfig  
-- **`command <COMMAND>`** -- (Player command) makes NPCBots to either FOLLOW or STAY (out of combat)  
+- **`command <COMMAND> _TARGET_`** -- (Player command) allows you to manage your NPCBots positioning (by itself will displays list of subcommands)  
     - COMMAND = command string  
         - follow, f = FOLLOW mode  
-        - stay, s = STAY mode  
+        - standstill, stand = STAY mode  
+        - stopfully, stop = IDLE mode  
+    - _TARGET_ = selected (your) NPCBot (command affects this NPCBot)  
+    - _TARGET_ = any other unit or no selection (command affects all your NPCBots)  
         **Example Usage:**  
-            - `.npcbot command stay` (NPCBots will stop moving and stay at current location)  
-            - `.npcb c f` (NPCBots will follow)  
+            - `.npcbot command standstill` (NPCBot stops moving and will hold position)  
+            - `.npcb c sta` (same as above)  
+            - `.npcbot command stopfully` (NPCBot will interrupt all actions, stop and not react to anything)  
+            - `.npcbot command follow` (NPCBot will follow you if not already)  
 - **`info _TARGET_`** -- (Player command) shows info on owned bots  
     - _TARGET_ = selected grouped player or self (shows you info on that player)  
     **Example Usage:**  
@@ -265,6 +278,7 @@ Right-clicking on the NPCBot will open a new Gossip Menu with an assortment of o
 - Manage roles...
 - Manage formation...
 - Manage abilities...
+- Manage talents...
 - Give consumable...
 - <Create Group>
 - You are dismissed
@@ -403,11 +417,15 @@ NOTE: setting exact attack distance to **0** will make NPCBots (and their pets) 
 
 #### NPCBot Abilities
 NPCBots use most of real class spells. Some spells/abilities such as buffs, heals, remove curse/poison, etc. are available through an NPCBot's Abilities menu. Level restrictions apply to NPCBots too, for example Warlock will not be able to use Fear until level 8  
-Selecting `_Manage Abilities..._` from the Gossip menu will give you a listing of spells/abilities that they can cast on you or for you. The "Update" option will refresh the spell listing as some spell may be cooled at the moment  
+Selecting `_Manage abilities..._` from the Gossip menu will give you a listing of spells/abilities that they can cast on you or for you. The "Update" option will refresh the spell listing as some spell may be cooled at the moment  
 If spell is not listed this doesn't mean NPCBot does not have the spell, probably you just cannot use it manually.  
 NPCBots' abilities check algorithm includes finding missing buffs, friends to heal, restocking on consumables (like healthstones), class enchants (Rogue, Shaman), utilities (like using Sprint if falling far behind), spells for party and self, self-heals, finding crowd control targets and finally, attack abilities
 
 Using `_Manage allowed abilities..._` submenu you can make bots not use some of their spells (note though that due to technical restrictions full spell list cannot be displayed so not ANY spell can be disabled)
+
+#### NPCBot Talents
+NPCBots don't use normal talent pick choice system. Instead, main talent tree is used (according to a spec) while also picking vital talents from other two trees up to tier 3 (available to players of the same spec).  
+Select `_Manage talents..._` from the Gossip menu to chose a spec. Bot will activate it and continue to progress with chosen spec as you level up. You can change bot's spec at any time
 
 #### NPCBot Grouping
 Although NPCBots will follow their owner around grouped or ungrouped and will usually buff people outside their groups, selecting the ___<Create Group>___ (___<Create Group (all bots)>___) option will have them join your group and properly utilize group buffs for everyone in the group
@@ -419,6 +437,13 @@ Grouping is required to properly utilize the DungeonFinder (as you cannot summon
 >If DungeonFinder group has only one real player loot rules will be set to _Free For All_
 
 >Also, it is advised to fire any additional NPCBots that you might own outside of the group as there have been reports of issues with some quest completions and Random dungeon daily rewards when NPCBots are active but not a part of a group
+
+#### Raid Group Frames
+Unfortunately standard UI and most of unit frames addons can only show player raid members.  
+To see your NPCBots in raid you can use one of these:  
+[nUI 5.06.30](https://www.curseforge.com/wow/addons/nui/files/445101) (complete interface redesigner)  
+[HealBot 3.3.5.4](https://www.curseforge.com/wow/addons/heal-bot-continued/files/456315) (only unit frames, mostly for healing but configurable)  
+[OrlanHeal 1.1](https://www.curseforge.com/wow/addons/orlanheal-discontinued/files/451226) (same as HealBot but minimalistic)  
 
 #### NPCBot Extras
 Depending upon the class of the NPCBot, there may be extra options found in the Gossip menu for that NPCBot
@@ -536,8 +561,8 @@ Abilities:
 - Devour Magic. Dispels up to 2 magic effect from enemies, up to 2 magic effects and 2 curse effects from allies and damaging summoned units in 20 yards dest area, restoring caster's mana and health (20% mana and 5% health for every dispelled effect)
 - Shadow Blast. Empowered attack that deals increased splash damage to targets in a rather large area. Main target takes more damage than others
 - Drain Mana. Drains all mana from a random ***friendly*** unit. The amount drained is limited by Obsidian Destroyer's maximum mana. **This ability cannot be disabled**
-- Replenish Mana. Energizes surrounding party and raid members within 15 yards for 1% of their maximum mana, affecting up to 10 targets. *This ability drains all mana*
-- Replenish Health. Heals surrounding party and raid members within 15 yards for 2% of their maximum health, affecting up to 10 targets. *This ability drains all mana*
+- Replenish Mana. Energizes surrounding party and raid members within 25 yards for 2% of their maximum mana, affecting up to 10 targets. *This ability drains all mana*
+- Replenish Health. Heals surrounding party and raid members within 25 yards for 3% of their maximum health, affecting up to 10 targets. *This ability drains all mana*
 - Shadow Armor (passive). Restores mana equal to a percentage of damage taken. This ability only triggers when damage taken is enough to restore 10% of Obsidian Destroyer's mana  
 
 **Additional info:** Obsidian Destroyer in fact derives from a non-hero unit, but received elite status because of the ability to deal insane amounts of damage given the chance, support party of any kind, dispel, purge AND tank at the same time, utilizing abilities of original unit's both forms: statue form and true form  
@@ -590,7 +615,7 @@ Equippable armor: mail/plate
 Abilities:
 
 - Steal Magic. Steals benefical spell from an enemy an transfers it to a nearby ally, or removes a negative spell from an ally and transfers it to a nearby enemy, affects magic and curse effects. Transferred effect duration is limited to a maximum of 5 minutes *and minimum of 5 seconds*
-- Feedback (passive). Melee attacks burn target's mana dealing arcane damage. Amount burned is equal to melee damage dealt increased by spell power
+- Feedback (passive). Melee attacks burn target's mana dealing arcane damage. Amount burned is equal to melee damage dealt increased by spell power. If target is drained, Spell Breaker's melee attacks will do triple damage with increased critical strike chance
 - Control Magic (not implemented)  
 
 **Additional info:** Spell Breaker is mostly pure support class incappable of dealing any serious damage, but may also make quick work of some hapless caster, burning all his mana in seconds  
@@ -644,6 +669,10 @@ Bots are being added to world at server loading (after Map System is started)
 ---------------------------------------
 ## Guide Changelog
 
+- **Version 0.8** (_15 May 2020_)
+    - Added info on raid group unit frames
+    - Added info on new commands
+    - Added info on talents
 - **Version 0.7** (_04 Nov 2019_)
     - Added config disambiguation
     - Added info on extra classes
