@@ -1,4 +1,3 @@
--- Extracted from creature_template 12.10.2014
 DROP TABLE IF EXISTS `creature_template_npcbot_extras`;
 
 CREATE TABLE `creature_template_npcbot_extras` (
