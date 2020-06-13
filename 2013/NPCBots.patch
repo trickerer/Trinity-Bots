@@ -1,6 +1,6 @@
-From 44a00ee9afd0b1695e2463bc0b4942e52b8e16b0 Mon Sep 17 00:00:00 2001
+From a529a24f93f74a3fb0dd15f0a307d2366d512ab5 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Fri, 12 Jun 2020 19:55:45 +0700
+Date: Sat, 13 Jun 2020 19:52:59 +0700
 Subject: [PATCH] NPCBots2013
 
 ---
@@ -8,11 +8,12 @@ Subject: [PATCH] NPCBots2013
  sql/Bots/2_world_bot_extras.sql                    |   358 +
  sql/Bots/3_world_bots.sql                          |   542 +
  sql/Bots/4_world_generate_bot_equips.sql           |   159 +
+ sql/Bots/5_world_botgiver.sql                      |    17 +
  sql/Bots/characters_bots.sql                       |    26 +
  ...rs_npcbot_2020_05_15_NPCBots_4.7.8a-4.7.27a.sql |     1 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1176 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 12687 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 12691 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   495 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   351 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   897 ++
@@ -31,12 +32,13 @@ Subject: [PATCH] NPCBots2013
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  1927 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2187 ++++
  src/server/game/AI/NpcBots/botcommands.cpp         |  1134 ++
- src/server/game/AI/NpcBots/botcommon.h             |   635 +
- src/server/game/AI/NpcBots/botdatamgr.cpp          |   374 +
- src/server/game/AI/NpcBots/botdatamgr.h            |    82 +
+ src/server/game/AI/NpcBots/botcommon.h             |   643 +
+ src/server/game/AI/NpcBots/botdatamgr.cpp          |   419 +
+ src/server/game/AI/NpcBots/botdatamgr.h            |    89 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   131 +
  src/server/game/AI/NpcBots/botdpstracker.h         |    36 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  1199 ++
+ src/server/game/AI/NpcBots/botgiver.cpp            |   231 +
+ src/server/game/AI/NpcBots/botmgr.cpp              |  1196 ++
  src/server/game/AI/NpcBots/botmgr.h                |   164 +
  src/server/game/AI/NpcBots/bpet_ai.cpp             |  2256 ++++
  src/server/game/AI/NpcBots/bpet_ai.h               |   163 +
@@ -75,7 +77,7 @@ Subject: [PATCH] NPCBots2013
  src/server/game/Maps/MapManager.cpp                |     8 +
  src/server/game/Movement/MotionMaster.cpp          |    14 +
  src/server/game/OutdoorPvP/OutdoorPvP.cpp          |    17 +
- src/server/game/Scripting/ScriptLoader.cpp         |    58 +
+ src/server/game/Scripting/ScriptLoader.cpp         |    60 +
  src/server/game/Server/WorldSession.cpp            |     4 +
  src/server/game/Spells/Auras/SpellAuraEffects.cpp  |    42 +
  src/server/game/Spells/Auras/SpellAuras.cpp        |    18 +
@@ -95,11 +97,12 @@ Subject: [PATCH] NPCBots2013
  .../Database/Implementation/CharacterDatabase.cpp  |    16 +
  .../Database/Implementation/CharacterDatabase.h    |    12 +
  src/server/worldserver/worldserver.conf.dist       |   192 +
- 91 files changed, 53546 insertions(+), 9 deletions(-)
+ 93 files changed, 53857 insertions(+), 9 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
  create mode 100644 sql/Bots/4_world_generate_bot_equips.sql
+ create mode 100644 sql/Bots/5_world_botgiver.sql
  create mode 100644 sql/Bots/characters_bots.sql
  create mode 100644 sql/Bots/updates/characters/characters_npcbot_2020_05_15_NPCBots_4.7.8a-4.7.27a.sql
  create mode 100644 src/server/game/AI/NpcBots/bot_Events.h
@@ -128,6 +131,7 @@ Subject: [PATCH] NPCBots2013
  create mode 100644 src/server/game/AI/NpcBots/botdatamgr.h
  create mode 100644 src/server/game/AI/NpcBots/botdpstracker.cpp
  create mode 100644 src/server/game/AI/NpcBots/botdpstracker.h
+ create mode 100644 src/server/game/AI/NpcBots/botgiver.cpp
  create mode 100644 src/server/game/AI/NpcBots/botmgr.cpp
  create mode 100644 src/server/game/AI/NpcBots/botmgr.h
  create mode 100644 src/server/game/AI/NpcBots/bpet_ai.cpp
@@ -1531,6 +1535,29 @@ index 0000000..85c9fca
 +CALL `sp__generate_npcbot_equips`();
 +
 +DROP PROCEDURE IF EXISTS `trinity`.`sp__generate_npcbot_equips`;
+diff --git a/sql/Bots/5_world_botgiver.sql b/sql/Bots/5_world_botgiver.sql
+new file mode 100644
+index 0000000..f018274
+--- /dev/null
++++ b/sql/Bots/5_world_botgiver.sql
+@@ -0,0 +1,17 @@
++DELETE FROM `creature_template` WHERE `entry` = 70000;
++INSERT INTO `creature_template`
++(`entry`,`difficulty_entry_1`,`difficulty_entry_2`,`difficulty_entry_3`,`KillCredit1`,`KillCredit2`,`modelid1`,`modelid2`,`modelid3`,`modelid4`,`name`,`subname`,`IconName`,`gossip_menu_id`, 
++`minlevel`,`maxlevel`,`exp`,`faction_A`,`faction_H`,`npcflag`,`speed_walk`,`speed_run`,`scale`,`rank`,`mindmg`,`maxdmg`,`dmgschool`,`attackpower`,`dmg_multiplier`,`baseattacktime`, 
++`rangeattacktime`,`unit_class`,`unit_flags`,`unit_flags2`,`dynamicflags`,`family`,`trainer_type`,`trainer_spell`,`trainer_class`,`trainer_race`,`minrangedmg`,`maxrangedmg`,`rangedattackpower`, 
++`type`,`type_flags`,`lootid`,`pickpocketloot`,`skinloot`,`resistance1`,`resistance2`,`resistance3`,`resistance4`,`resistance5`,`resistance6`,`spell1`,`spell2`,`spell3`,`spell4`,`spell5`,`spell6`, 
++`spell7`,`spell8`,`PetSpellDataId`,`VehicleId`,`mingold`,`maxgold`,`AIName`,`MovementType`,`InhabitType`,`HoverHeight`,`Health_mod`,`Mana_mod`,`Armor_mod`,`RacialLeader`, 
++`questItem1`,`questItem2`,`questItem3`,`questItem4`,`questItem5`,`questItem6`,`movementId`,`RegenHealth`,`mechanic_immune_mask`,`flags_extra`,`ScriptName`,`WDBVerified`) 
++VALUES
++('70000','0','0','0','0','0','27541','0','0','0','Lagretta','Bots for hire','','0','83','83','2','35','35','1','1.4','1.14286','0.7','4','228','298','0','0','1','0','0','1','33088','2048','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','','0','3','1','4.8','1','1','0','0','0','0','0','0','0','0','1','0','0','script_bot_giver','-1');
++
++DELETE FROM `npc_text` WHERE `ID` BETWEEN 70201 AND 70204;
++INSERT INTO `npc_text` (`ID`,`text0_0`,`WDBVerified`) VALUES
++('70201','There are always dudes ready to kill for money.','-1'),
++('70202','Mercenaries are always in demand. Here is what available right now.','-1'),
++('70203','Mercenaries are always in demand. Here is what available right now.','-1'),
++('70204','Seems like there is nobody available right now, check again later.','-1');
 diff --git a/sql/Bots/characters_bots.sql b/sql/Bots/characters_bots.sql
 new file mode 100644
 index 0000000..f590d45
@@ -2813,10 +2840,10 @@ index 0000000..08c8da2
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..af5a4da
+index 0000000..aade7f7
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,12687 @@
+@@ -0,0 +1,12691 @@
 +#include "bot_ai.h"
 +//#include "botcommon.h"
 +#include "bot_Events.h"
@@ -3017,6 +3044,8 @@ index 0000000..af5a4da
 +    teleFinishEvent = NULL;
 +
 +    ResetBotAI(BOTAI_RESET_INIT);
++
++    BotDataMgr::RegisterBot(me);
 +}
 +bot_ai::~bot_ai()
 +{
@@ -3032,6 +3061,8 @@ index 0000000..af5a4da
 +            delete _equips[i];
 +
 +    delete _classinfo;
++
++    BotDataMgr::UnregisterBot(me);
 +}
 +
 +uint16 bot_ai::Rand() const
@@ -7732,7 +7763,7 @@ index 0000000..af5a4da
 +    {
 +        if (IAmFree())
 +        {
-+            uint32 cost = BotMgr::GetNpcBotCost(player->getLevel(), me);
++            uint32 cost = BotMgr::GetNpcBotCost(player->getLevel(), _botclass);
 +
 +            int8 reason = 0;
 +            if (me->HasAura(BERSERK))
@@ -9659,7 +9690,7 @@ index 0000000..af5a4da
 +                    case 3: //not enough money
 +                    {
 +                        std::string str = "You don't have enough money (";
-+                        str += BotMgr::GetNpcBotCostStr(player->getLevel(), me);
++                        str += BotMgr::GetNpcBotCostStr(player->getLevel(), _botclass);
 +                        str += ")!";
 +                        ch.SendSysMessage(str.c_str());
 +                        player->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, 0, 0, 0);
@@ -39657,7 +39688,7 @@ index 0000000..64eae9e
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warrior_ai.cpp b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 new file mode 100644
-index 0000000..590e655
+index 0000000..79d1e74
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 @@ -0,0 +1,2187 @@
@@ -42990,10 +43021,10 @@ index 0000000..ad9f2f8
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommon.h b/src/server/game/AI/NpcBots/botcommon.h
 new file mode 100644
-index 0000000..c801e39
+index 0000000..8efb343
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommon.h
-@@ -0,0 +1,635 @@
+@@ -0,0 +1,643 @@
 +#ifndef _BOTCOMMON_H
 +#define _BOTCOMMON_H
 +
@@ -43005,6 +43036,7 @@ index 0000000..c801e39
 +enum BotCommonValues
 +{
 +//MISC
++    BOT_GIVER_ENTRY                     = 70000,
 +    BOT_ENTRY_BEGIN                     = 70001,
 +    BOT_ENTRY_END                       = 71000,
 +    BOT_PET_ENTRY_BEGIN                 = 70501,
@@ -43078,7 +43110,14 @@ index 0000000..c801e39
 +    GOSSIP_CLASSDESC_DREADLORD          = 70104,
 +    GOSSIP_CLASSDESC_SPELLBREAKER       = 70105,
 +    GOSSIP_CLASSDESC_DARKRANGER         = 70106,
++    GOSSIP_BOTGIVER_GREET               = 70201,
++    GOSSIP_BOTGIVER_HIRE                = 70202,
++    GOSSIP_BOTGIVER_HIRE_CLASS          = 70203,
++    GOSSIP_BOTGIVER_HIRE_EMPTY          = 70204,
 +    GOSSIP_SENDER_BEGIN                 = 6000,
++    GOSSIP_SENDER_BOTGIVER_HIRE,
++    GOSSIP_SENDER_BOTGIVER_HIRE_CLASS,
++    GOSSIP_SENDER_BOTGIVER_HIRE_ENTRY,
 +    GOSSIP_SENDER_CLASS,
 +    GOSSIP_SENDER_CLASS_ACTION,
 +    GOSSIP_SENDER_CLASS_ACTION2,
@@ -43631,11 +43670,12 @@ index 0000000..c801e39
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.cpp b/src/server/game/AI/NpcBots/botdatamgr.cpp
 new file mode 100644
-index 0000000..052a9a9
+index 0000000..91d9aa0
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.cpp
-@@ -0,0 +1,374 @@
+@@ -0,0 +1,419 @@
 +#include "botdatamgr.h"
++#include "Common.h"
 +/*
 +Npc Bot Data Manager by Trickerer (onlysuffering@gmail.com)
 +NpcBots DB Data management
@@ -43645,9 +43685,13 @@ index 0000000..052a9a9
 +typedef UNORDERED_MAP<uint32 /*entry*/, NpcBotData*> NpcBotDataMap;
 +typedef UNORDERED_MAP<uint32 /*entry*/, NpcBotAppearanceData*> NpcBotAppearanceDataMap;
 +typedef UNORDERED_MAP<uint32 /*entry*/, NpcBotExtras*> NpcBotExtrasMap;
++typedef std::set<Creature const*> NpcBotRegistry;
 +NpcBotDataMap _botsData;
 +NpcBotAppearanceDataMap _botsAppearanceData;
 +NpcBotExtrasMap _botsExtras;
++NpcBotRegistry _existingBots;
++
++static ACE_Thread_Mutex _lock;
 +
 +bool allBotsLoaded = false;
 +
@@ -44009,16 +44053,58 @@ index 0000000..052a9a9
 +    NpcBotExtrasMap::const_iterator itr = _botsExtras.find(entry);
 +    return itr != _botsExtras.end() ? itr->second : NULL;
 +}
++
++void BotDataMgr::RegisterBot(Creature const* bot)
++{
++    if (_existingBots.find(bot) != _existingBots.end())
++    {
++        TC_LOG_ERROR("entities.unit", "BotDataMgr::RegisterBot: bot %u (%s) already registered!",
++            bot->GetEntry(), bot->GetName().c_str());
++        return;
++    }
++
++    TRINITY_WRITE_GUARD(ACE_Thread_Mutex, _lock);
++
++    _existingBots.insert(bot);
++    //TC_LOG_ERROR("entities.unit", "BotDataMgr::RegisterBot: registered bot %u (%s)", bot->GetEntry(), bot->GetName().c_str());
++}
++void BotDataMgr::UnregisterBot(Creature const* bot)
++{
++    if (_existingBots.find(bot) == _existingBots.end())
++    {
++        TC_LOG_ERROR("entities.unit", "BotDataMgr::UnregisterBot: bot %u (%s) not found!",
++            bot->GetEntry(), bot->GetName().c_str());
++        return;
++    }
++
++    TRINITY_WRITE_GUARD(ACE_Thread_Mutex, _lock);
++
++    _existingBots.erase(bot);
++    //TC_LOG_ERROR("entities.unit", "BotDataMgr::UnregisterBot: unregistered bot %u (%s)", bot->GetEntry(), bot->GetName().c_str());
++}
++Creature const* BotDataMgr::FindBotInWorld(uint32 entry)
++{
++    TRINITY_READ_GUARD(ACE_Thread_Mutex, _lock);
++
++    for (NpcBotRegistry::const_iterator ci = _existingBots.begin(); ci != _existingBots.end(); ++ci)
++    {
++        if ((*ci)->GetEntry() == entry)
++            return *ci;
++    }
++    return NULL;
++}
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.h b/src/server/game/AI/NpcBots/botdatamgr.h
 new file mode 100644
-index 0000000..c00a296
+index 0000000..d9e9e3f
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.h
-@@ -0,0 +1,82 @@
+@@ -0,0 +1,89 @@
 +#ifndef _BOTDATAMGR_H
 +#define _BOTDATAMGR_H
 +
 +#include "botcommon.h"
++
++class Creature;
 +
 +enum NpcBotDataUpdateType
 +{
@@ -44091,7 +44177,12 @@ index 0000000..c00a296
 +
 +        static bool AllBotsLoaded();
 +
++        static void RegisterBot(Creature const* bot);
++        static void UnregisterBot(Creature const* bot);
++        static Creature const* FindBotInWorld(uint32 entry);
++
 +    private:
++
 +        BotDataMgr() {}
 +        BotDataMgr(BotDataMgr const&);
 +};
@@ -44276,12 +44367,249 @@ index 0000000..e164a57
 +};
 +
 +#endif
+diff --git a/src/server/game/AI/NpcBots/botgiver.cpp b/src/server/game/AI/NpcBots/botgiver.cpp
+new file mode 100644
+index 0000000..ef9bf6c
+--- /dev/null
++++ b/src/server/game/AI/NpcBots/botgiver.cpp
+@@ -0,0 +1,231 @@
++#include "bot_ai.h"
++#include "botcommon.h"
++#include "botdatamgr.h"
++#include "botmgr.h"
++#include "Creature.h"
++#include "Player.h"
++#include "ScriptedGossip.h"
++#include "ScriptMgr.h"
++/*
++NPCbot giver NPC by Trickerer (<https://github.com/Trickerer/> <onlysuffering@gmail.com>)
++Complete - ???
++*/
++
++#define HIRE GOSSIP_SENDER_BOTGIVER_HIRE
++#define HIRE_CLASS GOSSIP_SENDER_BOTGIVER_HIRE_CLASS
++#define HIRE_ENTRY GOSSIP_SENDER_BOTGIVER_HIRE_ENTRY
++
++typedef std::set<Creature const*> NpcBotRegistry;
++extern NpcBotRegistry _existingBots;
++
++class script_bot_giver : public CreatureScript
++{
++public:
++    script_bot_giver() : CreatureScript("script_bot_giver") { }
++
++    bool OnGossipHello(Player* player, Creature* creature) override
++    {
++        _me = creature;
++
++        if (!BotMgr::IsNpcBotModEnabled())
++        {
++            player->PlayerTalkClass->SendCloseGossip();
++            return true;
++        }
++
++        if (creature->isMoving())
++            creature->BotStopMovement();
++
++        player->ADD_GOSSIP_ITEM(GOSSIP_ICON_TALK, "I need your services", HIRE, GOSSIP_ACTION_INFO_DEF + 1);
++
++        player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Nevermind", 0, GOSSIP_ACTION_INFO_DEF + 2);
++
++        player->PlayerTalkClass->SendGossipMenu(GOSSIP_BOTGIVER_GREET, _me->GetGUID());
++        return true;
++    }
++
++    bool OnGossipSelect(Player* player, Creature* creature, uint32 sender, uint32 action) override
++    {
++        if (!BotMgr::IsNpcBotModEnabled())
++        {
++            player->PlayerTalkClass->SendCloseGossip();
++            return true;
++        }
++
++        player->PlayerTalkClass->ClearMenus();
++        bool subMenu = false;
++
++        uint32 gossipTextId = GOSSIP_BOTGIVER_GREET;
++
++        switch (sender)
++        {
++            case 0: //exit
++                break;
++            case 1: //BACK: return to main menu
++                return OnGossipHello(player, _me);
++            case HIRE:
++            {
++                gossipTextId = GOSSIP_BOTGIVER_HIRE;
++
++                if (player->GetNpcBotsCount() >= BotMgr::GetMaxNpcBots())
++                {
++                    WhisperTo(player, "You have too many bots");
++                    break;
++                }
++
++                subMenu = true;
++
++                uint8 availCount = 0;
++
++                for (uint8 botclass = BOT_CLASS_WARRIOR; botclass < BOT_CLASS_END; ++botclass)
++                {
++                    if (!BotMgr::IsClassEnabled(botclass))
++                        continue;
++
++                    if (player->HaveBot() && BotMgr::GetMaxClassBots())
++                    {
++                        uint8 count = 0;
++                        BotMap const* map = player->GetBotMgr()->GetBotMap();
++                        for (BotMap::const_iterator itr = map->begin(); itr != map->end(); ++itr)
++                            if (itr->second->GetBotClass() == botclass)
++                                ++count;
++                        if (count >= BotMgr::GetMaxClassBots())
++                            continue;
++                    }
++
++                    std::ostringstream bclass;
++                    bool validClass = true;
++                    switch (botclass)
++                    {
++                        case BOT_CLASS_WARRIOR:         bclass << "Warriors";       break;
++                        case BOT_CLASS_PALADIN:         bclass << "Paladins";       break;
++                        case BOT_CLASS_MAGE:            bclass << "Mages";          break;
++                        case BOT_CLASS_PRIEST:          bclass << "Priests";        break;
++                        case BOT_CLASS_WARLOCK:         bclass << "Warlocks";       break;
++                        case BOT_CLASS_DRUID:           bclass << "Druids";         break;
++                        case BOT_CLASS_DEATH_KNIGHT:    bclass << "Death Knights";  break;
++                        case BOT_CLASS_ROGUE:           bclass << "Rogues";         break;
++                        case BOT_CLASS_SHAMAN:          bclass << "Shamans";        break;
++                        case BOT_CLASS_HUNTER:          bclass << "Hunters";        break;
++                        case BOT_CLASS_BM:              bclass << "Blademasters";   break;
++                        case BOT_CLASS_SPHYNX:          bclass << "Destroyers";     break;
++                        case BOT_CLASS_ARCHMAGE:        bclass << "Archmagi";       break;
++                        case BOT_CLASS_DREADLORD:       bclass << "Dreadlords";     break;
++                        case BOT_CLASS_SPELLBREAKER:    bclass << "Spell Breakers"; break;
++                        case BOT_CLASS_DARK_RANGER:     bclass << "Dark Rangers";   break;
++                        default:                        validClass = false;         break;
++                    }
++
++                    if (validClass == false)
++                        continue;
++
++                    bclass << " (" << BotMgr::GetNpcBotCostStr(player->getLevel(), botclass) << ")";
++
++                    player->ADD_GOSSIP_ITEM(GOSSIP_ICON_TALK, bclass.str(), HIRE_CLASS, GOSSIP_ACTION_INFO_DEF + botclass);
++
++                    if (++availCount >= BOT_GOSSIP_MAX_ITEMS - 1) //back
++                        break;
++                }
++
++                if (availCount == 0)
++                    gossipTextId = GOSSIP_BOTGIVER_HIRE_EMPTY;
++
++                player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "Nevermind", 0, GOSSIP_ACTION_INFO_DEF + 1);
++
++                break;
++            }
++            case HIRE_CLASS:
++            {
++                gossipTextId = GOSSIP_BOTGIVER_HIRE_CLASS;
++
++                uint8 botclass = action - GOSSIP_ACTION_INFO_DEF;
++
++                uint32 cost = BotMgr::GetNpcBotCost(player->getLevel(), botclass);
++                if (!player->HasEnoughMoney(cost))
++                {
++                    WhisperTo(player, "You don't have enough money!");
++                    break;
++                }
++
++                subMenu = true;
++
++                uint8 availCount = 0;
++
++                //go through bots map to find what bots are available
++                NpcBotRegistry const& allBots = _existingBots;
++                for (NpcBotRegistry::const_iterator ci = allBots.begin(); ci != allBots.end(); ++ci)
++                {
++                    Creature const* bot = *ci;
++                    bot_ai const* ai = bot->GetBotAI();
++                    if (bot->GetBotClass() != botclass || !bot->IsAlive() || ai->IsTempBot() || ai->GetBotOwnerGuid() || bot->HasAura(BERSERK))
++                        continue;
++
++                    std::ostringstream message1;
++                    message1 << "Do you wish to hire " << bot->GetName() << '?';
++                    player->PlayerTalkClass->GetGossipMenu().AddMenuItem(-1, GOSSIP_ICON_TALK, bot->GetName(),
++                        HIRE_ENTRY, GOSSIP_ACTION_INFO_DEF + bot->GetEntry(), message1.str(), cost, false);
++
++                    if (++availCount >= BOT_GOSSIP_MAX_ITEMS - 1) //back
++                        break;
++                }
++
++                if (availCount == 0)
++                    gossipTextId = GOSSIP_BOTGIVER_HIRE_EMPTY;
++
++                player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "<Back>", HIRE, GOSSIP_ACTION_INFO_DEF + 1);
++
++                break;
++            }
++            case HIRE_ENTRY:
++            {
++                uint32 entry = action - GOSSIP_ACTION_INFO_DEF;
++                Creature const* bot = BotDataMgr::FindBotInWorld(entry);
++                if (!bot)
++                {
++                    //possible but still
++                    TC_LOG_ERROR("entities.unit", "HIRE_NBOT_ENTRY: bot %u not found!", entry);
++                    break;
++                }
++
++                bot_ai const* ai = bot->GetBotAI();
++                if (bot->IsInCombat() || !bot->IsAlive() || bot_ai::CCed(bot) || ai->IsDuringTeleport() ||
++                    bot->HasUnitState(UNIT_STATE_CASTING) || ai->GetBotOwnerGuid() || bot->HasAura(BERSERK))
++                {
++                    //TC_LOG_ERROR("entities.unit", "HIRE_NBOT_ENTRY: bot %u (%s) is unavailable all of the sudden!", entry);
++                    std::ostringstream failMsg;
++                    failMsg << bot->GetName() << " is a bit busy at the moment, try again later.";
++                    WhisperTo(player, failMsg.str().c_str());
++                    break;
++                }
++
++                //laways returns true
++                bot->GetBotAI()->OnGossipSelect(player, const_cast<Creature*>(bot), GOSSIP_SENDER_HIRE, GOSSIP_ACTION_INFO_DEF);
++
++                if (player->HaveBot() && player->GetBotMgr()->GetBot(bot->GetGUID()))
++                    WhisperTo(player, "Pleasure having business with you");
++
++                break;
++            }
++        }
++
++        if (subMenu)
++            player->PlayerTalkClass->SendGossipMenu(gossipTextId, _me->GetGUID());
++        else
++            player->PlayerTalkClass->SendCloseGossip();
++
++        return true;
++    }
++
++private:
++    Creature* _me;
++
++    void WhisperTo(Player* player, char const* message)
++    {
++        _me->MonsterWhisper(message, player->GetGUID());
++    }
++};
++
++void AddSC_script_bot_giver()
++{
++    new script_bot_giver();
++}
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 0000000..f8b6d53
+index 0000000..6854efd
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,1199 @@
+@@ -0,0 +1,1196 @@
 +#include "bot_ai.h"
 +#include "botdpstracker.h"
 +#include "bot_Events.h"
@@ -45052,12 +45380,12 @@ index 0000000..f8b6d53
 +    //}
 +    if (!temporary && takeMoney)
 +    {
-+        uint32 cost = GetNpcBotCost(_owner->getLevel(), bot);
++        uint32 cost = GetNpcBotCost(_owner->getLevel(), bot->GetBotClass());
 +        if (!_owner->HasEnoughMoney(cost))
 +        {
 +            ChatHandler ch(_owner->GetSession());
 +            std::string str = "You don't have enough money (";
-+            str += GetNpcBotCostStr(_owner->getLevel(), bot);
++            str += GetNpcBotCostStr(_owner->getLevel(), bot->GetBotClass());
 +            str += ")!";
 +            ch.SendSysMessage(str.c_str());
 +            //ch.SetSentErrorMessage(true);
@@ -45185,7 +45513,7 @@ index 0000000..f8b6d53
 +    return true;
 +}
 +
-+uint32 BotMgr::GetNpcBotCost(uint8 level, Creature const* creature)
++uint32 BotMgr::GetNpcBotCost(uint8 level, uint8 botclass)
 +{
 +    //assuming default 1000000
 +    //level 1: 1000
@@ -45203,10 +45531,7 @@ index 0000000..f8b6d53
 +        level < 40 ? _npcBotsCost / 5 :    //20 gold
 +        (_npcBotsCost * level) / DEFAULT_MAX_LEVEL; //50 - 100 gold
 +
-+    if (!creature->GetBotAI())
-+        return cost;
-+
-+    switch (creature->GetBotClass())
++    switch (botclass)
 +    {
 +        case BOT_CLASS_BM:
 +        case BOT_CLASS_ARCHMAGE:
@@ -45225,11 +45550,11 @@ index 0000000..f8b6d53
 +    return cost;
 +}
 +
-+std::string BotMgr::GetNpcBotCostStr(uint8 level, Creature const* creature)
++std::string BotMgr::GetNpcBotCostStr(uint8 level, uint8 botclass)
 +{
 +    std::ostringstream money;
 +
-+    if (uint32 cost = GetNpcBotCost(level, creature))
++    if (uint32 cost = GetNpcBotCost(level, botclass))
 +    {
 +        uint32 gold = uint32(cost / GOLD);
 +        cost -= (gold * GOLD);
@@ -45483,7 +45808,7 @@ index 0000000..f8b6d53
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.h b/src/server/game/AI/NpcBots/botmgr.h
 new file mode 100644
-index 0000000..85a1e69
+index 0000000..db74bed
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.h
 @@ -0,0 +1,164 @@
@@ -45588,8 +45913,8 @@ index 0000000..85a1e69
 +        bool HasBotClass(uint8 botclass) const;
 +        bool HasBotPetType(uint32 petType) const;
 +
-+        static uint32 GetNpcBotCost(uint8 level, Creature const* creature);
-+        static std::string GetNpcBotCostStr(uint8 level, Creature const* creature);
++        static uint32 GetNpcBotCost(uint8 level, uint8 botclass);
++        static std::string GetNpcBotCostStr(uint8 level, uint8 botclass);
 +
 +        void OnTeleportFar(uint32 mapId, float x, float y, float z, float ori = 0.f);
 +        void OnOwnerSetGameMaster(bool on);
@@ -54412,10 +54737,10 @@ index 8daafc4..e80117f 100644
      float maxDiff = m_maxSpeed * diff;
  
 diff --git a/src/server/game/Scripting/ScriptLoader.cpp b/src/server/game/Scripting/ScriptLoader.cpp
-index 3b340f8..ebc3e2c 100644
+index 3b340f8..176db23 100644
 --- a/src/server/game/Scripting/ScriptLoader.cpp
 +++ b/src/server/game/Scripting/ScriptLoader.cpp
-@@ -1434,6 +1434,35 @@ void AddBattlegroundScripts()
+@@ -1434,6 +1434,36 @@ void AddBattlegroundScripts()
  
  #ifdef SCRIPTS
  /* This is where custom scripts' loading functions should be declared. */
@@ -54447,11 +54772,12 @@ index 3b340f8..ebc3e2c 100644
 +void AddSC_mage_bot_pets();
 +void AddSC_druid_bot_pets();
 +void AddSC_script_bot_commands();
++void AddSC_script_bot_giver();
 +//end Bots
  
  #endif
  
-@@ -1441,6 +1470,35 @@ void AddCustomScripts()
+@@ -1441,6 +1471,36 @@ void AddCustomScripts()
  {
  #ifdef SCRIPTS
      /* This is where custom scripts should be added. */
@@ -54483,6 +54809,7 @@ index 3b340f8..ebc3e2c 100644
 +    AddSC_mage_bot_pets();
 +    AddSC_druid_bot_pets();
 +    AddSC_script_bot_commands();
++    AddSC_script_bot_giver();
 +    //end Bots
  
  #endif

@@ -15,6 +15,7 @@
     - [NPCBot Commands](#npcbot-commands)
     - [NPCBot Control and Usage](#npcbot-control-and-usage)
         - [NPCBot Getting Started](#npcbot-getting-started)
+        - [NPCBot Hiring Alternatives](#npcbot-hiring-alternatives)
         - [NPCBot Getting Around](#npcbot-getting-around)
         - [NPCBot Equipment](#npcbot-equipment)
         - [NPCBot Roles](#npcbot-roles)
@@ -85,6 +86,7 @@ Apply SQL files from `/TrinityCore/sql/Bots/` to your DB (files starting with `c
 2_world_bot_extras.sql
 3_world_bots.sql
 4_world_generate_bot_equips.sql
+5_world_botgiver.sql
 characters_bots.sql
 ```
 Apply SQL update files from `/TrinityCore/sql/Bots/updates` to your DB  
@@ -294,6 +296,20 @@ Right-clicking on the NPCBot will open a new Gossip Menu with an assortment of o
 
 For now, select <Create Group> and your NPCBot will join your group and you can begin your adventures!  
 As mentioned previously, the other options will be discussed further down this document.
+
+####NPCBot Hiring Alternatives
+If you want you can also spawn an NPC which provides NPCBots hiring services. This is done normal way through `.npc spawn` command:
+
+- `.npc spawn 70000`  
+Right-click on the NPC will open a _Gossip Menu_:  
+```
+There are always dudes ready to kill for money.
+- I need your services
+- Nevermind
+```
+
+Down the menu you will find a list of classes of NPCBots. After you select one, a list of NPCBots in the world available to you will appear.  
+Note that conditions you need to meet to hire NPCBots this way are completely the same as you would normally have, the only difference is that you don't need to go around the world to find NPCBots you need.
 
 #### NPCBot Getting Around
 Whether grouped or not, your NPCBot will follow you around, keeping you buffed along the way (if they can buff), healing you when needed (if it is a healer-type NPCBot), attacking things alongside you and even ressurecting you if you die (if they can ressurect, that is). NPCBots are designed to keep up to your run pace and will mount up on their own version of your mount when you do. In the event that they cannot keep up (due to you moving too fast or they being stuck in combat or in something), your NPCBot will eventually teleport to your location (even if you go into another map).  
@@ -649,16 +665,16 @@ NPCBot data is stored in the following locations:
     Also writes into:
         - `item_instance` (item owner assignment)
 - `world` Database (stores information in the following tables)
-    - `creature_template` (ids 70001-71000) contains creature base data for bots
-    - `creature_equip_template` (ids 70001-71000) contains bots' standard weapons info
-    - `npc_text` (ids 70001-71000) custom text for bots' gossip and class descriptions
+    - `creature_template` (ids 70000-71000) contains creature base data for bots
+    - `creature_equip_template` (ids 70000-71000) contains bots' standard weapons info
+    - `npc_text` (ids 70000-71000) custom text for bots' gossip and class descriptions
     - `creature_template_outfits` (created by this mod) contains static display information
     - `creature_template_npcbot_appearance` (created by this mod) contains dynamic display information
     - `creature_template_npcbot_extras` (created by this mod) contains race and class info
     - `creature` contains info about spawned creatures in the world
 
 If you want to make changes to the static template data used for NPCBots, you make adjustments in the `world` database to those specific ids in the above tables (i.e. npcbot model, outfits, etc.)
-If you need to remove NPCBot mod completely you need to first manually delete every spawned bot in the world (using .npcbot delete command; you need to remove their equipment first, otherwise the items become inaccessible). Then delete `characters_npcbot`, `creature_template_npcbot_extras` and `creature_template_npcbot_appearance` tables and clean all other used tables of entries by id (70001-71000). `creature_template_outfits` can also be deleted if you are not using Npc Dress Mod.
+If you need to remove NPCBot mod completely you need to first manually delete every spawned bot in the world (using .npcbot delete command; you need to remove their equipment first, otherwise the items become inaccessible). Then delete `characters_npcbot`, `creature_template_npcbot_extras` and `creature_template_npcbot_appearance` tables and clean all other used tables of entries by id (70000-71000). `creature_template_outfits` can also be deleted if you are not using Npc Dress Mod.
 
 #### Game World
 Bots are counted as active objects (keep grids loaded like players)
