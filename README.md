@@ -298,9 +298,9 @@ For now, select <Create Group> and your NPCBot will join your group and you can 
 As mentioned previously, the other options will be discussed further down this document.
 
 ####NPCBot Hiring Alternatives
-If you want you can also spawn an NPC which provides NPCBots hiring services. This is done normal way through `.npc spawn` command:
+If you want you can also spawn an NPC which provides NPCBots hiring services. This is done normal way through `.npc add` command:
 
-- `.npc spawn 70000`  
+- `.npc add 70000`  
 Right-click on the NPC will open a _Gossip Menu_:  
 ```
 There are always dudes ready to kill for money.
