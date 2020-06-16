@@ -524,6 +524,17 @@ If some config settings look ambiguous to you, this section may help you
 - **`NpcBot.HealTargetIconsMask`**
     - This parameter allows players to mark units not under player's control as friends using Target Icons  
     Explanation. Sometimes you need to protect targets other that yourself, escort quests are a good example. With this parameter activated players can set *Raid Icon* on a target they want bots to care about. Bots will treat said target as a member of player's party, heal it if needed and assist it in combat. Parameter itself is a bit mask and consists of a combination of values assigned to each target icon: **Star - 1, Circle - 2, Diamond - 4, Triangle - 8, Moon - 16, Square - 32, Cross - 64, Skull - 128**. *Example: Star, Diamond and Triangle = 1 + 4 + 8 = 13*
+- **`NpcBot.TankTargetIconsMask`**
+    - This parameter is similar to `NpcBot.HealTargetIconsMask`, but this one marks targets for your NPCBot tanks
+    - Icon priority: targets in combat first, from *Skull* (highest) to *Star* (lowest)
+    - Your tanks **will not stop attacking pointed target** until it's dead or icon is unset
+- **`NpcBot.DPSTargetIconsMask`**
+    - Same as `NpcBot.TankTargetIconsMask`, but this one affects your non-tanks with the same rules
+- **`Heal / Tank / DPS _TargetIconsMask` intersections**
+    - If there are any bitmask intersections between target icons (simply put, same icon is used, on accident or otherwise), these rules are applied:
+        - Target **will not be protected** by taunting or attacking the attackers
+        - Target **may still be healed** if can be healed
+        - Target **may still be attacked** if attackable and in combat
 - **`NpcBot.Cost`**
     - This parameter determines how much money player has to pay to hire a bot
     - This is how much money player has to pay **at level 80**, for lower levels cost is reduced:

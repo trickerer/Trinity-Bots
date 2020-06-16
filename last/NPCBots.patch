@@ -1,4 +1,4 @@
-From 8d16036342c4269e281d0cc25d85fac80eb34900 Mon Sep 17 00:00:00 2001
+From ef66ecd484b6981e8ee2baf2f7f0fb9ffbfa2f6b Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
 Date: Sat, 13 Jun 2020 19:43:32 +0700
 Subject: [PATCH] NPCBots
@@ -16,7 +16,7 @@ Subject: [PATCH] NPCBots
  .../Database/Implementation/CharacterDatabase.h    |    12 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1179 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 12795 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 12863 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   502 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   357 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   905 ++
@@ -41,9 +41,9 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   131 +
  src/server/game/AI/NpcBots/botdpstracker.h         |    36 +
  src/server/game/AI/NpcBots/botgiver.cpp            |   241 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  1262 ++
- src/server/game/AI/NpcBots/botmgr.h                |   166 +
- src/server/game/AI/NpcBots/bpet_ai.cpp             |  2261 ++++
+ src/server/game/AI/NpcBots/botmgr.cpp              |  1274 ++
+ src/server/game/AI/NpcBots/botmgr.h                |   168 +
+ src/server/game/AI/NpcBots/bpet_ai.cpp             |  2262 ++++
  src/server/game/AI/NpcBots/bpet_ai.h               |   164 +
  src/server/game/AI/NpcBots/bpet_archmage.cpp       |   139 +
  src/server/game/AI/NpcBots/bpet_dark_ranger.cpp    |   213 +
@@ -104,8 +104,8 @@ Subject: [PATCH] NPCBots
  src/server/scripts/Spells/spell_warrior.cpp        |     6 +
  src/server/shared/DataStores/DBCStructure.h        |     2 +-
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
- src/server/worldserver/worldserver.conf.dist       |   192 +
- 101 files changed, 54288 insertions(+), 14 deletions(-)
+ src/server/worldserver/worldserver.conf.dist       |   228 +
+ 101 files changed, 54407 insertions(+), 14 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -2919,10 +2919,10 @@ index 0000000..3a35169
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..ea6ddb0
+index 0000000..180f0a3
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,12795 @@
+@@ -0,0 +1,12863 @@
 +#include "bot_ai.h"
 +//#include "botcommon.h"
 +#include "bot_Events.h"
@@ -3931,7 +3931,7 @@ index 0000000..ea6ddb0
 +        {
 +            if (BotMgr::GetHealTargetIconFlags() & GroupIconsFlags[i])
 +            {
-+                if (ObjectGuid guid = pGroup->GetTargetIcons()[i])//check this one
++                if (ObjectGuid guid = pGroup->GetTargetIcons()[i])
 +                {
 +                    if (Unit* unit = ObjectAccessor::GetUnit(*me, guid))
 +                    {
@@ -5804,8 +5804,9 @@ index 0000000..ea6ddb0
 +            return true;
 +        //pointed target case
 +        for (uint8 i = 0; i != TARGETICONCOUNT; ++i)
-+            if (BotMgr::GetHealTargetIconFlags() & GroupIconsFlags[i])
-+                if (ObjectGuid guid = gr->GetTargetIcons()[i])//check this one
++            if ((BotMgr::GetHealTargetIconFlags() & GroupIconsFlags[i]) &&
++               !((BotMgr::GetTankTargetIconFlags() | BotMgr::GetDPSTargetIconFlags()) & GroupIconsFlags[i]))
++                if (ObjectGuid guid = gr->GetTargetIcons()[i])
 +                    if (guid == unit->GetGUID())
 +                        return true;
 +    }
@@ -5931,6 +5932,74 @@ index 0000000..ea6ddb0
 +    if (mytar && me->HasAuraType(SPELL_AURA_MOD_TAUNT))
 +        return mytar;
 +
++    Group const* gr = !IAmFree() ? master->GetGroup() : NULL;
++
++    if (gr && IsTank())
++    {
++        Unit* tankTar = NULL;
++        for (int8 i = TARGETICONCOUNT - 1; i >= 0; --i)
++        {
++            if (BotMgr::GetTankTargetIconFlags() & GroupIconsFlags[i])
++            {
++                if (ObjectGuid guid = gr->GetTargetIcons()[i])
++                {
++                    if (mytar && mytar->GetGUID() == guid && mytar->GetVictim() == me)
++                    {
++                        //TC_LOG_ERROR("entities.unit", "_getTarget: %s continues %s", me->GetName().c_str(), mytar->GetName().c_str());
++                        return mytar;
++                    }
++
++                    if (Unit* unit = ObjectAccessor::GetUnit(*me, guid))
++                    {
++                        if (unit->IsVisible() && unit->isTargetableForAttack() && me->IsValidAttackTarget(unit) &&
++                            unit->IsInCombat() && (CanSeeEveryone() || (me->CanSeeOrDetect(unit) && unit->InSamePhase(me))))
++                        {
++                            //TC_LOG_ERROR("entities.unit", "_getTarget: %s found new tanking icon target %s", me->GetName().c_str(), unit->GetName().c_str());
++                            Unit* tempTar = tankTar ? tankTar : unit;
++                            tankTar = unit;
++                            Unit* tVic = unit->GetVictim();
++                            if (!tVic || (tVic != me && tVic->GetVictim() == unit && IsTank(tVic) && IsInBotParty(tVic)))
++                            {
++                                //TC_LOG_ERROR("entities.unit", "_getTarget: %s skipped %s (%s)", me->GetName().c_str(), unit->GetName().c_str(), tVic->GetName().c_str());
++                                tankTar = tempTar;
++                                continue;
++                            }
++                        }
++                    }
++                }
++            }
++        }
++        if (tankTar)
++        {
++            //TC_LOG_ERROR("entities.unit", "_getTarget: %s returning %s", me->GetName().c_str(), tankTar->GetName().c_str());
++            return tankTar;
++        }
++    }
++    if (gr)
++    {
++        for (int8 i = TARGETICONCOUNT - 1; i >= 0; --i)
++        {
++            if (BotMgr::GetDPSTargetIconFlags() & GroupIconsFlags[i])
++            {
++                if (ObjectGuid guid = gr->GetTargetIcons()[i])
++                {
++                    if (mytar && mytar->GetGUID() == guid)
++                        return mytar;
++
++                    if (Unit* unit = ObjectAccessor::GetUnit(*me, guid))
++                    {
++                        if (unit->IsVisible() && unit->isTargetableForAttack() && me->IsValidAttackTarget(unit) &&
++                            unit->IsInCombat() && (CanSeeEveryone() || (me->CanSeeOrDetect(unit) && unit->InSamePhase(me))))
++                        {
++                            //TC_LOG_ERROR("entities.unit", "_getTarget: found dps icon target %s", unit->GetName().c_str());
++                            return unit;
++                        }
++                    }
++                }
++            }
++        }
++    }
++
 +    Unit* u = master->GetVictim();
 +//Disabled due to a bug:
 +//when spell cast is finished target is immideately put in combat which makes bots attack immediately
@@ -6007,7 +6076,6 @@ index 0000000..ea6ddb0
 +    //check group
 +    if (!IAmFree())
 +    {
-+        Group const* gr = master->GetGroup();
 +        if (!gr)
 +        {
 +            Creature const* bot;
@@ -45084,10 +45152,10 @@ index 0000000..2fe7800
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 0000000..aafe9ad
+index 0000000..a061e2b
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,1262 @@
+@@ -0,0 +1,1274 @@
 +#include "bot_ai.h"
 +#include "botdpstracker.h"
 +#include "bot_Events.h"
@@ -45119,6 +45187,8 @@ index 0000000..aafe9ad
 +uint8 _maxClassNpcBots;
 +uint8 _xpReductionNpcBots;
 +uint8 _healTargetIconFlags;
++uint8 _tankingTargetIconFlags;
++uint8 _dpsTargetIconFlags;
 +uint32 _npcBotsCost;
 +uint32 _npcBotUpdateDelayBase;
 +bool _enableNpcBots;
@@ -45257,6 +45327,8 @@ index 0000000..aafe9ad
 +    _basefollowdist         = sConfigMgr->GetIntDefault("NpcBot.BaseFollowDistance", 30);
 +    _xpReductionNpcBots     = sConfigMgr->GetIntDefault("NpcBot.XpReduction", 0);
 +    _healTargetIconFlags    = sConfigMgr->GetIntDefault("NpcBot.HealTargetIconsMask", 0);
++    _tankingTargetIconFlags = sConfigMgr->GetIntDefault("NpcBot.TankTargetIconMask", 0);
++    _dpsTargetIconFlags     = sConfigMgr->GetIntDefault("NpcBot.DPSTargetIconMask", 0);
 +    _mult_dmg_physical      = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Physical", 1.0f);
 +    _mult_dmg_spell         = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Spell", 1.0f);
 +    _mult_healing           = sConfigMgr->GetFloatDefault("NpcBot.Mult.Healing", 1.0f);
@@ -45400,6 +45472,14 @@ index 0000000..aafe9ad
 +uint8 BotMgr::GetHealTargetIconFlags()
 +{
 +    return _healTargetIconFlags;
++}
++uint8 BotMgr::GetTankTargetIconFlags()
++{
++    return _tankingTargetIconFlags;
++}
++uint8 BotMgr::GetDPSTargetIconFlags()
++{
++    return _dpsTargetIconFlags;
 +}
 +uint32 BotMgr::GetBaseUpdateDelay()
 +{
@@ -46352,10 +46432,10 @@ index 0000000..aafe9ad
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.h b/src/server/game/AI/NpcBots/botmgr.h
 new file mode 100644
-index 0000000..3143827
+index 0000000..eee780d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.h
-@@ -0,0 +1,166 @@
+@@ -0,0 +1,168 @@
 +#ifndef _BOTMGR_H
 +#define _BOTMGR_H
 +
@@ -46422,6 +46502,8 @@ index 0000000..3143827
 +        static bool IsFoodInterruptedByMovement();
 +        static uint8 GetMaxClassBots();
 +        static uint8 GetHealTargetIconFlags();
++        static uint8 GetTankTargetIconFlags();
++        static uint8 GetDPSTargetIconFlags();
 +        static uint32 GetBaseUpdateDelay();
 +        static float GetBotStatLimitDodge();
 +        static float GetBotStatLimitParry();
@@ -46524,10 +46606,10 @@ index 0000000..3143827
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bpet_ai.cpp b/src/server/game/AI/NpcBots/bpet_ai.cpp
 new file mode 100644
-index 0000000..a5b4a0b
+index 0000000..a97e898
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_ai.cpp
-@@ -0,0 +1,2261 @@
+@@ -0,0 +1,2262 @@
 +#include "bpet_ai.h"
 +#include "bot_GridNotifiers.h"
 +#include "botmgr.h"
@@ -47738,8 +47820,9 @@ index 0000000..a5b4a0b
 +            return true;
 +        //pointed target case
 +        for (uint8 i = 0; i != TARGETICONCOUNT; ++i)
-+            if (BotMgr::GetHealTargetIconFlags() & GroupIconsFlags[i])
-+                if (ObjectGuid guid = gr->GetTargetIcons()[i])//check this one
++            if (BotMgr::GetHealTargetIconFlags() & GroupIconsFlags[i] &&
++                !((BotMgr::GetTankTargetIconFlags() | BotMgr::GetDPSTargetIconFlags()) & GroupIconsFlags[i]))
++                if (ObjectGuid guid = gr->GetTargetIcons()[i])
 +                    if (guid == unit->GetGUID())
 +                        return true;
 +    }
@@ -56311,10 +56394,10 @@ index 0370fea..d3a8962 100644
  char constexpr ItemExtendedCostEntryfmt[] = "niiiiiiiiiiiiiix";
  char constexpr ItemLimitCategoryEntryfmt[] = "nxxxxxxxxxxxxxxxxxii";
 diff --git a/src/server/worldserver/worldserver.conf.dist b/src/server/worldserver/worldserver.conf.dist
-index 998f40c..a22bf13 100644
+index 998f40c..dc19a49 100644
 --- a/src/server/worldserver/worldserver.conf.dist
 +++ b/src/server/worldserver/worldserver.conf.dist
-@@ -4085,3 +4085,195 @@ Metric.OverallStatusInterval = 1
+@@ -4085,3 +4085,231 @@ Metric.OverallStatusInterval = 1
  
  #
  ###################################################################################################
@@ -56376,6 +56459,42 @@ index 998f40c..a22bf13 100644
 +#                     128 - Skull
 +
 +NpcBot.HealTargetIconsMask = 0
++
++#    NpcBot.TankTargetIconMask
++#        Description: Icon number bitmask which bot tanks use to search for primary target.
++#        Note:        While icon is active NPCBot tanks will ignore any other targets
++#                     and will not break from combat to follow you.
++#        Example:     To check Star and Cross we need 1 + 64 = 65.
++#        Default:     0 (Disable)
++#                     1 - Star
++#                     2 - Circle
++#                     4 - Diamond
++#                     8 - Triangle
++#                     16 - Moon
++#                     32 - Square
++#                     64 - Cross
++#                     128 - Skull
++
++NpcBot.TankTargetIconMask = 0
++
++#    NpcBot.DPSTargetIconMask
++#        Description: Icon number bitmask which bots use to search for primary attack target.
++#        Note:        While icon is active NPCBots will ignore any other targets
++#                     and will not break from combat to follow you.
++#        Note2:       NPCBot tanks will prioritize targets pointed by TankTargetIconMask.
++#        Note3:       If you set multiple targets only one target at a time will be used.
++#        Example:     To check Skull and Circle we need 128 + 2 = 130.
++#        Default:     0 (Disable)
++#                     1 - Star
++#                     2 - Circle
++#                     4 - Diamond
++#                     8 - Triangle
++#                     16 - Moon
++#                     32 - Square
++#                     64 - Cross
++#                     128 - Skull
++
++NpcBot.DPSTargetIconMask = 0
 +
 +#    NpcBot.Mult.Damage.Physical
 +#    NpcBot.Mult.Damage.Spell
