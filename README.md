@@ -4,7 +4,7 @@
 
 # [ THE NPCBOTS MANUAL ]
 >Compiled by: Trickerer (onlysuffering @ Gmail dot Com)  
->Version 0.8 - 15 May 2020  
+>Version 0.10 - 16 Jun 2020  
 >Original version by: Thesawolf (@ Gmail dot Com) Version 0.3 - 20 July 2016 [here](https://github.com/thesawolf/TrinityCore/blob/TrinityCoreLegacy/README_Bots.md)
 
 ---------------------------------------
@@ -696,6 +696,10 @@ Bots are being added to world at server loading (after Map System is started)
 ---------------------------------------
 ## Guide Changelog
 
+- **Version 0.10** (_16 Jun 2020_)
+    - Added info on new config settings
+- **Version 0.9** (_09 Jun 2020_)
+    - Added info on botgiver
 - **Version 0.8** (_15 May 2020_)
     - Added info on raid group unit frames
     - Added info on new commands
