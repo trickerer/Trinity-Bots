@@ -1,6 +1,6 @@
-From bc2f35b3ee32e3b4cac29cad005da2301a85bc51 Mon Sep 17 00:00:00 2001
+From 7cc87db809acc36aa7477751ff9808d09eec0bf9 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Sat, 13 Jun 2020 19:43:32 +0700
+Date: Sun, 21 Jun 2020 17:37:20 +0700
 Subject: [PATCH] NPCBots
 
 ---
@@ -16,14 +16,14 @@ Subject: [PATCH] NPCBots
  .../Database/Implementation/CharacterDatabase.h    |    12 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1179 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 12863 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 12930 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   502 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   357 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   905 ++
  src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp  |   594 +
  src/server/game/AI/NpcBots/bot_death_knight_ai.cpp |  2057 +++
  src/server/game/AI/NpcBots/bot_dreadlord_ai.cpp    |   494 +
- src/server/game/AI/NpcBots/bot_druid_ai.cpp        |  2864 +++++
+ src/server/game/AI/NpcBots/bot_druid_ai.cpp        |  2864 ++++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  2331 ++++
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  1620 +++
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  2709 ++++
@@ -35,7 +35,7 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  1949 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2206 ++++
  src/server/game/AI/NpcBots/botcommands.cpp         |  1143 ++
- src/server/game/AI/NpcBots/botcommon.h             |   643 +
+ src/server/game/AI/NpcBots/botcommon.h             |   648 +
  src/server/game/AI/NpcBots/botdatamgr.cpp          |   425 +
  src/server/game/AI/NpcBots/botdatamgr.h            |    89 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   131 +
@@ -105,7 +105,7 @@ Subject: [PATCH] NPCBots
  src/server/shared/DataStores/DBCStructure.h        |     2 +-
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/worldserver/worldserver.conf.dist       |   228 +
- 101 files changed, 54407 insertions(+), 14 deletions(-)
+ 101 files changed, 54479 insertions(+), 14 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -2919,10 +2919,10 @@ index 0000000..3a35169
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..7a230a1
+index 0000000..785f1a7
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,12863 @@
+@@ -0,0 +1,12930 @@
 +#include "bot_ai.h"
 +//#include "botcommon.h"
 +#include "bot_Events.h"
@@ -3036,6 +3036,41 @@ index 0000000..7a230a1
 +    /*SQUARE      = */0x020,
 +    /*CROSS       = */0x040,
 +    /*SKULL       = */0x080
++};
++#define BOT_SPECS_COUNT 31
++const char* BotTalentSpecStrings[BOT_SPECS_COUNT] =
++{
++    "Arms",
++    "Fury",
++    "Protection",
++    "Holy",
++    "Protection",
++    "Retribution",
++    "Beast Mastery",
++    "Marksmanship",
++    "Survival",
++    "Assassination",
++    "Combat",
++    "Subtlety",
++    "Discipline",
++    "Holy",
++    "Shadow",
++    "Blood",
++    "Frost",
++    "Unholy",
++    "Elemental",
++    "Enhancement",
++    "Restoration",
++    "Arcane",
++    "Fire",
++    "Frost",
++    "Affliction",
++    "Demonology",
++    "Destruction",
++    "Balance",
++    "Feral Combat",
++    "Restoration",
++    "Unknown"
 +};
 +
 +void ApplyBotPercentModFloatVar(float &var, float val, bool apply)
@@ -9660,14 +9695,48 @@ index 0000000..7a230a1
 +            AddGossipItemFor(player, GOSSIP_ICON_CHAT, "BACK", GOSSIP_SENDER_ABILITIES, GOSSIP_ACTION_INFO_DEF + 2);
 +            break;
 +        }
++        case GOSSIP_SENDER_SPEC_SET:
++        {
++            uint8 newSpec = action - GOSSIP_ACTION_INFO_DEF;
++
++            if (newSpec != _spec && newSpec >= BOT_SPEC_BEGIN && newSpec <= BOT_SPEC_END)
++            {
++                _newspec = newSpec;
++                me->CastSpell(me, ACTIVATE_SPEC, false);
++                std::ostringstream specMsg;
++                specMsg << "changing my spec to " << BotTalentSpecStrings[_newspec-1];
++                BotWhisper(specMsg.str().c_str());
++                break;
++            }
++        }
 +        case GOSSIP_SENDER_SPEC:
 +        {
 +            subMenu = true;
 +
-+            std::ostringstream specstr;
-+            specstr << "Talent tree spec: " << uint32(_spec);
-+            player->PlayerTalkClass->GetGossipMenu().AddMenuItem(-1, GOSSIP_ICON_CHAT, specstr.str(),
-+                GOSSIP_SENDER_SPEC_SET, GOSSIP_ACTION_INFO_DEF + 1, "", 0, true);
++            uint8 specIndex;
++            switch (_botclass)
++            {
++                case BOT_CLASS_WARRIOR:         specIndex = BOT_SPEC_WARRIOR_ARMS;          break;
++                case BOT_CLASS_PALADIN:         specIndex = BOT_SPEC_PALADIN_HOLY;          break;
++                case BOT_CLASS_HUNTER:          specIndex = BOT_SPEC_HUNTER_BEASTMASTERY;   break;
++                case BOT_CLASS_ROGUE:           specIndex = BOT_SPEC_ROGUE_ASSASINATION;    break;
++                case BOT_CLASS_PRIEST:          specIndex = BOT_SPEC_PRIEST_DISCIPLINE;     break;
++                case BOT_CLASS_DEATH_KNIGHT:    specIndex = BOT_SPEC_DK_BLOOD;              break;
++                case BOT_CLASS_SHAMAN:          specIndex = BOT_SPEC_SHAMAN_ELEMENTAL;      break;
++                case BOT_CLASS_MAGE:            specIndex = BOT_SPEC_MAGE_ARCANE;           break;
++                case BOT_CLASS_WARLOCK:         specIndex = BOT_SPEC_WARLOCK_AFFLICTION;    break;
++                case BOT_CLASS_DRUID:           specIndex = BOT_SPEC_DRUID_BALANCE;         break;
++                default:
++                    TC_LOG_ERROR("entities.unit", "bot_ai:GOSSIP_SENDER_SPEC called for class %u with no specs!", uint32(_botclass));
++                    return true;
++            }
++
++            for (uint8 i = specIndex; i < specIndex + 3; ++i)
++            {
++                uint8 icon = (_spec == i) ? BOT_ICON_ON : BOT_ICON_OFF;
++                std::string specName = BotTalentSpecStrings[i-1];
++                AddGossipItemFor(player, icon, specName.c_str(), GOSSIP_SENDER_SPEC_SET, GOSSIP_ACTION_INFO_DEF + i);
++            }
 +
 +            AddGossipItemFor(player, GOSSIP_ICON_CHAT, "BACK", 1, GOSSIP_ACTION_INFO_DEF + 2);
 +            break;
@@ -10437,24 +10506,6 @@ index 0000000..7a230a1
 +
 +            player->PlayerTalkClass->SendCloseGossip();
 +            return OnGossipSelect(player, creature, GOSSIP_SENDER_FORMATION_ATTACK, action);
-+        }
-+        case GOSSIP_SENDER_SPEC_SET:
-+        {
-+            char* specNum = strtok((char*)code, "");
-+            uint8 newSpec = (uint8)atoi(specNum);
-+
-+            if (newSpec != _spec && newSpec >= 1 && newSpec <= 3)
-+            {
-+                _newspec = newSpec;
-+                me->CastSpell(me, ACTIVATE_SPEC);
-+                std::ostringstream specMsg;
-+                specMsg << "activating spec " << uint32(_newspec);
-+                BotWhisper(specMsg.str().c_str());
-+                break;
-+            }
-+
-+            player->PlayerTalkClass->SendCloseGossip();
-+            return OnGossipSelect(player, creature, GOSSIP_SENDER_SPEC, action);
 +        }
 +        default:
 +            break;
@@ -12782,36 +12833,52 @@ index 0000000..7a230a1
 +{
 +    uint8 spec;
 +    if (_botclass >= BOT_CLASS_EX_START)
-+        spec = 1;
++        spec = BOT_SPEC_DEFAULT;
 +    else if (IAmFree())
 +    {
-+        std::list<uint8> specs;
++        std::vector<uint8> specs;
 +        switch (_botclass)
 +        {
 +            case BOT_CLASS_WARRIOR: //arms, fury
-+            case BOT_CLASS_SHAMAN: //elem, enh
-+            case BOT_CLASS_DRUID: //balance, feral
-+                specs.push_back(1);
-+                specs.push_back(2);
++                specs.push_back(BOT_SPEC_WARRIOR_ARMS);
++                specs.push_back(BOT_SPEC_WARRIOR_FURY);
 +                break;
 +            case BOT_CLASS_PALADIN: //retri
-+            case BOT_CLASS_PRIEST: //shadow
-+                specs.push_back(3);
++                specs.push_back(BOT_SPEC_PALADIN_RETRIBUTION);
 +                break;
 +            case BOT_CLASS_HUNTER: //any
++                specs.push_back(BOT_SPEC_HUNTER_BEASTMASTERY);
++                specs.push_back(BOT_SPEC_HUNTER_MARKSMANSHIP);
++                specs.push_back(BOT_SPEC_HUNTER_SURVIVAL);
++                break;
 +            case BOT_CLASS_ROGUE: //any
++                specs.push_back(BOT_SPEC_ROGUE_ASSASINATION);
++                specs.push_back(BOT_SPEC_ROGUE_COMBAT);
++                specs.push_back(BOT_SPEC_ROGUE_SUBTLETY);
++                break;
++            case BOT_CLASS_PRIEST: //shadow
++                specs.push_back(BOT_SPEC_PRIEST_SHADOW);
++                break;
 +            case BOT_CLASS_DEATH_KNIGHT: //any
-+                specs.push_back(1);
-+                specs.push_back(2);
-+                specs.push_back(3);
++                specs.push_back(BOT_SPEC_DK_BLOOD);
++                specs.push_back(BOT_SPEC_DK_FROST);
++                specs.push_back(BOT_SPEC_DK_UNHOLY);
++                break;
++            case BOT_CLASS_SHAMAN: //elem, enh
++                specs.push_back(BOT_SPEC_SHAMAN_ELEMENTAL);
++                specs.push_back(BOT_SPEC_SHAMAN_ENHANCEMENT);
 +                break;
 +            case BOT_CLASS_MAGE: //fire, frost
-+                specs.push_back(2);
-+                specs.push_back(3);
++                specs.push_back(BOT_SPEC_MAGE_FIRE);
++                specs.push_back(BOT_SPEC_MAGE_FROST);
 +                break;
 +            case BOT_CLASS_WARLOCK: //affli, destr
-+                specs.push_back(1);
-+                specs.push_back(3);
++                specs.push_back(BOT_SPEC_WARLOCK_AFFLICTION);
++                specs.push_back(BOT_SPEC_WARLOCK_DESTRUCTION);
++                break;
++            case BOT_CLASS_DRUID: //balance, feral
++                specs.push_back(BOT_SPEC_DRUID_BALANCE);
++                specs.push_back(BOT_SPEC_DRUID_FERAL);
 +                break;
 +            default:
 +                break;
@@ -12823,9 +12890,9 @@ index 0000000..7a230a1
 +        {
 +            uint32 rand = urand(1,100);
 +            if (specs.size() == 2)
-+                spec = rand <= 50 ? 1 : 2;
++                spec = rand <= 50 ? specs[0] : specs[1];
 +            else
-+                spec = rand <= 33 ? 1 : rand <= 67 ? 2 : 3;
++                spec = rand <= 33 ? specs[0] : rand <= 67 ? specs[1] : specs[2];
 +        }
 +        else
 +            ASSERT(false && "bot_ai::InitSpec(): FIXME more than 3 specs to choose from!");
@@ -12840,12 +12907,12 @@ index 0000000..7a230a1
 +
 +    //TC_LOG_ERROR("entities.unit", "bot_ai::InitSpec(): bot %u class %u spec: %u", me->GetEntry(), uint32(_botclass), uint32(spec));
 +
-+    if (spec < 1 || spec > 3)
++    if (spec < BOT_SPEC_BEGIN || spec > BOT_SPEC_END)
 +    {
 +        TC_LOG_ERROR("entities.unit", "bot_ai::InitSpec(): spec (%u) is out of range for bot %u! Falling to default (1)...",
 +            uint32(spec), me->GetEntry());
 +
-+        spec = 1;
++        spec = BOT_SPEC_DEFAULT;
 +    }
 +
 +    SetSpec(spec, false);
@@ -12853,7 +12920,7 @@ index 0000000..7a230a1
 +
 +void bot_ai::SetSpec(uint8 spec, bool activate)
 +{
-+    ASSERT(spec >= 1 && spec <= 3);
++    ASSERT(spec >= BOT_SPEC_BEGIN && spec <= BOT_SPEC_END);
 +
 +    _spec = spec;
 +
@@ -42402,7 +42469,7 @@ index 0000000..aef7b65
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 0000000..d4e641c
+index 0000000..6c41b73
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
 @@ -0,0 +1,1143 @@
@@ -42915,9 +42982,9 @@ index 0000000..d4e641c
 +            return false;
 +
 +        uint8 spec = (uint8)atoi(specStr);
-+        if (spec < 1 || spec > 3)
++        if (spec < BOT_SPEC_BEGIN || spec > BOT_SPEC_END)
 +        {
-+            handler->SendSysMessage("Spec is out of range (1 to 3)!");
++            handler->SendSysMessage("Spec is out of range (1 to 30)!");
 +            handler->SetSentErrorMessage(true);
 +            return false;
 +        }
@@ -43551,10 +43618,10 @@ index 0000000..d4e641c
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommon.h b/src/server/game/AI/NpcBots/botcommon.h
 new file mode 100644
-index 0000000..8efb343
+index 0000000..054ec1f
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommon.h
-@@ -0,0 +1,643 @@
+@@ -0,0 +1,648 @@
 +#ifndef _BOTCOMMON_H
 +#define _BOTCOMMON_H
 +
@@ -43947,33 +44014,38 @@ index 0000000..8efb343
 +    BOT_SPEC_WARRIOR_ARMS               = 1,
 +    BOT_SPEC_WARRIOR_FURY               = 2,
 +    BOT_SPEC_WARRIOR_PROTECTION         = 3,
-+    BOT_SPEC_PALADIN_HOLY               = 1,
-+    BOT_SPEC_PALADIN_PROTECTION         = 2,
-+    BOT_SPEC_PALADIN_RETRIBUTION        = 3,
-+    BOT_SPEC_HUNTER_BEASTMASTERY        = 1,
-+    BOT_SPEC_HUNTER_MARKSMANSHIP        = 2,
-+    BOT_SPEC_HUNTER_SURVIVAL            = 3,
-+    BOT_SPEC_ROGUE_ASSASINATION         = 1,
-+    BOT_SPEC_ROGUE_COMBAT               = 2,
-+    BOT_SPEC_ROGUE_SUBTLETY             = 3,
-+    BOT_SPEC_PRIEST_DISCIPLINE          = 1,
-+    BOT_SPEC_PRIEST_HOLY                = 2,
-+    BOT_SPEC_PRIEST_SHADOW              = 3,
-+    BOT_SPEC_DK_BLOOD                   = 1,
-+    BOT_SPEC_DK_FROST                   = 2,
-+    BOT_SPEC_DK_UNHOLY                  = 3,
-+    BOT_SPEC_SHAMAN_ELEMENTAL           = 1,
-+    BOT_SPEC_SHAMAN_ENHANCEMENT         = 2,
-+    BOT_SPEC_SHAMAN_RESTORATION         = 3,
-+    BOT_SPEC_MAGE_ARCANE                = 1,
-+    BOT_SPEC_MAGE_FIRE                  = 2,
-+    BOT_SPEC_MAGE_FROST                 = 3,
-+    BOT_SPEC_WARLOCK_AFFLICTION         = 1,
-+    BOT_SPEC_WARLOCK_DEMONOLOGY         = 2,
-+    BOT_SPEC_WARLOCK_DESTRUCTION        = 3,
-+    BOT_SPEC_DRUID_BALANCE              = 1,
-+    BOT_SPEC_DRUID_FERAL                = 2,
-+    BOT_SPEC_DRUID_RESTORATION          = 3
++    BOT_SPEC_PALADIN_HOLY               = 4,
++    BOT_SPEC_PALADIN_PROTECTION         = 5,
++    BOT_SPEC_PALADIN_RETRIBUTION        = 6,
++    BOT_SPEC_HUNTER_BEASTMASTERY        = 7,
++    BOT_SPEC_HUNTER_MARKSMANSHIP        = 8,
++    BOT_SPEC_HUNTER_SURVIVAL            = 9,
++    BOT_SPEC_ROGUE_ASSASINATION         = 10,
++    BOT_SPEC_ROGUE_COMBAT               = 11,
++    BOT_SPEC_ROGUE_SUBTLETY             = 12,
++    BOT_SPEC_PRIEST_DISCIPLINE          = 13,
++    BOT_SPEC_PRIEST_HOLY                = 14,
++    BOT_SPEC_PRIEST_SHADOW              = 15,
++    BOT_SPEC_DK_BLOOD                   = 16,
++    BOT_SPEC_DK_FROST                   = 17,
++    BOT_SPEC_DK_UNHOLY                  = 18,
++    BOT_SPEC_SHAMAN_ELEMENTAL           = 19,
++    BOT_SPEC_SHAMAN_ENHANCEMENT         = 20,
++    BOT_SPEC_SHAMAN_RESTORATION         = 21,
++    BOT_SPEC_MAGE_ARCANE                = 22,
++    BOT_SPEC_MAGE_FIRE                  = 23,
++    BOT_SPEC_MAGE_FROST                 = 24,
++    BOT_SPEC_WARLOCK_AFFLICTION         = 25,
++    BOT_SPEC_WARLOCK_DEMONOLOGY         = 26,
++    BOT_SPEC_WARLOCK_DESTRUCTION        = 27,
++    BOT_SPEC_DRUID_BALANCE              = 28,
++    BOT_SPEC_DRUID_FERAL                = 29,
++    BOT_SPEC_DRUID_RESTORATION          = 30,
++    BOT_SPEC_DEFAULT                    = 31,
++
++    BOT_SPEC_BEGIN                      = BOT_SPEC_WARRIOR_ARMS,
++    BOT_SPEC_END                        = BOT_SPEC_DEFAULT
++
 +};
 +
 +enum BotPetTypes

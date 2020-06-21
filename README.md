@@ -153,10 +153,10 @@ _TARGET_ indicates that command is used on a selected unit
             - `.npcbot set owner 312` (sets the selected NPCBot owner to the player with guid 312)  
             - `.npcb s o Myplayer` (sets the selected NPCBot owner to the player by name `Myplayer`)  
     - **`spec <NUMBER> _TARGET_`** -- forces a spec change for selected NPCBot  
-        - NUMBER = a number from **1** to **3**  
+        - NUMBER = a number from **1** to **30**  
         - _TARGET_ = selected NPCBot  
         **Example Usage:**  
-            - `.npcbot set spec 2` (selected NPCBot will instantly respec into feral/combat/fury/demonology depending on NPCBot's class)  
+            - `.npcbot set spec 2` (selected NPCBot will instantly respec into Fury talent tree; talents will only apply to a warrior NPCBot)  
 - **`revive _TARGET_`** -- (GM command) revives NPCBot(s)  
     - _TARGET_ = selected NPCBot (revives this NPCBot)  
     - _TARGET_ = selected player (revives all NPCBots of selected player)  
@@ -441,7 +441,7 @@ Using `_Manage allowed abilities..._` submenu you can make bots not use some of 
 
 #### NPCBot Talents
 NPCBots don't use normal talent pick choice system. Instead, main talent tree is used (according to a spec) while also picking vital talents from other two trees up to tier 3 (available to players of the same spec).  
-Select `_Manage talents..._` from the Gossip menu to chose a spec. Bot will activate it and continue to progress with chosen spec as you level up. You can change bot's spec at any time
+Select `_Manage talents..._` from the Gossip menu to chose a spec. Bot will activate it and continue to progress with chosen spec as you level up. This action has no cooldown
 
 #### NPCBot Grouping
 Although NPCBots will follow their owner around grouped or ungrouped and will usually buff people outside their groups, selecting the ___<Create Group>___ (___<Create Group (all bots)>___) option will have them join your group and properly utilize group buffs for everyone in the group
