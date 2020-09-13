@@ -1,6 +1,6 @@
-From eb89feb4fe823f17e976b2b753d95440eb5792b6 Mon Sep 17 00:00:00 2001
+From 62cfa290c23dba5104e5aab22ddc7f2887a08693 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Tue, 8 Sep 2020 12:03:22 +0700
+Date: Sun, 13 Sep 2020 17:29:29 +0700
 Subject: [PATCH] NPCBots
 
 ---
@@ -18,7 +18,7 @@ Subject: [PATCH] NPCBots
  .../Database/Implementation/CharacterDatabase.h    |    12 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1175 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 12940 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 12935 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   499 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   357 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   905 ++
@@ -43,8 +43,8 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   131 +
  src/server/game/AI/NpcBots/botdpstracker.h         |    36 +
  src/server/game/AI/NpcBots/botgiver.cpp            |   241 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  1276 ++
- src/server/game/AI/NpcBots/botmgr.h                |   168 +
+ src/server/game/AI/NpcBots/botmgr.cpp              |  1283 ++
+ src/server/game/AI/NpcBots/botmgr.h                |   169 +
  src/server/game/AI/NpcBots/bpet_ai.cpp             |  2271 ++++
  src/server/game/AI/NpcBots/bpet_ai.h               |   165 +
  src/server/game/AI/NpcBots/bpet_archmage.cpp       |   139 +
@@ -86,7 +86,7 @@ Subject: [PATCH] NPCBots
  src/server/game/Movement/MotionMaster.cpp          |    20 +
  src/server/game/OutdoorPvP/OutdoorPvP.cpp          |    17 +
  src/server/game/Scripting/ScriptMgr.cpp            |     8 +
- src/server/game/Server/WorldSession.cpp            |     4 +
+ src/server/game/Server/WorldSession.cpp            |    18 +
  src/server/game/Spells/Auras/SpellAuraEffects.cpp  |    67 +
  src/server/game/Spells/Auras/SpellAuras.cpp        |    23 +
  src/server/game/Spells/Spell.cpp                   |   114 +
@@ -106,8 +106,8 @@ Subject: [PATCH] NPCBots
  src/server/scripts/Spells/spell_warrior.cpp        |     6 +
  src/server/shared/DataStores/DBCStructure.h        |    11 +-
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
- src/server/worldserver/worldserver.conf.dist       |   228 +
- 103 files changed, 54697 insertions(+), 19 deletions(-)
+ src/server/worldserver/worldserver.conf.dist       |   240 +
+ 103 files changed, 54726 insertions(+), 19 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -3105,10 +3105,10 @@ index 0000000..c3368f7
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..caf7cd9
+index 0000000..8cc83e9
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,12940 @@
+@@ -0,0 +1,12935 @@
 +#include "bot_ai.h"
 +//#include "botcommon.h"
 +#include "bot_Events.h"
@@ -3555,26 +3555,21 @@ index 0000000..caf7cd9
 +    //if (victim->isType(TYPEMASK_UNIT) && InDuel(victim))
 +    //    return SPELL_FAILED_BAD_TARGETS;
 +
-+    //if (!spellInfo->IsPassive() && spellInfo->IsRanked() && victim->isType(TYPEMASK_UNIT))
-+    //{
-+    //    bool needRankSelection = false;
-+    //    for (uint8 i = 0; i != MAX_SPELL_EFFECTS; ++i)
-+    //    {
-+    //        if (spellInfo->IsPositiveEffect(i) &&
-+    //            (spellInfo->Effects[i].Effect == SPELL_EFFECT_APPLY_AURA ||
-+    //            spellInfo->Effects[i].Effect == SPELL_EFFECT_APPLY_AREA_AURA_PARTY ||
-+    //            spellInfo->Effects[i].Effect == SPELL_EFFECT_APPLY_AREA_AURA_RAID))
-+    //        {
-+    //            needRankSelection = true;
-+    //            break;
-+    //        }
-+    //    }
-+    //    if (needRankSelection && victim->GetLevel() < spellInfo->GetFirstRankSpell()->BaseLevel)
-+    //    {
-+    //        //TC_LOG_ERROR("entities.player", "bot_ai::CheckBotCast(): %s returns SPELL_FAILED_LOWLEVEL", spellInfo->SpellName[0]);
-+    //        return SPELL_FAILED_LOWLEVEL;
-+    //    }
-+    //}
++    //scaling aura
++    if (victim->isType(TYPEMASK_UNIT) && victim != me &&
++        !spellInfo->IsPassive() && spellInfo->SpellLevel && !spellInfo->IsChanneled() &&
++        (victim->GetLevel() + 10) < int32(spellInfo->GetFirstRankSpell()->SpellLevel))
++    {
++        for (uint8 i = 0; i < MAX_SPELL_EFFECTS; ++i)
++        {
++            if (spellInfo->Effects[i].Effect == SPELL_EFFECT_APPLY_AURA && spellInfo->IsPositiveEffect(i))
++            {
++                //TC_LOG_ERROR("scripts", "CheckBotCast(): deny cast of %s by %s on low-level target %s (lvl %u)",
++                //    spellInfo->SpellName[0], me->GetName().c_str(), victim->GetName().c_str(), victim->GetLevel());
++                return SPELL_FAILED_LOWLEVEL;
++            }
++        }
++    }
 +
 +    //disarmed
 +    if (spellInfo->EquippedItemClass == ITEM_CLASS_WEAPON)
@@ -45432,10 +45427,10 @@ index 0000000..2dfe9ee
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 0000000..8e2de57
+index 0000000..58186f9
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,1276 @@
+@@ -0,0 +1,1283 @@
 +#include "bot_ai.h"
 +#include "botdpstracker.h"
 +#include "bot_Events.h"
@@ -45469,6 +45464,7 @@ index 0000000..8e2de57
 +uint8 _healTargetIconFlags;
 +uint8 _tankingTargetIconFlags;
 +uint8 _dpsTargetIconFlags;
++int32 _botInfoPacketsLimit;
 +uint32 _npcBotsCost;
 +uint32 _npcBotUpdateDelayBase;
 +bool _enableNpcBots;
@@ -45619,6 +45615,7 @@ index 0000000..8e2de57
 +    _enableDungeonFinder    = sConfigMgr->GetBoolDefault("NpcBot.Enable.DungeonFinder", true);
 +    _limitNpcBotsDungeons   = sConfigMgr->GetBoolDefault("NpcBot.Limit.Dungeon", true);
 +    _limitNpcBotsRaids      = sConfigMgr->GetBoolDefault("NpcBot.Limit.Raid", true);
++    _botInfoPacketsLimit    = sConfigMgr->GetIntDefault("NpcBot.InfoPacketsLimit", -1);
 +    _npcBotsCost            = sConfigMgr->GetIntDefault("NpcBot.Cost", 1000000);
 +    _npcBotUpdateDelayBase  = sConfigMgr->GetIntDefault("NpcBot.UpdateDelay.Base", 0);
 +    _botPvP                 = sConfigMgr->GetBoolDefault("NpcBot.PvP", true);
@@ -45790,6 +45787,11 @@ index 0000000..8e2de57
 +uint8 BotMgr::GetMaxNpcBots()
 +{
 +    return _maxNpcBots <= MAXRAIDSIZE - 1 ? _maxNpcBots : MAXRAIDSIZE - 1;
++}
++
++int32 BotMgr::GetBotInfoPacketsLimit()
++{
++    return _botInfoPacketsLimit;
 +}
 +
 +bool BotMgr::LimitBots(Map const* map)
@@ -46714,10 +46716,10 @@ index 0000000..8e2de57
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.h b/src/server/game/AI/NpcBots/botmgr.h
 new file mode 100644
-index 0000000..2963174
+index 0000000..c1a4edc
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.h
-@@ -0,0 +1,168 @@
+@@ -0,0 +1,169 @@
 +#ifndef _BOTMGR_H
 +#define _BOTMGR_H
 +
@@ -46815,6 +46817,7 @@ index 0000000..2963174
 +        uint8 GetNpcBotSlotByRole(uint16 roles, Creature const* bot) const;
 +        static uint8 GetMaxNpcBots();
 +        static uint8 GetNpcBotXpReduction();
++        static int32 GetBotInfoPacketsLimit();
 +        static bool LimitBots(Map const* map);
 +        bool RestrictBots(Creature const* bot, bool add) const;
 +        bool IsPartyInCombat() const;
@@ -46888,7 +46891,7 @@ index 0000000..2963174
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bpet_ai.cpp b/src/server/game/AI/NpcBots/bpet_ai.cpp
 new file mode 100644
-index 0000000..fa3c611
+index 0000000..041835f
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_ai.cpp
 @@ -0,0 +1,2271 @@
@@ -47254,7 +47257,7 @@ index 0000000..fa3c611
 +        case BOTPETAI_MISC_MAXLEVEL:
 +            return petOwner->GetLevel();
 +        default:
-+            TC_LOG_ERROR("entities.unit", "bot_pet_ai::GetData(): unk data type %u!", data);
++            TC_LOG_DEBUG("entities.unit", "bot_pet_ai::GetData(): unk data type %u!", data);
 +            return 0;
 +    }
 +}
@@ -55327,10 +55330,21 @@ index 41bc38f..a3d5841 100644
      ASSERT(_script_loader_callback,
             "Script loader callback wasn't registered!");
 diff --git a/src/server/game/Server/WorldSession.cpp b/src/server/game/Server/WorldSession.cpp
-index 27e3dfa..6438d93 100644
+index 27e3dfa..e8441be 100644
 --- a/src/server/game/Server/WorldSession.cpp
 +++ b/src/server/game/Server/WorldSession.cpp
-@@ -474,6 +474,10 @@ void WorldSession::LogoutPlayer(bool save)
+@@ -54,6 +54,10 @@
+ #include "WorldSocket.h"
+ #include <zlib.h>
+ 
++//npcbot
++#include "botmgr.h"
++//end npcbot
++
+ namespace {
+ 
+ std::string const DefaultPlayerName = "<none>";
+@@ -474,6 +478,10 @@ void WorldSession::LogoutPlayer(bool save)
      m_playerLogout = true;
      m_playerSave = save;
  
@@ -55341,6 +55355,23 @@ index 27e3dfa..6438d93 100644
      if (_player)
      {
          if (ObjectGuid lguid = _player->GetLootGUID())
+@@ -1625,6 +1633,16 @@ uint32 WorldSession::DosProtection::GetMaxPacketCounterAllowed(uint16 opcode) co
+             maxPacketCounterAllowed = PLAYER_SLOTS_COUNT;
+             break;
+         }
++        //npcbot: prevent kicks when too many bots spawned in one spot
++        case CMSG_GET_MIRRORIMAGE_DATA:
++        {
++            if (BotMgr::GetBotInfoPacketsLimit() > -1)
++                maxPacketCounterAllowed = BotMgr::GetBotInfoPacketsLimit();
++            else
++                maxPacketCounterAllowed = 100;
++            break;
++        }
++        //end npcbot
+         default:
+         {
+             maxPacketCounterAllowed = 100;
 diff --git a/src/server/game/Spells/Auras/SpellAuraEffects.cpp b/src/server/game/Spells/Auras/SpellAuraEffects.cpp
 index b49f3b9..71169a5 100644
 --- a/src/server/game/Spells/Auras/SpellAuraEffects.cpp
@@ -56724,10 +56755,10 @@ index 69d4e5f..35c8ca0 100644
  char constexpr ItemExtendedCostEntryfmt[] = "niiiiiiiiiiiiiix";
  char constexpr ItemLimitCategoryEntryfmt[] = "nxxxxxxxxxxxxxxxxxii";
 diff --git a/src/server/worldserver/worldserver.conf.dist b/src/server/worldserver/worldserver.conf.dist
-index b364635..d6825ed 100644
+index b364635..e51357b 100644
 --- a/src/server/worldserver/worldserver.conf.dist
 +++ b/src/server/worldserver/worldserver.conf.dist
-@@ -4084,3 +4084,231 @@ Metric.OverallStatusInterval = 1
+@@ -4084,3 +4084,243 @@ Metric.OverallStatusInterval = 1
  
  #
  ###################################################################################################
@@ -56945,7 +56976,6 @@ index b364635..d6825ed 100644
 +
 +NpcBot.Stats.Limits.Enable = 0
 +
-+#
 +#    NpcBot.Stats.Limits.<Stat>
 +#        Description: Set dodge, parry, block and crit chance percentage limit for bots.
 +#        Note:        Some bot classes may ignore some of these values.
@@ -56956,6 +56986,19 @@ index b364635..d6825ed 100644
 +NpcBot.Stats.Limits.Parry = 95.0
 +NpcBot.Stats.Limits.Block = 95.0
 +NpcBot.Stats.Limits.Crit  = 95.0
++
++#    NpcBot.InfoPacketsLimit
++#        Description: This is a workaround for known issue #5.
++#                     If more than 100 bots are spawned in a single spot players trying
++#                     to approach them will be kicked by AntiDOS protection due to
++#                     'flooding' CMSG_GET_MIRRORIMAGE_DATA packets. This setting
++#                     overrides packets limit per tick for that request type.
++#        Note:        If you care about your server stability at all, use this only as a
++#                     temporary solution and spread your bots spawn points properly.
++#        Default:     -1  - (use default limit set by TC devs)
++#                     500 - (500 bots in one spot won't get you kicked)
++
++NpcBot.InfoPacketsLimit = -1
 +
 +#
 +###################################################################################################
