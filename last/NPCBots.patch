@@ -1,6 +1,6 @@
-From 62cfa290c23dba5104e5aab22ddc7f2887a08693 Mon Sep 17 00:00:00 2001
+From c69e67192832d9b4c0a45a29c69a6dc1e677a71b Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Sun, 13 Sep 2020 17:29:29 +0700
+Date: Fri, 25 Sep 2020 13:11:13 +0700
 Subject: [PATCH] NPCBots
 
 ---
@@ -34,11 +34,11 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  2771 ++++
  src/server/game/AI/NpcBots/bot_spellbreaker_ai.cpp |   552 +
  src/server/game/AI/NpcBots/bot_sphynx_ai.cpp       |   574 +
- src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  1949 +++
+ src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  1950 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2206 ++++
  src/server/game/AI/NpcBots/botcommands.cpp         |  1165 ++
  src/server/game/AI/NpcBots/botcommon.h             |   649 +
- src/server/game/AI/NpcBots/botdatamgr.cpp          |   422 +
+ src/server/game/AI/NpcBots/botdatamgr.cpp          |   437 +
  src/server/game/AI/NpcBots/botdatamgr.h            |    89 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   131 +
  src/server/game/AI/NpcBots/botdpstracker.h         |    36 +
@@ -63,7 +63,7 @@ Subject: [PATCH] NPCBots
  src/server/game/DataStores/DBCStores.h             |     2 +-
  src/server/game/DungeonFinding/LFGMgr.cpp          |   176 +
  src/server/game/DungeonFinding/LFGScripts.cpp      |     1 +
- src/server/game/Entities/Creature/Creature.cpp     |   436 +
+ src/server/game/Entities/Creature/Creature.cpp     |   443 +
  src/server/game/Entities/Creature/Creature.h       |    79 +
  src/server/game/Entities/Creature/CreatureData.h   |     6 +-
  .../game/Entities/Creature/TemporarySummon.cpp     |    25 +
@@ -107,7 +107,7 @@ Subject: [PATCH] NPCBots
  src/server/shared/DataStores/DBCStructure.h        |    11 +-
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/worldserver/worldserver.conf.dist       |   240 +
- 103 files changed, 54726 insertions(+), 19 deletions(-)
+ 103 files changed, 54749 insertions(+), 19 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -38485,10 +38485,10 @@ index 0000000..b0fb64b
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warlock_ai.cpp b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 new file mode 100644
-index 0000000..01c01e4
+index 0000000..b53280d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
-@@ -0,0 +1,1949 @@
+@@ -0,0 +1,1950 @@
 +#include "bot_ai.h"
 +#include "botmgr.h"
 +#include "Group.h"
@@ -38722,6 +38722,7 @@ index 0000000..01c01e4
 +            }
 +
 +            //TODO: soulstone on self/bots
++            //BUG: players cannot accept this buff if they are below lvl 20 (should be 8)
 +            if (!IAmFree() && hasSoulstone && soulstoneTimer <= diff && GetSpell(CREATE_SOULSTONE_1))
 +            {
 +                Group const* gr = master->GetGroup();
@@ -38734,10 +38735,11 @@ index 0000000..01c01e4
 +                }
 +                else
 +                {
++                    //check rezzers first
 +                    for (GroupReference const* itr = gr->GetFirstMember(); itr != nullptr; itr = itr->next())
 +                    {
 +                        u = itr->GetSource();
-+                        if (!u || u->GetLevel() < 18 || !u->IsAlive() || me->GetMap() != u->FindMap() ||
++                        if (!u || u->GetLevel() < 20 || !u->IsAlive() || me->GetMap() != u->FindMap() ||
 +                            u->isPossessed() || u->IsCharmed() || me->GetDistance(u) > 30 ||
 +                            u->GetDummyAuraEffect(SPELLFAMILY_GENERIC, 92, 0))
 +                        {
@@ -38753,7 +38755,7 @@ index 0000000..01c01e4
 +                        for (GroupReference const* itr = gr->GetFirstMember(); itr != nullptr; itr = itr->next())
 +                        {
 +                            u = itr->GetSource();
-+                            if (!u || u->GetLevel() < 18 || !u->IsAlive() || me->GetMap() != u->FindMap() ||
++                            if (!u || u->GetLevel() < 20 || !u->IsAlive() || me->GetMap() != u->FindMap() ||
 +                                u->isPossessed() || u->IsCharmed() || me->GetDistance(u) > 30 ||
 +                                u->GetDummyAuraEffect(SPELLFAMILY_GENERIC, 92, 0))
 +                            {
@@ -39114,7 +39116,6 @@ index 0000000..01c01e4
 +            if (IsSpellReady(DARK_PACT_1, diff) && !IsCasting() && botPet && botPet->GetPower(POWER_MANA) >= 300 &&
 +                GetManaPCT(me) < 20)
 +            {
-+                //it is possible that CheckCast will return SPELL_FAILED_NO_POWER if not enough hp
 +                if (doCast(me, GetSpell(DARK_PACT_1)))
 +                    return;
 +            }
@@ -39281,7 +39282,7 @@ index 0000000..01c01e4
 +                    else if (weak->GetCasterGUID() == me->GetGUID())
 +                        skipCurse = true;
 +                }
-+                if (!skipCurse && !CURSE && GetSpell(CURSE_OF_AGONY_1) &&
++                if (!skipCurse && !CURSE && GetSpell(CURSE_OF_AGONY_1) && HasRole(BOT_ROLE_DPS) &&
 +                    opponent->GetHealth() > me->GetMaxHealth() / 2 * (1 + opponent->getAttackers().size()) &&
 +                    !opponent->GetAuraEffect(SPELL_AURA_PERIODIC_DAMAGE, SPELLFAMILY_WARLOCK, 0x400, 0x0, 0x0, me->GetGUID()))
 +                {
@@ -44478,10 +44479,10 @@ index 0000000..7cb6348
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.cpp b/src/server/game/AI/NpcBots/botdatamgr.cpp
 new file mode 100644
-index 0000000..6b9d6f2
+index 0000000..558eaa4
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.cpp
-@@ -0,0 +1,422 @@
+@@ -0,0 +1,437 @@
 +#include "botdatamgr.h"
 +#include "Item.h"
 +#include "Map.h"
@@ -44631,7 +44632,7 @@ index 0000000..6b9d6f2
 +        }
 +
 +        field = infores->Fetch();
-+        //uint32 tableGuid = field[0].GetUInt32();
++        uint32 tableGuid = field[0].GetUInt32();
 +        uint32 mapId = uint32(field[1].GetUInt16());
 +        float pos_x = field[2].GetFloat();
 +        float pos_y = field[3].GetFloat();
@@ -44644,15 +44645,30 @@ index 0000000..6b9d6f2
 +        ASSERT(g.IsCoordValid() && "Invalid Grid coord!");
 +        Map* map = sMapMgr->CreateBaseMap(mapId);
 +        map->LoadGrid(pos_x, pos_y);
-+        /*This code fails on TC 2019 but everything works just fine*/
-+        //Creature* bot = map->GetCreature(ObjectGuid(HighGuid::Unit, entry, tableGuid));
-+        //ASSERT(bot);
-+        //debug
-+        //if (!bot->IsAlive())
-+        //{
-+        //    bot->Respawn();
-+        //    bot->ResetBotAI(1);
-+        //}
++
++        typedef std::unordered_multimap<uint32, Creature*>::iterator SpawnIter;
++        std::pair<SpawnIter, SpawnIter> creBounds = map->GetCreatureBySpawnIdStore().equal_range(tableGuid);
++        if (creBounds.first == map->GetCreatureBySpawnIdStore().end())
++        {
++            TC_LOG_ERROR("server.loading", "bot %u is not in spawns list, consider re-spawning it!", entry);
++            continue;
++        }
++
++        ObjectGuid Guid(HighGuid::Unit, entry, tableGuid);
++        TC_LOG_DEBUG("server.loading", "bot %u: spawnId %u, full %s", entry, tableGuid, Guid.ToString().c_str());
++        Creature* bot = map->GetCreature(Guid);
++        if (!bot) //not in map, use storage
++            bot = creBounds.first->second;
++        ASSERT(bot);
++        if (!bot->FindMap())
++            TC_LOG_ERROR("server.loading", "bot %u is not in map!", entry);
++        if (!bot->IsInWorld())
++            TC_LOG_ERROR("server.loading", "bot %u is not in world!", entry);
++        if (!bot->IsAlive())
++        {
++            TC_LOG_ERROR("server.loading", "bot %u is dead, respawning!", entry);
++            bot->Respawn();
++        }
 +
 +        TC_LOG_DEBUG("server.loading", ">> Spawned npcbot %s (id: %u, map: %u, grid: %u, cell: %u)", proto->Name.c_str(), entry, mapId, g.GetId(), c.GetId());
 +        botgrids.push_back(g.GetId());
@@ -52533,7 +52549,7 @@ index 75dd4ab..4cb80ff 100644
              sLFGMgr->LeaveLfg(group->GetGUID());
              group->Disband();
 diff --git a/src/server/game/Entities/Creature/Creature.cpp b/src/server/game/Entities/Creature/Creature.cpp
-index 44596a1..33d52d5 100644
+index 44596a1..78a4138 100644
 --- a/src/server/game/Entities/Creature/Creature.cpp
 +++ b/src/server/game/Entities/Creature/Creature.cpp
 @@ -53,6 +53,11 @@
@@ -52618,7 +52634,18 @@ index 44596a1..33d52d5 100644
              if (m_groupLootTimer && lootingGroupLowGUID)
              {
                  if (m_groupLootTimer <= diff)
-@@ -749,6 +796,9 @@ void Creature::Update(uint32 diff)
+@@ -738,6 +785,10 @@ void Creature::Update(uint32 diff)
+             }
+             else if (m_corpseRemoveTime <= GameTime::GetGameTime())
+             {
++                //npcbot: do not remove corpse
++                if (IsNPCBotOrPet())
++                    break;
++                //end npcbot
+                 RemoveCorpse(false);
+                 TC_LOG_DEBUG("entities.unit", "Removing corpse... %u ", GetUInt32Value(OBJECT_FIELD_ENTRY));
+             }
+@@ -749,6 +800,9 @@ void Creature::Update(uint32 diff)
  
              // creature can be dead after Unit::Update call
              // CORPSE/DEAD state will processed at next tick (in other case death timer will be updated unexpectedly)
@@ -52628,7 +52655,7 @@ index 44596a1..33d52d5 100644
              if (!IsAlive())
                  break;
  
-@@ -800,8 +850,18 @@ void Creature::Update(uint32 diff)
+@@ -800,8 +854,18 @@ void Creature::Update(uint32 diff)
                  }
              }
  
@@ -52647,7 +52674,7 @@ index 44596a1..33d52d5 100644
              // creature can be dead after UpdateAI call
              // CORPSE/DEAD state will processed at next tick (in other case death timer will be updated unexpectedly)
              if (!IsAlive())
-@@ -987,6 +1047,11 @@ bool Creature::AIM_Create(CreatureAI* ai /*= nullptr*/)
+@@ -987,6 +1051,11 @@ bool Creature::AIM_Create(CreatureAI* ai /*= nullptr*/)
  {
      Motion_Initialize();
  
@@ -52659,7 +52686,7 @@ index 44596a1..33d52d5 100644
      SetAI(ai ? ai : FactorySelector::SelectAI(this));
  
      return true;
-@@ -1674,6 +1739,24 @@ bool Creature::LoadFromDB(ObjectGuid::LowType spawnId, Map* map, bool addToMap,
+@@ -1674,6 +1743,24 @@ bool Creature::LoadFromDB(ObjectGuid::LowType spawnId, Map* map, bool addToMap,
      // checked at creature_template loading
      m_defaultMovementType = MovementGeneratorType(data->movementType);
  
@@ -52675,7 +52702,7 @@ index 44596a1..33d52d5 100644
 +
 +        //don't allow removing dead bot's corpse
 +        m_respawnCompatibilityMode = true;
-+        m_corpseDelay = std::numeric_limits<uint32>::max();
++        m_corpseDelay = 0;
 +        m_respawnDelay = 0;
 +        setActive(true);
 +    }
@@ -52684,7 +52711,7 @@ index 44596a1..33d52d5 100644
      if (addToMap && !GetMap()->AddToMap(this))
          return false;
      return true;
-@@ -1687,6 +1770,11 @@ void Creature::SetCanDualWield(bool value)
+@@ -1687,6 +1774,11 @@ void Creature::SetCanDualWield(bool value)
  
  void Creature::LoadEquipment(int8 id, bool force /*= true*/)
  {
@@ -52696,7 +52723,7 @@ index 44596a1..33d52d5 100644
      if (id == 0)
      {
          if (force)
-@@ -1833,6 +1921,11 @@ bool Creature::IsInvisibleDueToDespawn() const
+@@ -1833,6 +1925,11 @@ bool Creature::IsInvisibleDueToDespawn() const
      if (IsAlive() || isDying() || m_corpseRemoveTime > GameTime::GetGameTime())
          return false;
  
@@ -52708,7 +52735,7 @@ index 44596a1..33d52d5 100644
      return true;
  }
  
-@@ -1947,6 +2040,11 @@ void Creature::setDeathState(DeathState s)
+@@ -1947,6 +2044,11 @@ void Creature::setDeathState(DeathState s)
  
      if (s == JUST_DIED)
      {
@@ -52720,7 +52747,19 @@ index 44596a1..33d52d5 100644
          m_corpseRemoveTime = GameTime::GetGameTime() + m_corpseDelay;
  
          uint32 respawnDelay = m_respawnDelay;
-@@ -2588,6 +2686,16 @@ void Creature::SendZoneUnderAttackMessage(Player* attacker)
+@@ -2417,6 +2519,11 @@ void Creature::SaveRespawnTime(uint32 forceDelay)
+     if (IsSummon() || !m_spawnId || (m_creatureData && !m_creatureData->dbData))
+         return;
+ 
++    //npcbots: do not save respawn time for bots
++    if (IsNPCBotOrPet())
++        return;
++    //end npcbots
++
+     if (m_respawnCompatibilityMode)
+     {
+         RespawnInfo ri;
+@@ -2588,6 +2695,16 @@ void Creature::SendZoneUnderAttackMessage(Player* attacker)
  
  uint32 Creature::GetShieldBlockValue() const                  //dunno mob block value
  {
@@ -52737,7 +52776,7 @@ index 44596a1..33d52d5 100644
      return (GetLevel()/2 + uint32(GetStat(STAT_STRENGTH)/20));
  }
  
-@@ -3186,6 +3294,13 @@ void Creature::ReleaseSpellFocus(Spell const* focusSpell, bool withDelay)
+@@ -3186,6 +3303,13 @@ void Creature::ReleaseSpellFocus(Spell const* focusSpell, bool withDelay)
          if (!HasFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_DISABLE_TURN))
              ReacquireSpellFocusTarget();
      }
@@ -52751,7 +52790,7 @@ index 44596a1..33d52d5 100644
      else // don't allow re-target right away to prevent visual bugs
          _spellFocusInfo.Delay = withDelay ? 1000 : 1;
  
-@@ -3347,3 +3462,324 @@ std::string Creature::GetDebugInfo() const
+@@ -3347,3 +3471,322 @@ std::string Creature::GetDebugInfo() const
          << " WaypointPath: " << GetWaypointPath() << " SpawnId: " << GetSpawnId();
      return sstr.str();
  }
@@ -52772,7 +52811,6 @@ index 44596a1..33d52d5 100644
 +    m_respawnCompatibilityMode = true;
 +    m_creatureData = data;
 +    m_wanderDistance = data->wander_distance;
-+    m_respawnDelay = data->spawntimesecs;
 +
 +    if (!Create(map->GenerateLowGuid<HighGuid::Unit>(), map, data->phaseMask, data->id, data->spawnPoint, data, 0U , !m_respawnCompatibilityMode))
 +        return false;
@@ -52781,7 +52819,7 @@ index 44596a1..33d52d5 100644
 +    SetHomePosition(*this);
 +
 +    m_deathState = ALIVE;
-+    m_respawnTime = GetMap()->GetCreatureRespawnTime(m_spawnId);
++    m_respawnTime = 0;
 +
 +    SetSpawnHealth();
 +
@@ -52791,8 +52829,7 @@ index 44596a1..33d52d5 100644
 +    TC_LOG_INFO("entities.unit", "Creature: loading npcbot %s (id: %u)", GetName().c_str(), GetEntry());
 +    ASSERT(!IsInWorld());
 +
-+    //don't allow removing dead bot's corpse
-+    m_corpseDelay = std::numeric_limits<uint32>::max();
++    m_corpseDelay = 0;
 +    m_respawnDelay = 0;
 +    setActive(true);
 +
