@@ -1,5 +1,5 @@
 ### This mod was last updated:
-### last version: 07 Sep 2020, TrinityCore revision: [68a4085427](https://github.com/TrinityCore/TrinityCore/commit/68a4085427)
+### last version: 15 Oct 2020, TrinityCore revision: [f4a397accb](https://github.com/TrinityCore/TrinityCore/commit/f4a397accb)
 ### 2013 version: 12 Dec 2013. TrinityCore revision: [385e2dba37](https://github.com/TrinityCore/TrinityCore/commit/385e2dba37)
 
 # [ THE NPCBOTS MANUAL ]
