@@ -143,7 +143,7 @@ _TARGET_ indicates that command is used on a selected unit
         - factionID = ID from FactionTemplate.dbc (experts only). It's NOT what you get by using `.lookup faction` command  
         - _TARGET_ = selected NPCBot  
         **Example Usage:**  
-            - `.npcbot set faction` (by itself will displays list of subcommands for faction)  
+            - `.npcbot set faction` (by itself will display list of subcommands for faction)  
             - `.npcb s f m` (sets the faction of a selected NPCBot to HostileToAll)  
     - **`owner <GUID|NAME> _TARGET_`** -- sets ownership of a selected NPCBot to a specific player  
         - GUID = player DB guid  
@@ -167,7 +167,7 @@ _TARGET_ indicates that command is used on a selected unit
     - (No arguments)  
     **Example Usage:**  
         - `.npcbot reloadconfig  
-- **`command <COMMAND> _TARGET_`** -- (Player command) allows you to manage your NPCBots positioning (by itself will displays list of subcommands)  
+- **`command <COMMAND> _TARGET_`** -- (Player command) allows you to manage your NPCBots positioning (by itself will display list of subcommands)  
     - COMMAND = command string  
         - follow, f = FOLLOW mode  
         - standstill, stand = STAY mode  
@@ -205,6 +205,24 @@ _TARGET_ indicates that command is used on a selected unit
     **Example Usage:**  
         - `.npcbot kill`  
         - `.npcbot suicide`  
+- **`order`** -- (Player command) allows you to issue an order to your NPCBot. Orders take priority over any other action. Each bot can have up to 3 queued orders at a time (by itself will display list of subcommands)  
+    - **`cast <BOT_NAME> <SPELL_NAME> _TARGET_TOKEN_`** -- cast some spell  
+        - BOT_NAME = your bot name in client's locale. Case insensitive  
+        - SPELL_NAME = spell name in client's locale. All_spaces_must_be_replaced_with_underscores. Case insensitive  
+        - _TARGET_TOKEN_ = optional target identifier string. If left empty bot will target self. Case insensitive. Possible values:  
+            - `bot`, `self` = selfcast  
+            - `me`, `master` = bot owner (you)  
+            - `target` = bot's current target (won't work if bot has no target)  
+            - `mytarget` = your current target (won't work if you have no target)  
+    **Example Usage:**  
+        - `.npcbot order cast javad lesser_healing_wave me`  
+        - `.npcbot order cast javad purge mytarget`  
+- **`distance _ATTACK_ <VALUE>`** -- (Player command) allows you to quickly set bot follow / attack distance (by itself will display full help)  
+    - _ATTACK_ = if skipped you set follow distance (default), if set to `"attack"` you set attack distance  
+    - VALUE = desired value for chosen distance type (within standard distance ranges)  
+    **Example Usage:**  
+        - `.npcbot distance 75`  
+        - `.npcbot distance attack 20`  
 
 ### NPCBot Control and Usage
 #### NPCBot Getting started
@@ -437,7 +455,7 @@ Selecting `_Manage abilities..._` from the Gossip menu will give you a listing o
 If spell is not listed this doesn't mean NPCBot does not have the spell, probably you just cannot use it manually.  
 NPCBots' abilities check algorithm includes finding missing buffs, friends to heal, restocking on consumables (like healthstones), class enchants (Rogue, Shaman), utilities (like using Sprint if falling far behind), spells for party and self, self-heals, finding crowd control targets and finally, attack abilities
 
-Using `_Manage allowed abilities..._` submenu you can make bots not use some of their spells (note though that due to technical restrictions full spell list cannot be displayed so not ANY spell can be disabled)
+Using `_Manage allowed abilities..._` submenu you can make bots not use some of their spells. Disabled spells list is saved in DB
 
 #### NPCBot Talents
 NPCBots don't use normal talent pick choice system. Instead, main talent tree is used (according to a spec) while also picking vital talents from other two trees up to tier 3 (available to players of the same spec).  
