@@ -1,6 +1,6 @@
-From ad4211b7c39de0fbbe5c723dbffe748d4f473db7 Mon Sep 17 00:00:00 2001
+From 58b9b09bda0c133106791ecddc9539a2ebd15414 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Thu, 22 Oct 2020 09:26:03 +0700
+Date: Thu, 22 Oct 2020 10:41:38 +0700
 Subject: [PATCH] NPCBots
 
 ---
@@ -23,8 +23,8 @@ Subject: [PATCH] NPCBots
  .../Database/Implementation/CharacterDatabase.h    |    13 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1175 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 13200 +++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |   549 +
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 13234 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |   553 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   383 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   927 ++
  src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp  |   614 +
@@ -113,7 +113,7 @@ Subject: [PATCH] NPCBots
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   240 +
- 109 files changed, 56524 insertions(+), 19 deletions(-)
+ 109 files changed, 56562 insertions(+), 19 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -3814,10 +3814,10 @@ index 0000000..956f5ab
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..23fa033
+index 0000000..6d1a48a
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,13200 @@
+@@ -0,0 +1,13234 @@
 +#include "bot_ai.h"
 +//#include "botcommon.h"
 +#include "bot_Events.h"
@@ -4700,6 +4700,40 @@ index 0000000..23fa033
 +void bot_ai::RemoveBotCommandState(uint8 st)
 +{
 +    m_botCommandState &= ~st;
++}
++
++bool bot_ai::IsPointedHealTarget(Unit const* target) const
++{
++    if (Group const* gr = (IAmFree() ? nullptr : master->GetGroup()))
++        if (uint8 healFlags = BotMgr::GetHealTargetIconFlags())
++            for (uint8 i = 0; i  != TARGETICONCOUNT; ++i)
++                if (healFlags & GroupIconsFlags[i])
++                    if (target->GetGUID() == gr->GetTargetIcons()[i])
++                        return true;
++
++    return false;
++}
++bool bot_ai::IsPointedTankingTarget(Unit const* target) const
++{
++    if (Group const* gr = (IAmFree() ? nullptr : master->GetGroup()))
++        if (uint8 tankFlags = BotMgr::GetHealTargetIconFlags())
++            for (uint8 i = 0; i  != TARGETICONCOUNT; ++i)
++                if (tankFlags & GroupIconsFlags[i])
++                    if (target->GetGUID() == gr->GetTargetIcons()[i])
++                        return true;
++
++    return false;
++}
++bool bot_ai::IsPointedDPSTarget(Unit const* target) const
++{
++    if (Group const* gr = (IAmFree() ? nullptr : master->GetGroup()))
++        if (uint8 dpsFlags = BotMgr::GetHealTargetIconFlags())
++            for (uint8 i = 0; i  != TARGETICONCOUNT; ++i)
++                if (dpsFlags & GroupIconsFlags[i])
++                    if (target->GetGUID() == gr->GetTargetIcons()[i])
++                        return true;
++
++    return false;
 +}
 +// Buffs And Heal (really)
 +// Priority as follows: 1) heal players 2) buff players 3) heal bots 4) buff bots
@@ -17020,10 +17054,10 @@ index 0000000..23fa033
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..c49a276
+index 0000000..a2ad9f1
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,549 @@
+@@ -0,0 +1,553 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -17233,6 +17267,10 @@ index 0000000..c49a276
 +
 +        virtual bool HealTarget(Unit* /*target*/, uint32 /*diff*/) { return false; }
 +        virtual bool BuffTarget(Unit* /*target*/, uint32 /*diff*/) { return false; }
++
++        bool IsPointedHealTarget(Unit const* target) const;
++        bool IsPointedTankingTarget(Unit const* target) const;
++        bool IsPointedDPSTarget(Unit const* target) const;
 +
 +        void BuffAndHealGroup(uint32 diff);
 +        void RezGroup(uint32 REZZ);
@@ -22144,7 +22182,7 @@ index 0000000..2ecf728
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_druid_ai.cpp b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 new file mode 100644
-index 0000000..ecd7c12
+index 0000000..68c6b9c
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 @@ -0,0 +1,2903 @@
@@ -23396,7 +23434,7 @@ index 0000000..ecd7c12
 +            int32 hppctps = int32(hps * 100.f / float(target->GetMaxHealth()));
 +            int32 xphploss = xphp > int32(target->GetMaxHealth()) ? 0 : abs(int32(xphp - target->GetMaxHealth()));
 +            int32 xppct = hp + hppctps * 2;
-+            if (xppct >= 95 && hp >= 25)
++            if (xppct >= 95 && hp >= 25 && !IsPointedHealTarget(target))
 +                return false;
 +
 +            if (IsTank() && xppct > 25)
@@ -29085,7 +29123,7 @@ index 0000000..f82685a
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 new file mode 100644
-index 0000000..abf6999
+index 0000000..1876bfd
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 @@ -0,0 +1,2751 @@
@@ -29999,7 +30037,7 @@ index 0000000..abf6999
 +            int32 hppctps = int32(hps * 100.f / float(target->GetMaxHealth()));
 +            int32 xphploss = xphp > int32(target->GetMaxHealth()) ? 0 : abs(int32(xphp - target->GetMaxHealth()));
 +            int32 xppct = hp + hppctps * 2.5f;
-+            if (xppct >= 95 && hp >= 25)
++            if (xppct >= 95 && hp >= 25 && !IsPointedHealTarget(target))
 +                return false;
 +
 +            //Lay on Hands
@@ -31842,7 +31880,7 @@ index 0000000..abf6999
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_priest_ai.cpp b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 new file mode 100644
-index 0000000..b50441d
+index 0000000..08ecf15
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 @@ -0,0 +1,2084 @@
@@ -32514,7 +32552,7 @@ index 0000000..b50441d
 +            int32 xppct = hp + hppctps * (me->GetLevel() < 60 ? 2.5f : 2.0f);
 +            //TC_LOG_ERROR("entities.player", "priest_bot:HealTarget(): %s's pct %u, hppctps %i, epct %i",
 +            //    target->GetName().c_str(), uint32(hp), int32(hppctps), int32(xppct));
-+            if (xppct >= 95 && hp >= 25)
++            if (xppct >= 95 && hp >= 25 && !IsPointedHealTarget(target))
 +                return false;
 +
 +            //GUARDIAN SPIRIT no GCD
@@ -35953,7 +35991,7 @@ index 0000000..653e545
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_shaman_ai.cpp b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 new file mode 100644
-index 0000000..496472a
+index 0000000..422583d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 @@ -0,0 +1,2811 @@
@@ -37286,7 +37324,7 @@ index 0000000..496472a
 +            int32 hppctps = int32(hps * 100.f / float(target->GetMaxHealth()));
 +            int32 xphploss = xphp > int32(target->GetMaxHealth()) ? 0 : abs(int32(xphp - target->GetMaxHealth()));
 +            int32 xppct = hp + hppctps * 2.5f;
-+            if (xppct >= 95 && hp >= 25)
++            if (xppct >= 95 && hp >= 25 && IsPointedHealTarget(target))
 +                return false;
 +
 +            if (IsSpellReady(NATURES_SWIFTNESS_1, diff, false) && Rand() < 80 &&
