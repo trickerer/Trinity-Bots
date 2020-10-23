@@ -1,6 +1,6 @@
-From 61dcea9091466d9798dff7de2db363a3053295c6 Mon Sep 17 00:00:00 2001
+From bc1631453ef77c00c08af0f5f9aeee081621cae6 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Fri, 23 Oct 2020 09:19:36 +0700
+Date: Fri, 23 Oct 2020 11:25:11 +0700
 Subject: [PATCH] NPCBots
 
 ---
@@ -30,13 +30,13 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp  |   614 +
  src/server/game/AI/NpcBots/bot_death_knight_ai.cpp |  2091 +++
  src/server/game/AI/NpcBots/bot_dreadlord_ai.cpp    |   524 +
- src/server/game/AI/NpcBots/bot_druid_ai.cpp        |  2903 ++++
+ src/server/game/AI/NpcBots/bot_druid_ai.cpp        |  2904 ++++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  2367 ++++
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  1653 +++
- src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  2751 ++++
- src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  2084 +++
+ src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  2752 ++++
+ src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  2085 +++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  2015 +++
- src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  2811 ++++
+ src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  2812 ++++
  src/server/game/AI/NpcBots/bot_spellbreaker_ai.cpp |   574 +
  src/server/game/AI/NpcBots/bot_sphynx_ai.cpp       |   604 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  1984 +++
@@ -113,7 +113,7 @@ Subject: [PATCH] NPCBots
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   240 +
- 109 files changed, 56564 insertions(+), 19 deletions(-)
+ 109 files changed, 56568 insertions(+), 19 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -22184,10 +22184,10 @@ index 0000000..2ecf728
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_druid_ai.cpp b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 new file mode 100644
-index 0000000..68c6b9c
+index 0000000..1e31fd1
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
-@@ -0,0 +1,2903 @@
+@@ -0,0 +1,2904 @@
 +#include "bot_ai.h"
 +#include "botmgr.h"
 +#include "Group.h"
@@ -23427,7 +23427,8 @@ index 0000000..68c6b9c
 +            if (!target || !target->IsAlive() || target->GetShapeshiftForm() == FORM_SPIRITOFREDEMPTION || me->GetDistance(target) > 40)
 +                return false;
 +            uint8 hp = GetHealthPCT(target);
-+            if (hp > 95 &&
++            bool pointed = IsPointedHealTarget(target);
++            if (hp > 95 && !pointed &&
 +                (!target->IsInCombat() || target->getAttackers().empty() || !IsTank(target) || !me->GetMap()->IsRaid()))
 +                return false;
 +
@@ -23436,7 +23437,7 @@ index 0000000..68c6b9c
 +            int32 hppctps = int32(hps * 100.f / float(target->GetMaxHealth()));
 +            int32 xphploss = xphp > int32(target->GetMaxHealth()) ? 0 : abs(int32(xphp - target->GetMaxHealth()));
 +            int32 xppct = hp + hppctps * 2;
-+            if (xppct >= 95 && hp >= 25 && !IsPointedHealTarget(target))
++            if (xppct >= 95 && hp >= 25 && !pointed)
 +                return false;
 +
 +            if (IsTank() && xppct > 25)
@@ -29125,10 +29126,10 @@ index 0000000..f82685a
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 new file mode 100644
-index 0000000..1876bfd
+index 0000000..54fb9ec
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
-@@ -0,0 +1,2751 @@
+@@ -0,0 +1,2752 @@
 +#include "bot_ai.h"
 +#include "botmgr.h"
 +#include "Group.h"
@@ -30027,7 +30028,8 @@ index 0000000..1876bfd
 +            if (!target || !target->IsAlive() || target->GetShapeshiftForm() == FORM_SPIRITOFREDEMPTION || me->GetDistance(target) > 40)
 +                return false;
 +            uint8 hp = GetHealthPCT(target);
-+            if (hp > 90 &&
++            bool pointed = IsPointedHealTarget(target);
++            if (hp > 90 && !pointed &&
 +                (!target->IsInCombat() || target->getAttackers().empty() || !IsTank(target) || !me->GetMap()->IsRaid()))
 +                return false;
 +            //try to preserve heal if Divine Plea is active
@@ -30039,7 +30041,7 @@ index 0000000..1876bfd
 +            int32 hppctps = int32(hps * 100.f / float(target->GetMaxHealth()));
 +            int32 xphploss = xphp > int32(target->GetMaxHealth()) ? 0 : abs(int32(xphp - target->GetMaxHealth()));
 +            int32 xppct = hp + hppctps * 2.5f;
-+            if (xppct >= 95 && hp >= 25 && !IsPointedHealTarget(target))
++            if (xppct >= 95 && hp >= 25 && !pointed)
 +                return false;
 +
 +            //Lay on Hands
@@ -31882,10 +31884,10 @@ index 0000000..1876bfd
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_priest_ai.cpp b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 new file mode 100644
-index 0000000..08ecf15
+index 0000000..3a1b3be
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
-@@ -0,0 +1,2084 @@
+@@ -0,0 +1,2085 @@
 +#include "bot_ai.h"
 +#include "botmgr.h"
 +#include "Group.h"
@@ -32543,7 +32545,8 @@ index 0000000..08ecf15
 +                return false;
 +
 +            uint8 hp = GetHealthPCT(target);
-+            if (hp > 90 &&
++            bool pointed = IsPointedHealTarget(target);
++            if (hp > 90 && !pointed &&
 +                (!target->IsInCombat() || target->getAttackers().empty() || !IsTank(target) || !me->GetMap()->IsRaid()))
 +                return false;
 +
@@ -32554,7 +32557,7 @@ index 0000000..08ecf15
 +            int32 xppct = hp + hppctps * (me->GetLevel() < 60 ? 2.5f : 2.0f);
 +            //TC_LOG_ERROR("entities.player", "priest_bot:HealTarget(): %s's pct %u, hppctps %i, epct %i",
 +            //    target->GetName().c_str(), uint32(hp), int32(hppctps), int32(xppct));
-+            if (xppct >= 95 && hp >= 25 && !IsPointedHealTarget(target))
++            if (xppct >= 95 && hp >= 25 && !pointed)
 +                return false;
 +
 +            //GUARDIAN SPIRIT no GCD
@@ -35993,10 +35996,10 @@ index 0000000..653e545
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_shaman_ai.cpp b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 new file mode 100644
-index 0000000..422583d
+index 0000000..e4abcf0
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
-@@ -0,0 +1,2811 @@
+@@ -0,0 +1,2812 @@
 +#include "bot_ai.h"
 +#include "botmgr.h"
 +#include "Group.h"
@@ -37317,7 +37320,8 @@ index 0000000..422583d
 +            if (!target || !target->IsAlive() || target->GetShapeshiftForm() == FORM_SPIRITOFREDEMPTION || me->GetDistance(target) > 40)
 +                return false;
 +            uint8 hp = GetHealthPCT(target);
-+            if (hp > 90 &&
++            bool pointed = IsPointedHealTarget(target);
++            if (hp > 90 && !pointed &&
 +                (!target->IsInCombat() || target->getAttackers().empty() || !IsTank(target) || !me->GetMap()->IsRaid()))
 +                return false;
 +
@@ -37326,7 +37330,7 @@ index 0000000..422583d
 +            int32 hppctps = int32(hps * 100.f / float(target->GetMaxHealth()));
 +            int32 xphploss = xphp > int32(target->GetMaxHealth()) ? 0 : abs(int32(xphp - target->GetMaxHealth()));
 +            int32 xppct = hp + hppctps * 2.5f;
-+            if (xppct >= 95 && hp >= 25 && IsPointedHealTarget(target))
++            if (xppct >= 95 && hp >= 25 && !pointed)
 +                return false;
 +
 +            if (IsSpellReady(NATURES_SWIFTNESS_1, diff, false) && Rand() < 80 &&
