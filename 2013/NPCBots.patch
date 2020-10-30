@@ -1,6 +1,6 @@
-From 9da0a1c12863e80f5d3805d3361bd1304c086c38 Mon Sep 17 00:00:00 2001
+From d5c7b738d39849e10f33194897a034574b4af4ae Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Sat, 24 Oct 2020 10:40:52 +0700
+Date: Fri, 30 Oct 2020 19:19:44 +0700
 Subject: [PATCH] NPCBots2013
 
 ---
@@ -20,8 +20,8 @@ Subject: [PATCH] NPCBots2013
  .../2020_10_15_creature_template_npcbot_extras.sql |     2 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1172 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 13124 +++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |   547 +
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 13206 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |   548 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   377 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   919 ++
  src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp  |   608 +
@@ -45,8 +45,8 @@ Subject: [PATCH] NPCBots2013
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   131 +
  src/server/game/AI/NpcBots/botdpstracker.h         |    36 +
  src/server/game/AI/NpcBots/botgiver.cpp            |   231 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  1238 ++
- src/server/game/AI/NpcBots/botmgr.h                |   168 +
+ src/server/game/AI/NpcBots/botmgr.cpp              |  1244 ++
+ src/server/game/AI/NpcBots/botmgr.h                |   169 +
  src/server/game/AI/NpcBots/bpet_ai.cpp             |  2266 ++++
  src/server/game/AI/NpcBots/bpet_ai.h               |   164 +
  src/server/game/AI/NpcBots/bpet_archmage.cpp       |   131 +
@@ -102,10 +102,10 @@ Subject: [PATCH] NPCBots2013
  src/server/scripts/Spells/spell_priest.cpp         |     6 +
  src/server/scripts/Spells/spell_rogue.cpp          |    40 +
  src/server/scripts/Spells/spell_shaman.cpp         |    10 +
- .../Database/Implementation/CharacterDatabase.cpp  |    17 +
+ .../Database/Implementation/CharacterDatabase.cpp  |    15 +
  .../Database/Implementation/CharacterDatabase.h    |    13 +
- src/server/worldserver/worldserver.conf.dist       |   228 +
- 101 files changed, 56098 insertions(+), 9 deletions(-)
+ src/server/worldserver/worldserver.conf.dist       |   238 +
+ 101 files changed, 56196 insertions(+), 9 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -3733,10 +3733,10 @@ index 0000000..418fb4e
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..ea3d639
+index 0000000..9014a33
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,13124 @@
+@@ -0,0 +1,13206 @@
 +#include "bot_ai.h"
 +//#include "botcommon.h"
 +#include "bot_Events.h"
@@ -3759,7 +3759,7 @@ index 0000000..ea3d639
 +#include "SpellAuraEffects.h"
 +/*
 +NpcBot System by Trickerer (https://github.com/trickerer/Trinity-Bots; onlysuffering@gmail.com)
-+Version 4.8.2a
++Version 4.8.3a
 +Original idea: https://bitbucket.org/lordpsyan/trinitycore-patches/src/3b8b9072280e/Individual/11185-BOTS-NPCBots.patch
 +TODO:
 +dk pets (garg, aod, rdw)
@@ -4110,6 +4110,85 @@ index 0000000..ea3d639
 +    AbortTeleport();
 +    return true;
 +}
++//Check if should totally unlink from owner
++void bot_ai::CheckOwnerExpiry()
++{
++    if (!BotMgr::GetOwnershipExpireTime())
++        return; //disabled
++
++    NpcBotData const* npcBotData = BotDataMgr::SelectNpcBotData(me->GetEntry());
++    ASSERT(npcBotData && "bot_ai::CheckOwnerExpiry(): data not found!");
++
++    if (npcBotData->owner == 0)
++        return;
++
++    uint64 ownerGuid = MAKE_NEW_GUID(npcBotData->owner, 0, HIGHGUID_PLAYER);
++    time_t timeNow = time(0);
++    time_t expireTime = time_t(BotMgr::GetOwnershipExpireTime());
++    uint32 accId = sObjectMgr->GetPlayerAccountIdByGUID(ownerGuid);
++    QueryResult result = accId ? LoginDatabase.PQuery("SELECT UNIX_TIMESTAMP(last_login) FROM account WHERE id = %u", accId) : NULL;
++
++    Field* fields = result ? result->Fetch() : NULL;
++    time_t lastLoginTime = result ? time_t(fields[0].GetUInt32()) : timeNow;
++
++    //either expired or owner does not exist
++    if (timeNow >= lastLoginTime + expireTime)
++    {
++        std::string name = "unknown";
++        sObjectMgr->GetPlayerNameByGUID(ownerGuid, name);
++        TC_LOG_DEBUG("server.loading", ">> %s's (guid: %u) ownership over bot %s (%u) has expired!",
++            name.c_str(), npcBotData->owner, me->GetName().c_str(), me->GetEntry());
++
++        //send all items back
++        PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_NPCBOT_EQUIP_BY_ITEM_INSTANCE);
++        //        0            1                2      3         4        5      6             7                 8           9           10    11    12         13
++        //"SELECT creatorGuid, giftCreatorGuid, count, duration, charges, flags, enchantments, randomPropertyId, durability, playedTime, text, guid, itemEntry, owner_guid "
++        //  "FROM item_instance WHERE guid IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", CONNECTION_SYNCH
++
++        for (uint8 i = 0; i != BOT_INVENTORY_SIZE; ++i)
++            stmt->setUInt32(i, npcBotData->equips[i]);
++
++        PreparedQueryResult iiresult = CharacterDatabase.Query(stmt);
++        if (iiresult)
++        {
++            std::vector<Item*> items;
++
++            do
++            {
++                Field* fields2 = iiresult->Fetch();
++                uint32 itemGuidLow = fields2[11].GetUInt32();
++                uint32 itemId = fields2[12].GetUInt32();
++                Item* item = new Item;
++                ASSERT(item->LoadFromDB(itemGuidLow, 0, fields2, itemId));
++                items.push_back(item);
++
++            } while (iiresult->NextRow());
++
++            SQLTransaction trans = CharacterDatabase.BeginTransaction();
++            while (!items.empty())
++            {
++                static const std::string subject = "Bot ownership expired due to inactivity";
++                MailDraft draft(subject, "");
++                for (uint8 i = 0; !items.empty() && i < MAX_MAIL_ITEMS; ++i)
++                {
++                    Item* item = items.back();
++                    items.pop_back();
++                    item->SetOwnerGUID(ownerGuid);
++                    item->SaveToDB(trans);
++                    draft.AddItem(item);
++                }
++                draft.SendMailTo(trans, MailReceiver(npcBotData->owner), MailSender(me, MAIL_STATIONERY_GM));
++            }
++            CharacterDatabase.CommitTransaction(trans);
++
++            BotDataMgr::UpdateNpcBotData(me->GetEntry(), NPCBOT_UPDATE_EQUIPS, _equips);
++        }
++
++        //hard reset owner
++        uint32 newOwner = 0;
++        BotDataMgr::UpdateNpcBotData(me->GetEntry(), NPCBOT_UPDATE_OWNER, &newOwner);
++    }
++}
 +
 +void bot_ai::ResetBotAI(uint8 resetType)
 +{
@@ -4120,6 +4199,8 @@ index 0000000..ea3d639
 +    master = reinterpret_cast<Player*>(me);
 +    if (resetType & BOTAI_RESET_MASK_ABANDON_MASTER)
 +        _ownerGuid = 0;
++    if (resetType == BOTAI_RESET_INIT)
++        CheckOwnerExpiry();
 +
 +    (const_cast<CreatureTemplate*>(me->GetCreatureTemplate()))->unit_flags2 |= (UNIT_FLAG2_ALLOW_ENEMY_INTERACT);
 +    me->SetUInt32Value(UNIT_FIELD_FLAGS_2, me->GetCreatureTemplate()->unit_flags2);
@@ -13853,12 +13934,13 @@ index 0000000..ea3d639
 +    ASSERT(npcBotData && "bot_ai::InitEquips(): data not found!");
 +
 +    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_NPCBOT_EQUIP_BY_ITEM_INSTANCE);
-+    //                    0                   1         2            3           4         5                6                    7              8             9        10       11            12             13
-+    //SELECT ii.creatorGuid, ii.giftCreatorGuid, ii.count, ii.duration, ii.charges, ii.flags, ii.enchantments, ii.randomPropertyId, ii.durability, ii.playedTime, ii.text, ii.guid, ii.itemEntry, ii.owner_guid "
-+    //  "FROM item_instance ii JOIN characters_npcbot cn ON ii.guid IN "
-+    //  "(cn.equipMhEx, cn.equipOhEx, cn.equipRhEx, cn.equipHead, cn.equipShoulders, cn.equipChest, cn.equipWaist, cn.equipLegs, cn.equipFeet, cn.equipWrist, cn.equipHands, cn.equipBack, cn.equipBody, cn.equipFinger1, cn.equipFinger2, cn.equipTrinket1, cn.equipTrinket2, cn.equipNeck) "
-+    //  "WHERE cn.entry = ?", CONNECTION_SYNCH
-+    stmt->setUInt32(0, me->GetEntry());
++    //        0            1                2      3         4        5      6             7                 8           9           10    11    12         13
++    //"SELECT creatorGuid, giftCreatorGuid, count, duration, charges, flags, enchantments, randomPropertyId, durability, playedTime, text, guid, itemEntry, owner_guid "
++    //  "FROM item_instance WHERE guid IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", CONNECTION_SYNCH
++
++    for (uint8 i = 0; i != BOT_INVENTORY_SIZE; ++i)
++        stmt->setUInt32(i, npcBotData->equips[i]);
++
 +    PreparedQueryResult iiresult = CharacterDatabase.Query(stmt);
 +
 +    Field* fields2;
@@ -16863,10 +16945,10 @@ index 0000000..ea3d639
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..7687e59
+index 0000000..d19ab8b
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,547 @@
+@@ -0,0 +1,548 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -16920,6 +17002,7 @@ index 0000000..7687e59
 +        uint32 GetBotOwnerGuid() const { return _ownerGuid; }
 +        Player* GetBotOwner() const { return master; }
 +        bool SetBotOwner(Player* newowner);
++        void CheckOwnerExpiry();
 +        uint8 GetBotClass() const { return _botclass; }
 +        uint32 GetLastDiff() const { return lastdiff; }
 +        virtual void UpdateDeadAI(uint32 /*diff*/) {}
@@ -46792,10 +46875,10 @@ index 0000000..724ba51
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 0000000..e9c850b
+index 0000000..350a698
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,1238 @@
+@@ -0,0 +1,1244 @@
 +#include "bot_ai.h"
 +#include "botdpstracker.h"
 +#include "bot_Events.h"
@@ -46830,6 +46913,7 @@ index 0000000..e9c850b
 +//int32 _botInfoPacketsLimit;
 +uint32 _npcBotsCost;
 +uint32 _npcBotUpdateDelayBase;
++uint32 _npcBotOwnerExpireTime;
 +bool _enableNpcBots;
 +bool _enableNpcBotsDungeons;
 +bool _enableNpcBotsRaids;
@@ -46920,6 +47004,7 @@ index 0000000..e9c850b
 +    //_botInfoPacketsLimit    = sConfigMgr->GetIntDefault("NpcBot.InfoPacketsLimit", -1);
 +    _npcBotsCost            = sConfigMgr->GetIntDefault("NpcBot.Cost", 1000000);
 +    _npcBotUpdateDelayBase  = sConfigMgr->GetIntDefault("NpcBot.UpdateDelay.Base", 0);
++    _npcBotOwnerExpireTime  = sConfigMgr->GetIntDefault("NpcBot.OwnershipExpireTime", 0);
 +    _botPvP                 = sConfigMgr->GetBoolDefault("NpcBot.PvP", true);
 +    _botMovementFoodInterrupt=sConfigMgr->GetBoolDefault("NpcBot.Movements.InterruptFood", false);
 +    _displayEquipment       = sConfigMgr->GetBoolDefault("NpcBot.EquipmentDisplay.Enable", true);
@@ -47063,6 +47148,10 @@ index 0000000..e9c850b
 +uint32 BotMgr::GetBaseUpdateDelay()
 +{
 +    return _npcBotUpdateDelayBase;
++}
++uint32 BotMgr::GetOwnershipExpireTime()
++{
++    return _npcBotOwnerExpireTime;
 +}
 +float BotMgr::GetBotStatLimitDodge()
 +{
@@ -48036,10 +48125,10 @@ index 0000000..e9c850b
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.h b/src/server/game/AI/NpcBots/botmgr.h
 new file mode 100644
-index 0000000..e194816
+index 0000000..eb179ce
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.h
-@@ -0,0 +1,168 @@
+@@ -0,0 +1,169 @@
 +#ifndef _BOTMGR_H
 +#define _BOTMGR_H
 +
@@ -48109,6 +48198,7 @@ index 0000000..e194816
 +        static uint8 GetTankTargetIconFlags();
 +        static uint8 GetDPSTargetIconFlags();
 +        static uint32 GetBaseUpdateDelay();
++        static uint32 GetOwnershipExpireTime();
 +        static float GetBotStatLimitDodge();
 +        static float GetBotStatLimitParry();
 +        static float GetBotStatLimitBlock();
@@ -58102,22 +58192,20 @@ index eb71731..9bdb620 100644
                      if (AuraEffect* aur = owner->GetDummyAuraEffect(SPELLFAMILY_SHAMAN, 2289, 0))
                          if (roll_chance_i(aur->GetBaseAmount()))
 diff --git a/src/server/shared/Database/Implementation/CharacterDatabase.cpp b/src/server/shared/Database/Implementation/CharacterDatabase.cpp
-index da99d6c..8d6d180 100644
+index da99d6c..07e8964 100644
 --- a/src/server/shared/Database/Implementation/CharacterDatabase.cpp
 +++ b/src/server/shared/Database/Implementation/CharacterDatabase.cpp
-@@ -600,4 +600,21 @@ void CharacterDatabaseConnection::DoPrepareStatements()
+@@ -600,4 +600,19 @@ void CharacterDatabaseConnection::DoPrepareStatements()
      PrepareStatement(CHAR_UPD_CHAR_PET_SLOT_BY_ID, "UPDATE character_pet SET slot = ? WHERE owner = ? AND id = ?", CONNECTION_ASYNC);
      PrepareStatement(CHAR_DEL_CHAR_PET_BY_ID, "DELETE FROM character_pet WHERE id = ?", CONNECTION_ASYNC);
      PrepareStatement(CHAR_DEL_CHAR_PET_BY_SLOT, "DELETE FROM character_pet WHERE owner = ? AND (slot = ? OR slot > ?)", CONNECTION_ASYNC);
 +
-+    // Bot
++    // NPCBots
 +    PrepareStatement(CHAR_UPD_NPCBOT_OWNER, "UPDATE characters_npcbot SET owner = ? WHERE entry = ?", CONNECTION_ASYNC);
 +    PrepareStatement(CHAR_UPD_NPCBOT_OWNER_ALL, "UPDATE characters_npcbot SET owner = ? WHERE owner = ?", CONNECTION_ASYNC);
 +    PrepareStatement(CHAR_UPD_NPCBOT_ROLES, "UPDATE characters_npcbot SET roles = ? WHERE entry = ?", CONNECTION_ASYNC);
-+    PrepareStatement(CHAR_SEL_NPCBOT_EQUIP_BY_ITEM_INSTANCE, "SELECT ii.creatorGuid, ii.giftCreatorGuid, ii.count, ii.duration, ii.charges, ii.flags, ii.enchantments, ii.randomPropertyId, ii.durability, ii.playedTime, ii.text, ii.guid, ii.itemEntry, ii.owner_guid "
-+        "FROM item_instance ii JOIN characters_npcbot cn ON ii.guid IN "
-+        "(cn.equipMhEx, cn.equipOhEx, cn.equipRhEx, cn.equipHead, cn.equipShoulders, cn.equipChest, cn.equipWaist, cn.equipLegs, cn.equipFeet, cn.equipWrist, cn.equipHands, cn.equipBack, cn.equipBody, cn.equipFinger1, cn.equipFinger2, cn.equipTrinket1, cn.equipTrinket2, cn.equipNeck) "
-+        "WHERE cn.entry = ?", CONNECTION_SYNCH);
++    PrepareStatement(CHAR_SEL_NPCBOT_EQUIP_BY_ITEM_INSTANCE, "SELECT creatorGuid, giftCreatorGuid, count, duration, charges, flags, enchantments, randomPropertyId, durability, playedTime, text, guid, itemEntry, owner_guid "
++        "FROM item_instance WHERE guid IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", CONNECTION_SYNCH);
 +    PrepareStatement(CHAR_UPD_NPCBOT_EQUIP, "UPDATE characters_npcbot SET equipMhEx = ?, equipOhEx = ?, equipRhEx = ?, "
 +        "equipHead = ?, equipShoulders = ?, equipChest = ?, equipWaist = ?, equipLegs = ?, equipFeet = ?, equipWrist = ?, equipHands = ?, equipBack = ?, equipBody = ?, equipFinger1 = ?, equipFinger2 = ?, equipTrinket1 = ?, equipTrinket2 = ?, equipNeck = ? WHERE entry = ?", CONNECTION_ASYNC);
 +    PrepareStatement(CHAR_DEL_NPCBOT, "DELETE FROM characters_npcbot WHERE entry = ?", CONNECTION_ASYNC);
@@ -58125,7 +58213,7 @@ index da99d6c..8d6d180 100644
 +    PrepareStatement(CHAR_UPD_NPCBOT_FACTION, "UPDATE characters_npcbot SET faction = ? WHERE entry = ?", CONNECTION_ASYNC);
 +    PrepareStatement(CHAR_UPD_NPCBOT_SPEC, "UPDATE characters_npcbot SET spec = ? WHERE entry = ?", CONNECTION_ASYNC);
 +    PrepareStatement(CHAR_UPD_NPCBOT_DISABLED_SPELLS, "UPDATE characters_npcbot SET spells_disabled = ? WHERE entry = ?", CONNECTION_ASYNC);
-+    // End Bot
++    // End NPCBots
  }
 diff --git a/src/server/shared/Database/Implementation/CharacterDatabase.h b/src/server/shared/Database/Implementation/CharacterDatabase.h
 index aa47fb5..71c87ae 100644
@@ -58152,10 +58240,10 @@ index aa47fb5..71c87ae 100644
  };
  
 diff --git a/src/server/worldserver/worldserver.conf.dist b/src/server/worldserver/worldserver.conf.dist
-index 4e594fc..6fae71b 100644
+index 4e594fc..0720ffc 100644
 --- a/src/server/worldserver/worldserver.conf.dist
 +++ b/src/server/worldserver/worldserver.conf.dist
-@@ -2816,3 +2816,231 @@ PacketSpoof.BanDuration = 86400
+@@ -2816,3 +2816,241 @@ PacketSpoof.BanDuration = 86400
  
  #
  ###################################################################################################
@@ -58384,6 +58472,16 @@ index 4e594fc..6fae71b 100644
 +NpcBot.Stats.Limits.Parry = 95.0
 +NpcBot.Stats.Limits.Block = 95.0
 +NpcBot.Stats.Limits.Crit  = 95.0
++
++#
++#    NpcBot.OwnershipExpireTime
++#        Description: Maxmum time since last account login (in seconds) before bot ownership
++#                     is automatically cancelled (at server loading).
++#        Note:        All items will be refund and mailed back to player.
++#        Default:     0 - (Disabled)
++#                     604800 - (7 Days)
++
++NpcBot.OwnershipExpireTime = 0
 +
 +#
 +###################################################################################################
