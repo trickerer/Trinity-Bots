@@ -1,6 +1,6 @@
-From 01fdf85dba7ea7d748c27f5978350185b9598893 Mon Sep 17 00:00:00 2001
+From c1a7cce6d02c53386d015da02cde07b0b81b4ad5 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Sat, 31 Oct 2020 10:22:55 +0700
+Date: Mon, 2 Nov 2020 15:16:18 +0700
 Subject: [PATCH] NPCBots
 
 ---
@@ -28,7 +28,7 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   383 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   927 ++
  src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp  |   614 +
- src/server/game/AI/NpcBots/bot_death_knight_ai.cpp |  2091 +++
+ src/server/game/AI/NpcBots/bot_death_knight_ai.cpp |  2092 +++
  src/server/game/AI/NpcBots/bot_dreadlord_ai.cpp    |   524 +
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        |  2904 ++++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  2367 ++++
@@ -64,6 +64,7 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/NpcBots/bpet_warlock.cpp        |   409 +
  src/server/game/Combat/CombatManager.cpp           |    25 +
  src/server/game/Combat/ThreatManager.cpp           |     5 +
+ src/server/game/Conditions/ConditionMgr.cpp        |    47 +
  src/server/game/DataStores/DBCStores.cpp           |     4 +-
  src/server/game/DataStores/DBCStores.h             |     2 +-
  src/server/game/DungeonFinding/LFGMgr.cpp          |   176 +
@@ -114,7 +115,7 @@ Subject: [PATCH] NPCBots
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   250 +
- 110 files changed, 56668 insertions(+), 21 deletions(-)
+ 111 files changed, 56716 insertions(+), 21 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -17137,7 +17138,7 @@ index 0000000..33435ac
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..f1c0a40
+index 0000000..65d6189
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
 @@ -0,0 +1,554 @@
@@ -17313,6 +17314,7 @@ index 0000000..f1c0a40
 +        void SetReviveTimer(uint32 newtime) { _reviveTimer = newtime; }
 +        void UpdateReviveTimer(uint32 diff);
 +
++        bool HasSpell(uint32 basespell) const;
 +        uint32 GetSpellCooldown(uint32 basespell) const;
 +        bool IsSpellReady(uint32 basespell, uint32 diff, bool checkGCD = true) const;
 +        void SetSpellCooldown(uint32 basespell, uint32 msCooldown);
@@ -17366,7 +17368,6 @@ index 0000000..f1c0a40
 +
 +        static uint32 InitSpell(Unit const* caster, uint32 spell);
 +        void InitSpellMap(uint32 basespell, bool forceadd = false, bool forwardRank = true);
-+        bool HasSpell(uint32 basespell) const;
 +        uint32 GetSpell(uint32 basespell) const;
 +        void ResetSpellCooldown(uint32 basespell) { SetSpellCooldown(basespell, 0); }
 +        void RemoveSpell(uint32 basespell);
@@ -19639,10 +19640,10 @@ index 0000000..1089398
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_death_knight_ai.cpp b/src/server/game/AI/NpcBots/bot_death_knight_ai.cpp
 new file mode 100644
-index 0000000..8257e25
+index 0000000..dc7aaef
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_death_knight_ai.cpp
-@@ -0,0 +1,2091 @@
+@@ -0,0 +1,2092 @@
 +#include "bot_ai.h"
 +#include "botmgr.h"
 +#include "GameEventMgr.h"
@@ -20768,7 +20769,8 @@ index 0000000..8257e25
 +            //Impurity: 20% bonus (from attack power) damage for all spells
 +            if ((_spec == BOT_SPEC_DK_UNHOLY) && lvl >= 59)
 +                if (SpellBonusEntry const* bonus = sSpellMgr->GetSpellBonusData(spellInfo->Id))
-+                    fdamage += bonus->ap_bonus * 0.2f * me->GetTotalAttackPowerValue(BASE_ATTACK);
++                    if (bonus->ap_bonus > 0.f)
++                        fdamage += bonus->ap_bonus * 0.2f * me->GetTotalAttackPowerValue(BASE_ATTACK);
 +            //Merciless Combat (spell): 12% bonus damage for Icy Touch, Howling Blast, Obliterate and Frost Strike on targets with less than 35% hp
 +            if ((_spec == BOT_SPEC_DK_FROST) && lvl >= 60 &&
 +                (baseId == ICY_TOUCH_1 || baseId == HOWLING_BLAST_1 || baseId == OBLITERATE_1 || baseId == FROST_STRIKE_1) &&
@@ -44324,7 +44326,7 @@ index 0000000..5bd279e
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 0000000..cd3a82b
+index 0000000..2f01c7b
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
 @@ -0,0 +1,1368 @@
@@ -45230,9 +45232,9 @@ index 0000000..cd3a82b
 +            return false;
 +        }
 +
-+        bot->GetBotAI()->canUpdate = false;
 +        bot->CombatStop();
 +        bot->GetBotAI()->Reset();
++        bot->GetBotAI()->canUpdate = false;
 +        Creature::DeleteFromDB(bot->GetSpawnId());
 +        bot->AddObjectToRemoveList();
 +
@@ -47362,7 +47364,7 @@ index 0000000..bd2d233
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 0000000..bc9c80e
+index 0000000..205f7fa
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
 @@ -0,0 +1,1304 @@
@@ -48018,7 +48020,6 @@ index 0000000..bc9c80e
 +    bot->GetBotAI()->AbortTeleport();
 +
 +    bot->GetBotAI()->KillEvents(true);
-+    //bot->IsAIEnabled = false;
 +
 +    if (bot->IsInWorld())
 +    {
@@ -48033,6 +48034,7 @@ index 0000000..bc9c80e
 +
 +        ////start Unit::CleanupBeforeRemoveFromMap()
 +        bot->InterruptNonMeleeSpells(true);
++        //bot->IsAIEnabled = false;
 +        if (bot->IsInWorld())
 +            bot->RemoveFromWorld();
 +
@@ -54217,6 +54219,118 @@ index df954a7..b8e5073 100644
      return true;
  }
  
+diff --git a/src/server/game/Conditions/ConditionMgr.cpp b/src/server/game/Conditions/ConditionMgr.cpp
+index 5a5b66b..bd04f0d 100644
+--- a/src/server/game/Conditions/ConditionMgr.cpp
++++ b/src/server/game/Conditions/ConditionMgr.cpp
+@@ -33,6 +33,10 @@
+ #include "SpellMgr.h"
+ #include "World.h"
+ 
++//npcbot
++#include "bot_ai.h"
++//end npcbot
++
+ char const* const ConditionMgr::StaticSourceTypeData[CONDITION_SOURCE_TYPE_MAX] =
+ {
+     "None",
+@@ -147,6 +151,11 @@ bool Condition::Meets(ConditionSourceInfo& sourceInfo) const
+         }
+         case CONDITION_ITEM:
+         {
++            //npcbot
++            if (object->GetTypeId() == TYPEID_UNIT && object->ToCreature()->IsNPCBot())
++                condMeets = true;
++            else
++            //end npcbot
+             if (Player* player = object->ToPlayer())
+             {
+                 // don't allow 0 items (it's checked during table load)
+@@ -158,6 +167,11 @@ bool Condition::Meets(ConditionSourceInfo& sourceInfo) const
+         }
+         case CONDITION_ITEM_EQUIPPED:
+         {
++            //npcbot
++            if (object->GetTypeId() == TYPEID_UNIT && object->ToCreature()->IsNPCBot())
++                condMeets = true; //for now
++            else
++            //end npcbot
+             if (Player* player = object->ToPlayer())
+                 condMeets = player->HasItemOrGemWithIdEquipped(ConditionValue1, 1);
+             break;
+@@ -167,6 +181,14 @@ bool Condition::Meets(ConditionSourceInfo& sourceInfo) const
+             break;
+         case CONDITION_REPUTATION_RANK:
+         {
++            //npcbot
++            if (object->GetTypeId() == TYPEID_UNIT && !object->ToCreature()->IsFreeBot())
++            {
++                if (FactionEntry const* faction = sFactionStore.LookupEntry(ConditionValue1))
++                    condMeets = (ConditionValue2 & (1 << object->ToCreature()->GetBotOwner()->GetReputationMgr().GetRank(faction)));
++            }
++            else
++            //end npcbot
+             if (Player* player = object->ToPlayer())
+             {
+                 if (FactionEntry const* faction = sFactionStore.LookupEntry(ConditionValue1))
+@@ -176,12 +198,22 @@ bool Condition::Meets(ConditionSourceInfo& sourceInfo) const
+         }
+         case CONDITION_ACHIEVEMENT:
+         {
++            //npcbot
++            if (object->GetTypeId() == TYPEID_UNIT && object->ToCreature()->IsNPCBot())
++                condMeets = true;
++            else
++            //end npcbot
+             if (Player* player = object->ToPlayer())
+                 condMeets = player->HasAchieved(ConditionValue1);
+             break;
+         }
+         case CONDITION_TEAM:
+         {
++            //npcbot
++            if (object->GetTypeId() == TYPEID_UNIT && !object->ToCreature()->IsFreeBot())
++                condMeets = object->ToCreature()->GetBotOwner()->GetTeam() == ConditionValue1;
++            else
++            //end npcbot
+             if (Player* player = object->ToPlayer())
+                 condMeets = player->GetTeam() == ConditionValue1;
+             break;
+@@ -200,12 +232,22 @@ bool Condition::Meets(ConditionSourceInfo& sourceInfo) const
+         }
+         case CONDITION_GENDER:
+         {
++            //npcbot
++            if (object->GetTypeId() == TYPEID_UNIT && object->ToCreature()->IsNPCBot())
++                condMeets = object->ToCreature()->GetGender() == ConditionValue1;
++            else
++            //end npcbot
+             if (Player* player = object->ToPlayer())
+                 condMeets = player->GetNativeGender() == ConditionValue1;
+             break;
+         }
+         case CONDITION_SKILL:
+         {
++            //npcbot
++            if (object->GetTypeId() == TYPEID_UNIT && object->ToCreature()->IsNPCBot())
++                condMeets = true;
++            else
++            //end npcbot
+             if (Player* player = object->ToPlayer())
+                 condMeets = player->HasSkill(ConditionValue1) && player->GetBaseSkillValue(ConditionValue1) >= ConditionValue2;
+             break;
+@@ -280,6 +322,11 @@ bool Condition::Meets(ConditionSourceInfo& sourceInfo) const
+             break;
+         case CONDITION_SPELL:
+         {
++            //npcbot
++            if (object->GetTypeId() == TYPEID_UNIT && object->ToCreature()->GetBotAI())
++                condMeets = object->ToCreature()->GetBotAI()->HasSpell(sSpellMgr->GetSpellInfo(ConditionValue1)->GetFirstRankSpell()->Id);
++            else
++            //end npcbot
+             if (Player* player = object->ToPlayer())
+                 condMeets = player->HasSpell(ConditionValue1);
+             break;
 diff --git a/src/server/game/DataStores/DBCStores.cpp b/src/server/game/DataStores/DBCStores.cpp
 index eb6ca3c..972a9c6 100644
 --- a/src/server/game/DataStores/DBCStores.cpp
