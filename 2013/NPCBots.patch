@@ -1,6 +1,6 @@
-From 1f0f5af92811d321ced445f464347adeaec27d8d Mon Sep 17 00:00:00 2001
+From a055a2d6e8172d22a90947d769067d3e6631a585 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Mon, 2 Nov 2020 15:17:03 +0700
+Date: Tue, 3 Nov 2020 19:17:32 +0700
 Subject: [PATCH] NPCBots2013
 
 ---
@@ -20,8 +20,8 @@ Subject: [PATCH] NPCBots2013
  .../2020_10_15_creature_template_npcbot_extras.sql |     2 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1172 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 13206 +++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |   548 +
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 13230 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |   549 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   377 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   919 ++
  src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp  |   608 +
@@ -106,7 +106,7 @@ Subject: [PATCH] NPCBots2013
  .../Database/Implementation/CharacterDatabase.cpp  |    15 +
  .../Database/Implementation/CharacterDatabase.h    |    13 +
  src/server/worldserver/worldserver.conf.dist       |   238 +
- 102 files changed, 56244 insertions(+), 9 deletions(-)
+ 102 files changed, 56269 insertions(+), 9 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -3734,10 +3734,10 @@ index 0000000..418fb4e
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..2ee33da
+index 0000000..b6d955d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,13206 @@
+@@ -0,0 +1,13230 @@
 +#include "bot_ai.h"
 +//#include "botcommon.h"
 +#include "bot_Events.h"
@@ -3763,6 +3763,8 @@ index 0000000..2ee33da
 +Version 4.8.3a
 +Original idea: https://bitbucket.org/lordpsyan/trinitycore-patches/src/3b8b9072280e/Individual/11185-BOTS-NPCBots.patch
 +TODO:
++Bot commands to RBAC permissions
++Export strings to make them localizable
 +dk pets (garg, aod, rdw)
 +'Go there and do stuff' scenarios
 +Encounter Scenarios
@@ -4481,7 +4483,7 @@ index 0000000..2ee33da
 +            _orders.front()->params.spellCastParams.baseSpell == m_botSpellInfo->GetFirstRankSpell()->Id)
 +        {
 +            if (DEBUG_BOT_ORDERS)
-+                TC_LOG_ERROR("entities.player", "doCast(): ordered spell %s is not casted!", m_botSpellInfo->SpellName[0]);
++                TC_LOG_ERROR("entities.player", "doCast(): ordered spell %u is not casted!", m_botSpellInfo->Id);
 +            CancelOrder(_orders.front());
 +        }
 +
@@ -4910,7 +4912,7 @@ index 0000000..2ee33da
 +                    if (Unit* unit = sObjectAccessor->FindUnit(guid))
 +                    {
 +                        if (unit->IsAlive() && !unit->HasUnitState(UNIT_STATE_ISOLATED) && me->GetMap() == unit->FindMap() && me->GetDistance(unit) < 40 &&
-+                            master->GetVictim() != unit && !IsInBotParty(unit->GetVictim()) &&
++                            !unit->IsFullHealth() && master->GetVictim() != unit && !IsInBotParty(unit->GetVictim()) &&
 +                            unit->GetEntry() != SHAMAN_EARTH_ELEMENTAL &&
 +                            !(unit->GetTypeId() == TYPEID_UNIT && unit->ToCreature()->GetCreatureTemplate()->type == CREATURE_TYPE_MECHANICAL) &&
 +                            unit->GetReactionTo(master) >= REP_NEUTRAL)
@@ -8212,8 +8214,8 @@ index 0000000..2ee33da
 +        info = sSpellMgr->GetSpellInfo(itr->second->spellId);
 +        if (info && itr->first == spellInfo->Id && info->GetCategory() != category)
 +        {
-+            TC_LOG_ERROR("scripts", "Warning: SetSpellCategoryCooldown: %s (%u) has baseId %u but category %u, not %u!",
-+                info->SpellName[0], info->Id, itr->first, info->GetCategory(), category);
++            TC_LOG_ERROR("scripts", "Warning: SetSpellCategoryCooldown: %u has baseId %u but category %u, not %u!",
++                info->Id, itr->first, info->GetCategory(), category);
 +        }
 +
 +        if (info && (info->GetCategory() == category || itr->first == spellInfo->Id) && itr->second->cooldown < msCooldown)
@@ -9406,7 +9408,9 @@ index 0000000..2ee33da
 +                                SpellInfo const* availableInfo = sSpellMgr->GetSpellInfo(possiblePoisonMaxRank);
 +                                uint32 curMHId = GetAIMiscValue(BOTAI_MISC_ENCHANT_CURRENT_MH);
 +                                bool same = possiblePoison == curMHId;
-+                                player->ADD_GOSSIP_ITEM(same ? GOSSIP_ICON_BATTLE : GOSSIP_ICON_CHAT, availableInfo->SpellName[0], GOSSIP_SENDER_CLASS_ACTION2, GOSSIP_ACTION_INFO_DEF + possiblePoison);
++                                std::string spellName;
++                                _LocalizeSpell(player, spellName, availableInfo->Id);
++                                player->ADD_GOSSIP_ITEM(same ? GOSSIP_ICON_BATTLE : GOSSIP_ICON_CHAT, spellName, GOSSIP_SENDER_CLASS_ACTION2, GOSSIP_ACTION_INFO_DEF + possiblePoison);
 +                            }
 +                        }
 +                        player->ADD_GOSSIP_ITEM(isauto ? GOSSIP_ICON_BATTLE : GOSSIP_ICON_CHAT, "<Auto>", GOSSIP_SENDER_CLASS_ACTION2, GOSSIP_ACTION_INFO_DEF + 0);
@@ -9425,7 +9429,9 @@ index 0000000..2ee33da
 +                                SpellInfo const* availableInfo = sSpellMgr->GetSpellInfo(possiblePoisonMaxRank);
 +                                uint32 curOHId = GetAIMiscValue(BOTAI_MISC_ENCHANT_CURRENT_OH);
 +                                bool same = possiblePoison == curOHId;
-+                                player->ADD_GOSSIP_ITEM(same ? GOSSIP_ICON_BATTLE : GOSSIP_ICON_CHAT, availableInfo->SpellName[0], GOSSIP_SENDER_CLASS_ACTION3, GOSSIP_ACTION_INFO_DEF + possiblePoison);
++                                std::string spellName;
++                                _LocalizeSpell(player, spellName, availableInfo->Id);
++                                player->ADD_GOSSIP_ITEM(same ? GOSSIP_ICON_BATTLE : GOSSIP_ICON_CHAT, spellName, GOSSIP_SENDER_CLASS_ACTION3, GOSSIP_ACTION_INFO_DEF + possiblePoison);
 +                            }
 +                        }
 +                        player->ADD_GOSSIP_ITEM(isauto ? GOSSIP_ICON_BATTLE : GOSSIP_ICON_CHAT, "<Auto>", GOSSIP_SENDER_CLASS_ACTION3, GOSSIP_ACTION_INFO_DEF + 0);
@@ -9456,7 +9462,9 @@ index 0000000..2ee33da
 +                                SpellInfo const* availableInfo = sSpellMgr->GetSpellInfo(possibleEcnhantMaxRank);
 +                                uint32 curMHId = GetAIMiscValue(BOTAI_MISC_ENCHANT_CURRENT_MH);
 +                                bool same = possibleEnchant == curMHId;
-+                                player->ADD_GOSSIP_ITEM(same ? GOSSIP_ICON_BATTLE : GOSSIP_ICON_CHAT, availableInfo->SpellName[0], GOSSIP_SENDER_CLASS_ACTION2, GOSSIP_ACTION_INFO_DEF + possibleEnchant);
++                                std::string spellName;
++                                _LocalizeSpell(player, spellName, availableInfo->Id);
++                                player->ADD_GOSSIP_ITEM(same ? GOSSIP_ICON_BATTLE : GOSSIP_ICON_CHAT, spellName, GOSSIP_SENDER_CLASS_ACTION2, GOSSIP_ACTION_INFO_DEF + possibleEnchant);
 +                            }
 +                        }
 +                        player->ADD_GOSSIP_ITEM(isauto ? GOSSIP_ICON_BATTLE : GOSSIP_ICON_CHAT, "<Auto>", GOSSIP_SENDER_CLASS_ACTION2, GOSSIP_ACTION_INFO_DEF + 0);
@@ -9475,7 +9483,9 @@ index 0000000..2ee33da
 +                                SpellInfo const* availableInfo = sSpellMgr->GetSpellInfo(possibleEcnhantMaxRank);
 +                                uint32 curOHId = GetAIMiscValue(BOTAI_MISC_ENCHANT_CURRENT_OH);
 +                                bool same = possibleEnchant == curOHId;
-+                                player->ADD_GOSSIP_ITEM(same ? GOSSIP_ICON_BATTLE : GOSSIP_ICON_CHAT, availableInfo->SpellName[0], GOSSIP_SENDER_CLASS_ACTION3, GOSSIP_ACTION_INFO_DEF + possibleEnchant);
++                                std::string spellName;
++                                _LocalizeSpell(player, spellName, availableInfo->Id);
++                                player->ADD_GOSSIP_ITEM(same ? GOSSIP_ICON_BATTLE : GOSSIP_ICON_CHAT, spellName, GOSSIP_SENDER_CLASS_ACTION3, GOSSIP_ACTION_INFO_DEF + possibleEnchant);
 +                            }
 +                        }
 +                        player->ADD_GOSSIP_ITEM(isauto ? GOSSIP_ICON_BATTLE : GOSSIP_ICON_CHAT, "<Auto>", GOSSIP_SENDER_CLASS_ACTION3, GOSSIP_ACTION_INFO_DEF + 0);
@@ -14410,6 +14420,20 @@ index 0000000..2ee33da
 +    }
 +}
 +
++void bot_ai::_LocalizeSpell(Player const* forPlayer, std::string &spellName, uint32 entry) const
++{
++    uint32 loc = forPlayer->GetSession()->GetSessionDbLocaleIndex();
++    std::wstring wnamepart;
++
++    SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(entry);
++    if (!spellInfo)
++        return;
++
++    std::string title = spellInfo->SpellName[loc];
++    if (Utf8FitTo(title, wnamepart))
++        spellName = title;
++}
++
 +void bot_ai::BotJump(Position const* pos)
 +{
 +    ++_jumpCount;
@@ -14613,8 +14637,8 @@ index 0000000..2ee33da
 +        _orders.front()->params.spellCastParams.baseSpell == curInfo->GetFirstRankSpell()->Id)
 +    {
 +        if (DEBUG_BOT_ORDERS)
-+            TC_LOG_ERROR("entities.player", "doCast(): ordered spell %s by %s was successful!",
-+                curInfo->SpellName[0], me->GetName().c_str());
++            TC_LOG_ERROR("entities.player", "doCast(): ordered spell %u by %s was successful!",
++                curInfo->Id, me->GetName().c_str());
 +        CompleteOrder(_orders.front());
 +    }
 +}
@@ -14635,7 +14659,7 @@ index 0000000..2ee33da
 +            _orders.front()->params.spellCastParams.baseSpell == itr->first)
 +        {
 +            if (DEBUG_BOT_ORDERS)
-+                TC_LOG_ERROR("entities.player", "doCast(): ordered spell %s was interrupted!", info->SpellName[0]);
++                TC_LOG_ERROR("entities.player", "doCast(): ordered spell %u was interrupted!", info->Id);
 +            CompleteOrder(_orders.front());
 +        }
 +
@@ -16946,10 +16970,10 @@ index 0000000..2ee33da
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..def9586
+index 0000000..97589a0
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,548 @@
+@@ -0,0 +1,549 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -17389,6 +17413,7 @@ index 0000000..def9586
 +        void _LocalizeQuest(Player const* forPlayer, std::string &questTitle, uint32 entry) const;
 +        void _LocalizeCreature(Player const* forPlayer, std::string &creatureName, uint32 entry) const;
 +        void _LocalizeGameObject(Player const* forPlayer, std::string &gameobjectName, uint32 entry) const;
++        void _LocalizeSpell(Player const* forPlayer, std::string &spellName, uint32 entry) const;
 +
 +        float _getBotStat(uint8 slot, uint8 stat) const;
 +        float _getTotalBotStat(uint8 stat) const;
@@ -22026,7 +22051,7 @@ index 0000000..53a5dc2
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_druid_ai.cpp b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 new file mode 100644
-index 0000000..ae216b8
+index 0000000..f4b0299
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 @@ -0,0 +1,2887 @@
@@ -23266,7 +23291,7 @@ index 0000000..ae216b8
 +                return false;
 +            uint8 hp = GetHealthPCT(target);
 +            bool pointed = IsPointedHealTarget(target);
-+            if (hp > 95 && !pointed &&
++            if (hp > 95 && !(pointed && me->GetMap()->IsRaid()) &&
 +                (!target->IsInCombat() || target->getAttackers().empty() || !IsTank(target) || !me->GetMap()->IsRaid()))
 +                return false;
 +
@@ -28916,7 +28941,7 @@ index 0000000..e9985e8
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 new file mode 100644
-index 0000000..1145b4a
+index 0000000..f2e0e8e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 @@ -0,0 +1,2732 @@
@@ -29816,7 +29841,7 @@ index 0000000..1145b4a
 +                return false;
 +            uint8 hp = GetHealthPCT(target);
 +            bool pointed = IsPointedHealTarget(target);
-+            if (hp > 90 && !pointed &&
++            if (hp > 90 && !(pointed && me->GetMap()->IsRaid()) &&
 +                (!target->IsInCombat() || target->getAttackers().empty() || !IsTank(target) || !me->GetMap()->IsRaid()))
 +                return false;
 +            //try to preserve heal if Divine Plea is active
@@ -31654,7 +31679,7 @@ index 0000000..1145b4a
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_priest_ai.cpp b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 new file mode 100644
-index 0000000..0e7260e
+index 0000000..71bc093
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 @@ -0,0 +1,2071 @@
@@ -32312,7 +32337,7 @@ index 0000000..0e7260e
 +
 +            uint8 hp = GetHealthPCT(target);
 +            bool pointed = IsPointedHealTarget(target);
-+            if (hp > 90 && !pointed &&
++            if (hp > 90 && !(pointed && me->GetMap()->IsRaid()) &&
 +                (!target->IsInCombat() || target->getAttackers().empty() || !IsTank(target) || !me->GetMap()->IsRaid()))
 +                return false;
 +
@@ -35735,7 +35760,7 @@ index 0000000..c765efe
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_shaman_ai.cpp b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 new file mode 100644
-index 0000000..193a170
+index 0000000..76d8bae
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 @@ -0,0 +1,2798 @@
@@ -37056,7 +37081,7 @@ index 0000000..193a170
 +                return false;
 +            uint8 hp = GetHealthPCT(target);
 +            bool pointed = IsPointedHealTarget(target);
-+            if (hp > 90 && !pointed &&
++            if (hp > 90 && !(pointed && me->GetMap()->IsRaid()) &&
 +                (!target->IsInCombat() || target->getAttackers().empty() || !IsTank(target) || !me->GetMap()->IsRaid()))
 +                return false;
 +
@@ -39674,7 +39699,7 @@ index 0000000..2df2d1a
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warlock_ai.cpp b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 new file mode 100644
-index 0000000..cba6ab0
+index 0000000..fb584cc
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 @@ -0,0 +1,1962 @@
@@ -41283,6 +41308,8 @@ index 0000000..cba6ab0
 +
 +            if (myPetType)
 +                entry = myPetType;
++            else if (me->getLevel() >= 50 && _spec == BOT_SPEC_WARLOCK_DEMONOLOGY)
++                entry = BOT_PET_FELGUARD;
 +            else if (!IAmFree())
 +            {
 +                if (me->getLevel() >= 30 && master->GetMaxPower(POWER_MANA) > 1 &&
@@ -41295,8 +41322,6 @@ index 0000000..cba6ab0
 +                    entry = BOT_PET_IMP;
 +                else if (me->getLevel() >= 10 && IsTank())
 +                    entry = BOT_PET_VOIDWALKER;
-+                else if (me->getLevel() >= 50 && _spec == BOT_SPEC_WARLOCK_DEMONOLOGY)
-+                    entry = BOT_PET_FELGUARD;
 +                else if (me->getLevel() >= 20 && !IsMeleeClass(master->getClass()))
 +                    entry = BOT_PET_SUCCUBUS;
 +                else if (me->getLevel() >= 10)
@@ -48302,7 +48327,7 @@ index 0000000..eb179ce
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bpet_ai.cpp b/src/server/game/AI/NpcBots/bpet_ai.cpp
 new file mode 100644
-index 0000000..5e795fc
+index 0000000..7f7ca19
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_ai.cpp
 @@ -0,0 +1,2266 @@
@@ -50028,8 +50053,8 @@ index 0000000..5e795fc
 +        info = sSpellMgr->GetSpellInfo(itr->second->spellId);
 +        if (info && itr->first == spellInfo->Id && info->GetCategory() != category)
 +        {
-+            TC_LOG_ERROR("scripts", "Warning: SetSpellCategoryCooldown: %s (%u) has baseId %u but category %u, not %u!",
-+                info->SpellName[0], info->Id, itr->first, info->GetCategory(), category);
++            TC_LOG_ERROR("scripts", "Warning: SetSpellCategoryCooldown: %u has baseId %u but category %u, not %u!",
++                info->Id, itr->first, info->GetCategory(), category);
 +        }
 +
 +        if (info && (info->GetCategory() == category || itr->first == spellInfo->Id) && itr->second->cooldown < msCooldown)
@@ -57942,7 +57967,7 @@ index 6b54df2..d08dd98 100644
      powerCost = int32(powerCost * (1.0f + caster->GetFloatValue(UNIT_FIELD_POWER_COST_MULTIPLIER + school)));
      if (powerCost < 0)
 diff --git a/src/server/game/World/World.cpp b/src/server/game/World/World.cpp
-index b0302d7..b84f321 100644
+index d8dc19c..1f0ab29 100644
 --- a/src/server/game/World/World.cpp
 +++ b/src/server/game/World/World.cpp
 @@ -1431,6 +1431,11 @@ void World::SetInitialWorldSettings()
