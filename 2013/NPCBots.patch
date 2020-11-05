@@ -1,6 +1,6 @@
-From a055a2d6e8172d22a90947d769067d3e6631a585 Mon Sep 17 00:00:00 2001
+From bc8b6e0c111271b903b7c3d0f0772f82ae3b1c01 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Tue, 3 Nov 2020 19:17:32 +0700
+Date: Thu, 5 Nov 2020 14:46:11 +0700
 Subject: [PATCH] NPCBots2013
 
 ---
@@ -20,8 +20,8 @@ Subject: [PATCH] NPCBots2013
  .../2020_10_15_creature_template_npcbot_extras.sql |     2 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1172 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 13230 +++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |   549 +
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 13278 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |   551 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   377 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   919 ++
  src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp  |   608 +
@@ -33,12 +33,12 @@ Subject: [PATCH] NPCBots2013
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  2732 ++++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  2071 +++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  1998 +++
- src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  2798 ++++
+ src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  2801 ++++
  src/server/game/AI/NpcBots/bot_spellbreaker_ai.cpp |   534 +
  src/server/game/AI/NpcBots/bot_sphynx_ai.cpp       |   589 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  1962 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2223 ++++
- src/server/game/AI/NpcBots/botcommands.cpp         |  1359 ++
+ src/server/game/AI/NpcBots/botcommands.cpp         |  1334 ++
  src/server/game/AI/NpcBots/botcommon.h             |   668 +
  src/server/game/AI/NpcBots/botdatamgr.cpp          |   446 +
  src/server/game/AI/NpcBots/botdatamgr.h            |    93 +
@@ -68,11 +68,11 @@ Subject: [PATCH] NPCBots2013
  src/server/game/DungeonFinding/LFGMgr.cpp          |   176 +
  src/server/game/Entities/Creature/Creature.cpp     |   466 +-
  src/server/game/Entities/Creature/Creature.h       |    81 +
- .../game/Entities/Creature/TemporarySummon.cpp     |    25 +
+ .../game/Entities/Creature/TemporarySummon.cpp     |    32 +
  src/server/game/Entities/Object/Object.cpp         |    23 +
  src/server/game/Entities/Player/Player.cpp         |   151 +
  src/server/game/Entities/Player/Player.h           |    25 +
- src/server/game/Entities/Totem/Totem.cpp           |     7 +
+ src/server/game/Entities/Totem/Totem.cpp           |    25 +
  src/server/game/Entities/Unit/StatSystem.cpp       |    33 +-
  src/server/game/Entities/Unit/Unit.cpp             |   976 ++
  src/server/game/Entities/Unit/Unit.h               |     3 +
@@ -106,7 +106,7 @@ Subject: [PATCH] NPCBots2013
  .../Database/Implementation/CharacterDatabase.cpp  |    15 +
  .../Database/Implementation/CharacterDatabase.h    |    13 +
  src/server/worldserver/worldserver.conf.dist       |   238 +
- 102 files changed, 56269 insertions(+), 9 deletions(-)
+ 102 files changed, 56322 insertions(+), 9 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -3734,10 +3734,10 @@ index 0000000..418fb4e
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..b6d955d
+index 0000000..1b5267e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,13230 @@
+@@ -0,0 +1,13278 @@
 +#include "bot_ai.h"
 +//#include "botcommon.h"
 +#include "bot_Events.h"
@@ -4122,6 +4122,9 @@ index 0000000..b6d955d
 +    NpcBotData const* npcBotData = BotDataMgr::SelectNpcBotData(me->GetEntry());
 +    ASSERT(npcBotData && "bot_ai::CheckOwnerExpiry(): data not found!");
 +
++    NpcBotExtras const* npcBotExtra = BotDataMgr::SelectNpcBotExtras(me->GetEntry());
++    ASSERT(npcBotExtra && "bot_ai::CheckOwnerExpiry(): extra data not found!");
++
 +    if (npcBotData->owner == 0)
 +        return;
 +
@@ -4190,6 +4193,12 @@ index 0000000..b6d955d
 +        //hard reset owner
 +        uint32 newOwner = 0;
 +        BotDataMgr::UpdateNpcBotData(me->GetEntry(), NPCBOT_UPDATE_OWNER, &newOwner);
++        //...roles
++        uint16 roleMask = DefaultRolesForClass(npcBotExtra->bclass);
++        BotDataMgr::UpdateNpcBotData(me->GetEntry(), NPCBOT_UPDATE_ROLES, &roleMask);
++        //...and spec
++        uint8 spec = DefaultSpecForClass(npcBotExtra->bclass);
++        BotDataMgr::UpdateNpcBotData(me->GetEntry(), NPCBOT_UPDATE_SPEC, &spec);
 +    }
 +}
 +
@@ -13594,6 +13603,18 @@ index 0000000..b6d955d
 +    shouldUpdateStats = true;
 +}
 +
++uint16 bot_ai::DefaultRolesForClass(uint8 m_class)
++{
++    uint16 roleMask = BOT_ROLE_DPS;
++
++    if (!bot_ai::IsMeleeClass(m_class))
++        roleMask |= BOT_ROLE_RANGED;
++    if (bot_ai::IsHealingClass(m_class))
++        roleMask |= BOT_ROLE_HEAL;
++
++    return roleMask;
++}
++
 +bool bot_ai::IsTank(Unit const* unit) const
 +{
 +    if (!unit || unit == me)
@@ -13933,6 +13954,33 @@ index 0000000..b6d955d
 +        me->SetPower(POWER_RAGE, 0);
 +        me->SetPower(POWER_ENERGY, 0);
 +    }
++}
++
++uint8 bot_ai::DefaultSpecForClass(uint8 m_class)
++{
++    uint8 spec = urand(1,3);
++    switch (m_class)
++    {
++        case BOT_CLASS_WARRIOR:
++        case BOT_CLASS_PALADIN:
++        case BOT_CLASS_HUNTER:
++        case BOT_CLASS_ROGUE:
++        case BOT_CLASS_PRIEST:
++        case BOT_CLASS_DEATH_KNIGHT:
++        case BOT_CLASS_SHAMAN:
++        case BOT_CLASS_MAGE:
++        case BOT_CLASS_WARLOCK:
++            spec += (m_class-1) * 3;
++            break;
++        case BOT_CLASS_DRUID:
++            spec += (m_class-2) * 3;
++            break;
++        default:
++            spec = uint8(BOT_SPEC_DEFAULT);
++            break;
++    }
++
++    return spec;
 +}
 +
 +void bot_ai::InitEquips()
@@ -16970,10 +17018,10 @@ index 0000000..b6d955d
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..97589a0
+index 0000000..c32a085
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,549 @@
+@@ -0,0 +1,551 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -17064,6 +17112,7 @@ index 0000000..97589a0
 +        uint8 GetRoleIcon(uint16 role) const;
 +        char const* GetRoleString(uint16 role) const;
 +        void ToggleRole(uint16 role, bool force);
++        static uint16 DefaultRolesForClass(uint8 m_class);
 +        bool IsTank(Unit const* unit = NULL) const;
 +        bool IAmFree() const;
 +
@@ -17154,6 +17203,7 @@ index 0000000..97589a0
 +        void ReInitOwner() { InitOwner(); }
 +        void SetSpec(uint8 spec, bool activate = true);
 +        uint8 GetSpec() const { return _spec; }
++        static uint8 DefaultSpecForClass(uint8 m_class);
 +
 +        static bool IsMeleeClass(uint8 m_class);
 +        static bool IsTankingClass(uint8 m_class);
@@ -35760,10 +35810,10 @@ index 0000000..c765efe
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_shaman_ai.cpp b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 new file mode 100644
-index 0000000..76d8bae
+index 0000000..7f9f774
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
-@@ -0,0 +1,2798 @@
+@@ -0,0 +1,2801 @@
 +#include "bot_ai.h"
 +#include "botmgr.h"
 +#include "Group.h"
@@ -38036,7 +38086,10 @@ index 0000000..76d8bae
 +            //Without setting creator correctly it will be impossible to use summon X elemental totems
 +            summon->SetCreatorGUID(me->GetGUID());
 +            summon->SetDisplayId(me->GetModelForTotem(PlayerTotemType(totem->m_Properties->Id)));
++            summon->setFaction(me->getFaction());
 +            summon->SetPvP(me->IsPvP());
++            summon->SetOwnerGUID(master->GetGUID());
++            summon->m_ControlledByPlayer = !IAmFree();
 +            summon->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP_ATTACKABLE);
 +            // totem will claim master's summon slot
 +            // free it to avoid conflicts with other shaman bots and master
@@ -43896,10 +43949,10 @@ index 0000000..e847206
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 0000000..5b293df
+index 0000000..efce3a9
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
-@@ -0,0 +1,1359 @@
+@@ -0,0 +1,1334 @@
 +#include "bot_ai.h"
 +#include "botmgr.h"
 +#include "botdatamgr.h"
@@ -44889,38 +44942,14 @@ index 0000000..5b293df
 +        }
 +
 +        NpcBotExtras const* _botExtras = BotDataMgr::SelectNpcBotExtras(id);
-+
-+        uint16 roleMask = BOT_ROLE_DPS;
-+
-+        uint8 m_class = _botExtras ? _botExtras->bclass : CLASS_WARRIOR;
-+        if (!bot_ai::IsMeleeClass(m_class))
-+            roleMask |= BOT_ROLE_RANGED;
-+        if (bot_ai::IsHealingClass(m_class))
-+            roleMask |= BOT_ROLE_HEAL;
-+
-+        uint8 spec = urand(1,3);
-+        switch (m_class)
++        if (!_botExtras)
 +        {
-+            case BOT_CLASS_WARRIOR:
-+            case BOT_CLASS_PALADIN:
-+            case BOT_CLASS_HUNTER:
-+            case BOT_CLASS_ROGUE:
-+            case BOT_CLASS_PRIEST:
-+            case BOT_CLASS_DEATH_KNIGHT:
-+            case BOT_CLASS_SHAMAN:
-+            case BOT_CLASS_MAGE:
-+            case BOT_CLASS_WARLOCK:
-+                spec += (m_class-1) * 3;
-+                break;
-+            case BOT_CLASS_DRUID:
-+                spec += (m_class-2) * 3;
-+                break;
-+            default:
-+                spec = uint8(BOT_SPEC_DEFAULT);
-+                break;
++            handler->PSendSysMessage("No class/race data found for bot %u!", id);
++            handler->SetSentErrorMessage(true);
++            return false;
 +        }
 +
-+        BotDataMgr::AddNpcBotData(id, roleMask, spec, creature->GetCreatureTemplate()->faction_A);
++        BotDataMgr::AddNpcBotData(id, bot_ai::DefaultRolesForClass(_botExtras->bclass), bot_ai::DefaultSpecForClass(_botExtras->bclass), creature->GetCreatureTemplate()->faction_A);
 +
 +        creature->SaveToDB(map->GetId(), (1 << map->GetSpawnMode()), chr->GetPhaseMaskForSpawn());
 +
@@ -44929,14 +44958,13 @@ index 0000000..5b293df
 +        {
 +            handler->SendSysMessage("Cannot load npcbot from DB!");
 +            handler->SetSentErrorMessage(true);
-+            //return false;
 +            delete creature;
 +            return false;
 +        }
 +
 +        sObjectMgr->AddCreatureToGrid(db_guid, sObjectMgr->GetCreatureData(db_guid));
 +
-+        handler->SendSysMessage("Npcbot successfully spawned");
++        handler->SendSysMessage("NpcBot successfully spawned");
 +        return true;
 +    }
 +
@@ -54659,29 +54687,34 @@ index cab00be..6a19581 100644
  
          //WaypointMovementGenerator vars
 diff --git a/src/server/game/Entities/Creature/TemporarySummon.cpp b/src/server/game/Entities/Creature/TemporarySummon.cpp
-index 9fee6b8..cd398a5 100644
+index 9fee6b8..b84d60e 100644
 --- a/src/server/game/Entities/Creature/TemporarySummon.cpp
 +++ b/src/server/game/Entities/Creature/TemporarySummon.cpp
-@@ -194,6 +194,18 @@ void TempSummon::InitStats(uint32 duration)
+@@ -24,6 +24,10 @@
+ #include "Pet.h"
+ #include "Player.h"
+ 
++//npcbot
++#include "botmgr.h"
++//end npcbot
++
+ TempSummon::TempSummon(SummonPropertiesEntry const* properties, Unit* owner, bool isWorldObject) :
+ Creature(isWorldObject), m_Properties(properties), m_type(TEMPSUMMON_MANUAL_DESPAWN),
+ m_timer(0), m_lifetime(0)
+@@ -194,6 +198,12 @@ void TempSummon::InitStats(uint32 duration)
      if (!m_Properties)
          return;
  
 +    //npcbot: skip deleting/reassigning player totems
 +    //normally no creatorGUID is assigned at this point, perform full check anyway for compatibilty reasons
-+    bool botTotemCast = false;
-+    if (m_Properties->Slot && m_Properties->Slot >= SUMMON_SLOT_TOTEM && m_Properties->Slot < MAX_TOTEM_SLOT &&
-+        GetCreatorGUID() && IS_CREATURE_GUID(GetCreatorGUID()))
-+    {
-+        Unit* bot = sObjectAccessor->FindUnit(GetCreatorGUID());
-+        if (bot && bot->ToCreature()->IsNPCBot())
-+            botTotemCast = true;
-+    }
-+    if (!botTotemCast)
++    if (!(m_Properties->Slot && m_Properties->Slot >= SUMMON_SLOT_TOTEM && m_Properties->Slot < MAX_TOTEM_SLOT &&
++        GetCreatorGUID() && IS_CREATURE_GUID(GetCreatorGUID()) && owner && owner->GetTypeId() == TYPEID_PLAYER &&
++        owner->ToPlayer()->HaveBot() && owner->ToPlayer()->GetBotMgr()->GetBot(GetCreatorGUID())))
 +    //end npcbot
      if (owner)
      {
          if (uint32 slot = m_Properties->Slot)
-@@ -253,6 +265,19 @@ void TempSummon::UnSummon(uint32 msTime)
+@@ -253,6 +263,19 @@ void TempSummon::UnSummon(uint32 msTime)
      if (owner && owner->GetTypeId() == TYPEID_UNIT && owner->ToCreature()->IsAIEnabled)
          owner->ToCreature()->AI()->SummonedCreatureDespawn(this);
  
@@ -54700,6 +54733,22 @@ index 9fee6b8..cd398a5 100644
 +
      AddObjectToRemoveList();
  }
+ 
+@@ -293,6 +316,15 @@ void Minion::InitStats(uint32 duration)
+ 
+     SetReactState(REACT_PASSIVE);
+ 
++    //npcbot
++    //do not add bot totem to player's controlled list
++    //client indicator will be OwnerGUID
++    if (m_Properties && m_Properties->Slot && m_Properties->Slot >= SUMMON_SLOT_TOTEM && m_Properties->Slot < MAX_TOTEM_SLOT &&
++        GetCreatorGUID() && IS_CREATURE_GUID(GetCreatorGUID()) && GetOwner() && GetOwner()->GetTypeId() == TYPEID_PLAYER &&
++        GetOwner()->ToPlayer()->HaveBot() && GetOwner()->ToPlayer()->GetBotMgr()->GetBot(GetCreatorGUID()))
++        return;
++    //end npcbot
++
+     SetCreatorGUID(GetOwner()->GetGUID());
+     setFaction(GetOwner()->getFaction());
  
 diff --git a/src/server/game/Entities/Object/Object.cpp b/src/server/game/Entities/Object/Object.cpp
 index 675504c..0fc16b2 100644
@@ -55074,10 +55123,42 @@ index 6aa19b5..462687b 100644
          InventoryResult CanStoreItem_InSpecificSlot(uint8 bag, uint8 slot, ItemPosCountVec& dest, ItemTemplate const* pProto, uint32& count, bool swap, Item* pSrcItem) const;
          InventoryResult CanStoreItem_InBag(uint8 bag, ItemPosCountVec& dest, ItemTemplate const* pProto, uint32& count, bool merge, bool non_specialized, Item* pSrcItem, uint8 skip_bag, uint8 skip_slot) const;
 diff --git a/src/server/game/Entities/Totem/Totem.cpp b/src/server/game/Entities/Totem/Totem.cpp
-index ddea24c..67b39c9 100644
+index ddea24c..7ae8c1a 100644
 --- a/src/server/game/Entities/Totem/Totem.cpp
 +++ b/src/server/game/Entities/Totem/Totem.cpp
-@@ -143,6 +143,13 @@ void Totem::UnSummon(uint32 msTime)
+@@ -26,6 +26,10 @@
+ #include "SpellInfo.h"
+ #include "WorldPacket.h"
+ 
++//npcbot
++#include "botmgr.h"
++//end npcbot
++
+ Totem::Totem(SummonPropertiesEntry const* properties, Unit* owner) : Minion(properties, owner, false)
+ {
+     m_unitTypeMask |= UNIT_MASK_TOTEM;
+@@ -35,6 +39,20 @@ Totem::Totem(SummonPropertiesEntry const* properties, Unit* owner) : Minion(prop
+ 
+ void Totem::Update(uint32 time)
+ {
++    //npcbot: do not despawn bot totem if master is dead
++    Creature const* botOwner = (GetOwner()->GetTypeId() == TYPEID_PLAYER && GetOwner()->ToPlayer()->HaveBot()) ?
++        GetOwner()->ToPlayer()->GetBotMgr()->GetBot(GetCreatorGUID()) : NULL;
++
++    if (botOwner)
++    {
++        if (!botOwner->IsAlive() || !IsAlive())
++        {
++            UnSummon();
++            return;
++        }
++    }
++    else
++    //end npcbot
+     if (!GetOwner()->IsAlive() || !IsAlive())
+     {
+         UnSummon();                                         // remove self
+@@ -143,6 +161,13 @@ void Totem::UnSummon(uint32 msTime)
          }
      }
  
@@ -57967,7 +58048,7 @@ index 6b54df2..d08dd98 100644
      powerCost = int32(powerCost * (1.0f + caster->GetFloatValue(UNIT_FIELD_POWER_COST_MULTIPLIER + school)));
      if (powerCost < 0)
 diff --git a/src/server/game/World/World.cpp b/src/server/game/World/World.cpp
-index d8dc19c..1f0ab29 100644
+index b0302d7..b84f321 100644
 --- a/src/server/game/World/World.cpp
 +++ b/src/server/game/World/World.cpp
 @@ -1431,6 +1431,11 @@ void World::SetInitialWorldSettings()
