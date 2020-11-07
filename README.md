@@ -26,6 +26,7 @@
             - [Raid Group Frames](#raid-group-frames)
         - [NPCBot Extras](#npcbot-extras)
     - [NPCBot Config Settings](#npcbot-config-settings)
+    - [NPCBot Mod Localization](#npcbot-mod-localization)
     - [NPCBot Extra Classes](#npcbot-extra-classes)
     - [NPCBot Occupations](#npcbot-occupations)
 3. [Guide Changelog](#guide-changelog)
@@ -569,6 +570,9 @@ If some config settings look ambiguous to you, this section may help you
     - This parameter allows bots to display equipped items other than weapons on their model  
     Explanation. Normally, for creatures game client only draws default model determined by model ID. This parameter force feeds clients information about unit model and items in equipment slots which is generated at server side; so instead of default model client draws player model components including skin color, face, facial hair and others including "equipped" items. The only problem players may encounter comes from a game client bug which can cause a crash at game exit (client crash, not server crash) with error \#132. This bug can be reproduced by changing base model of unit having UNIT_FLAG2_MIRROR_IMAGE more than 4 times in a short period of time, so bots being polymorphed or druids shapeshifting have higher chance of causing this problem
 
+### NPCBot Mod Localization
+All localizable string are contained in `npc_text` table. If you want to make a translation you'll have to populate `npc_text_locale` table accordingly (`Text0_0` field)  
+
 ### NPCBot Extra Classes
 #### General Information
 NPCBot mod features several custom classes inspired by Warcraft III. These bots are ranked Rare, Elite or Rareelite, have different mana increase rate and cannot drink to restore mana, have increased level and hire cost, may have minimum player level requirement. Also, control magic affects them much less, even less than is does players. They are not intended to be as effective as normal classes and/or balanced at any given level. Their main purpose is to support you and other bots. For basic information on certain class use Gossip Menu and click `<Study the creature>`. If you need more info keep on reading  
@@ -714,6 +718,8 @@ Bots are being added to world at server loading (after Map System is started)
 ---------------------------------------
 ## Guide Changelog
 
+- **Version 0.11** (_07 Nov 2020_)
+    - Added info on localization
 - **Version 0.10** (_16 Jun 2020_)
     - Added info on new config settings
 - **Version 0.9** (_09 Jun 2020_)
