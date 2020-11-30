@@ -1,6 +1,6 @@
-From b7fa355ac462d8c6404231c91286a06fe2784e87 Mon Sep 17 00:00:00 2001
+From d52310a40bcd2cceed45223ce9132a5b4ef72960 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Sat, 7 Nov 2020 14:14:58 +0700
+Date: Mon, 30 Nov 2020 18:01:45 +0700
 Subject: [PATCH] NPCBots2013
 
 ---
@@ -21,7 +21,7 @@ Subject: [PATCH] NPCBots2013
  sql/Bots/updates/world/2020_11_07_npc_text.sql     |   328 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1172 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 13254 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 13258 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   555 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   377 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   919 ++
@@ -48,7 +48,7 @@ Subject: [PATCH] NPCBots2013
  src/server/game/AI/NpcBots/botgiver.cpp            |   233 +
  src/server/game/AI/NpcBots/botmgr.cpp              |  1237 ++
  src/server/game/AI/NpcBots/botmgr.h                |   169 +
- src/server/game/AI/NpcBots/bpet_ai.cpp             |  2266 ++++
+ src/server/game/AI/NpcBots/bpet_ai.cpp             |  2260 ++++
  src/server/game/AI/NpcBots/bpet_ai.h               |   164 +
  src/server/game/AI/NpcBots/bpet_archmage.cpp       |   131 +
  src/server/game/AI/NpcBots/bpet_dark_ranger.cpp    |   202 +
@@ -61,7 +61,7 @@ Subject: [PATCH] NPCBots2013
  src/server/game/AI/NpcBots/bpet_shaman.cpp         |   182 +
  src/server/game/AI/NpcBots/bpet_warlock.cpp        |   395 +
  src/server/game/CMakeLists.txt                     |     1 +
- src/server/game/Conditions/ConditionMgr.cpp        |    47 +
+ src/server/game/Conditions/ConditionMgr.cpp        |    49 +
  src/server/game/DataStores/DBCStores.cpp           |     4 +-
  src/server/game/DataStores/DBCStores.h             |     2 +-
  src/server/game/DataStores/DBCStructure.h          |     2 +-
@@ -91,7 +91,7 @@ Subject: [PATCH] NPCBots2013
  src/server/game/Server/WorldSession.cpp            |     4 +
  src/server/game/Spells/Auras/SpellAuraEffects.cpp  |    42 +
  src/server/game/Spells/Auras/SpellAuras.cpp        |    18 +
- src/server/game/Spells/Spell.cpp                   |   108 +
+ src/server/game/Spells/Spell.cpp                   |   114 +
  src/server/game/Spells/Spell.h                     |     1 +
  src/server/game/Spells/SpellEffects.cpp            |   151 +
  src/server/game/Spells/SpellInfo.cpp               |    31 +-
@@ -107,7 +107,7 @@ Subject: [PATCH] NPCBots2013
  .../Database/Implementation/CharacterDatabase.cpp  |    15 +
  .../Database/Implementation/CharacterDatabase.h    |    13 +
  src/server/worldserver/worldserver.conf.dist       |   238 +
- 103 files changed, 56948 insertions(+), 9 deletions(-)
+ 103 files changed, 56954 insertions(+), 9 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -4070,10 +4070,10 @@ index 0000000..418fb4e
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..7c95668
+index 0000000..e800a8a
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,13254 @@
+@@ -0,0 +1,13258 @@
 +#include "bot_ai.h"
 +//#include "botcommon.h"
 +#include "bot_Events.h"
@@ -13501,17 +13501,16 @@ index 0000000..7c95668
 +
 +    ApplyItemSetBonuses(NULL, true); //item set bonuses
 +}
-+
++//stats bonuses from equipment
 +inline float bot_ai::_getBotStat(uint8 slot, uint8 stat) const
 +{
-+    return float(static_cast<BotStat>(_stats[slot])[stat]);
++    return float(_stats[slot][stat]);
 +}
-+
-+inline float bot_ai::_getTotalBotStat(uint8 stat) const
++float bot_ai::_getTotalBotStat(uint8 stat) const
 +{
 +    int32 value = 0;
 +    for (uint8 slot = BOT_SLOT_MAINHAND; slot != BOT_INVENTORY_SIZE; ++slot)
-+        value += static_cast<BotStat>(_stats[slot])[stat];
++        value += _stats[slot][stat];
 +
 +    uint8 lvl = me->getLevel();
 +    float fval = float(value);
@@ -14964,41 +14963,44 @@ index 0000000..7c95668
 +        ResetChase(victim);
 +}
 +//This function is called after Spell::SendSpellCooldown() and Spell::DoAllEffects...() call
-+void bot_ai::OnBotSpellGo(Spell const* spell)
++void bot_ai::OnBotSpellGo(Spell const* spell, bool ok)
 +{
 +    SpellInfo const* curInfo = spell->GetSpellInfo();
 +
-+    //Set cooldown
-+    if (!curInfo->IsCooldownStartedOnEvent() && !curInfo->IsPassive())
++    if (ok)
 +    {
-+        uint32 rec = curInfo->RecoveryTime;
-+        uint32 catrec = curInfo->CategoryRecoveryTime;
++        //Set cooldown
++        if (!curInfo->IsCooldownStartedOnEvent() && !curInfo->IsPassive())
++        {
++            uint32 rec = curInfo->RecoveryTime;
++            uint32 catrec = curInfo->CategoryRecoveryTime;
 +
-+        if (rec > 0)
-+            ApplyBotSpellCooldownMods(curInfo, rec);
-+        if (catrec > 0 && !(curInfo->AttributesEx6 & SPELL_ATTR6_IGNORE_CATEGORY_COOLDOWN_MODS))
-+            ApplyBotSpellCategoryCooldownMods(curInfo, catrec);
++            if (rec > 0)
++                ApplyBotSpellCooldownMods(curInfo, rec);
++            if (catrec > 0 && !(curInfo->AttributesEx6 & SPELL_ATTR6_IGNORE_CATEGORY_COOLDOWN_MODS))
++                ApplyBotSpellCategoryCooldownMods(curInfo, catrec);
 +
-+        SetSpellCooldown(curInfo->GetFirstRankSpell()->Id, rec);
-+        SetSpellCategoryCooldown(curInfo->GetFirstRankSpell(), catrec);
++            SetSpellCooldown(curInfo->GetFirstRankSpell()->Id, rec);
++            SetSpellCategoryCooldown(curInfo->GetFirstRankSpell(), catrec);
++        }
++
++        if (curInfo->Id == PVPTRINKET)
++            SetSpellCooldown(PVPTRINKET, 120000);
++        if (IsPotionSpell(curInfo->Id))
++            StartPotionTimer();
++        if (curInfo->Id == ACTIVATE_SPEC)
++            SetSpec(_newspec);
++
++        OnClassSpellGo(curInfo);
 +    }
-+
-+    if (curInfo->Id == PVPTRINKET)
-+        SetSpellCooldown(PVPTRINKET, 120000);
-+    if (IsPotionSpell(curInfo->Id))
-+        StartPotionTimer();
-+    if (curInfo->Id == ACTIVATE_SPEC)
-+        SetSpec(_newspec);
-+
-+    OnClassSpellGo(curInfo);
 +
 +    if (HasBotCommandState(BOT_COMMAND_ISSUED_ORDER) &&
 +        !_orders.empty() && _orders.front()->_type == BOT_ORDER_SPELLCAST &&
 +        _orders.front()->params.spellCastParams.baseSpell == curInfo->GetFirstRankSpell()->Id)
 +    {
 +        if (DEBUG_BOT_ORDERS)
-+            TC_LOG_ERROR("entities.player", "doCast(): ordered spell %u by %s was successful!",
-+                curInfo->Id, me->GetName().c_str());
++            TC_LOG_ERROR("entities.player", "doCast(): ordered spell %u by %s was %s!",
++                curInfo->Id, me->GetName().c_str(), ok ? "successful" : "unsuccessful");
 +        CompleteOrder(_orders.front());
 +    }
 +}
@@ -15279,6 +15281,9 @@ index 0000000..7c95668
 +        {
 +            if (CCed(me))
 +                break;
++
++            SetBotCommandState(BOT_COMMAND_ISSUED_ORDER);
++
 +            uint64 guid = order->params.spellCastParams.targetGuid;
 +            if (guid == me->GetGUID())
 +                target = me;
@@ -15308,7 +15313,6 @@ index 0000000..7c95668
 +            if (IsCasting())
 +                me->InterruptNonMeleeSpells(false);
 +
-+            SetBotCommandState(BOT_COMMAND_ISSUED_ORDER);
 +            doCast(target, _spells[order->params.spellCastParams.baseSpell]->spellId);
 +            break;
 +        }
@@ -17330,7 +17334,7 @@ index 0000000..7c95668
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..fa6e3b9
+index 0000000..010fafb
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
 @@ -0,0 +1,555 @@
@@ -17494,7 +17498,7 @@ index 0000000..fa6e3b9
 +        void CastBotItemCombatSpell(Unit* target, WeaponAttackType attType, uint32 procVictim, uint32 procEx);
 +        void CastBotItemCombatSpell(Unit* target, WeaponAttackType attType, uint32 procVictim, uint32 procEx, Item* item, ItemTemplate const* proto);
 +        void OnBotSpellInterrupted(SpellSchoolMask schoolMask, uint32 unTimeMs);
-+        void OnBotSpellGo(Spell const* spell);
++        void OnBotSpellGo(Spell const* spell, bool ok = true);
 +        virtual void OnClassSpellGo(SpellInfo const* /*spell*/) {}
 +
 +        static void InitBotCustomSpells();
@@ -17837,8 +17841,8 @@ index 0000000..fa6e3b9
 +            BotSpell(BotSpell const&);
 +        };
 +
-+        typedef UNORDERED_MAP<uint32 /*stat*/, int32 /*statvalue*/> BotStat;
-+        BotStat _stats[BOT_INVENTORY_SIZE];
++        typedef int32 ItemStatBonus[MAX_BOT_ITEM_MOD];
++        ItemStatBonus _stats[BOT_INVENTORY_SIZE];
 +        Item* _equips[BOT_INVENTORY_SIZE];
 +
 +    public:
@@ -48989,10 +48993,10 @@ index 0000000..eb179ce
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bpet_ai.cpp b/src/server/game/AI/NpcBots/bpet_ai.cpp
 new file mode 100644
-index 0000000..7f7ca19
+index 0000000..c31d502
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_ai.cpp
-@@ -0,0 +1,2266 @@
+@@ -0,0 +1,2260 @@
 +#include "bpet_ai.h"
 +#include "bot_GridNotifiers.h"
 +#include "botmgr.h"
@@ -50994,8 +50998,11 @@ index 0000000..7f7ca19
 +    SetPetStats(true);
 +}
 +//This function is called after Spell::SendSpellCooldown() and Spell::DoAllEffects...() call
-+void bot_pet_ai::OnBotPetSpellGo(Spell const* spell)
++void bot_pet_ai::OnBotPetSpellGo(Spell const* spell, bool ok)
 +{
++    if (!ok)
++        return;
++
 +    SpellInfo const* curInfo = spell->GetSpellInfo();
 +
 +    //Set cooldown
@@ -51159,11 +51166,37 @@ index 0000000..7f7ca19
 +            me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PET_IN_COMBAT);
 +    }
 +
++    //update movement orders if near owner, otherwise get close
++    bool closeToOwner = false;
++    if (!opponent && !HasBotCommandState(BOT_COMMAND_STAY) && !IsCasting())
++    {
++        _calculatePos(pos);
++        if (!petOwner->isMoving())
++        {
++            if (me->GetExactDist(&pos) > 5.f)
++                SetBotCommandState(BOT_COMMAND_FOLLOW, true, &pos);
++            else
++                closeToOwner = true;
++        }
++        else
++        {
++            Position destPos;
++            me->GetMotionMaster()->GetDestination(destPos.m_positionX, destPos.m_positionY, destPos.m_positionZ);
++            if (destPos.GetExactDist(&pos) > 5.f)
++                SetBotCommandState(BOT_COMMAND_FOLLOW, true, &pos);
++            else
++                closeToOwner = true;
++        }
++    }
++    if (closeToOwner || me->IsInCombat())
++    {
++        uint8 st = (petOwner->GetBotAI()->GetBotCommandState() & BOT_COMMAND_MASK_UNCHASE);
++        if (st && (GetBotCommandState() & st) != st)
++            SetBotCommandState(st);
++    }
++
 +    if (HasBotCommandState(BOT_COMMAND_FULLSTOP))
 +        return false;
-+
-+    if (HasBotCommandState(BOT_COMMAND_STAY) && !petOwner->GetBotAI()->HasBotCommandState(BOT_COMMAND_STAY))
-+        RemoveBotCommandState(BOT_COMMAND_STAY);
 +
 +    CheckAttackState();
 +
@@ -51204,41 +51237,6 @@ index 0000000..7f7ca19
 +
 +    GenerateRand();
 +
-+    bool closeToOwner = false;
-+    if (!opponent && !HasBotCommandState(BOT_COMMAND_STAY))
-+    {
-+        if (!IsCasting())
-+        {
-+            _calculatePos(pos);
-+            if (!petOwner->isMoving())
-+            {
-+                if (me->GetExactDist(&pos) > 5.f)
-+                    SetBotCommandState(BOT_COMMAND_FOLLOW, true, &pos);
-+                else
-+                    closeToOwner = true;
-+            }
-+            else
-+            {
-+                Position destPos;
-+                me->GetMotionMaster()->GetDestination(destPos.m_positionX, destPos.m_positionY, destPos.m_positionZ);
-+                if (destPos.GetExactDist(&pos) > 5.f)
-+                    SetBotCommandState(BOT_COMMAND_FOLLOW, true, &pos);
-+                else
-+                    closeToOwner = true;
-+            }
-+        }
-+    }
-+
-+    if (closeToOwner || me->IsInCombat())
-+    {
-+        uint8 st = (petOwner->GetBotAI()->GetBotCommandState() & BOT_COMMAND_MASK_UNMOVING);
-+        if (st && GetBotCommandState() != st)
-+        {
-+            SetBotCommandState(st);
-+            return !(st & BOT_COMMAND_FULLSTOP);
-+        }
-+    }
-+
 +    return true;
 +}
 +
@@ -51261,7 +51259,7 @@ index 0000000..7f7ca19
 +}
 diff --git a/src/server/game/AI/NpcBots/bpet_ai.h b/src/server/game/AI/NpcBots/bpet_ai.h
 new file mode 100644
-index 0000000..d29e616
+index 0000000..436574b
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_ai.h
 @@ -0,0 +1,164 @@
@@ -51316,7 +51314,7 @@ index 0000000..d29e616
 +        //virtual void SetAIMiscValue(uint32 /*data*/, uint32 /*value*/) {}
 +
 +        void OnBotPetSpellInterrupted(SpellSchoolMask schoolMask, uint32 unTimeMs);
-+        void OnBotPetSpellGo(Spell const* spell);
++        void OnBotPetSpellGo(Spell const* spell, bool ok = true);
 +        virtual void OnPetClassSpellGo(SpellInfo const* /*spellInfo*/) {}
 +
 +        bool IsSpellReady(uint32 basespell, uint32 diff, bool checkGCD = true) const;
@@ -54203,7 +54201,7 @@ index be39972..84047c4 100644
    ${CMAKE_CURRENT_SOURCE_DIR}/AI/SmartScripts
    ${CMAKE_CURRENT_SOURCE_DIR}/AuctionHouse
 diff --git a/src/server/game/Conditions/ConditionMgr.cpp b/src/server/game/Conditions/ConditionMgr.cpp
-index 2160fbd..c861e72 100644
+index 2160fbd..79a384a 100644
 --- a/src/server/game/Conditions/ConditionMgr.cpp
 +++ b/src/server/game/Conditions/ConditionMgr.cpp
 @@ -29,6 +29,10 @@
@@ -54241,12 +54239,13 @@ index 2160fbd..c861e72 100644
              if (Player* player = object->ToPlayer())
                  condMeets = player->HasItemOrGemWithIdEquipped(ConditionValue1, 1);
              break;
-@@ -75,6 +89,14 @@ bool Condition::Meets(ConditionSourceInfo& sourceInfo)
+@@ -75,6 +89,15 @@ bool Condition::Meets(ConditionSourceInfo& sourceInfo)
              break;
          case CONDITION_REPUTATION_RANK:
          {
 +            //npcbot
-+            if (object->GetTypeId() == TYPEID_UNIT && !object->ToCreature()->IsFreeBot())
++            if (object->GetTypeId() == TYPEID_UNIT && object->ToCreature()->IsNPCBot() &&
++                object->ToCreature()->GetBotAI() && !object->ToCreature()->IsFreeBot())
 +            {
 +                if (FactionEntry const* faction = sFactionStore.LookupEntry(ConditionValue1))
 +                    condMeets = (ConditionValue2 & (1 << object->ToCreature()->GetBotOwner()->GetReputationMgr().GetRank(faction)));
@@ -54256,7 +54255,7 @@ index 2160fbd..c861e72 100644
              if (Player* player = object->ToPlayer())
              {
                  if (FactionEntry const* faction = sFactionStore.LookupEntry(ConditionValue1))
-@@ -84,12 +106,22 @@ bool Condition::Meets(ConditionSourceInfo& sourceInfo)
+@@ -84,12 +107,23 @@ bool Condition::Meets(ConditionSourceInfo& sourceInfo)
          }
          case CONDITION_ACHIEVEMENT:
          {
@@ -54272,14 +54271,15 @@ index 2160fbd..c861e72 100644
          case CONDITION_TEAM:
          {
 +            //npcbot
-+            if (object->GetTypeId() == TYPEID_UNIT && !object->ToCreature()->IsFreeBot())
++            if (object->GetTypeId() == TYPEID_UNIT && object->ToCreature()->IsNPCBot() &&
++                object->ToCreature()->GetBotAI() && !object->ToCreature()->IsFreeBot())
 +                condMeets = object->ToCreature()->GetBotOwner()->GetTeam() == ConditionValue1;
 +            else
 +            //end npcbot
              if (Player* player = object->ToPlayer())
                  condMeets = player->GetTeam() == ConditionValue1;
              break;
-@@ -108,12 +140,22 @@ bool Condition::Meets(ConditionSourceInfo& sourceInfo)
+@@ -108,12 +142,22 @@ bool Condition::Meets(ConditionSourceInfo& sourceInfo)
          }
          case CONDITION_GENDER:
          {
@@ -54302,7 +54302,7 @@ index 2160fbd..c861e72 100644
              if (Player* player = object->ToPlayer())
                  condMeets = player->HasSkill(ConditionValue1) && player->GetBaseSkillValue(ConditionValue1) >= ConditionValue2;
              break;
-@@ -185,6 +227,11 @@ bool Condition::Meets(ConditionSourceInfo& sourceInfo)
+@@ -185,6 +229,11 @@ bool Condition::Meets(ConditionSourceInfo& sourceInfo)
              break;
          case CONDITION_SPELL:
          {
@@ -54602,7 +54602,7 @@ index 783511c..c8ad9b5 100644
      player.accept = LfgAnswer(accept);
  
 diff --git a/src/server/game/Entities/Creature/Creature.cpp b/src/server/game/Entities/Creature/Creature.cpp
-index d927af3..503c5e9 100644
+index d927af3..1a37d0a 100644
 --- a/src/server/game/Entities/Creature/Creature.cpp
 +++ b/src/server/game/Entities/Creature/Creature.cpp
 @@ -54,6 +54,11 @@
@@ -55155,12 +55155,12 @@ index d927af3..503c5e9 100644
 +        bot_AI->CastBotItemCombatSpell(target, attType, procVictim, procEx);
 +}
 +
-+void Creature::OnSpellGo(Spell const* spell)
++void Creature::OnSpellGo(Spell const* spell, bool ok)
 +{
 +    if (bot_AI)
-+        bot_AI->OnBotSpellGo(spell);
++        bot_AI->OnBotSpellGo(spell, ok);
 +    else if (bot_pet_AI)
-+        bot_pet_AI->OnBotPetSpellGo(spell);
++        bot_pet_AI->OnBotPetSpellGo(spell, ok);
 +}
 +
 +void Creature::AddBotSpellCooldown(uint32 spellId, uint32 cooldown)
@@ -55201,7 +55201,7 @@ index d927af3..503c5e9 100644
 +}
 +//END NPCBOT
 diff --git a/src/server/game/Entities/Creature/Creature.h b/src/server/game/Entities/Creature/Creature.h
-index cab00be..6a19581 100644
+index cab00be..ce29971 100644
 --- a/src/server/game/Entities/Creature/Creature.h
 +++ b/src/server/game/Entities/Creature/Creature.h
 @@ -37,6 +37,11 @@ class Player;
@@ -55293,7 +55293,7 @@ index cab00be..6a19581 100644
 +
 +        void CastCreatureItemCombatSpell(Unit* target, WeaponAttackType attType, uint32 procVictim, uint32 procEx);
 +
-+        void OnSpellGo(Spell const* spell);
++        void OnSpellGo(Spell const* spell, bool ok = true);
 +        void AddBotSpellCooldown(uint32 spellId, uint32 cooldown);
 +        void ReleaseBotSpellCooldown(uint32 spellId);
 +
@@ -58175,7 +58175,7 @@ index efacdd1..0d9bb6d 100644
                              break;
  
 diff --git a/src/server/game/Spells/Spell.cpp b/src/server/game/Spells/Spell.cpp
-index c6ac5c2..10cbecf 100644
+index c6ac5c2..6b33d27 100644
 --- a/src/server/game/Spells/Spell.cpp
 +++ b/src/server/game/Spells/Spell.cpp
 @@ -532,6 +532,15 @@ m_caster((info->AttributesEx6 & SPELL_ATTR6_CAST_BY_CHARMER && caster->GetCharme
@@ -58243,7 +58243,20 @@ index c6ac5c2..10cbecf 100644
      }
  
      for (std::list<TargetInfo>::iterator ihit= m_UniqueTargetInfo.begin(); ihit != m_UniqueTargetInfo.end(); ++ihit)
-@@ -3335,6 +3365,11 @@ void Spell::cast(bool skipCheck)
+@@ -3213,6 +3243,12 @@ void Spell::cast(bool skipCheck)
+         {
+             SendCastResult(castResult);
+             SendInterrupted(0);
++
++            //npcbot - hook for spellcast finish (unsuccessful)
++            if (m_caster->GetTypeId() == TYPEID_UNIT)
++                m_caster->ToCreature()->OnSpellGo(this, false);
++            //end npcbot
++
+             //restore spell mods
+             if (m_caster->GetTypeId() == TYPEID_PLAYER)
+             {
+@@ -3335,6 +3371,11 @@ void Spell::cast(bool skipCheck)
          handle_immediate();
      }
  
@@ -58255,7 +58268,7 @@ index c6ac5c2..10cbecf 100644
      CallScriptAfterCastHandlers();
  
      if (const std::vector<int32> *spell_triggered = sSpellMgr->GetSpellLinked(m_spellInfo->Id))
-@@ -3547,7 +3582,16 @@ void Spell::SendSpellCooldown()
+@@ -3547,7 +3588,16 @@ void Spell::SendSpellCooldown()
  {
      Player* _player = m_caster->ToPlayer();
      if (!_player)
@@ -58272,7 +58285,7 @@ index c6ac5c2..10cbecf 100644
  
      // mana/health/etc potions, disabled by client (until combat out as declarate)
      if (m_CastItem && (m_CastItem->IsPotion() || m_spellInfo->IsCooldownStartedOnEvent()))
-@@ -3719,6 +3763,9 @@ void Spell::finish(bool ok)
+@@ -3719,6 +3769,9 @@ void Spell::finish(bool ok)
  
      // Stop Attack for some spells
      if (m_spellInfo->Attributes & SPELL_ATTR0_STOP_ATTACK_TARGET)
@@ -58282,7 +58295,7 @@ index c6ac5c2..10cbecf 100644
          m_caster->AttackStop();
  }
  
-@@ -4432,9 +4479,35 @@ void Spell::TakePower()
+@@ -4432,9 +4485,35 @@ void Spell::TakePower()
                      }
      }
  
@@ -58318,7 +58331,7 @@ index c6ac5c2..10cbecf 100644
          return;
      }
  
-@@ -4747,6 +4820,19 @@ SpellCastResult Spell::CheckCast(bool strict)
+@@ -4747,6 +4826,19 @@ SpellCastResult Spell::CheckCast(bool strict)
          }
      }
  
@@ -58338,7 +58351,7 @@ index c6ac5c2..10cbecf 100644
      if (m_spellInfo->AttributesEx7 & SPELL_ATTR7_IS_CHEAT_SPELL && !m_caster->HasFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_ALLOW_CHEAT_SPELLS))
      {
          m_customError = SPELL_CUSTOM_ERROR_GM_ONLY;
-@@ -4926,6 +5012,11 @@ SpellCastResult Spell::CheckCast(bool strict)
+@@ -4926,6 +5018,11 @@ SpellCastResult Spell::CheckCast(bool strict)
      {
          if (m_spellInfo->Effects[j].TargetA.GetTarget() == TARGET_UNIT_PET)
          {
@@ -58350,7 +58363,7 @@ index c6ac5c2..10cbecf 100644
              if (!m_caster->GetGuardianPet())
              {
                  if (m_triggeredByAuraSpell)              // not report pet not existence for triggered spells
-@@ -4952,6 +5043,11 @@ SpellCastResult Spell::CheckCast(bool strict)
+@@ -4952,6 +5049,11 @@ SpellCastResult Spell::CheckCast(bool strict)
                  return SPELL_FAILED_NOT_IN_ARENA;
  
      // zone check
@@ -58362,7 +58375,7 @@ index c6ac5c2..10cbecf 100644
      if (m_caster->GetTypeId() == TYPEID_UNIT || !m_caster->ToPlayer()->IsGameMaster())
      {
          uint32 zone, area;
-@@ -5786,6 +5882,11 @@ SpellCastResult Spell::CheckRange(bool strict)
+@@ -5786,6 +5888,11 @@ SpellCastResult Spell::CheckRange(bool strict)
      if (Player* modOwner = m_caster->GetSpellModOwner())
          modOwner->ApplySpellMod(m_spellInfo->Id, SPELLMOD_RANGE, max_range, this);
  
@@ -58374,7 +58387,7 @@ index c6ac5c2..10cbecf 100644
      if (target && target != m_caster)
      {
          if (range_type == SPELL_RANGE_MELEE)
-@@ -6862,6 +6963,13 @@ SpellCastResult Spell::CanOpenLock(uint32 effIndex, uint32 lockId, SkillType& sk
+@@ -6862,6 +6969,13 @@ SpellCastResult Spell::CanOpenLock(uint32 effIndex, uint32 lockId, SkillType& sk
                      skillValue = m_CastItem || m_caster->GetTypeId()!= TYPEID_PLAYER ?
                          0 : m_caster->ToPlayer()->GetSkillValue(skillId);
  
