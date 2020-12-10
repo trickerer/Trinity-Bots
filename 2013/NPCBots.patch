@@ -1,6 +1,6 @@
-From d52310a40bcd2cceed45223ce9132a5b4ef72960 Mon Sep 17 00:00:00 2001
+From 5c673d2b33dac7e9c114fb7c628e75ee25f796e1 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Mon, 30 Nov 2020 18:01:45 +0700
+Date: Thu, 10 Dec 2020 12:03:48 +0700
 Subject: [PATCH] NPCBots2013
 
 ---
@@ -46,8 +46,8 @@ Subject: [PATCH] NPCBots2013
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   131 +
  src/server/game/AI/NpcBots/botdpstracker.h         |    36 +
  src/server/game/AI/NpcBots/botgiver.cpp            |   233 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  1237 ++
- src/server/game/AI/NpcBots/botmgr.h                |   169 +
+ src/server/game/AI/NpcBots/botmgr.cpp              |  1246 ++
+ src/server/game/AI/NpcBots/botmgr.h                |   170 +
  src/server/game/AI/NpcBots/bpet_ai.cpp             |  2260 ++++
  src/server/game/AI/NpcBots/bpet_ai.h               |   164 +
  src/server/game/AI/NpcBots/bpet_archmage.cpp       |   131 +
@@ -81,6 +81,7 @@ Subject: [PATCH] NPCBots2013
  src/server/game/Globals/ObjectMgr.h                |    20 +
  src/server/game/Groups/Group.cpp                   |    64 +
  src/server/game/Groups/Group.h                     |     3 +
+ src/server/game/Handlers/ItemHandler.cpp           |    13 +
  src/server/game/Handlers/SpellHandler.cpp          |   102 +
  src/server/game/Maps/Map.cpp                       |    27 +
  src/server/game/Maps/MapManager.cpp                |     8 +
@@ -107,7 +108,7 @@ Subject: [PATCH] NPCBots2013
  .../Database/Implementation/CharacterDatabase.cpp  |    15 +
  .../Database/Implementation/CharacterDatabase.h    |    13 +
  src/server/worldserver/worldserver.conf.dist       |   238 +
- 103 files changed, 56954 insertions(+), 9 deletions(-)
+ 104 files changed, 56977 insertions(+), 9 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -47575,10 +47576,10 @@ index 0000000..e6770fa
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 0000000..3360781
+index 0000000..b215685
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,1237 @@
+@@ -0,0 +1,1246 @@
 +#include "bot_ai.h"
 +#include "botdpstracker.h"
 +#include "bot_Events.h"
@@ -47769,6 +47770,15 @@ index 0000000..3360781
 +        }
 +    }
 +    return 1;
++}
++
++uint32 BotMgr::GetAllNpcBotsClassMask() const
++{
++    uint32 classMask = 0;
++    for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
++        classMask |= (1 << (itr->second->GetBotClass() - 1));
++
++    return classMask;
 +}
 +
 +bool BotMgr::IsNpcBotModEnabled()
@@ -48818,10 +48828,10 @@ index 0000000..3360781
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.h b/src/server/game/AI/NpcBots/botmgr.h
 new file mode 100644
-index 0000000..eb179ce
+index 0000000..ec9d4aa
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.h
-@@ -0,0 +1,169 @@
+@@ -0,0 +1,170 @@
 +#ifndef _BOTMGR_H
 +#define _BOTMGR_H
 +
@@ -48919,6 +48929,7 @@ index 0000000..eb179ce
 +        uint8 GetNpcBotsCount() const;
 +        uint8 GetNpcBotsCountByRole(uint16 roles) const;
 +        uint8 GetNpcBotSlotByRole(uint16 roles, Creature const* bot) const;
++        uint32 GetAllNpcBotsClassMask() const;
 +        static uint8 GetMaxNpcBots();
 +        static uint8 GetNpcBotXpReduction();
 +        //static int32 GetBotInfoPacketsLimit();
@@ -57687,6 +57698,37 @@ index 0f55aba..b859d56 100644
      protected:
          bool _setMembersGroup(uint64 guid, uint8 group);
          void _homebindIfInstance(Player* player);
+diff --git a/src/server/game/Handlers/ItemHandler.cpp b/src/server/game/Handlers/ItemHandler.cpp
+index ad99c00..d77a70c 100644
+--- a/src/server/game/Handlers/ItemHandler.cpp
++++ b/src/server/game/Handlers/ItemHandler.cpp
+@@ -28,6 +28,10 @@
+ #include "ObjectAccessor.h"
+ #include "SpellInfo.h"
+ 
++// npcbot
++#include "botmgr.h"
++//end npcbot
++
+ void WorldSession::HandleSplitItemOpcode(WorldPacket& recvData)
+ {
+     //TC_LOG_DEBUG("network", "WORLD: CMSG_SPLIT_ITEM");
+@@ -765,6 +769,15 @@ void WorldSession::SendListInventory(uint64 vendorGuid)
+         {
+             if (ItemTemplate const* itemTemplate = sObjectMgr->GetItemTemplate(item->item))
+             {
++                // npcbot
++                if (_player->HaveBot())
++                {
++                    if (!(itemTemplate->AllowableClass & (_player->getClassMask() | _player->GetBotMgr()->GetAllNpcBotsClassMask())) &&
++                        itemTemplate->Bonding == BIND_WHEN_PICKED_UP && !_player->IsGameMaster())
++                        continue;
++                }
++                else
++                // end npcbot
+                 if (!(itemTemplate->AllowableClass & _player->getClassMask()) && itemTemplate->Bonding == BIND_WHEN_PICKED_UP && !_player->IsGameMaster())
+                     continue;
+                 // Only display items in vendor lists for the team the
 diff --git a/src/server/game/Handlers/SpellHandler.cpp b/src/server/game/Handlers/SpellHandler.cpp
 index b264b0d..e376fc7 100644
 --- a/src/server/game/Handlers/SpellHandler.cpp
