@@ -130,6 +130,12 @@ _TARGET_ indicates that command is used on a selected unit
         - `.npcbot spawn 70001` (spawns NPCBot with ID 70001)  
         - `.npcb sp 70002` (spawn NPCBot with ID 70002)  
         - `.npcb sp [Haromm]` (spawn NPCBot by link)  
+- **`move <ENTRY|LINK|_TARGET_>`** -- (GM command) moves spawned NPCBot to a new location. This command replaces `.npc move` command for bots  
+    - <ENTRY> = ID of NPCBot  
+    - <LINK> = creature_template link added by Shift-click (obtained from lookup list)  
+    - _TARGET_ = selected NPCBot  
+    **Example Usage**:  
+        - `.npcbot move 70001` (spawns NPCBot with ID 70001)  
 - **`delete _TARGET_`** -- (GM command) deletes NPCBot from world, NPCBot is removed from owner if any and deleted from DB  
     - _TARGET_ = selected NPCBot  
     **Example Usage**:  
