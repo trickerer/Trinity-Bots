@@ -1,6 +1,6 @@
-From 8f16f7694e243c58684ac3e9078ed68d954cfbdb Mon Sep 17 00:00:00 2001
+From b46047dfae9ffef80c70f6b62294872d8d8cc5f1 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Thu, 10 Dec 2020 22:49:41 +0700
+Date: Fri, 11 Dec 2020 12:28:15 +0700
 Subject: [PATCH] NPCBots
 
 ---
@@ -42,7 +42,7 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/NpcBots/bot_sphynx_ai.cpp       |   604 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  2068 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2242 ++++
- src/server/game/AI/NpcBots/botcommands.cpp         |  1343 ++
+ src/server/game/AI/NpcBots/botcommands.cpp         |  1415 ++
  src/server/game/AI/NpcBots/botcommon.h             |  1039 ++
  src/server/game/AI/NpcBots/botdatamgr.cpp          |   459 +
  src/server/game/AI/NpcBots/botdatamgr.h            |    93 +
@@ -77,7 +77,7 @@ Subject: [PATCH] NPCBots
  .../Entities/Creature/enuminfo_CreatureData.cpp    |    12 +-
  src/server/game/Entities/Object/Object.cpp         |    66 +
  src/server/game/Entities/Player/KillRewarder.cpp   |    15 +
- src/server/game/Entities/Player/Player.cpp         |   149 +
+ src/server/game/Entities/Player/Player.cpp         |   161 +
  src/server/game/Entities/Player/Player.h           |    25 +
  src/server/game/Entities/Totem/Totem.cpp           |    25 +
  src/server/game/Entities/Unit/StatSystem.cpp       |    46 +-
@@ -101,7 +101,7 @@ Subject: [PATCH] NPCBots
  src/server/game/Spells/Spell.h                     |     3 +
  src/server/game/Spells/SpellEffects.cpp            |   159 +
  src/server/game/Spells/SpellInfo.cpp               |    22 +
- src/server/scripts/Commands/cs_npc.cpp             |    20 +
+ src/server/scripts/Commands/cs_npc.cpp             |    31 +
  .../Northrend/Naxxramas/boss_four_horsemen.cpp     |     4 +-
  src/server/scripts/Spells/spell_dk.cpp             |    17 +
  src/server/scripts/Spells/spell_druid.cpp          |    65 +
@@ -117,7 +117,7 @@ Subject: [PATCH] NPCBots
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   250 +
- 113 files changed, 57532 insertions(+), 21 deletions(-)
+ 113 files changed, 57627 insertions(+), 21 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -44760,10 +44760,10 @@ index 0000000..4bb684c
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 0000000..2bbdc03
+index 0000000..b8609f0
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
-@@ -0,0 +1,1343 @@
+@@ -0,0 +1,1415 @@
 +#include "bot_ai.h"
 +#include "botmgr.h"
 +#include "botdatamgr.h"
@@ -44868,6 +44868,7 @@ index 0000000..2bbdc03
 +            { "add",        HandleNpcBotAddCommand,                     GM_COMMANDS, Console::No  },
 +            { "remove",     HandleNpcBotRemoveCommand,                  GM_COMMANDS, Console::No  },
 +            { "spawn",      HandleNpcBotSpawnCommand,                   GM_COMMANDS, Console::No  },
++            { "move",       HandleNpcBotMoveCommand,                    GM_COMMANDS, Console::No  },
 +            { "delete",     HandleNpcBotDeleteCommand,                  GM_COMMANDS, Console::No  },
 +            { "lookup",     HandleNpcBotLookupCommand,                  GM_COMMANDS, Console::No  },
 +            { "revive",     HandleNpcBotReviveCommand,                  GM_COMMANDS, Console::No  },
@@ -45678,6 +45679,77 @@ index 0000000..2bbdc03
 +        return true;
 +    }
 +
++    static bool HandleNpcBotMoveCommand(ChatHandler* handler, const char* args)
++    {
++        Player* player = handler->GetSession()->GetPlayer();
++        Creature* creature = handler->getSelectedCreature();
++
++        if (!*args && !creature)
++        {
++            handler->SendSysMessage(".npcbot move");
++            handler->SendSysMessage("Moves npcbot to your location");
++            handler->SendSysMessage("Syntax: .npcbot move [#ID]");
++            handler->SetSentErrorMessage(true);
++            return false;
++        }
++
++        char* charID = *args ? handler->extractKeyFromLink((char*)args, "Hcreature_entry") : nullptr;
++        if (!charID && !creature)
++            return false;
++
++        uint32 id = charID ? atoi(charID) : creature->GetEntry();
++
++        CreatureTemplate const* creInfo = sObjectMgr->GetCreatureTemplate(id);
++        if (!creInfo)
++        {
++            handler->PSendSysMessage("creature id %u does not exist!", id);
++            handler->SetSentErrorMessage(true);
++            return false;
++        }
++
++        if (!(creInfo->flags_extra & CREATURE_FLAG_EXTRA_NPCBOT))
++        {
++            handler->PSendSysMessage("creature id %u is not a npcbot!", id);
++            handler->SetSentErrorMessage(true);
++            return false;
++        }
++
++        if (!BotDataMgr::SelectNpcBotData(id))
++        {
++            handler->PSendSysMessage("NpcBot %u is not spawned!", id);
++            handler->SetSentErrorMessage(true);
++            return false;
++        }
++
++        Creature const* bot = BotDataMgr::FindBot(id);
++        ASSERT(bot);
++
++        uint32 lowguid = bot->GetSpawnId();
++
++        CreatureData const* data = sObjectMgr->GetCreatureData(lowguid);
++        if (!data)
++        {
++            handler->PSendSysMessage(LANG_COMMAND_CREATGUIDNOTFOUND, lowguid);
++            handler->SetSentErrorMessage(true);
++            return false;
++        }
++
++        CreatureData* cdata = const_cast<CreatureData*>(data);
++        cdata->spawnPoint.Relocate(player);
++        cdata->spawnPoint.SetOrientation(player->GetOrientation());
++        cdata->mapId = player->GetMapId();
++
++        WorldDatabase.PExecute(
++            "UPDATE creature SET position_x = %.3f, position_y = %.3f, position_z = %.3f, orientation = %.3f, map = %u WHERE guid = %u",
++            cdata->spawnPoint.GetPositionX(), cdata->spawnPoint.GetPositionY(), cdata->spawnPoint.GetPositionZ(), cdata->spawnPoint.GetOrientation(), uint32(cdata->mapId), lowguid);
++
++        if (bot->GetBotAI()->IAmFree() && bot->IsInWorld() && !bot->IsInCombat() && bot->IsAlive())
++            BotMgr::TeleportBot(const_cast<Creature*>(bot), player->GetMap(), player);
++
++        handler->PSendSysMessage("NpcBot %u (guid %u) was moved", id, lowguid);
++        return true;
++    }
++
 +    static bool HandleNpcBotSpawnCommand(ChatHandler* handler, const char* args)
 +    {
 +        if (!*args)
@@ -45714,7 +45786,7 @@ index 0000000..2bbdc03
 +        if (BotDataMgr::SelectNpcBotData(id))
 +        {
 +            handler->PSendSysMessage("Npcbot %u already exists in `characters_npcbot` table!", id);
-+            handler->SendSysMessage("If you want to move this bot to a new location use '.npc move' command");
++            handler->SendSysMessage("If you want to move this bot to a new location use '.npcbot move' command");
 +            handler->SetSentErrorMessage(true);
 +            return false;
 +        }
@@ -47154,7 +47226,7 @@ index 0000000..b627f93
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.cpp b/src/server/game/AI/NpcBots/botdatamgr.cpp
 new file mode 100644
-index 0000000..59530cb
+index 0000000..321c387
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.cpp
 @@ -0,0 +1,459 @@
@@ -47606,7 +47678,7 @@ index 0000000..59530cb
 +    _existingBots.erase(bot);
 +    //TC_LOG_ERROR("entities.unit", "BotDataMgr::UnregisterBot: unregistered bot %u (%s)", bot->GetEntry(), bot->GetName().c_str());
 +}
-+Creature const* BotDataMgr::FindBotInWorld(uint32 entry)
++Creature const* BotDataMgr::FindBot(uint32 entry)
 +{
 +    std::shared_lock<std::shared_mutex> lock(_lock);
 +
@@ -47619,7 +47691,7 @@ index 0000000..59530cb
 +}
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.h b/src/server/game/AI/NpcBots/botdatamgr.h
 new file mode 100644
-index 0000000..93ee26f
+index 0000000..0ee8637
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.h
 @@ -0,0 +1,93 @@
@@ -47707,7 +47779,7 @@ index 0000000..93ee26f
 +
 +        static void RegisterBot(Creature const* bot);
 +        static void UnregisterBot(Creature const* bot);
-+        static Creature const* FindBotInWorld(uint32 entry);
++        static Creature const* FindBot(uint32 entry);
 +
 +    private:
 +
@@ -47897,7 +47969,7 @@ index 0000000..ddb6150
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botgiver.cpp b/src/server/game/AI/NpcBots/botgiver.cpp
 new file mode 100644
-index 0000000..59b878d
+index 0000000..c9c6a84
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botgiver.cpp
 @@ -0,0 +1,241 @@
@@ -48089,7 +48161,7 @@ index 0000000..59b878d
 +                case HIRE_ENTRY:
 +                {
 +                    uint32 entry = action - GOSSIP_ACTION_INFO_DEF;
-+                    Creature const* bot = BotDataMgr::FindBotInWorld(entry);
++                    Creature const* bot = BotDataMgr::FindBot(entry);
 +                    if (!bot)
 +                    {
 +                        //possible but still
@@ -56367,7 +56439,7 @@ index 65b9fff..37c8714 100644
          player->GiveXP(xp, _victim, _groupRate);
          if (Pet* pet = player->GetPet())
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index df1c2e9..d347faa 100644
+index df1c2e9..621e916 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -103,6 +103,11 @@
@@ -56593,7 +56665,26 @@ index df1c2e9..d347faa 100644
          else
          {
              if (!victim->ToCreature()->IsRacialLeader())
-@@ -21988,6 +22127,11 @@ void Player::UpdatePvP(bool state, bool _override)
+@@ -21715,6 +21854,18 @@ bool Player::BuyItemFromVendorSlot(ObjectGuid vendorguid, uint32 vendorslot, uin
+         return false;
+     }
+ 
++    // npcbot
++    if (HaveBot())
++    {
++        if (!(pProto->AllowableClass & (GetClassMask() | GetBotMgr()->GetAllNpcBotsClassMask())) &&
++            pProto->Bonding == BIND_WHEN_PICKED_UP && !IsGameMaster())
++        {
++            SendBuyError(BUY_ERR_CANT_FIND_ITEM, nullptr, item, 0);
++            return false;
++        }
++    }
++    else
++    // end npcbot
+     if (!(pProto->AllowableClass & GetClassMask()) && pProto->Bonding == BIND_WHEN_PICKED_UP && !IsGameMaster())
+     {
+         SendBuyError(BUY_ERR_CANT_FIND_ITEM, nullptr, item, 0);
+@@ -21988,6 +22139,11 @@ void Player::UpdatePvP(bool state, bool _override)
          pvpInfo.EndTimer = GameTime::GetGameTime();
          SetPvP(state);
      }
@@ -56605,7 +56696,7 @@ index df1c2e9..d347faa 100644
  }
  
  void Player::UpdatePotionCooldown(Spell* spell)
-@@ -23850,6 +23994,11 @@ bool Player::isHonorOrXPTarget(Unit* victim) const
+@@ -23850,6 +24006,11 @@ bool Player::isHonorOrXPTarget(Unit* victim) const
  
      if (Creature const* creature = victim->ToCreature())
      {
@@ -59004,7 +59095,7 @@ index a36e4c7..17af59c 100644
      powerCost = int32(powerCost * (1.0f + unitCaster->GetFloatValue(UNIT_FIELD_POWER_COST_MULTIPLIER + school)));
      if (powerCost < 0)
 diff --git a/src/server/scripts/Commands/cs_npc.cpp b/src/server/scripts/Commands/cs_npc.cpp
-index d0c2f87..569cfd4 100644
+index d0c2f87..661d93f 100644
 --- a/src/server/scripts/Commands/cs_npc.cpp
 +++ b/src/server/scripts/Commands/cs_npc.cpp
 @@ -119,6 +119,16 @@ public:
@@ -59041,6 +59132,24 @@ index d0c2f87..569cfd4 100644
              if (TempSummon* summon = creature->ToTempSummon())
              {
                  summon->UnSummon();
+@@ -605,6 +625,17 @@ public:
+             return false;
+         }
+ 
++        //npcbot
++        CreatureTemplate const* ct = sObjectMgr->GetCreatureTemplate(data->id);
++        ASSERT(ct);
++        if ((ct->flags_extra & (CREATURE_FLAG_EXTRA_NPCBOT | CREATURE_FLAG_EXTRA_NPCBOT_PET)) != 0)
++        {
++            handler->PSendSysMessage("creature %u (id %u) is a part of NPCBots mod. Use '.npcbot move' instead", lowguid, data->id);
++            handler->SetSentErrorMessage(true);
++            return false;
++        }
++        //end npcbot
++
+         // update position in memory
+         sObjectMgr->RemoveCreatureFromGrid(lowguid, data);
+         const_cast<CreatureData*>(data)->spawnPoint.Relocate(*player);
 diff --git a/src/server/scripts/Northrend/Naxxramas/boss_four_horsemen.cpp b/src/server/scripts/Northrend/Naxxramas/boss_four_horsemen.cpp
 index ce89011..1b60bc2 100644
 --- a/src/server/scripts/Northrend/Naxxramas/boss_four_horsemen.cpp

@@ -1,6 +1,6 @@
-From d5f2df49f982ef9ac25e69a8b40c315ef0191bb2 Mon Sep 17 00:00:00 2001
+From e1ab5f3d918fcd0b35a422b4ff43aad38b0491e0 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Thu, 10 Dec 2020 22:51:50 +0700
+Date: Fri, 11 Dec 2020 12:29:10 +0700
 Subject: [PATCH] NPCBots2013
 
 ---
@@ -39,7 +39,7 @@ Subject: [PATCH] NPCBots2013
  src/server/game/AI/NpcBots/bot_sphynx_ai.cpp       |   589 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  2046 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2223 ++++
- src/server/game/AI/NpcBots/botcommands.cpp         |  1334 ++
+ src/server/game/AI/NpcBots/botcommands.cpp         |  1408 ++
  src/server/game/AI/NpcBots/botcommon.h             |  1039 ++
  src/server/game/AI/NpcBots/botdatamgr.cpp          |   446 +
  src/server/game/AI/NpcBots/botdatamgr.h            |    93 +
@@ -97,7 +97,7 @@ Subject: [PATCH] NPCBots2013
  src/server/game/Spells/SpellEffects.cpp            |   151 +
  src/server/game/Spells/SpellInfo.cpp               |    31 +-
  src/server/game/World/World.cpp                    |     5 +
- src/server/scripts/Commands/cs_npc.cpp             |    19 +
+ src/server/scripts/Commands/cs_npc.cpp             |    28 +
  src/server/scripts/Spells/spell_dk.cpp             |     7 +
  src/server/scripts/Spells/spell_hunter.cpp         |    16 +
  src/server/scripts/Spells/spell_mage.cpp           |     6 +
@@ -108,7 +108,7 @@ Subject: [PATCH] NPCBots2013
  .../Database/Implementation/CharacterDatabase.cpp  |    15 +
  .../Database/Implementation/CharacterDatabase.h    |    13 +
  src/server/worldserver/worldserver.conf.dist       |   238 +
- 104 files changed, 57064 insertions(+), 9 deletions(-)
+ 104 files changed, 57147 insertions(+), 9 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -44309,10 +44309,10 @@ index 0000000..b0689c8
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 0000000..efce3a9
+index 0000000..ead3ba4
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
-@@ -0,0 +1,1334 @@
+@@ -0,0 +1,1408 @@
 +#include "bot_ai.h"
 +#include "botmgr.h"
 +#include "botdatamgr.h"
@@ -44417,6 +44417,7 @@ index 0000000..efce3a9
 +            { "add",        GM_COMMANDS,            false, &HandleNpcBotAddCommand,                 "", NULL },
 +            { "remove",     GM_COMMANDS,            false, &HandleNpcBotRemoveCommand,              "", NULL },
 +            { "spawn",      GM_COMMANDS,            false, &HandleNpcBotSpawnCommand,               "", NULL },
++            { "move",       GM_COMMANDS,            false, &HandleNpcBotMoveCommand,                "", NULL },
 +            { "delete",     GM_COMMANDS,            false, &HandleNpcBotDeleteCommand,              "", NULL },
 +            { "lookup",     GM_COMMANDS,            false, &HandleNpcBotLookupCommand,              "", NULL },
 +            { "revive",     GM_COMMANDS,            false, &HandleNpcBotReviveCommand,              "", NULL },
@@ -45218,6 +45219,79 @@ index 0000000..efce3a9
 +        return true;
 +    }
 +
++    static bool HandleNpcBotMoveCommand(ChatHandler* handler, const char* args)
++    {
++        Player* player = handler->GetSession()->GetPlayer();
++        Creature* creature = handler->getSelectedCreature();
++
++        if (!*args && !creature)
++        {
++            handler->SendSysMessage(".npcbot move");
++            handler->SendSysMessage("Moves npcbot to your location");
++            handler->SendSysMessage("Syntax: .npcbot move [#ID]");
++            handler->SetSentErrorMessage(true);
++            return false;
++        }
++
++        char* charID = *args ? handler->extractKeyFromLink((char*)args, "Hcreature_entry") : NULL;
++        if (!charID && !creature)
++            return false;
++
++        uint32 id = charID ? atoi(charID) : creature->GetEntry();
++
++        CreatureTemplate const* creInfo = sObjectMgr->GetCreatureTemplate(id);
++        if (!creInfo)
++        {
++            handler->PSendSysMessage("creature id %u does not exist!", id);
++            handler->SetSentErrorMessage(true);
++            return false;
++        }
++
++        if (!(creInfo->flags_extra & CREATURE_FLAG_EXTRA_NPCBOT))
++        {
++            handler->PSendSysMessage("creature id %u is not a npcbot!", id);
++            handler->SetSentErrorMessage(true);
++            return false;
++        }
++
++        if (!BotDataMgr::SelectNpcBotData(id))
++        {
++            handler->PSendSysMessage("NpcBot %u is not spawned!", id);
++            handler->SetSentErrorMessage(true);
++            return false;
++        }
++
++        Creature const* bot = BotDataMgr::FindBot(id);
++        ASSERT(bot);
++
++        uint32 lowguid = bot->GetDBTableGUIDLow();
++
++        CreatureData const* data = sObjectMgr->GetCreatureData(lowguid);
++        if (!data)
++        {
++            handler->PSendSysMessage(LANG_COMMAND_CREATGUIDNOTFOUND, lowguid);
++            handler->SetSentErrorMessage(true);
++            return false;
++        }
++
++        CreatureData* cdata = const_cast<CreatureData*>(data);
++        cdata->posX = player->GetPositionX();
++        cdata->posY = player->GetPositionY();
++        cdata->posZ = player->GetPositionZ();
++        cdata->orientation = player->GetOrientation();
++        cdata->mapid = player->GetMapId();
++
++        WorldDatabase.PExecute(
++            "UPDATE creature SET position_x = %.3f, position_y = %.3f, position_z = %.3f, orientation = %.3f, map = %u WHERE guid = %u",
++            cdata->posX, cdata->posY, cdata->posZ, cdata->orientation, uint32(cdata->mapid), lowguid);
++
++        if (bot->GetBotAI()->IAmFree() && bot->IsInWorld() && !bot->IsInCombat() && bot->IsAlive())
++            BotMgr::TeleportBot(const_cast<Creature*>(bot), player->GetMap(), player);
++
++        handler->PSendSysMessage("NpcBot %u (guid %u) was moved", id, lowguid);
++        return true;
++    }
++
 +    static bool HandleNpcBotSpawnCommand(ChatHandler* handler, const char* args)
 +    {
 +        if (!*args)
@@ -45254,7 +45328,7 @@ index 0000000..efce3a9
 +        if (BotDataMgr::SelectNpcBotData(id))
 +        {
 +            handler->PSendSysMessage("Npcbot %u already exists in `characters_npcbot` table!", id);
-+            handler->SendSysMessage("If you want to move this bot to a new location use '.npc move' command");
++            handler->SendSysMessage("If you want to move this bot to a new location use '.npcbot move' command");
 +            handler->SetSentErrorMessage(true);
 +            return false;
 +        }
@@ -46694,7 +46768,7 @@ index 0000000..b627f93
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.cpp b/src/server/game/AI/NpcBots/botdatamgr.cpp
 new file mode 100644
-index 0000000..1b1bddf
+index 0000000..3f7bcee
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.cpp
 @@ -0,0 +1,446 @@
@@ -47133,7 +47207,7 @@ index 0000000..1b1bddf
 +    _existingBots.erase(bot);
 +    //TC_LOG_ERROR("entities.unit", "BotDataMgr::UnregisterBot: unregistered bot %u (%s)", bot->GetEntry(), bot->GetName().c_str());
 +}
-+Creature const* BotDataMgr::FindBotInWorld(uint32 entry)
++Creature const* BotDataMgr::FindBot(uint32 entry)
 +{
 +    TRINITY_READ_GUARD(ACE_Thread_Mutex, _lock);
 +
@@ -47146,7 +47220,7 @@ index 0000000..1b1bddf
 +}
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.h b/src/server/game/AI/NpcBots/botdatamgr.h
 new file mode 100644
-index 0000000..44187ac
+index 0000000..2d78a88
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.h
 @@ -0,0 +1,93 @@
@@ -47234,7 +47308,7 @@ index 0000000..44187ac
 +
 +        static void RegisterBot(Creature const* bot);
 +        static void UnregisterBot(Creature const* bot);
-+        static Creature const* FindBotInWorld(uint32 entry);
++        static Creature const* FindBot(uint32 entry);
 +
 +    private:
 +
@@ -47424,7 +47498,7 @@ index 0000000..e164a57
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botgiver.cpp b/src/server/game/AI/NpcBots/botgiver.cpp
 new file mode 100644
-index 0000000..e6770fa
+index 0000000..5bf0fde
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botgiver.cpp
 @@ -0,0 +1,233 @@
@@ -47611,7 +47685,7 @@ index 0000000..e6770fa
 +            case HIRE_ENTRY:
 +            {
 +                uint32 entry = action - GOSSIP_ACTION_INFO_DEF;
-+                Creature const* bot = BotDataMgr::FindBotInWorld(entry);
++                Creature const* bot = BotDataMgr::FindBot(entry);
 +                if (!bot)
 +                {
 +                    //possible but still
@@ -58840,7 +58914,7 @@ index b0302d7..b84f321 100644
      sObjectMgr->LoadEquipmentTemplates();
  
 diff --git a/src/server/scripts/Commands/cs_npc.cpp b/src/server/scripts/Commands/cs_npc.cpp
-index b472ba4..cfd0f74 100644
+index b472ba4..7d59aeb 100644
 --- a/src/server/scripts/Commands/cs_npc.cpp
 +++ b/src/server/scripts/Commands/cs_npc.cpp
 @@ -238,6 +238,16 @@ public:
@@ -58876,6 +58950,22 @@ index b472ba4..cfd0f74 100644
          // Delete the creature
          unit->CombatStop();
          unit->DeleteFromDB();
+@@ -847,6 +866,15 @@ public:
+             lowguid = creature->GetDBTableGUIDLow();
+         }
+ 
++        //npcbot
++        if (creature->IsNPCBotOrPet())
++        {
++            handler->PSendSysMessage("creature %u (id %u) is a part of NPCBots mod. Use '.npcbot move' instead", lowguid, creature->GetEntry());
++            handler->SetSentErrorMessage(true);
++            return false;
++        }
++        //end npcbot
++
+         float x = handler->GetSession()->GetPlayer()->GetPositionX();
+         float y = handler->GetSession()->GetPlayer()->GetPositionY();
+         float z = handler->GetSession()->GetPlayer()->GetPositionZ();
 diff --git a/src/server/scripts/Spells/spell_dk.cpp b/src/server/scripts/Spells/spell_dk.cpp
 index e78d690..1430635 100644
 --- a/src/server/scripts/Spells/spell_dk.cpp
