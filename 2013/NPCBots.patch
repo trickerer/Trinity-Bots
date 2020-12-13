@@ -1,6 +1,6 @@
-From 1b7956b077a2e74f376f051410a165dfc2dc85e7 Mon Sep 17 00:00:00 2001
+From ccb47daaf40137a8e1a4ade568943fa1c04ca1a3 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Sat, 12 Dec 2020 17:18:43 +0700
+Date: Sun, 13 Dec 2020 18:20:59 +0700
 Subject: [PATCH] NPCBots2013
 
 ---
@@ -31,7 +31,7 @@ Subject: [PATCH] NPCBots2013
  src/server/game/AI/NpcBots/bot_dreadlord_ai.cpp    |   515 +
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        |  2888 ++++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  2328 ++++
- src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  1788 +++
+ src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  1800 +++
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  2711 ++++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  2071 +++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  1994 +++
@@ -109,7 +109,7 @@ Subject: [PATCH] NPCBots2013
  .../Database/Implementation/CharacterDatabase.cpp  |    15 +
  .../Database/Implementation/CharacterDatabase.h    |    13 +
  src/server/worldserver/worldserver.conf.dist       |   238 +
- 105 files changed, 57322 insertions(+), 9 deletions(-)
+ 105 files changed, 57334 insertions(+), 9 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -27698,10 +27698,10 @@ index 0000000..90bc16e
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_mage_ai.cpp b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 new file mode 100644
-index 0000000..eae59c6
+index 0000000..b7d9398
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
-@@ -0,0 +1,1788 @@
+@@ -0,0 +1,1800 @@
 +#include "bot_ai.h"
 +#include "botmgr.h"
 +#include "GameEventMgr.h"
@@ -27730,6 +27730,7 @@ index 0000000..eae59c6
 +    BLINK_1                             = 1953,
 +    REMOVE_CURSE_1                      = 475,
 +    INVISIBILITY_1                      = 66,
++    SCORCH_1                            = 2948,
 +    BLAST_WAVE_1                        = 11113,
 +    DRAGON_BREATH_1                     = 31661,
 +    FIRE_BLAST_1                        = 2136,
@@ -27785,6 +27786,7 @@ index 0000000..eae59c6
 +    TORMENT_THE_WEAK                    = 55340,//rank 3
 +    IMPACT                              = 12358,//rank 3
 +    IMPROVED_BLIZZARD                   = 12488,//rank 3
++    IMPROVED_SCORCH                     = 12873,//rank 3
 +    MOLTEN_SHIELDS                      = 13043,//rank 2
 +    MASTER_OF_ELEMENTS                  = 29076,//rank 3
 +    SHATTER1                            = 11170,
@@ -27839,7 +27841,8 @@ index 0000000..eae59c6
 +
 +static const uint32 Mage_spells_damage_arr[] =
 +{ ARCANEMISSILES_1, ARCANE_BLAST_1, BLAST_WAVE_1, BLIZZARD_1, CONE_OF_COLD_1, DEEP_FREEZE_1, DRAGON_BREATH_1, FIREBALL_1,
-+FIRE_BLAST_1, FLAMESTRIKE_1, FROSTBOLT_1, FROSTFIRE_BOLT_1, FROST_NOVA_1, ICE_LANCE_1, LIVING_BOMB_1, PYROBLAST_1 };
++FIRE_BLAST_1, FLAMESTRIKE_1, FROSTBOLT_1, FROSTFIRE_BOLT_1, FROST_NOVA_1, ICE_LANCE_1, LIVING_BOMB_1, PYROBLAST_1,
++SCORCH_1 };
 +
 +static const uint32 Mage_spells_cc_arr[] =
 +{ COUNTERSPELL_1, DRAGON_BREATH_1, DEEP_FREEZE_1, FROST_NOVA_1, POLYMORPH_1 };
@@ -27998,7 +28001,7 @@ index 0000000..eae59c6
 +            //ARMOR
 +            uint32 MOLTENARMOR = HasRole(BOT_ROLE_DPS) ? GetSpell(MOLTEN_ARMOR_1) : GetSpell(ICE_ARMOR_1);
 +            uint32 ICEARMOR = GetSpell(ICE_ARMOR_1) ? GetSpell(ICE_ARMOR_1) : GetSpell(FROST_ARMOR_1);
-+            uint32 ARMOR = !MOLTENARMOR ? ICEARMOR : me->GetMap()->IsDungeon() ? MOLTENARMOR : ICEARMOR;
++            uint32 ARMOR = !MOLTENARMOR ? ICEARMOR : (me->GetMap()->IsDungeon() || !ICEARMOR) ? MOLTENARMOR : ICEARMOR;
 +            if (ARMOR && !me->HasAura(ARMOR))
 +            {
 +                if (doCast(me, ARMOR))
@@ -28197,10 +28200,17 @@ index 0000000..eae59c6
 +                if (doCast(opponent, GetSpell(PYROBLAST_1)))
 +                    return;
 +            }
++            //Scorch
++            if (IsSpellReady(SCORCH_1, diff) && GetSpec() == BOT_SPEC_MAGE_FIRE && dist < CalcSpellMaxRange(SCORCH_1) &&
++                !opponent->GetAuraEffect(SPELL_AURA_MOD_ATTACKER_SPELL_CRIT_CHANCE, SPELLFAMILY_MAGE, 0x0, 0x2000, 0x0))
++            {
++                if (doCast(opponent, GetSpell(SCORCH_1)))
++                    return;
++            }
 +            //Living Bomb
-+            if (fbCasted && IsSpellReady(LIVING_BOMB_1, diff) && dist < CalcSpellMaxRange(LIVING_BOMB_1) &&
++            if ((!opponent->IsControlledByPlayer() || fbCasted) && IsSpellReady(LIVING_BOMB_1, diff) && dist < CalcSpellMaxRange(LIVING_BOMB_1) &&
 +                opponent->GetHealth() > me->GetHealth() / 2 * opponent->getAttackers().size() &&
-+                Rand() < 25 && !opponent->HasAura(GetSpell(LIVING_BOMB_1), me->GetGUID()))
++                Rand() < 115 && !opponent->GetAuraEffect(SPELL_AURA_PERIODIC_DAMAGE, SPELLFAMILY_MAGE, 0x0, 0x20000, 0x0, me->GetGUID()))
 +            {
 +                if (doCast(opponent, GetSpell(LIVING_BOMB_1)))
 +                    return;
@@ -28606,7 +28616,7 @@ index 0000000..eae59c6
 +
 +            //Incineration: 6% additional crit chance for Fire Blast, Scorch, Arcane Blast and Cone of Cold
 +            if (lvl >= 10 &&
-+                (baseId == FIRE_BLAST_1 || /*baseId == SCORCH_1 ||*/
++                (baseId == FIRE_BLAST_1 || baseId == SCORCH_1 ||
 +                baseId == ARCANE_BLAST_1 || baseId == CONE_OF_COLD_1))
 +                crit_chance += 6.f;
 +            //World In Flames: 6% additional critical chance for Flamestrike, Pyroblast, Blast Wave, Dragon's Breath, Living Bomb, Blizzard and Arcane Explosion
@@ -28617,7 +28627,7 @@ index 0000000..eae59c6
 +                baseId == LIVING_BOMB_1 || baseId == LIVING_BOMB_DAMAGE_1))
 +                crit_chance += 6.f;
 +            //Improved Scorch part 1: 3% additional critical chance for Scorch, Fireball and Frostfire Bolt
-+            if (lvl >= 20 && (/*baseId == SCORCH_1 || */baseId == FIREBALL_1 || baseId == FROSTFIRE_BOLT_1))
++            if (lvl >= 20 && (baseId == SCORCH_1 || baseId == FIREBALL_1 || baseId == FROSTFIRE_BOLT_1))
 +                crit_chance += 3.f;
 +            //Critical Mass: 6% additional critical chance for Fire spells
 +            if ((_spec == BOT_SPEC_MAGE_FIRE) && lvl >= 30 && (SPELL_SCHOOL_MASK_FIRE & spellInfo->GetSchoolMask()))
@@ -28658,7 +28668,7 @@ index 0000000..eae59c6
 +
 +            //Spell Impact: 6% bonus damage for Arcne Explosion, Arcane Blast, Scorch, Fireball, Ice Lance and Cone of Cold
 +            if (lvl >= 20 &&
-+                (/*baseId == ARCANE_EXPLOSION_1 || baseId == SCORCH_1 ||*/
++                (/*baseId == ARCANE_EXPLOSION_1 || */baseId == SCORCH_1 ||
 +                baseId == ARCANE_BLAST_1 || baseId == FIREBALL_1 ||
 +                baseId == ICE_LANCE_1 || baseId == CONE_OF_COLD_1))
 +                pctbonus += 0.06f;
@@ -28961,7 +28971,7 @@ index 0000000..eae59c6
 +            /*if (spellId != FROSTBITE_TRIGGERED && spellId != WINTERS_CHILL_TRIGGERED && spellId != IGNITE_TRIGGERED &&
 +                spellId != ARCANE_CONCENTRATION_BUFF && spellId != ARCANE_POTENCY_BUFF1 && spellId != ARCANE_POTENCY_BUFF2 &&
 +                spellId != FIRESTARTER_BUFF && spellId != BRAIN_FREEZE_BUFF && spellId != HOT_STREAK_BUFF)*/
-+                fbCasted = (baseId == FROSTBOLT_1 || baseId == FIREBALL_1 || baseId == FROSTFIRE_BOLT_1);
++                fbCasted = (baseId == SCORCH_1 || baseId == FROSTBOLT_1 || baseId == FIREBALL_1 || baseId == FROSTFIRE_BOLT_1);
 +
 +            //Handle clearcasting
 +            if (AuraEffect const* eff = me->GetAuraEffect(ARCANE_CONCENTRATION_BUFF, 0, me->GetGUID()))
@@ -29319,6 +29329,7 @@ index 0000000..eae59c6
 +            InitSpellMap(BLINK_1);
 +            InitSpellMap(REMOVE_CURSE_1);
 +            InitSpellMap(INVISIBILITY_1);
++            InitSpellMap(SCORCH_1);
 +            InitSpellMap(FIRE_BLAST_1);
 +            InitSpellMap(FLAMESTRIKE_1);
 +            InitSpellMap(DAMPENMAGIC_1);
@@ -29386,6 +29397,7 @@ index 0000000..eae59c6
 +            RefreshAura(IGNITE, level >= 15 ? 1 : 0);
 +            RefreshAura(BURNING_DETERMINATION, level >= 15 ? 1 : 0);
 +            RefreshAura(IMPACT, level >= 60 ? 2 : level >= 20 ? 1 : 0);
++            RefreshAura(IMPROVED_SCORCH, level >= 25 ? 1 : 0);
 +            RefreshAura(MOLTEN_SHIELDS, level >= 60 ? 2 : level >= 25 ? 1 : 0);
 +            RefreshAura(MASTER_OF_ELEMENTS, level >= 25 ? 1 : 0);
 +            RefreshAura(BLAZING_SPEED, isFire && level >= 35 ? 1 : 0);
@@ -40219,7 +40231,7 @@ index 0000000..2df2d1a
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warlock_ai.cpp b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 new file mode 100644
-index 0000000..6845c95
+index 0000000..cb4efb0
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 @@ -0,0 +1,2046 @@
@@ -41188,7 +41200,7 @@ index 0000000..6845c95
 +                    //opponent->GetAuraEffect(SPELL_AURA_PERIODIC_DAMAGE, SPELLFAMILY_WARLOCK, 0x4, 0x0, 0x0) &&
 +                    //opponent->GetAuraEffect(SPELL_AURA_MOD_ATTACKER_SPELL_CRIT_CHANCE, SPELLFAMILY_WARLOCK, 213, 0) &&
 +                    //(me->GetMap()->IsRaid() || !me->HasAura(SHADOW_TRANCE_BUFF)) ?
-+                    INCINERATE_1 : 0;
++                    INCINERATE_1 : SHADOW_BOLT_1;
 +
 +                if (boltinerate && doCast(opponent, GetSpell(boltinerate)))
 +                    return;
