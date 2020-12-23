@@ -1,10 +1,10 @@
 ### This mod was last updated:
-### last version: 01 Nov 2020, TrinityCore revision: [c2a0b78a05](https://github.com/TrinityCore/TrinityCore/commit/c2a0b78a05)
+### last version: 23 Dec 2020, TrinityCore revision: [9ae23ef2fd](https://github.com/TrinityCore/TrinityCore/commit/9ae23ef2fd)
 ### 2013 version: 12 Dec 2013. TrinityCore revision: [385e2dba37](https://github.com/TrinityCore/TrinityCore/commit/385e2dba37)
 
 # [ THE NPCBOTS MANUAL ]
 >Compiled by: Trickerer (onlysuffering @ Gmail dot Com)  
->Version 0.10 - 16 Jun 2020  
+>Version 0.11 - 07 Nov 2020  
 >Original version by: Thesawolf (@ Gmail dot Com) Version 0.3 - 20 July 2016 [here](https://github.com/thesawolf/TrinityCore/blob/TrinityCoreLegacy/README_Bots.md)
 
 ---------------------------------------
