@@ -4,7 +4,7 @@
 
 # [ THE NPCBOTS MANUAL ]
 >Compiled by: Trickerer (onlysuffering @ Gmail dot Com)  
->Version 0.11 - 07 Nov 2020  
+>Version 0.12 - 06 Jan 2021  
 >Original version by: Thesawolf (@ Gmail dot Com) Version 0.3 - 20 July 2016 [here](https://github.com/thesawolf/TrinityCore/blob/TrinityCoreLegacy/README_Bots.md)
 
 ---------------------------------------
@@ -405,7 +405,8 @@ NPCBot Role management allows you to adjust how they operate overall. The availa
 To adjust the NPCBot's roles, you need to right-click that NPCBot and choose `_Manage roles..._` from their Gossip Menu. You should then see (dependent upon the class):
 ```
 - Gathering...
-- Tanking
+- Looting...
+- Tank
 - DPS
 - Heal
 - Ranged
@@ -427,6 +428,8 @@ _Example_: Warrior having Tanking + DPS + Ranged role enabled will constantly tr
 It's recommended to only enable 1 or 2 specific roles for that class to minimize them switching tactics around alot. The only exception is Priest which can handle DPS, Heal and Ranged roles just fine (they will preserve some mana for healing and resort to wand)
 
 Gathering roles allows NPCBots to collect different ores, herbs, leather and other trade goods. It does NOT allow to track those goods so good luck with that. It also does NOT allow bots to craft anything. NPCBots have their skill assigned according to their level so level 1 NPCBot for example will not be able to mine Mithril
+
+Looting roles allows NPCBots to automatically and quickly collect items from nearby lootable creatures for you and other players in your group. Make sure to chose loot method, quality threshold in your group and looting setting for your looter bot.
 
 #### NPCBot Formation
 Some times you just want your NPCBot close.. or as far away as possible. The formation option allows you to adjust your NPCBot's distance from you.
@@ -724,6 +727,8 @@ Bots are being added to world at server loading (after Map System is started)
 ---------------------------------------
 ## Guide Changelog
 
+- **Version 0.12** (_06 Jan 2021_)
+    - Added info on autoloot
 - **Version 0.11** (_07 Nov 2020_)
     - Added info on localization
 - **Version 0.10** (_16 Jun 2020_)
