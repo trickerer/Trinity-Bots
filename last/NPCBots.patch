@@ -1,6 +1,6 @@
-From 6fbd781246ab32d90114243fdaeff63b09661d58 Mon Sep 17 00:00:00 2001
+From 120550ccd29d85216cb5255852816976ff0ece89 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Tue, 19 Jan 2021 11:30:08 +0700
+Date: Tue, 19 Jan 2021 18:21:27 +0700
 Subject: [PATCH] NPCBots
 
 ---
@@ -30,8 +30,8 @@ Subject: [PATCH] NPCBots
  .../Database/Implementation/CharacterDatabase.h    |    13 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1299 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 15452 +++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |   611 +
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 15651 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |   612 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   398 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   936 ++
  src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp  |   620 +
@@ -49,7 +49,7 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  2074 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2248 +++
  src/server/game/AI/NpcBots/botcommands.cpp         |  1472 ++
- src/server/game/AI/NpcBots/botcommon.h             |  1068 ++
+ src/server/game/AI/NpcBots/botcommon.h             |  1081 ++
  src/server/game/AI/NpcBots/botdatamgr.cpp          |   459 +
  src/server/game/AI/NpcBots/botdatamgr.h            |    93 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   131 +
@@ -125,7 +125,7 @@ Subject: [PATCH] NPCBots
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   250 +
- 121 files changed, 60952 insertions(+), 21 deletions(-)
+ 121 files changed, 61165 insertions(+), 21 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -4710,10 +4710,10 @@ index 0000000..95e1547
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..52aef66
+index 0000000..04df12f
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,15452 @@
+@@ -0,0 +1,15651 @@
 +#include "bot_ai.h"
 +//#include "botcommon.h"
 +#include "bot_Events.h"
@@ -17607,17 +17607,121 @@ index 0000000..52aef66
 +    drake->SetInFront(target);
 +    drake->CastSpell(target, drakespell);
 +}
++void bot_ai::DoArgentMountVehicleStrats(uint32 diff)
++{
++    if (GC_Timer > diff)
++        return;
++
++    GC_Timer = 200; //at least this delay
++
++    Creature* mount = me->GetVehicleCreatureBase();
++
++    //Tounament spells
++    //62544 Thrust
++    //62575 Shield-Breaker
++    //62960 Charge
++    //62552 Defend
++    //64077 Refresh Mount
++
++    //ToC5 spells
++    //68505 Thrust
++    //62575 Shield-Breaker
++    //68282 Charge
++    //62552 Defend
++
++    if (!mount->HasSpellCooldown(mount->m_spells[3])) //Defend
++    {
++        Aura const* myde = mount->GetAura(mount->m_spells[3]);
++        if (!myde || myde->GetStackAmount() < myde->GetSpellInfo()->StackAmount || myde->GetDuration() <= 8000)
++        {
++            mount->CastSpell(mount, mount->m_spells[3]);
++            return;
++        }
++    }
++
++    if (!CheckVehicleAttackTarget(curVehStrat))
++        return;
++
++    //Unit const* mmover = master->GetVehicle() ? master->GetVehicleBase() : master;
++    Unit* target = NULL;
++    uint32 mountspell = 0;
++
++    if (mount->GetDistance(opponent) > 5.f)
++    {
++        //Defend
++        AuraEffect const* def = opponent->GetAuraEffect(SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN,SPELLFAMILY_GENERIC, 2007, EFFECT_0);
++        if (!def)
++            def = opponent->GetAuraEffect(SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN,SPELLFAMILY_GENERIC, 2007, EFFECT_2);
++        if ((!def || def->GetBase()->GetStackAmount() < 2) && !mount->HasSpellCooldown(mount->m_spells[2]))
++        {
++            mountspell = mount->m_spells[2]; //Charge
++            target = opponent;
++        }
++        else
++        {
++            mountspell = mount->m_spells[1]; //Shield-Breaker
++            target = opponent;
++        }
++    }
++    else
++    {
++        mountspell = mount->m_spells[0]; //Thrust
++        target = opponent;
++    }
++
++    if (!target)
++        return;
++
++    if (!mountspell)
++    {
++        TC_LOG_ERROR("scripts", "DoArgentMountVehicleStrats no spell for target %s", target->GetName().c_str());
++        return;
++    }
++
++    SetBotCommandState(BOT_COMMAND_ATTACK);
++    mount->BotStopMovement();
++    mount->SetInFront(target);
++    mount->CastSpell(target, mountspell);
++}
 +void bot_ai::DoDemolisherVehicleStrats(uint32 diff)
 +{
++    if (GC_Timer > diff)
++        return;
++
++    GC_Timer = 350; //at least this delay
++
++    if (!CheckVehicleAttackTarget(curVehStrat))
++        return;
 +}
 +void bot_ai::DoSiegeEngineVehicleStrats(uint32 diff)
 +{
++    if (GC_Timer > diff)
++        return;
++
++    GC_Timer = 350; //at least this delay
++
++    if (!CheckVehicleAttackTarget(curVehStrat))
++        return;
 +}
 +void bot_ai::DoChopperVehicleStrats(uint32 diff)
 +{
++    if (GC_Timer > diff)
++        return;
++
++    GC_Timer = 350; //at least this delay
++
++    if (!CheckVehicleAttackTarget(curVehStrat))
++        return;
 +}
 +void bot_ai::DoGenericVehicleStrats(uint32 diff)
 +{
++    if (GC_Timer > diff)
++        return;
++
++    GC_Timer = 350; //at least this delay
++
++    if (!CheckVehicleAttackTarget(curVehStrat))
++        return;
 +}
 +void bot_ai::DoVehicleStrats(BotVehicleStrats strat, uint32 diff)
 +{
@@ -17646,6 +17750,9 @@ index 0000000..52aef66
 +            break;
 +        case BOT_VEH_STRAT_AMBER_DRAKE:
 +            DoAmberDrakeVehicleStrats(diff);
++            break;
++        case BOT_VEH_STRAT_TOC5_MOUNT:
++            DoArgentMountVehicleStrats(diff);
 +            break;
 +        case BOT_VEH_STRAT_ULDUAR_DEMOLISHER:
 +            DoDemolisherVehicleStrats(diff);
@@ -17686,6 +17793,22 @@ index 0000000..52aef66
 +            break;
 +        case CREATURE_OCULUS_DRAKE_AMBER:
 +            strat = BOT_VEH_STRAT_AMBER_DRAKE;
++            break;
++        //case CREATURE_TOC_STEED_QUELDOREI:
++        //case CREATURE_TOC_NIGHTSABER:
++        //case CREATURE_TOC_STEED_STORMWIND:
++        //case CREATURE_TOC_MECHANOSTRIDER:
++        //case CREATURE_TOC_RAM:
++        //case CREATURE_TOC_ELEKK:
++        //case CREATURE_TOC_HAWKSTRIDER_SUNREAVER:
++        //case CREATURE_TOC_RAPTOR:
++        //case CREATURE_TOC_WARHORSE:
++        //case CREATURE_TOC_WOLF:
++        //case CREATURE_TOC_HAWKSTRIDER_SILVERMOON:
++        //case CREATURE_TOC_KODO:
++        case CREATURE_TOC5_WARHORSE:
++        case CREATURE_TOC5_BATTLEWORG:
++            strat = BOT_VEH_STRAT_TOC5_MOUNT;
 +            break;
 +        /*
 +        case CREATURE_ULDUAR_DEMOLISHER:
@@ -17755,6 +17878,20 @@ index 0000000..52aef66
 +            case CREATURE_OCULUS_DRAKE_RUBY:
 +            case CREATURE_OCULUS_DRAKE_EMERALD:
 +            case CREATURE_OCULUS_DRAKE_AMBER:
++            //case CREATURE_TOC_STEED_QUELDOREI:
++            //case CREATURE_TOC_NIGHTSABER:
++            //case CREATURE_TOC_STEED_STORMWIND:
++            //case CREATURE_TOC_MECHANOSTRIDER:
++            //case CREATURE_TOC_RAM:
++            //case CREATURE_TOC_ELEKK:
++            //case CREATURE_TOC_HAWKSTRIDER_SUNREAVER:
++            //case CREATURE_TOC_RAPTOR:
++            //case CREATURE_TOC_WARHORSE:
++            //case CREATURE_TOC_WOLF:
++            //case CREATURE_TOC_HAWKSTRIDER_SILVERMOON:
++            //case CREATURE_TOC_KODO:
++            case CREATURE_TOC5_WARHORSE:
++            case CREATURE_TOC5_BATTLEWORG:
 +            case CREATURE_ULDUAR_DEMOLISHER:
 +                switch (role)
 +                {
@@ -17783,6 +17920,21 @@ index 0000000..52aef66
 +            case CREATURE_OCULUS_DRAKE_EMERALD:
 +            case CREATURE_OCULUS_DRAKE_AMBER:
 +                return 30.f;
++            //case CREATURE_TOC_STEED_QUELDOREI:
++            //case CREATURE_TOC_NIGHTSABER:
++            //case CREATURE_TOC_STEED_STORMWIND:
++            //case CREATURE_TOC_MECHANOSTRIDER:
++            //case CREATURE_TOC_RAM:
++            //case CREATURE_TOC_ELEKK:
++            //case CREATURE_TOC_HAWKSTRIDER_SUNREAVER:
++            //case CREATURE_TOC_RAPTOR:
++            //case CREATURE_TOC_WARHORSE:
++            //case CREATURE_TOC_WOLF:
++            //case CREATURE_TOC_HAWKSTRIDER_SILVERMOON:
++            //case CREATURE_TOC_KODO:
++            case CREATURE_TOC5_WARHORSE:
++            case CREATURE_TOC5_BATTLEWORG:
++                return 15.f;
 +            case CREATURE_ULDUAR_DEMOLISHER:
 +                return 40.f;
 +            default:
@@ -18719,6 +18871,24 @@ index 0000000..52aef66
 +                veh->CastSpell(veh, 66667, args); //Gear Scaling
 +                break;
 +            }
++            //case CREATURE_TOC_STEED_QUELDOREI:
++            //case CREATURE_TOC_NIGHTSABER:
++            //case CREATURE_TOC_STEED_STORMWIND:
++            //case CREATURE_TOC_MECHANOSTRIDER:
++            //case CREATURE_TOC_RAM:
++            //case CREATURE_TOC_ELEKK:
++            //case CREATURE_TOC_HAWKSTRIDER_SUNREAVER:
++            //case CREATURE_TOC_RAPTOR:
++            //case CREATURE_TOC_WARHORSE:
++            //case CREATURE_TOC_WOLF:
++            //case CREATURE_TOC_HAWKSTRIDER_SILVERMOON:
++            //case CREATURE_TOC_KODO:
++            //    me->CastSpell(veh, 63151); //Ride Vehicle
++            //    break;
++            case CREATURE_TOC5_WARHORSE:
++            case CREATURE_TOC5_BATTLEWORG:
++                me->CastSpell(veh, 67830); //Ride Vehicle
++                break;
 +            default:
 +                me->EnterVehicle(veh);
 +                break;
@@ -18790,6 +18960,10 @@ index 0000000..52aef66
 +        case CREATURE_ULDUAR_SIEGE_ENGINE:
 +        case CREATURE_ULDUAR_CHOPPER:
 +        case CREATURE_ULDUAR_CHOPPER1:
++        //case CREATURE_TOC_STEED_QUELDOREI:
++        //case CREATURE_TOC_HAWKSTRIDER_SUNREAVER:
++        case CREATURE_TOC5_WARHORSE:
++        case CREATURE_TOC5_BATTLEWORG:
 +            creEntry = mVeh->GetBase()->GetEntry();
 +            break;
 +        case CREATURE_OCULUS_DRAKE_RUBY:
@@ -18799,6 +18973,31 @@ index 0000000..52aef66
 +                (HasRole(BOT_ROLE_HEAL)/* && mVeh->GetBase()->GetEntry() != CREATURE_OCULUS_DRAKE_EMERALD*/) ? CREATURE_OCULUS_DRAKE_EMERALD :
 +                CREATURE_OCULUS_DRAKE_AMBER;
 +            break;
++        //case CREATURE_TOC_NIGHTSABER:
++        //case CREATURE_TOC_STEED_STORMWIND:
++        //case CREATURE_TOC_MECHANOSTRIDER:
++        //case CREATURE_TOC_RAM:
++        //case CREATURE_TOC_ELEKK:
++        //case CREATURE_TOC_RAPTOR:
++        //case CREATURE_TOC_WARHORSE:
++        //case CREATURE_TOC_WOLF:
++        //case CREATURE_TOC_HAWKSTRIDER_SILVERMOON:
++        //case CREATURE_TOC_KODO:
++        //    switch (GetPlayerRace())
++        //    {
++        //        case RACE_HUMAN:         creEntry = CREATURE_TOC_STEED_STORMWIND;        break;
++        //        case RACE_ORC:           creEntry = CREATURE_TOC_WOLF;                   break;
++        //        case RACE_DWARF:         creEntry = CREATURE_TOC_RAM;                    break;
++        //        case RACE_NIGHTELF:      creEntry = CREATURE_TOC_NIGHTSABER;             break;
++        //        case RACE_UNDEAD_PLAYER: creEntry = CREATURE_TOC_WARHORSE;               break;
++        //        case RACE_TAUREN:        creEntry = CREATURE_TOC_KODO;                   break;
++        //        case RACE_GNOME:         creEntry = CREATURE_TOC_MECHANOSTRIDER;         break;
++        //        case RACE_TROLL:         creEntry = CREATURE_TOC_RAPTOR;                 break;
++        //        case RACE_BLOODELF:      creEntry = CREATURE_TOC_HAWKSTRIDER_SILVERMOON; break;
++        //        case RACE_DRAENEI:       creEntry = CREATURE_TOC_ELEKK;                  break;
++        //        default:                 creEntry = CREATURE_TOC_STEED_QUELDOREI;        break;
++        //    }
++        //    break;
 +        default:
 +            if (mVeh->GetSeatForPassenger(owner)->Flags & VEHICLE_SEAT_FLAG_CAN_CONTROL)
 +            {
@@ -20168,10 +20367,10 @@ index 0000000..52aef66
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..d199d80
+index 0000000..74160c0
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,611 @@
+@@ -0,0 +1,612 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -20565,6 +20764,7 @@ index 0000000..d199d80
 +        void DoRubyDrakeVehicleStrats(uint32 diff);
 +        void DoEmeraldDrakeVehicleStrats(uint32 diff);
 +        void DoAmberDrakeVehicleStrats(uint32 diff);
++        void DoArgentMountVehicleStrats(uint32 diff);
 +        void DoDemolisherVehicleStrats(uint32 diff);
 +        void DoSiegeEngineVehicleStrats(uint32 diff);
 +        void DoChopperVehicleStrats(uint32 diff);
@@ -49213,10 +49413,10 @@ index 0000000..8c482f6
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommon.h b/src/server/game/AI/NpcBots/botcommon.h
 new file mode 100644
-index 0000000..50e13c1
+index 0000000..4563482
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommon.h
-@@ -0,0 +1,1068 @@
+@@ -0,0 +1,1081 @@
 +#ifndef _BOTCOMMON_H
 +#define _BOTCOMMON_H
 +
@@ -49753,9 +49953,9 @@ index 0000000..50e13c1
 +    BOT_TEXT_RARE                       = 70638, //"Rare"
 +    BOT_TEXT_EPIC                       = 70639, //"Epic"
 +    BOT_TEXT_LEGENDARY                  = 70640, //"Legendary"
-+    BOT_TEXT_GRAB_ON_                   = 70641, //"Grab on "
-+    BOT_TEXT_MY_                        = 70642, //"my "
-+    BOT_TEXT_EXIT_VEHICLE               = 70643, //"<Exit Vehicle>"
++    //BOT_TEXT_GRAB_ON_                   = 70641, //"Grab on "
++    //BOT_TEXT_MY_                        = 70642, //"my "
++    //BOT_TEXT_EXIT_VEHICLE               = 70643, //"<Exit Vehicle>"
 +    //70641-70799 reserved for custom localization strings
 +//VEHICLE CREATURES
 +    CREATURE_NEXUS_SKYTALON_1           = 32535, // [Q] Aces High
@@ -49764,6 +49964,20 @@ index 0000000..50e13c1
 +    CREATURE_OCULUS_DRAKE_RUBY          = 27756, // Oculus
 +    CREATURE_OCULUS_DRAKE_EMERALD       = 27692,
 +    CREATURE_OCULUS_DRAKE_AMBER         = 27755,
++    //CREATURE_TOC_STEED_QUELDOREI        = 33845, // Argent Tournament
++    //CREATURE_TOC_NIGHTSABER             = 33319,
++    //CREATURE_TOC_STEED_STORMWIND        = 33217,
++    //CREATURE_TOC_MECHANOSTRIDER         = 33317,
++    //CREATURE_TOC_RAM                    = 33316,
++    //CREATURE_TOC_ELEKK                  = 33318,
++    //CREATURE_TOC_HAWKSTRIDER_SUNREAVER  = 33844,
++    //CREATURE_TOC_RAPTOR                 = 33321,
++    //CREATURE_TOC_WARHORSE               = 33324,
++    //CREATURE_TOC_WOLF                   = 33320,
++    //CREATURE_TOC_HAWKSTRIDER_SILVERMOON = 33323,
++    //CREATURE_TOC_KODO                   = 33322,
++    CREATURE_TOC5_WARHORSE              = 35644, // Trial of Champion
++    CREATURE_TOC5_BATTLEWORG            = 36558,
 +    CREATURE_ULDUAR_DEMOLISHER          = 33109, // Ulduar
 +    CREATURE_ULDUAR_SIEGE_ENGINE        = 33060,
 +    CREATURE_ULDUAR_CHOPPER             = 33062,
@@ -50275,14 +50489,13 @@ index 0000000..50e13c1
 +    BOT_VEH_STRAT_RUBY_DRAKE,
 +    BOT_VEH_STRAT_EMERALD_DRAKE,
 +    BOT_VEH_STRAT_AMBER_DRAKE,
++    BOT_VEH_STRAT_TOC5_MOUNT,
 +    BOT_VEH_STRAT_ULDUAR_DEMOLISHER,
 +    BOT_VEH_STRAT_ULDUAR_SIEGEENGINE,
 +    BOT_VEH_STRAT_ULDUAR_CHOPPER,
 +
 +    BOT_VEH_STRAT_GENERIC
 +};
-+
-+//#define MAX_BOT_VEH_STRAT 9
 +
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.cpp b/src/server/game/AI/NpcBots/botdatamgr.cpp
