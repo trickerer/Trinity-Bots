@@ -1,6 +1,6 @@
-From 0ed76fefc35da7a615a5aabbbcb58990be0587df Mon Sep 17 00:00:00 2001
+From 6fbd781246ab32d90114243fdaeff63b09661d58 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Sat, 16 Jan 2021 22:40:08 +0700
+Date: Tue, 19 Jan 2021 11:30:08 +0700
 Subject: [PATCH] NPCBots
 
 ---
@@ -29,9 +29,9 @@ Subject: [PATCH] NPCBots
  .../Database/Implementation/CharacterDatabase.cpp  |    15 +
  .../Database/Implementation/CharacterDatabase.h    |    13 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
- src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1264 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 15016 +++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |   603 +
+ src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1299 ++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 15452 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |   611 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   398 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   936 ++
  src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp  |   620 +
@@ -49,7 +49,7 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  2074 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2248 +++
  src/server/game/AI/NpcBots/botcommands.cpp         |  1472 ++
- src/server/game/AI/NpcBots/botcommon.h             |  1059 ++
+ src/server/game/AI/NpcBots/botcommon.h             |  1068 ++
  src/server/game/AI/NpcBots/botdatamgr.cpp          |   459 +
  src/server/game/AI/NpcBots/botdatamgr.h            |    93 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   131 +
@@ -57,7 +57,7 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/NpcBots/botgiver.cpp            |   263 +
  src/server/game/AI/NpcBots/botmgr.cpp              |  1424 ++
  src/server/game/AI/NpcBots/botmgr.h                |   183 +
- src/server/game/AI/NpcBots/bpet_ai.cpp             |  2271 +++
+ src/server/game/AI/NpcBots/bpet_ai.cpp             |  2274 +++
  src/server/game/AI/NpcBots/bpet_ai.h               |   165 +
  src/server/game/AI/NpcBots/bpet_archmage.cpp       |   139 +
  src/server/game/AI/NpcBots/bpet_dark_ranger.cpp    |   213 +
@@ -108,7 +108,7 @@ Subject: [PATCH] NPCBots
  src/server/game/Spells/Spell.cpp                   |   138 +
  src/server/game/Spells/Spell.h                     |     3 +
  src/server/game/Spells/SpellEffects.cpp            |   159 +
- src/server/game/Spells/SpellInfo.cpp               |    31 +
+ src/server/game/Spells/SpellInfo.cpp               |    43 +
  src/server/scripts/Commands/cs_npc.cpp             |    31 +
  .../Northrend/Naxxramas/boss_four_horsemen.cpp     |     4 +-
  src/server/scripts/Spells/spell_dk.cpp             |    17 +
@@ -125,7 +125,7 @@ Subject: [PATCH] NPCBots
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   250 +
- 121 files changed, 60449 insertions(+), 21 deletions(-)
+ 121 files changed, 60952 insertions(+), 21 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -3405,10 +3405,10 @@ index 0000000..35a9695
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_GridNotifiers.h b/src/server/game/AI/NpcBots/bot_GridNotifiers.h
 new file mode 100644
-index 0000000..21a3f69
+index 0000000..95e1547
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_GridNotifiers.h
-@@ -0,0 +1,1264 @@
+@@ -0,0 +1,1299 @@
 +#ifndef _BOT_GRIDNOTIFIERS_H
 +#define _BOT_GRIDNOTIFIERS_H
 +
@@ -3533,14 +3533,20 @@ index 0000000..21a3f69
 +                return false;
 +            if (!u->IsInCombat())
 +                return false;
-+            if (!veh->IsValidAttackTarget(u))
++            if (!_botPvP && !ai->IAmFree() && u->IsControlledByPlayer())
 +                return false;
-+            if (ai->IsInBotParty(u))
++            //if (!veh->IsValidAttackTarget(u))
++            //    return false;
++            //if (!u->isTargetableForAttack(false))
++            //    return false;
++            //if (ai->IsInBotParty(u))
++            //    return false;
++            if (!ai->IsInBotParty(u->GetVictim()))
 +                return false;
-+            if (!ai->IsInBotParty(u->GetTarget()))
++            if (u->GetReactionTo(veh) >= REP_NEUTRAL)
 +                return false;
-+            if (!u->IsWithinLOSInMap(veh))
-+                return false;
++            //if (!u->IsWithinLOSInMap(veh))
++            //    return false;
 +
 +            return true;
 +        }
@@ -3929,7 +3935,7 @@ index 0000000..21a3f69
 +                return false;
 +            if (!u->IsVisible())
 +                return false;
-+            if (!u->isTargetableForAttack())
++            if (!u->isTargetableForAttack(false))
 +                return false;
 +            if (u->IsFrozen() || u->IsRooted())
 +                return false;
@@ -3980,7 +3986,7 @@ index 0000000..21a3f69
 +                return false;
 +            if (min_range > 0.1f && me->GetDistance(u) < min_range)
 +                return false;
-+            if (!u->isTargetableForAttack())
++            if (!u->isTargetableForAttack(false))
 +                return false;
 +            //if (!m_friend && u->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SILENCED))//prevent double silence
 +            //    return false;
@@ -4137,7 +4143,7 @@ index 0000000..21a3f69
 +                u->IsAlive() &&
 +                u->InSamePhase(me) &&
 +                u->IsInCombat() &&
-+                u->isTargetableForAttack() &&
++                u->isTargetableForAttack(false) &&
 +                u->IsVisible() &&
 +                ai->IsInBotParty(u->GetVictim()) &&
 +                u->GetReactionTo(me) <= REP_NEUTRAL)
@@ -4207,7 +4213,7 @@ index 0000000..21a3f69
 +            {
 +                if (u->IsControlledByPlayer())
 +                    return false;
-+                if (!me->IsValidAttackTarget(u) || !u->isTargetableForAttack())
++                if (!me->IsValidAttackTarget(u) || !u->isTargetableForAttack(false))
 +                    return false;
 +            }
 +
@@ -4261,7 +4267,7 @@ index 0000000..21a3f69
 +            {
 +                if (u->IsControlledByPlayer())
 +                    return false;
-+                if (!me->IsValidAttackTarget(u) || !u->isTargetableForAttack())
++                if (!me->IsValidAttackTarget(u) || !u->isTargetableForAttack(false))
 +                    return false;
 +            }
 +
@@ -4353,7 +4359,7 @@ index 0000000..21a3f69
 +            else if (me->ToCreature()->GetBotClass() == BOT_CLASS_DRUID && u->IsImmunedToSpell(sSpellMgr->GetSpellInfo(6795), me))
 +                return false; //Growl
 +
-+            if (free && (!me->IsValidAttackTarget(u) || !u->isTargetableForAttack()))
++            if (free && (!me->IsValidAttackTarget(u) || !u->isTargetableForAttack(false)))
 +                return false;
 +
 +            if (me->GetDistance(targetAlly ? u->GetVictim() : u) > max_range)
@@ -4622,41 +4628,46 @@ index 0000000..21a3f69
 +                return target->IsTotem() || target->GetPowerType() != POWER_MANA || target->GetPower(POWER_MANA) < 1000;
 +            }
 +    };
-+    //class SelfExclude
-+    //{
-+    //    public:
-+    //        SelfExclude(Unit const* self) { _self = self; }
-+    //        bool operator()(Unit const* target)
-+    //        {
-+    //            return target == _self;
-+    //        }
-+    //    private:
-+    //        Unit const* _self;
-+    //};
++    class UnitExclude
++    {
++        public:
++            UnitExclude(Unit const* unit) { _unit = unit; }
++            bool operator()(Unit const* target)
++            {
++                return target == _unit;
++            }
++        private:
++            Unit const* _unit;
++    };
 +
 +    class AuraedTargetExclude
 +    {
 +        public:
-+            AuraedTargetExclude(uint32 spellId) : _spellId(spellId) {}
++            AuraedTargetExclude(uint32 spellId, uint8 minstacks = 0) : _spellId(spellId), _minstacks(minstacks) {}
 +            bool operator()(Unit const* target)
 +            {
-+                return target->GetAuraApplicationOfRankedSpell(_spellId);
++                AuraApplication const* aurApp = target->GetAuraApplicationOfRankedSpell(_spellId);
++                return aurApp && (!_minstacks || aurApp->GetBase()->GetStackAmount() >= _minstacks);
 +            }
 +        private:
 +            uint32 _spellId;
++            uint8 _minstacks;
 +    };
 +
 +    class AuraedTargetExcludeByCaster
 +    {
 +        public:
-+            AuraedTargetExcludeByCaster(uint32 spellId, ObjectGuid caster) : _spellId(spellId), _caster(caster) {}
++            AuraedTargetExcludeByCaster(uint32 spellId, ObjectGuid caster, uint8 minstacks = 0) :
++                _spellId(spellId), _caster(caster), _minstacks(minstacks) {}
 +            bool operator()(Unit const* target)
 +            {
-+                return target->GetAuraApplicationOfRankedSpell(_spellId, _caster);
++                AuraApplication const* aurApp = target->GetAuraApplicationOfRankedSpell(_spellId, _caster);
++                return aurApp && (!_minstacks || aurApp->GetBase()->GetStackAmount() >= _minstacks);
 +            }
 +        private:
 +            uint32 _spellId;
 +            ObjectGuid _caster;
++            uint8 _minstacks;
 +    };
 +
 +    class HpPctAboveExclude
@@ -4670,15 +4681,39 @@ index 0000000..21a3f69
 +        private:
 +            float _pct;
 +    };
++
++    class UnitCombatStateExclude
++    {
++        public:
++        UnitCombatStateExclude(bool combat) : _combat(combat) {}
++            bool operator()(Unit const* target)
++            {
++                return target->IsInCombat() == _combat;
++            }
++        private:
++            bool _combat;
++    };
++
++    class UnitLivingStateExclude
++    {
++        public:
++        UnitLivingStateExclude(bool living) : _living(living) {}
++            bool operator()(Unit const* target)
++            {
++                return target->IsAlive() == _living;
++            }
++        private:
++            bool _living;
++    };
 +};
 +
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..90feb68
+index 0000000..52aef66
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,15016 @@
+@@ -0,0 +1,15452 @@
 +#include "bot_ai.h"
 +//#include "botcommon.h"
 +#include "bot_Events.h"
@@ -4692,6 +4727,7 @@ index 0000000..90feb68
 +#include "Chat.h"
 +#include "GameEventMgr.h"
 +#include "GridNotifiersImpl.h"
++#include "InstanceScript.h"
 +#include "Item.h"
 +#include "LFG.h"
 +#include "LFGMgr.h"
@@ -4703,7 +4739,7 @@ index 0000000..90feb68
 +#include "TemporarySummon.h"
 +/*
 +NpcBot System by Trickerer (https://github.com/trickerer/Trinity-Bots; onlysuffering@gmail.com)
-+Version 4.9.15a
++Version 4.9.26a
 +Original idea: https://bitbucket.org/lordpsyan/trinitycore-patches/src/3b8b9072280e/Individual/11185-BOTS-NPCBots.patch
 +TODO:
 +Bot commands to RBAC permissions
@@ -4874,6 +4910,8 @@ index 0000000..90feb68
 +    pos.m_positionY = 0.f;
 +    pos.m_positionZ = 0.f;
 +    aftercastTargetGuid = ObjectGuid::Empty;
++
++    shouldEnterVehicle = false;
 +
 +    _saveDisabledSpellsTimer = 0;
 +    _saveDisabledSpells = false;
@@ -5806,10 +5844,11 @@ index 0000000..90feb68
 +            std::list<Unit*> targets3;
 +            if (master->IsAlive() && !master->HasUnitState(UNIT_STATE_ISOLATED) && GetHealthPCT(master) < 95 && me->GetDistance(master) < 40)
 +                targets3.push_back(master);
-+            //if (Unit* veh = master->GetVehicleBase())
-+            //    if (veh->GetTypeId() == TYPEID_UNIT)
-+            //        if (veh->ToCreature()->GetCreatureTemplate()->type != CREATURE_TYPE_MECHANICAL)
-+            //            targets3.push_back(veh);
++            if (master->GetVehicleBase() && !(master->GetVehicleBase()->GetTypeId() == TYPEID_UNIT &&
++                master->GetVehicleCreatureBase()->GetCreatureTemplate()->type == CREATURE_TYPE_MECHANICAL) &&
++                !master->GetVehicleBase()->HasUnitState(UNIT_STATE_ISOLATED) && GetHealthPCT(master->GetVehicleBase()) < 95 &&
++                me->GetDistance(master->GetVehicleBase()) < 40)
++                targets3.push_back(master->GetVehicleBase());
 +            for (BotMap::const_iterator itr = map->begin(); itr != map->end(); ++itr)
 +            {
 +                Unit* u = itr->second;
@@ -5821,6 +5860,11 @@ index 0000000..90feb68
 +                u = itr->second->GetBotsPet();
 +
 +                if (!(!u || !u->IsAlive() || u->HasUnitState(UNIT_STATE_ISOLATED) || me->GetDistance(u) > 40 || GetHealthPCT(u) > 95))
++                    targets3.push_back(u);
++
++                u = itr->second->GetVehicleBase();
++                if (u && !(u->GetTypeId() == TYPEID_UNIT && u->ToCreature()->GetCreatureTemplate()->type == CREATURE_TYPE_MECHANICAL) &&
++                    !u->HasUnitState(UNIT_STATE_ISOLATED) && GetHealthPCT(u) < 95 && me->GetDistance(u) < 40)
 +                    targets3.push_back(u);
 +            }
 +            for (Unit::ControlList::const_iterator itr = master->m_Controlled.begin(); itr != master->m_Controlled.end(); ++itr)
@@ -5883,6 +5927,11 @@ index 0000000..90feb68
 +            if (me->GetDistance(tPlayer) > 40) continue;
 +            if (GetHealthPCT(tPlayer) < 95 || IsTank(tPlayer))
 +                targets5.push_back(tPlayer);
++            if (tPlayer->GetVehicleBase() && !(tPlayer->GetVehicleBase()->GetTypeId() == TYPEID_UNIT &&
++                tPlayer->GetVehicleCreatureBase()->GetCreatureTemplate()->type == CREATURE_TYPE_MECHANICAL) &&
++                !tPlayer->GetVehicleBase()->HasUnitState(UNIT_STATE_ISOLATED) && GetHealthPCT(tPlayer->GetVehicleBase()) < 95 &&
++                me->GetDistance(tPlayer->GetVehicleBase()) < 40)
++                targets5.push_back(tPlayer->GetVehicleBase());
 +        }
 +        if (Bots)
 +        {
@@ -5906,6 +5955,11 @@ index 0000000..90feb68
 +                        u = itr->second->GetBotsPet();
 +
 +                        if (!(!u || !u->IsAlive() || u->HasUnitState(UNIT_STATE_ISOLATED) || me->GetDistance(u) > 40 || GetHealthPCT(u) > 95))
++                            targets5.push_back(u);
++
++                        u = itr->second->GetVehicleBase();
++                        if (u && !(u->GetTypeId() == TYPEID_UNIT && u->ToCreature()->GetCreatureTemplate()->type == CREATURE_TYPE_MECHANICAL) &&
++                            !u->HasUnitState(UNIT_STATE_ISOLATED) && GetHealthPCT(u) < 95 && me->GetDistance(u) < 40)
 +                            targets5.push_back(u);
 +                    }
 +                }
@@ -7827,7 +7881,7 @@ index 0000000..90feb68
 +bool bot_ai::IsInBotParty(ObjectGuid guid) const
 +{
 +    if (!guid) return false;
-+    if (guid == master->GetGUID() || guid == master->GetGUID() || guid == master->GetGUID()) return true;
++    if (guid == master->GetGUID() || guid == me->GetGUID()) return true;
 +    if (master->GetVehicle() && guid == master->GetCharmedGUID()) return true;
 +    if (me->GetVehicle() && guid == me->GetCharmedGUID()) return true;
 +
@@ -7957,7 +8011,7 @@ index 0000000..90feb68
 +
 +    return
 +       (target->IsAlive() && target->IsVisible() && me->IsValidAttackTarget(target) &&
-+        target->isTargetableForAttack() && !IsInBotParty(target) &&
++        target->isTargetableForAttack(false) && !IsInBotParty(target) &&
 +       ((me->CanSeeOrDetect(target) && target->InSamePhase(me)) || CanSeeEveryone()) &&
 +       (!master->IsAlive() || target->IsControlledByPlayer() ||
 +       (target->GetDistance(master) < foldist && me->GetDistance(master) < followdist)) &&//if master is killed pursue to the end
@@ -8004,7 +8058,7 @@ index 0000000..90feb68
 +
 +                    if (Unit* unit = ObjectAccessor::GetUnit(*veh, guid))
 +                    {
-+                        if (unit->IsVisible() && unit->isTargetableForAttack() && veh->IsValidAttackTarget(unit) &&
++                        if (unit->IsVisible() && unit->isTargetableForAttack(false) && veh->IsValidAttackTarget(unit) &&
 +                            unit->IsInCombat() && (CanSeeEveryone() || (veh->CanSeeOrDetect(unit) && unit->InSamePhase(veh))))
 +                        {
 +                            Unit* tempTar = tankTar ? tankTar : unit;
@@ -8036,7 +8090,7 @@ index 0000000..90feb68
 +
 +                    if (Unit* unit = ObjectAccessor::GetUnit(*veh, guid))
 +                    {
-+                        if (unit->IsVisible() && unit->isTargetableForAttack() && veh->IsValidAttackTarget(unit) &&
++                        if (unit->IsVisible() && unit->isTargetableForAttack(false) && veh->IsValidAttackTarget(unit) &&
 +                            unit->IsInCombat() && (CanSeeEveryone() || (veh->CanSeeOrDetect(unit) && unit->InSamePhase(veh))))
 +                            return unit;
 +                    }
@@ -8051,6 +8105,8 @@ index 0000000..90feb68
 +    if (mytar && mytar && mytar->GetTypeId() == TYPEID_UNIT &&
 +        mytar->ToCreature()->GetCreatureTemplate()->rank == CREATURE_ELITE_WORLDBOSS)
 +        followdist *= 1.5f;
++    else if (mmover->isMoving() && veh->GetMapId() == 578) //oculus
++        followdist *= 0.5f;
 +
 +    if (mytar && (veh->IsInCombat() || mytar->IsInCombat()) &&
 +        (!masterVeh || !mmover->IsAlive() || mmover->GetDistance(mytar) < followdist) && veh->IsValidAttackTarget(mytar))
@@ -8061,11 +8117,11 @@ index 0000000..90feb68
 +        if (followdist == 0 || veh->GetDistance(mmover) > followdist ||
 +            (mytar && mmover->GetDistance(mytar) > followdist / 2 && !mytar->IsWithinLOSInMap(veh)))
 +        {
-+            if (mytar)
-+            {
-+                TC_LOG_ERROR("scripts", "_getVehicleTarget %s's veh is too far from master - lost target (%.2f > %.2f)",
-+                    me->GetName().c_str(), veh->GetDistance(mmover), followdist);
-+            }
++            //if (mytar)
++            //{
++            //    TC_LOG_ERROR("scripts", "_getVehicleTarget %s's veh is too far from master - lost target (%.2f > %.2f)",
++            //        me->GetName().c_str(), veh->GetDistance(mmover), followdist);
++            //}
 +            return nullptr;
 +        }
 +    }
@@ -8118,7 +8174,7 @@ index 0000000..90feb68
 +
 +                    if (Unit* unit = ObjectAccessor::GetUnit(*me, guid))
 +                    {
-+                        if (unit->IsVisible() && unit->isTargetableForAttack() && me->IsValidAttackTarget(unit) &&
++                        if (unit->IsVisible() && unit->isTargetableForAttack(false) && me->IsValidAttackTarget(unit) &&
 +                            unit->IsInCombat() && (CanSeeEveryone() || (me->CanSeeOrDetect(unit) && unit->InSamePhase(me))))
 +                        {
 +                            //TC_LOG_ERROR("entities.unit", "_getTarget: %s found new tanking icon target %s", me->GetName().c_str(), unit->GetName().c_str());
@@ -8155,7 +8211,7 @@ index 0000000..90feb68
 +
 +                    if (Unit* unit = ObjectAccessor::GetUnit(*me, guid))
 +                    {
-+                        if (unit->IsVisible() && unit->isTargetableForAttack() && me->IsValidAttackTarget(unit) &&
++                        if (unit->IsVisible() && unit->isTargetableForAttack(false) && me->IsValidAttackTarget(unit) &&
 +                            unit->IsInCombat() && (CanSeeEveryone() || (me->CanSeeOrDetect(unit) && unit->InSamePhase(me))))
 +                        {
 +                            //TC_LOG_ERROR("entities.unit", "_getTarget: found dps icon target %s", unit->GetName().c_str());
@@ -9497,8 +9553,11 @@ index 0000000..90feb68
 +        info = sSpellMgr->GetSpellInfo(itr->second->spellId);
 +        if (info && itr->first == spellInfo->Id && info->GetCategory() != category)
 +        {
-+            TC_LOG_ERROR("scripts", "Warning: SetSpellCategoryCooldown: %u has baseId %u but category %u, not %u!",
-+                info->Id, itr->first, info->GetCategory(), category);
++            //if (itr->first != 7814) // Lash of Pain
++            {
++                TC_LOG_ERROR("scripts", "Warning: SetSpellCategoryCooldown: %u has baseId %u but category %u, not %u!",
++                    info->Id, itr->first, info->GetCategory(), category);
++            }
 +        }
 +        if (info && (info->GetCategory() == category || itr->first == spellInfo->Id) && itr->second->cooldown < msCooldown)
 +            itr->second->cooldown = msCooldown;
@@ -12993,7 +13052,7 @@ index 0000000..90feb68
 +        Rand() < 20 && !me->HasAuraType(SPELL_AURA_MOD_STEALTH) && !IsCasting())
 +    {
 +        Unit const* u = me->SelectNearestTarget(7);
-+        if (u && u->IsInCombat() && !CCed(u) && u->isTargetableForAttack() && IsInBotParty(u->GetVictim()) && me->IsWithinLOSInMap(u))
++        if (u && u->IsInCombat() && !CCed(u) && u->isTargetableForAttack(false) && IsInBotParty(u->GetVictim()) && me->IsWithinLOSInMap(u))
 +        {
 +            if (doCast(me, RACIAL_WARSTOMP))
 +                return;
@@ -17009,6 +17068,19 @@ index 0000000..90feb68
 +    }
 +}
 +//VEHICLES
++//helpers
++bool bot_ai::HasAuraTypeWithValueAtLeast(AuraType auratype, int32 minvalue, Unit const* unit) const
++{
++    if (!unit)
++        unit = me;
++
++    Unit::AuraEffectList const& mTotalAuraList = unit->GetAuraEffectsByType(auratype);
++    for (Unit::AuraEffectList::const_iterator i = mTotalAuraList.begin(); i != mTotalAuraList.end(); ++i)
++        if (minvalue >= (*i)->GetAmount())
++            return true;
++
++    return false;
++}
 +//strats - opponent is always valid
 +void bot_ai::DoSkytalonVehicleStrats(uint32 diff)
 +{
@@ -17016,6 +17088,9 @@ index 0000000..90feb68
 +        return;
 +
 +    GC_Timer = 350; //at least this delay
++
++    if (!CheckVehicleAttackTarget(curVehStrat))
++        return;
 +
 +    Creature* drake = me->GetVehicleCreatureBase();
 +    Unit* target = nullptr;
@@ -17025,16 +17100,17 @@ index 0000000..90feb68
 +    //finishers
 +    uint8 finishComboPoints;
 +    uint32 finishPower;
-+    if (GetHealthPCT(drake) < 50)
++    if (GetHealthPCT(drake) <= (40 + 40*drake->HasAuraType(SPELL_AURA_PERIODIC_DAMAGE)) ||
++        HasAuraTypeWithValueAtLeast(SPELL_AURA_PERIODIC_DAMAGE, drake->GetMaxHealth() / 16, drake))
 +    {
 +        finishComboPoints = 3;
 +        finishPower = 25;
 +    }
-+    if (HasRole(BOT_ROLE_HEAL))
-+    {
-+        finishComboPoints = 4;
-+        finishPower = 50;
-+    }
++    //if (HasRole(BOT_ROLE_HEAL))
++    //{
++    //    finishComboPoints = 4;
++    //    finishPower = 50;
++    //}
 +    else
 +    {
 +        finishComboPoints = 4;
@@ -17209,6 +17285,328 @@ index 0000000..90feb68
 +    drake->SetInFront(target);
 +    drake->CastSpell(target, drakespell);
 +}
++void bot_ai::DoRubyDrakeVehicleStrats(uint32 diff)
++{
++    if (GC_Timer > diff)
++        return;
++
++    GC_Timer = 350; //at least this delay
++
++    if (!CheckVehicleAttackTarget(curVehStrat))
++        return;
++
++    Creature* drake = me->GetVehicleCreatureBase();
++    Unit* target = nullptr;
++    uint32 drakespell = 0;
++
++    //IS TANK
++    //50232 Searing Wrath
++    //50241 Evasive Charges
++    //50240 Evasive Maneuvers
++    //50253 Martyr
++
++    Aura const* evas = drake->GetAura(50241); //Evasive Charges
++    uint8 vehicles = LivingVehiclesCount();
++    //bool eregos = opponent->GetEntry() == CREATURE_BOSS_EREGOS_N || opponent->GetEntry() == CREATURE_BOSS_EREGOS_H;
++
++    bool finalEncounter = master->GetInstanceScript() && master->GetInstanceScript()->GetBossState(2) == DONE; //DATA_UROM
++
++    if (vehicles > 1 && evas)
++    {
++        bool canManeuver = !drake->HasAuraType(SPELL_AURA_MOD_ATTACKER_SPELL_HIT_CHANCE) && evas->GetStackAmount() >= 5 &&
++            !drake->HasSpellCooldown(50240);
++        bool canMartyr = !drake->HasAuraType(SPELL_AURA_SPELL_MAGNET) &&
++            !drake->HasSpellCooldown(50253);
++
++        if ((!finalEncounter || canMartyr) && canManeuver)
++        {
++            drakespell = drake->m_spells[1]; //Evasive Maneuvers
++            target = drake;
++        }
++        else if (finalEncounter && canMartyr)
++        {
++            drakespell = drake->m_spells[2]; //Martyr
++            target = drake;
++        }
++    }
++    if (!target)
++    {
++        drakespell = drake->m_spells[0]; //Searing Wrath
++        target = opponent;
++    }
++
++    if (!target)
++        return;
++
++    if (!drakespell)
++    {
++        TC_LOG_ERROR("scripts", "DoRubyDrakeVehicleStrats no spell for target %s", target->GetName().c_str());
++        return;
++    }
++
++    SetBotCommandState(BOT_COMMAND_ATTACK);
++    drake->BotStopMovement();
++    drake->SetInFront(target);
++    drake->CastSpell(target, drakespell);
++}
++void bot_ai::DoEmeraldDrakeVehicleStrats(uint32 diff)
++{
++    if (GC_Timer > diff)
++        return;
++
++    GC_Timer = 350; //at least this delay
++
++    Creature* drake = me->GetVehicleCreatureBase();
++    Unit const* mmover = master->GetVehicle() ? master->GetVehicleBase() : master;
++    Unit* target = nullptr;
++    uint32 drakespell = 0;
++
++    //IS HEALER
++    //50328 Leeching Poison
++    //50341 Touch the Nightmare
++    //50344 Dream Funnel
++
++    uint8 drakeHpPct = GetHealthPCT(drake);
++
++    //canceling channel
++    if (IsCasting(drake))
++    {
++        bool interrupt = false;
++        if (drakeHpPct <= 30)
++            interrupt = true;
++        else if (mmover->isMoving() && drake->GetDistance(mmover) >= 75.f && !mmover->HasInArc(M_PI / 2, drake))
++            interrupt = true;
++        else if (Spell const* funnel = drake->GetCurrentSpell(CURRENT_CHANNELED_SPELL))
++            if (ObjectGuid guid = funnel->m_targets.GetUnitTargetGUID())
++                if (Unit const* tar = ObjectAccessor::GetUnit(*drake, guid))
++                    if (GetHealthPCT(tar) > 95)
++                        interrupt = true;
++
++        if (interrupt)
++            drake->InterruptNonMeleeSpells(false);
++        else
++            return;
++    }
++
++    if (!CheckVehicleAttackTarget(curVehStrat))
++        return;
++
++    Aura const* pois = opponent->GetAura(50328, drake->GetGUID()); //Leeching Poison
++    Aura const* rift = opponent->GetAura(49592); //Temporal Rift
++    uint8 vehicles = LivingVehiclesCount();
++    bool eregos = opponent->GetEntry() == CREATURE_BOSS_EREGOS_N || opponent->GetEntry() == CREATURE_BOSS_EREGOS_H;
++
++    bool finalEncounter = master->GetInstanceScript() && master->GetInstanceScript()->GetBossState(2) == DONE; //DATA_UROM
++    bool canheal = finalEncounter && vehicles > 1 && (!eregos || drake->GetDistance(mmover) < 30.f) &&
++        drakeHpPct >= (eregos ? 70 : 50) - (pois ? 5 * pois->GetStackAmount() : 0);
++
++    if (canheal && Rand() < 90)
++    {
++        drakespell = drake->m_spells[2]; //Dream Funnel
++        std::list<Unit*> targets1;
++        BotMap const* map;
++        Group const* gr = master->GetGroup();
++        if (gr)
++        {
++            bool Bots = false;
++            for (GroupReference const* itr = gr->GetFirstMember(); itr != nullptr; itr = itr->next())
++            {
++                Player const* p = itr->GetSource();
++                if (!p || me->GetMap() != p->FindMap()) continue;
++                if (p->HaveBot() && !Bots)
++                    Bots = true;
++                Unit* u = p->GetVehicleBase();
++                if (u && u->IsAlive() && !u->HasUnitState(UNIT_STATE_ISOLATED) && drake->GetDistance(u) < 60.f &&
++                    GetHealthPCT(u) <= (IsTank(p) ? 50 : 35) + (rift ? 15 : 0))
++                    targets1.push_back(u);
++            }
++            if (Bots)
++            {
++                for (GroupReference const* itr = gr->GetFirstMember(); itr != nullptr; itr = itr->next())
++                {
++                    Player const* p = itr->GetSource();
++                    if (!p || me->GetMap() != p->FindMap() || !p->HaveBot()) continue;
++
++                    map = p->GetBotMgr()->GetBotMap();
++                    for (BotMap::const_iterator itr = map->begin(); itr != map->end(); ++itr)
++                    {
++                        Unit* u = itr->second ? itr->second->GetVehicleBase() : nullptr;
++                        if (u && u != drake && u->IsAlive() && !u->HasUnitState(UNIT_STATE_ISOLATED) && drake->GetDistance(u) < 60.f &&
++                            GetHealthPCT(u) <= (IsTank(itr->second) ? 50 : 35) + (rift ? 15 : 0))
++                            targets1.push_back(u);
++                    }
++                }
++            }
++        }
++        else
++        {
++            map = master->GetBotMgr()->GetBotMap();
++            for (BotMap::const_iterator itr = map->begin(); itr != map->end(); ++itr)
++            {
++                Unit* u = itr->second ? itr->second->GetVehicleBase() : nullptr;
++                if (u && u != drake && u->IsAlive() && !u->HasUnitState(UNIT_STATE_ISOLATED) && drake->GetDistance(u) < 60.f &&
++                    GetHealthPCT(u) <= (IsTank(itr->second) ? 50 : 35) + (rift ? 15 : 0))
++                    targets1.push_back(u);
++            }
++        }
++
++        uint8 minhppct = 0;
++        for (std::list<Unit*>::const_iterator ci = targets1.begin(); ci != targets1.end(); ++ci)
++            if (uint8 hppct = GetHealthPCT(*ci))
++                if (minhppct == 0 || minhppct > hppct)
++                    minhppct = hppct;
++
++        if (minhppct <= 50)
++            targets1.remove_if(BOTAI_PRED::HpPctAboveExclude(float(minhppct + 20)));
++
++        if (!targets1.empty())
++            target = Trinity::Containers::SelectRandomContainerElement(targets1);
++    }
++    if (!target)
++    {
++        drakespell = drake->m_spells[1]; //Touch the Nightmare
++        if (!drake->HasSpellCooldown(drakespell))
++        {
++            if ((eregos && drakeHpPct >= ((opponent->GetHealth() < (rift ? 50000u : 25000u)) ? 31 : 80)) ||
++                (drakeHpPct >= 90 && Rand() < 50 && !opponent->HasAura(drakespell)))
++                target = opponent;
++        }
++    }
++    if (!target)
++    {
++        drakespell = drake->m_spells[0]; //Leeching Poison
++        if (!pois || pois->GetStackAmount() < 3 || pois->GetDuration() < 4000)
++            target = opponent;
++        else
++        {
++            //random target
++            std::list<Unit*> targets;
++            Trinity::AnyUnfriendlyUnitInObjectRangeCheck check(drake, drake, 60.f);
++            Trinity::UnitListSearcher <Trinity::AnyUnfriendlyUnitInObjectRangeCheck> searcher(drake, targets, check);
++            //drake->VisitNearbyObject(60.f, searcher);
++            Cell::VisitAllObjects(drake, searcher, 60.f);
++            targets.remove_if(BOTAI_PRED::UnitExclude(opponent));
++            targets.remove_if(BOTAI_PRED::UnitCombatStateExclude(false));
++            targets.remove_if(BOTAI_PRED::AuraedTargetExcludeByCaster(drakespell, drake->GetGUID(), 3));
++            targets.remove_if(BOTAI_PRED::AuraedTargetExclude(49836, 5)); //Shock Charge 1-shots
++
++            if (!targets.empty())
++                target = Trinity::Containers::SelectRandomContainerElement(targets);
++        }
++    }
++
++    if (!target)
++        return;
++
++    if (!drakespell)
++    {
++        TC_LOG_ERROR("scripts", "DoEmeraldDrakeVehicleStrats no spell for target %s", target->GetName().c_str());
++        return;
++    }
++
++    SetBotCommandState(BOT_COMMAND_ATTACK);
++    drake->BotStopMovement();
++    drake->SetInFront(target);
++    drake->CastSpell(target, drakespell);
++}
++void bot_ai::DoAmberDrakeVehicleStrats(uint32 diff)
++{
++    if (GC_Timer > diff)
++        return;
++
++    GC_Timer = 350; //at least this delay
++
++    if (!CheckVehicleAttackTarget(curVehStrat))
++        return;
++
++    Creature* drake = me->GetVehicleCreatureBase();
++    Unit const* mmover = master->GetVehicle() ? master->GetVehicleBase() : master;
++    Unit* target = nullptr;
++    uint32 drakespell = 0;
++
++    //IS DPS
++    //49840 Shock Lance
++    //49838 Stop Time
++    //49592 Temporal Rift
++    //49836 Shock Charge
++
++    Aura const* shoc = opponent->GetAura(49836, drake->GetGUID()); //Shock Charge
++
++    //canceling channel
++    if (IsCasting(drake))
++    {
++        bool interrupt = false;
++
++        if (mmover->isMoving() && drake->GetDistance(mmover) >= 60.f && !mmover->HasInArc(M_PI / 2, drake))
++            interrupt = true;
++        else if (shoc && shoc->GetStackAmount() >= 10)
++            interrupt = true;
++
++        if (interrupt)
++            drake->InterruptNonMeleeSpells(false);
++        else
++            return;
++    }
++
++    Aura const* rift = opponent->GetAura(49592); //Temporal Rift
++    uint8 vehicles = LivingVehiclesCount();
++    bool eregos = opponent->GetEntry() == CREATURE_BOSS_EREGOS_N || opponent->GetEntry() == CREATURE_BOSS_EREGOS_H;
++
++    bool finalEncounter = master->GetInstanceScript() && master->GetInstanceScript()->GetBossState(2) == DONE; //DATA_UROM
++
++    if (eregos && !drake->HasSpellCooldown(drake->m_spells[1]) && IsCasting(opponent) &&
++        opponent->HasAuraType(SPELL_AURA_MOD_CASTING_SPEED_NOT_STACK) && opponent->GetDiminishing(DIMINISHING_STUN) <= DIMINISHING_LEVEL_2)
++    {
++        drakespell = drake->m_spells[1]; //Stop Time
++        target = drake;
++    }
++    if (!target && shoc && shoc->GetStackAmount() >= 5)
++    {
++        drakespell = drake->m_spells[0]; //Shock Lance
++        if (eregos && shoc->GetStackAmount() >= 10 && (rift || shoc->GetDuration() < 25000 || Rand() < 30))
++            target = opponent;
++        else
++        {
++            //random 1-shot target
++            std::list<Unit*> targets;
++            Trinity::AnyUnfriendlyUnitInObjectRangeCheck check(drake, drake, 60.f);
++            Trinity::UnitListSearcher <Trinity::AnyUnfriendlyUnitInObjectRangeCheck> searcher(drake, targets, check);
++            //drake->VisitNearbyObject(60.f, searcher);
++            Cell::VisitAllObjects(drake, searcher, 60.f);
++            targets.remove_if(BOTAI_PRED::UnitExclude(opponent));
++
++            if (!targets.empty())
++                target = Trinity::Containers::SelectRandomContainerElement(targets);
++        }
++    }
++    if (!target)
++    {
++        if (finalEncounter && vehicles > 1)
++        {
++            drakespell = drake->m_spells[2]; //Temporal Rift
++            target = opponent;
++        }
++        else
++        {
++            drakespell = drake->m_spells[0]; //Shock Lance
++            target = opponent;
++        }
++    }
++
++    if (!target)
++        return;
++
++    if (!drakespell)
++    {
++        TC_LOG_ERROR("scripts", "DoAmberDrakeVehicleStrats no spell for target %s", target->GetName().c_str());
++        return;
++    }
++
++    SetBotCommandState(BOT_COMMAND_ATTACK);
++    drake->BotStopMovement();
++    drake->SetInFront(target);
++    drake->CastSpell(target, drakespell);
++}
 +void bot_ai::DoDemolisherVehicleStrats(uint32 diff)
 +{
 +}
@@ -17235,13 +17633,19 @@ index 0000000..90feb68
 +    //    return;
 +    //}
 +
-+    if (!CheckVehicleAttackTarget(strat))
-+        return;
-+
 +    switch (strat)
 +    {
 +        case BOT_VEH_STRAT_WYRMREST_SKYTALON:
 +            DoSkytalonVehicleStrats(diff);
++            break;
++        case BOT_VEH_STRAT_RUBY_DRAKE:
++            DoRubyDrakeVehicleStrats(diff);
++            break;
++        case BOT_VEH_STRAT_EMERALD_DRAKE:
++            DoEmeraldDrakeVehicleStrats(diff);
++            break;
++        case BOT_VEH_STRAT_AMBER_DRAKE:
++            DoAmberDrakeVehicleStrats(diff);
 +            break;
 +        case BOT_VEH_STRAT_ULDUAR_DEMOLISHER:
 +            DoDemolisherVehicleStrats(diff);
@@ -17274,6 +17678,15 @@ index 0000000..90feb68
 +        case CREATURE_EOE_SKYTALON_H:
 +            strat = BOT_VEH_STRAT_WYRMREST_SKYTALON;
 +            break;
++        case CREATURE_OCULUS_DRAKE_RUBY:
++            strat = BOT_VEH_STRAT_RUBY_DRAKE;
++            break;
++        case CREATURE_OCULUS_DRAKE_EMERALD:
++            strat = BOT_VEH_STRAT_EMERALD_DRAKE;
++            break;
++        case CREATURE_OCULUS_DRAKE_AMBER:
++            strat = BOT_VEH_STRAT_AMBER_DRAKE;
++            break;
 +        /*
 +        case CREATURE_ULDUAR_DEMOLISHER:
 +            strat = BOT_VEH_STRAT_ULDUAR_DEMOLISHER;
@@ -17287,8 +17700,10 @@ index 0000000..90feb68
 +            break;
 +        */
 +        default:
-+            TC_LOG_ERROR("scripts", "No vehicle strat for vehicle creature %s (%u)", me->GetVehicleBase()->GetName().c_str(), me->GetVehicleBase()->GetEntry());
 +            strat = BOT_VEH_STRAT_GENERIC;
++            if (curVehStrat != strat)
++                TC_LOG_ERROR("scripts", "bot_ai DoVehicleActions: %s has to use generic strat for vehicle creature %s (%u)",
++                me->GetName().c_str(), me->GetVehicleBase()->GetName().c_str(), me->GetVehicleBase()->GetEntry());
 +            break;
 +    }
 +
@@ -17337,6 +17752,9 @@ index 0000000..90feb68
 +            case CREATURE_NEXUS_SKYTALON_1:
 +            case CREATURE_EOE_SKYTALON_N:
 +            case CREATURE_EOE_SKYTALON_H:
++            case CREATURE_OCULUS_DRAKE_RUBY:
++            case CREATURE_OCULUS_DRAKE_EMERALD:
++            case CREATURE_OCULUS_DRAKE_AMBER:
 +            case CREATURE_ULDUAR_DEMOLISHER:
 +                switch (role)
 +                {
@@ -17361,6 +17779,9 @@ index 0000000..90feb68
 +            case CREATURE_NEXUS_SKYTALON_1:
 +            case CREATURE_EOE_SKYTALON_N:
 +            case CREATURE_EOE_SKYTALON_H:
++            case CREATURE_OCULUS_DRAKE_RUBY:
++            case CREATURE_OCULUS_DRAKE_EMERALD:
++            case CREATURE_OCULUS_DRAKE_AMBER:
 +                return 30.f;
 +            case CREATURE_ULDUAR_DEMOLISHER:
 +                return 40.f;
@@ -17370,6 +17791,21 @@ index 0000000..90feb68
 +    }
 +
 +    return 0.0f;
++}
++uint8 bot_ai::LivingVehiclesCount(uint32 entry) const
++{
++    if (IAmFree())
++        return 0;
++
++    uint8 count = 0;
++    if (master->GetVehicle())
++        ++count;
++    BotMap const* map = master->GetBotMgr()->GetBotMap();
++    for (BotMap::const_iterator itr = map->begin(); itr != map->end(); ++itr)
++        if (itr->second && itr->second->GetVehicle() && (!entry || entry == itr->second->GetVehicleBase()->GetEntry()))
++            ++count;
++
++    return count;
 +}
 +//GLOBAL UPDATE
 +//opponent unsafe
@@ -17424,9 +17860,12 @@ index 0000000..90feb68
 +                me->SetByteValue(UNIT_FIELD_BYTES_2, 1, master->GetByteValue(UNIT_FIELD_BYTES_2, 1));
 +
 +            //vehicle enter delayed
-+            if (master->IsInWorld() && me->IsAlive() && !HasBotCommandState(BOT_COMMAND_MASK_UNMOVING) &&
++            if (shouldEnterVehicle && master->IsInWorld() && me->IsAlive() &&/* !HasBotCommandState(BOT_COMMAND_MASK_UNMOVING) &&*/
 +                !me->GetVehicle() && master->GetVehicle() && !CCed(me, true) && !IsCasting())
-+                OnBotOwnerEnterVehicle(master->GetVehicle());
++            {
++                shouldEnterVehicle = false;
++                AfterBotOwnerEnterVehicle();
++            }
 +        }
 +    }
 +
@@ -18174,6 +18613,9 @@ index 0000000..90feb68
 +                case CREATURE_NEXUS_SKYTALON_1:
 +                case CREATURE_EOE_SKYTALON_N:
 +                case CREATURE_EOE_SKYTALON_H:
++                case CREATURE_OCULUS_DRAKE_RUBY:
++                case CREATURE_OCULUS_DRAKE_EMERALD:
++                case CREATURE_OCULUS_DRAKE_AMBER:
 +                    vehicle->GetBase()->SetCanFly(true);
 +                    vehicle->GetBase()->SetDisableGravity(true);
 +                    vehicle->GetBase()->m_movementInfo.SetMovementFlags(MOVEMENTFLAG_FLYING);
@@ -18185,13 +18627,13 @@ index 0000000..90feb68
 +
 +        if (Unit* oVeh = master->GetVehicleBase())
 +        {
-+            //Set hp and mana percent to avoid abuse
-+            vehicle->GetBase()->SetHealth(vehicle->GetBase()->GetMaxHealth() * oVeh->GetHealthPct() / 100.f + 0.5f);
-+            if (oVeh->GetPowerType() == POWER_MANA)
-+            {
-+                float mpPct = oVeh->GetPower(POWER_MANA) * 100.f / oVeh->GetMaxPower(POWER_MANA);
-+                vehicle->GetBase()->SetPower(POWER_MANA, vehicle->GetBase()->GetMaxPower(POWER_MANA) * mpPct / 100.f + 0.5f);
-+            }
++            ////Set hp and mana percent to avoid abuse
++            //vehicle->GetBase()->SetHealth(vehicle->GetBase()->GetMaxHealth() * oVeh->GetHealthPct() / 100.f + 0.5f);
++            //if (oVeh->GetPowerType() == POWER_MANA)
++            //{
++            //    float mpPct = oVeh->GetPower(POWER_MANA) * 100.f / oVeh->GetMaxPower(POWER_MANA);
++            //    vehicle->GetBase()->SetPower(POWER_MANA, vehicle->GetBase()->GetMaxPower(POWER_MANA) * mpPct / 100.f + 0.5f);
++            //}
 +            //speed
 +            if (vehicle->GetBase()->GetTypeId() == TYPEID_UNIT &&
 +                (vehicle->GetBase()->ToCreature()->GetCreatureTemplate()->Movement.Flight == CreatureFlightMovementType::CanFly))
@@ -18207,6 +18649,8 @@ index 0000000..90feb68
 +                vehicle->GetBase()->ApplySpellImmune(0, IMMUNITY_STATE, SPELL_AURA_MOD_MOUNTED_SPEED_NOT_STACK, true);
 +                vehicle->GetBase()->SetSpeed(MOVE_FLIGHT, oVeh->GetSpeedRate(MOVE_FLIGHT) * 1.17f);
 +                vehicle->GetBase()->SetSpeed(MOVE_RUN, oVeh->GetSpeedRate(MOVE_FLIGHT) * 1.17f);
++                vehicle->GetBase()->ApplySpellImmune(0, IMMUNITY_STATE, SPELL_AURA_MOD_DECREASE_SPEED, true);
++                vehicle->GetBase()->ApplySpellImmune(0, IMMUNITY_STATE, SPELL_AURA_MOD_SPEED_SLOW_ALL, true);
 +            }
 +        }
 +    }
@@ -18235,11 +18679,8 @@ index 0000000..90feb68
 +    }
 +}
 +
-+void bot_ai::OnBotOwnerEnterVehicle(Vehicle const* /*vehicle*/)
++void bot_ai::AfterBotOwnerEnterVehicle()
 +{
-+    if (CCed(me, true))
-+        return;
-+
 +    if (!me->GetVehicle() && master->GetVehicleCreatureBase() && master->GetVehicleCreatureBase()->m_spells[0] &&
 +        master->GetVehicle()->GetSeatForPassenger(master)->CanEnterOrExit() && master->GetVehicleBase()->IsControlledByPlayer())
 +    {
@@ -18268,6 +18709,16 @@ index 0000000..90feb68
 +            case CREATURE_EOE_SKYTALON_H:
 +                me->CastSpell(veh, 56071); //Ride Red Dragon Buddy
 +                break;
++            case CREATURE_OCULUS_DRAKE_RUBY:
++            case CREATURE_OCULUS_DRAKE_EMERALD:
++            case CREATURE_OCULUS_DRAKE_AMBER:
++            {
++                me->EnterVehicle(veh); //cannot cast ride spell (49464, 49346, 49460) due to targeting (TARGET_UNIT_NEARBY_ENTRY)
++                CastSpellExtraArgs args(true);
++                args.SetOriginalCaster(me->GetGUID());
++                veh->CastSpell(veh, 66667, args); //Gear Scaling
++                break;
++            }
 +            default:
 +                me->EnterVehicle(veh);
 +                break;
@@ -18278,8 +18729,14 @@ index 0000000..90feb68
 +    //TC_LOG_ERROR("scripts", "OnBotOwnerEnterVehicle: master not in vehicle or no veh found for bot %s!", me->GetName().c_str());
 +}
 +
-+void bot_ai::OnBotOwnerExitVehicle(Vehicle const* /*vehicle*/) const
++void bot_ai::OnBotOwnerEnterVehicle(Vehicle const* /*vehicle*/)
 +{
++    shouldEnterVehicle = true;
++}
++
++void bot_ai::OnBotOwnerExitVehicle(Vehicle const* /*vehicle*/)
++{
++    shouldEnterVehicle = false;
 +    /*
 +    if (me->GetVehicle())
 +    {
@@ -18316,12 +18773,13 @@ index 0000000..90feb68
 +    return vc;
 +}
 +
-+void bot_ai::ChooseVehicleForEncounter(Player const* owner, uint32 &creEntry, uint32 &vehEntry)
++void bot_ai::ChooseVehicleForEncounter(Player const* owner, uint32 &creEntry, uint32 &vehEntry) const
 +{
 +    Vehicle* mVeh = owner->GetVehicle();
 +    ASSERT_NODEBUGINFO(mVeh);
 +    ASSERT_NODEBUGINFO(mVeh->GetBase()->GetTypeId() == TYPEID_UNIT);
 +
++    vehEntry = 0; // will be chosen at creature spawn
 +    switch (mVeh->GetBase()->GetEntry())
 +    {
 +        //TODO
@@ -18333,10 +18791,23 @@ index 0000000..90feb68
 +        case CREATURE_ULDUAR_CHOPPER:
 +        case CREATURE_ULDUAR_CHOPPER1:
 +            creEntry = mVeh->GetBase()->GetEntry();
-+            vehEntry = 0; // will be chosen at creature spawn
++            break;
++        case CREATURE_OCULUS_DRAKE_RUBY:
++        case CREATURE_OCULUS_DRAKE_EMERALD:
++        case CREATURE_OCULUS_DRAKE_AMBER:
++            creEntry = (HasRole(BOT_ROLE_TANK)/* && mVeh->GetBase()->GetEntry() != CREATURE_OCULUS_DRAKE_RUBY*/) ? CREATURE_OCULUS_DRAKE_RUBY :
++                (HasRole(BOT_ROLE_HEAL)/* && mVeh->GetBase()->GetEntry() != CREATURE_OCULUS_DRAKE_EMERALD*/) ? CREATURE_OCULUS_DRAKE_EMERALD :
++                CREATURE_OCULUS_DRAKE_AMBER;
 +            break;
 +        default:
-+            TC_LOG_ERROR("scripts", "ChooseVehicleForEncounter: unhandled master vehicle %s (%u)",
++            if (mVeh->GetSeatForPassenger(owner)->Flags & VEHICLE_SEAT_FLAG_CAN_CONTROL)
++            {
++                //can use generic strat for that
++                creEntry = mVeh->GetBase()->GetEntry();
++                break;
++            }
++
++            TC_LOG_ERROR("scripts", "ChooseVehicleForEncounter: unhandled master vehicle creature %s (%u)",
 +                owner->GetVehicleBase()->GetName().c_str(), owner->GetVehicleBase()->GetEntry());
 +            return;
 +    }
@@ -19697,10 +20168,10 @@ index 0000000..90feb68
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..d4ea0c7
+index 0000000..d199d80
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,603 @@
+@@ -0,0 +1,611 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -19748,11 +20219,12 @@ index 0000000..d4ea0c7
 +
 +        virtual void OnBotEnterVehicle(Vehicle const* vehicle);
 +        virtual void OnBotExitVehicle(Vehicle const* vehicle);
++        virtual void AfterBotOwnerEnterVehicle();
 +        virtual void OnBotOwnerEnterVehicle(Vehicle const* /*vehicle*/);
-+        virtual void OnBotOwnerExitVehicle(Vehicle const* /*vehicle*/) const;
++        virtual void OnBotOwnerExitVehicle(Vehicle const* /*vehicle*/);
 +
 +        Unit* SpawnVehicle(uint32 creEntry, uint32 vehEntry);
-+        static void ChooseVehicleForEncounter(Player const* owner, uint32 &creEntry, uint32 &vehEntry);
++        void ChooseVehicleForEncounter(Player const* owner, uint32 &creEntry, uint32 &vehEntry) const;
 +
 +        static const std::string& LocalizedNpcText(Player const* forPlayer, uint32 textId);
 +
@@ -20087,16 +20559,22 @@ index 0000000..d4ea0c7
 +
 +        void ApplyItemBonuses(uint8 slot);
 +
++        bool HasAuraTypeWithValueAtLeast(AuraType auratype, int32 minvalue, Unit const* unit = NULL) const;
++
 +        void DoSkytalonVehicleStrats(uint32 diff);
++        void DoRubyDrakeVehicleStrats(uint32 diff);
++        void DoEmeraldDrakeVehicleStrats(uint32 diff);
++        void DoAmberDrakeVehicleStrats(uint32 diff);
 +        void DoDemolisherVehicleStrats(uint32 diff);
 +        void DoSiegeEngineVehicleStrats(uint32 diff);
 +        void DoChopperVehicleStrats(uint32 diff);
 +        void DoGenericVehicleStrats(uint32 diff);
 +        void DoVehicleStrats(BotVehicleStrats strat, uint32 diff);
 +        void DoVehicleActions(uint32 diff);
++        bool CheckVehicleAttackTarget(BotVehicleStrats /*strat*/);
 +        bool HasVehicleRoleOverride(uint32 role) const;
 +        float GetVehicleAttackDistanceOverride() const;
-+        bool CheckVehicleAttackTarget(BotVehicleStrats strat);
++        uint8 LivingVehiclesCount(uint32 entry = 0) const;
 +
 +        Player* master;
 +        Player* _prevRRobin;
@@ -20111,6 +20589,7 @@ index 0000000..d4ea0c7
 +
 +        BotVehicleStrats curVehStrat;
 +        uint8 vehcomboPoints;
++        bool shouldEnterVehicle;
 +
 +    private:
 +        void FindMaster();
@@ -47256,7 +47735,7 @@ index 0000000..620e6d5
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 0000000..4c03333
+index 0000000..8c482f6
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
 @@ -0,0 +1,1472 @@
@@ -47357,10 +47836,10 @@ index 0000000..4c03333
 +            { "cast",       HandleNpcBotOrderCastCommand,           PLAYER_COMMANDS, Console::No  },
 +        };
 +
-+        //static ChatCommand npcbotVehicleCommandTable[] =
-+        //{
-+        //    { "eject",      HandleNpcBotVehicleEjectCommand,        PLAYER_COMMANDS, Console::No  },
-+        //};
++        static ChatCommandTable npcbotVehicleCommandTable =
++        {
++            { "eject",      HandleNpcBotVehicleEjectCommand,        PLAYER_COMMANDS, Console::No  },
++        };
 +
 +        static ChatCommandTable npcbotCommandTable =
 +        {
@@ -47385,7 +47864,7 @@ index 0000000..4c03333
 +            { "suicide",    HandleNpcBotKillCommand,                PLAYER_COMMANDS, Console::No  },
 +            { "distance",   npcbotDistanceCommandTable                                            },
 +            { "order",      npcbotOrderCommandTable                                               },
-+            //{ "vehicle",    npcbotVehicleCommandTable                                             },
++            { "vehicle",    npcbotVehicleCommandTable                                             },
 +        };
 +
 +        static ChatCommandTable commandTable =
@@ -47608,63 +48087,63 @@ index 0000000..4c03333
 +        return true;
 +    }
 +
-+    //static bool HandleNpcBotVehicleEjectCommand(ChatHandler* handler, const char* /*args*/)
-+    //{
-+    //    Player const* owner = handler->GetSession()->GetPlayer();
-+    //    Unit const* target = handler->getSelectedUnit();
++    static bool HandleNpcBotVehicleEjectCommand(ChatHandler* handler, const char* /*args*/)
++    {
++        Player const* owner = handler->GetSession()->GetPlayer();
++        Unit const* target = handler->getSelectedUnit();
 +
-+    //    bool hasBotsInVehicles = false;
-+    //    bool botsInSelVehicle = 0;
-+    //    BotMap const* bmap;
-+    //    if (owner->HaveBot())
-+    //    {
-+    //        bmap = owner->GetBotMgr()->GetBotMap();
-+    //        for (BotMap::const_iterator ci = bmap->begin(); ci != bmap->end(); ++ci)
-+    //        {
-+    //            if (ci->second && ci->second->GetVehicle())
-+    //            {
-+    //                if (!hasBotsInVehicles)
-+    //                    hasBotsInVehicles = true;
-+    //                if (!botsInSelVehicle && target->IsVehicle() && target->GetVehicleKit()->GetSeatForPassenger(ci->second))
-+    //                    botsInSelVehicle = true;
-+    //            }
-+    //            if (hasBotsInVehicles && botsInSelVehicle)
-+    //                break;
-+    //        }
-+    //    }
++        bool hasBotsInVehicles = false;
++        bool botsInSelVehicle = 0;
++        BotMap const* bmap;
++        if (owner->HaveBot())
++        {
++            bmap = owner->GetBotMgr()->GetBotMap();
++            for (BotMap::const_iterator ci = bmap->begin(); ci != bmap->end(); ++ci)
++            {
++                if (ci->second && ci->second->GetVehicle())
++                {
++                    if (!hasBotsInVehicles)
++                        hasBotsInVehicles = true;
++                    if (!botsInSelVehicle && target && target->IsVehicle() && target->GetVehicleKit()->GetSeatForPassenger(ci->second))
++                        botsInSelVehicle = true;
++                }
++                if (hasBotsInVehicles && botsInSelVehicle)
++                    break;
++            }
++        }
 +
-+    //    if (hasBotsInVehicles)
-+    //    {
-+    //        for (BotMap::const_iterator ci = bmap->begin(); ci != bmap->end(); ++ci)
-+    //        {
-+    //            Creature* bot = ci->second;
-+    //            if (bot && bot->GetVehicle())
-+    //            {
-+    //                bool doeject = false;
-+    //                if (!botsInSelVehicle)
-+    //                    doeject = true;
-+    //                else if (target)
-+    //                    if (VehicleSeatEntry const* seat = target->GetVehicleKit()->GetSeatForPassenger(bot))
-+    //                        if (seat->CanEnterOrExit())
-+    //                            doeject = true;
++        if (hasBotsInVehicles)
++        {
++            for (BotMap::const_iterator ci = bmap->begin(); ci != bmap->end(); ++ci)
++            {
++                Creature* bot = ci->second;
++                if (bot && bot->GetVehicle())
++                {
++                    bool doeject = false;
++                    if (!botsInSelVehicle)
++                        doeject = true;
++                    else if (target)
++                        if (/*VehicleSeatEntry const* seat = */target->GetVehicleKit()->GetSeatForPassenger(bot))
++                            //if (seat->CanEnterOrExit())
++                                doeject = true;
 +
-+    //                if (doeject)
-+    //                {
-+    //                    bot->GetVehicle()->GetBase()->StopMoving();
-+    //                    //handler->PSendSysMessage("Removing %s from %s", bot->GetName().c_str(), bot->GetVehicle()->GetBase()->GetName().c_str());
-+    //                    bot->ExitVehicle();
-+    //                    bot->BotStopMovement();
-+    //                }
-+    //            }
-+    //        }
-+    //        return true;
-+    //    }
++                    if (doeject)
++                    {
++                        bot->GetVehicle()->GetBase()->StopMoving();
++                        //handler->PSendSysMessage("Removing %s from %s", bot->GetName().c_str(), bot->GetVehicle()->GetBase()->GetName().c_str());
++                        bot->ExitVehicle();
++                        //bot->BotStopMovement();
++                    }
++                }
++            }
++            return true;
++        }
 +
-+    //    handler->SendSysMessage(".npcbot eject");
-+    //    handler->SendSysMessage("Removes your bots from selected vehicle, or, all bots from any vehicles if no vehicle selected");
-+    //    handler->SetSentErrorMessage(true);
-+    //    return false;
-+    //}
++        handler->SendSysMessage(".npcbot eject");
++        handler->SendSysMessage("Removes your bots from selected vehicle, or, all bots from any vehicles if no vehicle selected");
++        handler->SetSentErrorMessage(true);
++        return false;
++    }
 +
 +    static bool HandleNpcBotFollowDistanceCommand(ChatHandler* handler, const char* args)
 +    {
@@ -48734,10 +49213,10 @@ index 0000000..4c03333
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommon.h b/src/server/game/AI/NpcBots/botcommon.h
 new file mode 100644
-index 0000000..42f8ecd
+index 0000000..50e13c1
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommon.h
-@@ -0,0 +1,1059 @@
+@@ -0,0 +1,1068 @@
 +#ifndef _BOTCOMMON_H
 +#define _BOTCOMMON_H
 +
@@ -49279,13 +49758,19 @@ index 0000000..42f8ecd
 +    BOT_TEXT_EXIT_VEHICLE               = 70643, //"<Exit Vehicle>"
 +    //70641-70799 reserved for custom localization strings
 +//VEHICLE CREATURES
-+    CREATURE_NEXUS_SKYTALON_1           = 32535,
-+    CREATURE_EOE_SKYTALON_N             = 30161,
++    CREATURE_NEXUS_SKYTALON_1           = 32535, // [Q] Aces High
++    CREATURE_EOE_SKYTALON_N             = 30161, // Eye of Eternity
 +    CREATURE_EOE_SKYTALON_H             = 31752,
-+    CREATURE_ULDUAR_DEMOLISHER          = 33109,
++    CREATURE_OCULUS_DRAKE_RUBY          = 27756, // Oculus
++    CREATURE_OCULUS_DRAKE_EMERALD       = 27692,
++    CREATURE_OCULUS_DRAKE_AMBER         = 27755,
++    CREATURE_ULDUAR_DEMOLISHER          = 33109, // Ulduar
 +    CREATURE_ULDUAR_SIEGE_ENGINE        = 33060,
 +    CREATURE_ULDUAR_CHOPPER             = 33062,
 +    CREATURE_ULDUAR_CHOPPER1            = 34045,
++//COMMON ENEMY CREATURES
++    CREATURE_BOSS_EREGOS_N              = 27656,
++    CREATURE_BOSS_EREGOS_H              = 31561,
 +//COMMON NPCS
 +    SHAMAN_EARTH_ELEMENTAL              = 15352,
 +    SHAMAN_FIRE_ELEMENTAL               = 15438,
@@ -49787,6 +50272,9 @@ index 0000000..42f8ecd
 +{
 +    BOT_VEH_STRAT_NONE,
 +    BOT_VEH_STRAT_WYRMREST_SKYTALON,
++    BOT_VEH_STRAT_RUBY_DRAKE,
++    BOT_VEH_STRAT_EMERALD_DRAKE,
++    BOT_VEH_STRAT_AMBER_DRAKE,
 +    BOT_VEH_STRAT_ULDUAR_DEMOLISHER,
 +    BOT_VEH_STRAT_ULDUAR_SIEGEENGINE,
 +    BOT_VEH_STRAT_ULDUAR_CHOPPER,
@@ -49794,7 +50282,7 @@ index 0000000..42f8ecd
 +    BOT_VEH_STRAT_GENERIC
 +};
 +
-+//#define MAX_BOT_VEH_STRAT 6
++//#define MAX_BOT_VEH_STRAT 9
 +
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.cpp b/src/server/game/AI/NpcBots/botdatamgr.cpp
@@ -52430,10 +52918,10 @@ index 0000000..4252c13
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bpet_ai.cpp b/src/server/game/AI/NpcBots/bpet_ai.cpp
 new file mode 100644
-index 0000000..58bc2fa
+index 0000000..b715697
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_ai.cpp
-@@ -0,0 +1,2271 @@
+@@ -0,0 +1,2274 @@
 +#include "bpet_ai.h"
 +#include "bot_GridNotifiers.h"
 +#include "botmgr.h"
@@ -54164,8 +54652,11 @@ index 0000000..58bc2fa
 +        info = sSpellMgr->GetSpellInfo(itr->second->spellId);
 +        if (info && itr->first == spellInfo->Id && info->GetCategory() != category)
 +        {
-+            TC_LOG_ERROR("scripts", "Warning: SetSpellCategoryCooldown: %u has baseId %u but category %u, not %u!",
-+                info->Id, itr->first, info->GetCategory(), category);
++            if (itr->first != 7814) // Lash of Pain
++            {
++                TC_LOG_ERROR("scripts", "Warning: SetSpellCategoryCooldown: %u has baseId %u but category %u, not %u!",
++                    info->Id, itr->first, info->GetCategory(), category);
++            }
 +        }
 +
 +        if (info && (info->GetCategory() == category || itr->first == spellInfo->Id) && itr->second->cooldown < msCooldown)
@@ -62005,7 +62496,7 @@ index 68025cf..9caee6b 100644
              // Mutilate (for each hand)
              else if (m_spellInfo->SpellFamilyFlags[1] & 0x6)
 diff --git a/src/server/game/Spells/SpellInfo.cpp b/src/server/game/Spells/SpellInfo.cpp
-index a36e4c7..d255941 100644
+index a36e4c7..777ca26 100644
 --- a/src/server/game/Spells/SpellInfo.cpp
 +++ b/src/server/game/Spells/SpellInfo.cpp
 @@ -31,6 +31,10 @@
@@ -62019,15 +62510,23 @@ index a36e4c7..d255941 100644
  uint32 GetTargetFlagMask(SpellTargetObjectTypes objType)
  {
      switch (objType)
-@@ -439,6 +443,23 @@ int32 SpellEffectInfo::CalcValue(WorldObject const* caster /*= nullptr*/, int32
+@@ -439,9 +443,38 @@ int32 SpellEffectInfo::CalcValue(WorldObject const* caster /*= nullptr*/, int32
      // random damage
      if (casterUnit)
      {
++        //npcbot: Life Burst heal tempfix 2013
++        float pointsPerComboPoint = PointsPerComboPoint;
++        if (_spellInfo->Id == 57143 && _effIndex == 1)
++        {
++            basePoints = 2500;
++            value = float(basePoints);
++            pointsPerComboPoint = 2500.f;
++        }
 +        //npcbot: bonus amount from combo points and specific mods
 +        if (casterUnit->GetTypeId() == TYPEID_UNIT && casterUnit->ToCreature()->IsNPCBot())
 +        {
 +            if (uint8 comboPoints = casterUnit->ToCreature()->GetCreatureComboPoints())
-+                value += PointsPerComboPoint * comboPoints;
++                value += pointsPerComboPoint * comboPoints;
 +        }
 +        //npcbot: bonus amount from combo points (vehicle)
 +        else if (casterUnit->IsVehicle() && casterUnit->GetTypeId() == TYPEID_UNIT && casterUnit->GetCharmerGUID().IsCreature() &&
@@ -62036,14 +62535,21 @@ index a36e4c7..d255941 100644
 +            Unit const* bot = casterUnit->GetCharmer();
 +            if (bot && bot->ToCreature()->IsNPCBot())
 +                if (uint8 comboPoints = bot->ToCreature()->GetCreatureComboPoints())
-+                    value += PointsPerComboPoint * comboPoints;
++                    value += pointsPerComboPoint * comboPoints;
 +        }
-+        else
++        //npcbot: bonus amount from combo points
++        else if (uint8 comboPoints = casterUnit->GetComboPoints())
++            value += pointsPerComboPoint * comboPoints;
 +        //end npcbot
++        /*
          // bonus amount from combo points
          if (uint8 comboPoints = casterUnit->GetComboPoints())
              value += PointsPerComboPoint * comboPoints;
-@@ -551,6 +572,11 @@ float SpellEffectInfo::CalcRadius(WorldObject* caster /*= nullptr*/, Spell* spel
++        */
+     }
+ 
+     if (caster)
+@@ -551,6 +584,11 @@ float SpellEffectInfo::CalcRadius(WorldObject* caster /*= nullptr*/, Spell* spel
  
          if (Player* modOwner = caster->GetSpellModOwner())
              modOwner->ApplySpellMod(_spellInfo->Id, SPELLMOD_RADIUS, radius, spell);
@@ -62055,7 +62561,7 @@ index a36e4c7..d255941 100644
      }
  
      return radius;
-@@ -3214,6 +3240,11 @@ int32 SpellInfo::CalcPowerCost(WorldObject const* caster, SpellSchoolMask school
+@@ -3214,6 +3252,11 @@ int32 SpellInfo::CalcPowerCost(WorldObject const* caster, SpellSchoolMask school
          }
      }
  
