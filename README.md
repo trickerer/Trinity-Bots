@@ -1,10 +1,10 @@
 ### This mod was last updated:
-### last version: 23 Dec 2020, TrinityCore revision: [9ae23ef2fd](https://github.com/TrinityCore/TrinityCore/commit/9ae23ef2fd)
+### last version: 19 Jan 2021, TrinityCore revision: [4c0a8ad3b3](https://github.com/TrinityCore/TrinityCore/commit/4c0a8ad3b3)
 ### 2013 version: 12 Dec 2013. TrinityCore revision: [385e2dba37](https://github.com/TrinityCore/TrinityCore/commit/385e2dba37)
 
 # [ THE NPCBOTS MANUAL ]
 >Compiled by: Trickerer (onlysuffering @ Gmail dot Com)  
->Version 0.12 - 06 Jan 2021  
+>Version 0.13 - 20 Jan 2021  
 >Original version by: Thesawolf (@ Gmail dot Com) Version 0.3 - 20 July 2016 [here](https://github.com/thesawolf/TrinityCore/blob/TrinityCoreLegacy/README_Bots.md)
 
 ---------------------------------------
@@ -25,6 +25,7 @@
         - [NPCBot Grouping](#npcbot-grouping)
             - [Raid Group Frames](#raid-group-frames)
         - [NPCBot Extras](#npcbot-extras)
+        - [NPCBots and Vehicles](#npcbots-and-vehicles)
     - [NPCBot Config Settings](#npcbot-config-settings)
     - [NPCBot Mod Localization](#npcbot-mod-localization)
     - [NPCBot Extra Classes](#npcbot-extra-classes)
@@ -489,6 +490,16 @@ To see your NPCBots in raid you can use one of these:
 [HealBot 3.3.5.4](https://www.curseforge.com/wow/addons/heal-bot-continued/files/456315) (only unit frames, mostly for healing but configurable)  
 [OrlanHeal 1.1](https://www.curseforge.com/wow/addons/orlanheal-discontinued/files/451226) (same as HealBot but minimalistic)  
 
+#### NPCBots and Vehicles
+NPCBots will always try to use vehicles when player does. With random vehicle types bots will simply copy player actions, but for the essential vehicles bots will use their own tactics. Here is the list:
+```
+Wyrmrest Skytalon (Eye of Eternity)
+Ruby Drake (Oculus)
+Emerald Drake (Oculus)
+Amber Drake (Oculus)
+Argent Warhorse / Battleworg (Trial of the Champion)
+```
+
 #### NPCBot Extras
 Depending upon the class of the NPCBot, there may be extra options found in the Gossip menu for that NPCBot
 
@@ -727,6 +738,8 @@ Bots are being added to world at server loading (after Map System is started)
 ---------------------------------------
 ## Guide Changelog
 
+- **Version 0.13** (_20 Jan 2021_)
+    - Added info on vehicles
 - **Version 0.12** (_06 Jan 2021_)
     - Added info on autoloot
 - **Version 0.11** (_07 Nov 2020_)
