@@ -2,9 +2,12 @@
 ### last version: 19 Jan 2021, TrinityCore revision: [4c0a8ad3b3](https://github.com/TrinityCore/TrinityCore/commit/4c0a8ad3b3)
 ### 2013 version: 12 Dec 2013. TrinityCore revision: [385e2dba37](https://github.com/TrinityCore/TrinityCore/commit/385e2dba37)
 
+### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
+### Make your support tangible: [Donate](https://paypal.me/trickerer)
+
 # [ THE NPCBOTS MANUAL ]
 >Compiled by: Trickerer (onlysuffering @ Gmail dot Com)  
->Version 0.13 - 20 Jan 2021  
+>Version 0.14 - 23 Jan 2021  
 >Original version by: Thesawolf (@ Gmail dot Com) Version 0.3 - 20 July 2016 [here](https://github.com/thesawolf/TrinityCore/blob/TrinityCoreLegacy/README_Bots.md)
 
 ---------------------------------------
@@ -102,6 +105,7 @@ Most NPCBot commands are divised by persmissions into two groups: player command
 ```
 KEY:
 < > (less/greater than) indicates infon or action you need for the command, can be left out to list info  
+[ ] (square brackets) indicates optional command parameter  
  |  (pipe character) indicates parameter options (i.e. this|that  = this OR that)  
  -- (two dashes) indicates information follows about the command  
 _TARGET_ indicates that command is used on a selected unit  
@@ -182,11 +186,11 @@ _TARGET_ indicates that command is used on a selected unit
         - stopfully, stop = IDLE mode  
     - _TARGET_ = selected (your) NPCBot (command affects this NPCBot)  
     - _TARGET_ = any other unit or no selection (command affects all your NPCBots)  
-        **Example Usage:**  
-            - `.npcbot command standstill` (NPCBot stops moving and will hold position)  
-            - `.npcb c sta` (same as above)  
-            - `.npcbot command stopfully` (NPCBot will interrupt all actions, stop and not react to anything)  
-            - `.npcbot command follow` (NPCBot will follow you if not already)  
+    **Example Usage:**  
+        - `.npcbot command standstill` (NPCBot stops moving and will hold position)  
+        - `.npcb c sta` (same as above)  
+        - `.npcbot command stopfully` (NPCBot will interrupt all actions, stop and not react to anything)  
+        - `.npcbot command follow` (NPCBot will follow you if not already)  
 - **`info _TARGET_`** -- (Player command) shows info on owned bots  
     - _TARGET_ = selected grouped player or self (shows you info on that player)  
     **Example Usage:**  
@@ -231,6 +235,21 @@ _TARGET_ indicates that command is used on a selected unit
     **Example Usage:**  
         - `.npcbot distance 75`  
         - `.npcbot distance attack 20`  
+- **`vehicle eject`** -- (Player command) allows you to kick your NPCBots out of vehicles (bots won't dismount from vehicles automatically while in combat)  
+    **Example Usage:**  
+        - `.npcbot vehicle eject`  
+        - `.npcb veh e`  
+- **`dump`** -- (Admin command) allows you to migrate bots data, similar to `pdump` for players (by itself will display list of subcommands)  
+    - **`write <FILENAME>`** -- creates a backup file containing info required to move bots to another DB  
+        - FILENAME = name of the file to create, will be saved in server root folder (Windows) or home directory (Linux), if file extension is not provided, **.sql** wil be ommited  
+        **Example Usage:**  
+            - `.npcbot dump write bots_backup` (write to `bots_backup.sql`)  
+            - `.npcb du w 1.txt` (write to `1.txt`)  
+    - **`load <FILENAME> [#kick_players]`** -- load NPCBots info from a backup file into DB. Requires no players to be playing (use console) and will force a server restart after completion. If `kick_players` parameter is provided, all players will be kicked from server automatically. NPCBots mod must be already installed (all tables present)  
+        - FILENAME = your backup file name, must be stored in server root folder (Windows) or home directory (Linux), if file extension is not provided, **.sql** wil be ommited  
+        **Example Usage:**  
+            - `.npcbot dump load bots_backup` (load from `bots_backup.sql`)  
+            - `.npcb du l 1.txt` (load from `1.txt`)  
 
 ### NPCBot Control and Usage
 #### NPCBot Getting started
@@ -499,6 +518,7 @@ Emerald Drake (Oculus)
 Amber Drake (Oculus)
 Argent Warhorse / Battleworg (Trial of the Champion)
 ```
+Note: NPCBots do not dismount from vehicles automatically while in combat. Use `.npcbot vehicle eject` command to force them out of their vehicles.
 
 #### NPCBot Extras
 Depending upon the class of the NPCBot, there may be extra options found in the Gossip menu for that NPCBot
@@ -717,7 +737,7 @@ NPCBot data is stored in the following locations:
     - `characters_npcbot` (created by this mod) contains all information about spawned npcbots  
     Also writes into:
         - `item_instance` (item owner assignment)
-- `world` Database (stores information in the following tables)
+- `world` DB
     - `creature_template` (ids 70000-71000) contains creature base data for bots
     - `creature_equip_template` (ids 70000-71000) contains bots' standard weapons info
     - `npc_text` (ids 70000-71000) custom text for bots' gossip and class descriptions
@@ -738,6 +758,8 @@ Bots are being added to world at server loading (after Map System is started)
 ---------------------------------------
 ## Guide Changelog
 
+- **Version 0.14** (_23 Jan 2021_)
+    - Added info on vehicle and dump commands
 - **Version 0.13** (_20 Jan 2021_)
     - Added info on vehicles
 - **Version 0.12** (_06 Jan 2021_)
