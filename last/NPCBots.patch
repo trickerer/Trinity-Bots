@@ -1,6 +1,6 @@
-From cda22bb078b522598c09cbc433971e1d55922036 Mon Sep 17 00:00:00 2001
+From 6e23d3e73563b867b87b423279755381cc2f8dec Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Sat, 23 Jan 2021 22:32:45 +0700
+Date: Sun, 24 Jan 2021 14:20:45 +0700
 Subject: [PATCH] NPCBots
 
 ---
@@ -15,6 +15,7 @@ Subject: [PATCH] NPCBots
  .../2020_06_21_characters_npcbot_43fceb98.sql      |   172 +
  ...8_characters_npcbot_NPCBots_4.7.34a-4.7.39a.sql |     1 +
  .../characters/2021_01_04_characters_npcbot.sql    |     1 +
+ .../2021_01_24_characters_npcbot_stats.sql         |    32 +
  .../2020_07_08_creature_template_npcbot_extras.sql |     2 +
  .../updates/world/2020_09_25_creature_template.sql |     2 +
  .../world/2020_10_14_creature_classlevelstats.sql  |   611 +
@@ -26,12 +27,12 @@ Subject: [PATCH] NPCBots
  sql/Bots/updates/world/2021_01_05_npc_text.sql     |    12 +
  sql/Bots/updates/world/2021_01_08_npc_text.sql     |     8 +
  src/common/Utilities/EventProcessor.h              |     1 +
- .../Database/Implementation/CharacterDatabase.cpp  |    15 +
- .../Database/Implementation/CharacterDatabase.h    |    13 +
+ .../Database/Implementation/CharacterDatabase.cpp  |    18 +
+ .../Database/Implementation/CharacterDatabase.h    |    14 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1299 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 15653 +++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |   612 +
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 15689 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |   614 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   398 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   936 ++
  src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp  |   620 +
@@ -50,8 +51,8 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2248 +++
  src/server/game/AI/NpcBots/botcommands.cpp         |  1580 ++
  src/server/game/AI/NpcBots/botcommon.h             |  1081 ++
- src/server/game/AI/NpcBots/botdatamgr.cpp          |   468 +
- src/server/game/AI/NpcBots/botdatamgr.h            |    93 +
+ src/server/game/AI/NpcBots/botdatamgr.cpp          |   519 +
+ src/server/game/AI/NpcBots/botdatamgr.h            |   128 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   131 +
  src/server/game/AI/NpcBots/botdpstracker.h         |    36 +
  src/server/game/AI/NpcBots/botdump.cpp             |   951 ++
@@ -127,7 +128,7 @@ Subject: [PATCH] NPCBots
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   250 +
- 123 files changed, 62284 insertions(+), 21 deletions(-)
+ 124 files changed, 62444 insertions(+), 21 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -139,6 +140,7 @@ Subject: [PATCH] NPCBots
  create mode 100644 sql/Bots/updates/characters/2020_06_21_characters_npcbot_43fceb98.sql
  create mode 100644 sql/Bots/updates/characters/2020_10_08_characters_npcbot_NPCBots_4.7.34a-4.7.39a.sql
  create mode 100644 sql/Bots/updates/characters/2021_01_04_characters_npcbot.sql
+ create mode 100644 sql/Bots/updates/characters/2021_01_24_characters_npcbot_stats.sql
  create mode 100644 sql/Bots/updates/world/2020_07_08_creature_template_npcbot_extras.sql
  create mode 100644 sql/Bots/updates/world/2020_09_25_creature_template.sql
  create mode 100644 sql/Bots/updates/world/2020_10_14_creature_classlevelstats.sql
@@ -2190,6 +2192,44 @@ index 0000000..d553cc8
 +++ b/sql/Bots/updates/characters/2021_01_04_characters_npcbot.sql
 @@ -0,0 +1 @@
 +ALTER TABLE `characters_npcbot` MODIFY COLUMN `roles` int(10) unsigned NOT NULL COMMENT 'bitmask: tank(1),dps(2),heal(4),ranged(8)';
+diff --git a/sql/Bots/updates/characters/2021_01_24_characters_npcbot_stats.sql b/sql/Bots/updates/characters/2021_01_24_characters_npcbot_stats.sql
+new file mode 100644
+index 0000000..4bad365
+--- /dev/null
++++ b/sql/Bots/updates/characters/2021_01_24_characters_npcbot_stats.sql
+@@ -0,0 +1,32 @@
++DROP TABLE IF EXISTS `characters_npcbot_stats`;
++
++CREATE TABLE `characters_npcbot_stats` (
++  `entry` int(10) unsigned NOT NULL DEFAULT '0',
++  `maxhealth` int(10) unsigned NOT NULL DEFAULT '0',
++  `maxpower` int(10) unsigned NOT NULL DEFAULT '0',
++  `strength` int(10) unsigned NOT NULL DEFAULT '0',
++  `agility` int(10) unsigned NOT NULL DEFAULT '0',
++  `stamina` int(10) unsigned NOT NULL DEFAULT '0',
++  `intellect` int(10) unsigned NOT NULL DEFAULT '0',
++  `spirit` int(10) unsigned NOT NULL DEFAULT '0',
++  `armor` int(10) unsigned NOT NULL DEFAULT '0',
++  `defense` int(10) unsigned NOT NULL DEFAULT '0',
++  `resHoly` int(10) unsigned NOT NULL DEFAULT '0',
++  `resFire` int(10) unsigned NOT NULL DEFAULT '0',
++  `resNature` int(10) unsigned NOT NULL DEFAULT '0',
++  `resFrost` int(10) unsigned NOT NULL DEFAULT '0',
++  `resShadow` int(10) unsigned NOT NULL DEFAULT '0',
++  `resArcane` int(10) unsigned NOT NULL DEFAULT '0',
++  `blockPct` float unsigned NOT NULL DEFAULT '0',
++  `dodgePct` float unsigned NOT NULL DEFAULT '0',
++  `parryPct` float unsigned NOT NULL DEFAULT '0',
++  `critPct` float unsigned NOT NULL DEFAULT '0',
++  `attackPower` int(10) unsigned NOT NULL DEFAULT '0',
++  `spellPower` int(10) unsigned NOT NULL DEFAULT '0',
++  `spellPen` int(10) unsigned NOT NULL DEFAULT '0',
++  `hastePct` float unsigned NOT NULL DEFAULT '0',
++  `hitBonusPct` float unsigned NOT NULL DEFAULT '0',
++  `expertise` int(10) unsigned NOT NULL DEFAULT '0',
++  `armorPenPct` float unsigned NOT NULL DEFAULT '0',
++  PRIMARY KEY (`entry`)
++) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 diff --git a/sql/Bots/updates/world/2020_07_08_creature_template_npcbot_extras.sql b/sql/Bots/updates/world/2020_07_08_creature_template_npcbot_extras.sql
 new file mode 100644
 index 0000000..2e67192
@@ -3299,10 +3339,10 @@ index 2bf6821..0b8261e 100644
      private:
          void SetAborted();
 diff --git a/src/server/database/Database/Implementation/CharacterDatabase.cpp b/src/server/database/Database/Implementation/CharacterDatabase.cpp
-index 75e2895..19c01f5 100644
+index 75e2895..2cd4417 100644
 --- a/src/server/database/Database/Implementation/CharacterDatabase.cpp
 +++ b/src/server/database/Database/Implementation/CharacterDatabase.cpp
-@@ -594,6 +594,21 @@ void CharacterDatabaseConnection::DoPrepareStatements()
+@@ -594,6 +594,24 @@ void CharacterDatabaseConnection::DoPrepareStatements()
  
      // DeserterTracker
      PrepareStatement(CHAR_INS_DESERTER_TRACK, "INSERT INTO battleground_deserters (guid, type, datetime) VALUES (?, ?, NOW())", CONNECTION_ASYNC);
@@ -3320,15 +3360,18 @@ index 75e2895..19c01f5 100644
 +    PrepareStatement(CHAR_UPD_NPCBOT_FACTION, "UPDATE characters_npcbot SET faction = ? WHERE entry = ?", CONNECTION_ASYNC);
 +    PrepareStatement(CHAR_UPD_NPCBOT_SPEC, "UPDATE characters_npcbot SET spec = ? WHERE entry = ?", CONNECTION_ASYNC);
 +    PrepareStatement(CHAR_UPD_NPCBOT_DISABLED_SPELLS, "UPDATE characters_npcbot SET spells_disabled = ? WHERE entry = ?", CONNECTION_ASYNC);
++    PrepareStatement(CHAR_REP_NPCBOT_STATS, "REPLACE INTO characters_npcbot_stats "
++        "(entry, maxhealth, maxpower, strength, agility, stamina, intellect, spirit, armor, defense, resHoly, resFire, resNature, resFrost, resShadow, resArcane, blockPct, dodgePct, parryPct, critPct, attackPower, spellPower, spellPen, hastePct, hitBonusPct, expertise, armorPenPct) VALUES "
++        "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", CONNECTION_ASYNC);
 +    // End NPCBots
  }
  
  CharacterDatabaseConnection::CharacterDatabaseConnection(MySQLConnectionInfo& connInfo) : MySQLConnection(connInfo)
 diff --git a/src/server/database/Database/Implementation/CharacterDatabase.h b/src/server/database/Database/Implementation/CharacterDatabase.h
-index 7404a61..f285d30 100644
+index 7404a61..5007f6d 100644
 --- a/src/server/database/Database/Implementation/CharacterDatabase.h
 +++ b/src/server/database/Database/Implementation/CharacterDatabase.h
-@@ -510,6 +510,19 @@ enum CharacterDatabaseStatements : uint32
+@@ -510,6 +510,20 @@ enum CharacterDatabaseStatements : uint32
  
      CHAR_INS_DESERTER_TRACK,
  
@@ -3343,6 +3386,7 @@ index 7404a61..f285d30 100644
 +    CHAR_UPD_NPCBOT_FACTION,
 +    CHAR_UPD_NPCBOT_SPEC,
 +    CHAR_UPD_NPCBOT_DISABLED_SPELLS,
++    CHAR_REP_NPCBOT_STATS,
 +    // End NPCBot
 +
      MAX_CHARACTERDATABASE_STATEMENTS
@@ -4714,10 +4758,10 @@ index 0000000..95e1547
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..ebaf15f
+index 0000000..09290a5
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,15653 @@
+@@ -0,0 +1,15689 @@
 +#include "bot_ai.h"
 +//#include "botcommon.h"
 +#include "bot_Events.h"
@@ -5212,6 +5256,8 @@ index 0000000..ebaf15f
 +        _ownerGuid = 0;
 +    if (resetType == BOTAI_RESET_INIT)
 +        CheckOwnerExpiry();
++    if (resetType == BOTAI_RESET_LOGOUT)
++        _saveStats();
 +
 +    (const_cast<CreatureTemplate*>(me->GetCreatureTemplate()))->unit_flags2 |= (UNIT_FLAG2_ALLOW_ENEMY_INTERACT);
 +    me->SetUInt32Value(UNIT_FIELD_FLAGS_2, me->GetCreatureTemplate()->unit_flags2);
@@ -15396,6 +15442,40 @@ index 0000000..ebaf15f
 +    return classRating->Data / Rating->Data;
 +}
 +
++void bot_ai::_saveStats()
++{
++    NpcBotStats stats;
++    stats.entry = me->GetEntry();
++    stats.maxhealth = me->GetMaxHealth();
++    stats.maxpower = me->GetMaxPower(_botclass == BOT_CLASS_DRUID ? POWER_MANA : me->GetPowerType());
++    stats.strength = GetTotalBotStat(BOT_STAT_MOD_STRENGTH);
++    stats.agility = GetTotalBotStat(BOT_STAT_MOD_AGILITY);
++    stats.stamina = GetTotalBotStat(BOT_STAT_MOD_STAMINA);
++    stats.intellect = GetTotalBotStat(BOT_STAT_MOD_INTELLECT);
++    stats.spirit = GetTotalBotStat(BOT_STAT_MOD_SPIRIT);
++    stats.armor = me->GetArmor();
++    stats.defense = me->GetDefenseSkillValue();
++    stats.resHoly = me->GetResistance(SPELL_SCHOOL_HOLY) + resistbonus[SPELL_SCHOOL_HOLY-1];
++    stats.resFire = me->GetResistance(SPELL_SCHOOL_FIRE) + resistbonus[SPELL_SCHOOL_FIRE-1];
++    stats.resNature = me->GetResistance(SPELL_SCHOOL_NATURE) + resistbonus[SPELL_SCHOOL_NATURE-1];
++    stats.resFrost = me->GetResistance(SPELL_SCHOOL_FROST) + resistbonus[SPELL_SCHOOL_FROST-1];
++    stats.resShadow = me->GetResistance(SPELL_SCHOOL_SHADOW) + resistbonus[SPELL_SCHOOL_SHADOW-1];
++    stats.resArcane = me->GetResistance(SPELL_SCHOOL_ARCANE) + resistbonus[SPELL_SCHOOL_ARCANE-1];
++    stats.blockPct = me->GetUnitBlockChance(BASE_ATTACK, me);
++    stats.dodgePct = me->GetUnitDodgeChance(BASE_ATTACK, me);
++    stats.parryPct = me->GetUnitParryChance(BASE_ATTACK, me);
++    stats.critPct = crit + me->GetTotalAuraModifier(SPELL_AURA_MOD_WEAPON_CRIT_PERCENT) + me->GetTotalAuraModifier(SPELL_AURA_MOD_CRIT_PCT);
++    stats.attackPower = me->GetTotalAttackPowerValue(BASE_ATTACK);
++    stats.spellPower = me->SpellBaseDamageBonusDone(SPELL_SCHOOL_MASK_MAGIC);
++    stats.spellPen = spellpen;
++    stats.hastePct = std::max<float>(haste, 0.f);
++    stats.hitBonusPct = std::max<float>(hit, 0.f);
++    stats.expertise = expertise;
++    stats.armorPenPct = me->GetCreatureArmorPenetrationCoef();
++
++    BotDataMgr::SaveNpcBotStats(&stats);
++}
++
 +//!Copied from Player::CastItemUseSpell
 +void bot_ai::_castBotItemUseSpell(Item const* item, SpellCastTargets const& targets/*, uint8 cast_count, uint32 glyphIndex*/)
 +{
@@ -20373,10 +20453,10 @@ index 0000000..ebaf15f
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000..7356712
+index 0000000..5dec364
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,612 @@
+@@ -0,0 +1,614 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -20884,6 +20964,8 @@ index 0000000..7356712
 +        float _getBotStat(uint8 slot, uint8 stat) const;
 +        float _getTotalBotStat(uint8 stat) const;
 +        float _getRatingMultiplier(CombatRating cr) const;
++
++        void _saveStats();
 +
 +        PlayerClassLevelInfo* _classinfo;
 +        SpellInfo const* m_botSpellInfo;
@@ -50614,10 +50696,10 @@ index 0000000..4563482
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.cpp b/src/server/game/AI/NpcBots/botdatamgr.cpp
 new file mode 100644
-index 0000000..8aff127
+index 0000000..ae926c8
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.cpp
-@@ -0,0 +1,468 @@
+@@ -0,0 +1,519 @@
 +#include "botdatamgr.h"
 +#include "Item.h"
 +#include "Map.h"
@@ -50628,6 +50710,16 @@ index 0000000..8aff127
 +NpcBots DB Data management
 +%Complete: ???
 +*/
++
++//compatibility
++#if !defined(_MSC_VER) || _MSC_VER >= 1600
++#define SCRIPT_VERSION_LAST
++#endif
++
++#ifndef SCRIPT_VERSION_LAST
++# define CharacterDatabasePreparedStatement PreparedStatement
++# define CharacterDatabaseTransaction SQLTransaction
++#endif //SCRIPT_VERSION_LAST
 +
 +typedef std::unordered_map<uint32 /*entry*/, NpcBotData*> NpcBotDataMap;
 +typedef std::unordered_map<uint32 /*entry*/, NpcBotAppearanceData*> NpcBotAppearanceDataMap;
@@ -51035,6 +51127,47 @@ index 0000000..8aff127
 +    }
 +}
 +
++void BotDataMgr::SaveNpcBotStats(NpcBotStats const* stats)
++{
++    CharacterDatabasePreparedStatement* bstmt = CharacterDatabase.GetPreparedStatement(CHAR_REP_NPCBOT_STATS);
++    //"REPLACE INTO characters_npcbot_stats
++    //(entry, maxhealth, maxpower, strength, agility, stamina, intellect, spirit, armor, defense,
++    //resHoly, resFire, resNature, resFrost, resShadow, resArcane, blockPct, dodgePct, parryPct, critPct,
++    //attackPower, spellPower, spellPen, hastePct, hitBonusPct, expertise, armorPenPct) VALUES
++    //(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", CONNECTION_ASYNC
++
++    uint32 index = 0;
++    bstmt->setUInt32(  index, stats->entry);
++    bstmt->setUInt32(++index, stats->maxhealth);
++    bstmt->setUInt32(++index, stats->maxpower);
++    bstmt->setUInt32(++index, stats->strength);
++    bstmt->setUInt32(++index, stats->agility);
++    bstmt->setUInt32(++index, stats->stamina);
++    bstmt->setUInt32(++index, stats->intellect);
++    bstmt->setUInt32(++index, stats->spirit);
++    bstmt->setUInt32(++index, stats->armor);
++    bstmt->setUInt32(++index, stats->defense);
++    bstmt->setUInt32(++index, stats->resHoly);
++    bstmt->setUInt32(++index, stats->resFire);
++    bstmt->setUInt32(++index, stats->resNature);
++    bstmt->setUInt32(++index, stats->resFrost);
++    bstmt->setUInt32(++index, stats->resShadow);
++    bstmt->setUInt32(++index, stats->resArcane);
++    bstmt->setFloat (++index, stats->blockPct);
++    bstmt->setFloat (++index, stats->dodgePct);
++    bstmt->setFloat (++index, stats->parryPct);
++    bstmt->setFloat (++index, stats->critPct);
++    bstmt->setUInt32(++index, stats->attackPower);
++    bstmt->setUInt32(++index, stats->spellPower);
++    bstmt->setUInt32(++index, stats->spellPen);
++    bstmt->setFloat (++index, stats->hastePct);
++    bstmt->setFloat (++index, stats->hitBonusPct);
++    bstmt->setUInt32(++index, stats->expertise);
++    bstmt->setFloat (++index, stats->armorPenPct);
++
++    CharacterDatabase.Execute(bstmt);
++}
++
 +NpcBotAppearanceData const* BotDataMgr::SelectNpcBotAppearance(uint32 entry)
 +{
 +    NpcBotAppearanceDataMap::const_iterator itr = _botsAppearanceData.find(entry);
@@ -51088,10 +51221,10 @@ index 0000000..8aff127
 +}
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.h b/src/server/game/AI/NpcBots/botdatamgr.h
 new file mode 100644
-index 0000000..f09c4da
+index 0000000..1f2dcc1
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.h
-@@ -0,0 +1,93 @@
+@@ -0,0 +1,128 @@
 +#ifndef _BOTDATAMGR_H
 +#define _BOTDATAMGR_H
 +
@@ -51159,6 +51292,40 @@ index 0000000..f09c4da
 +    NpcBotExtras(NpcBotExtras const&);
 +};
 +
++struct NpcBotStats
++{
++public:
++    NpcBotStats() {}
++
++    uint32 entry;
++    uint32 maxhealth;
++    uint32 maxpower;
++    uint32 strength;
++    uint32 agility;
++    uint32 stamina;
++    uint32 intellect;
++    uint32 spirit;
++    uint32 armor;
++    uint32 defense;
++    uint32 resHoly;
++    uint32 resFire;
++    uint32 resNature;
++    uint32 resFrost;
++    uint32 resShadow;
++    uint32 resArcane;
++    float blockPct;
++    float dodgePct;
++    float parryPct;
++    float critPct;
++    uint32 attackPower;
++    uint32 spellPower;
++    uint32 spellPen;
++    float hastePct;
++    float hitBonusPct;
++    uint32 expertise;
++    float armorPenPct;
++};
++
 +class BotDataMgr
 +{
 +    public:
@@ -51168,6 +51335,7 @@ index 0000000..f09c4da
 +        static NpcBotData const* SelectNpcBotData(uint32 entry);
 +        static void UpdateNpcBotData(uint32 entry, NpcBotDataUpdateType updateType, void* data = nullptr);
 +        static void UpdateNpcBotDataAll(uint32 playerGuid, NpcBotDataUpdateType updateType, void* data = nullptr);
++        static void SaveNpcBotStats(NpcBotStats const* stats);
 +
 +        static NpcBotAppearanceData const* SelectNpcBotAppearance(uint32 entry);
 +        static NpcBotExtras const* SelectNpcBotExtras(uint32 entry);
