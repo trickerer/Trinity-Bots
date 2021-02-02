@@ -1,6 +1,6 @@
-From 86d0f898e9dcae4180653aa9fa17667d8b6476b9 Mon Sep 17 00:00:00 2001
+From 0aa1dff51f14420a81fd101e406c12f18b43df5d Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Tue, 2 Feb 2021 12:37:54 +0700
+Date: Tue, 2 Feb 2021 15:14:21 +0700
 Subject: [PATCH] NPCBots2013
 
 ---
@@ -26,6 +26,8 @@ Subject: [PATCH] NPCBots2013
  sql/Bots/updates/world/2021_01_05_npc_text.sql     |    12 +
  sql/Bots/updates/world/2021_01_08_npc_text.sql     |     8 +
  sql/Bots/updates/world/2021_02_01_npc_text.sql     |     1 +
+ src/server/game/AI/CoreAI/UnitAI.cpp               |    37 +
+ src/server/game/AI/CoreAI/UnitAI.h                 |    34 +-
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1329 ++
  src/server/game/AI/NpcBots/bot_ai.cpp              | 16088 +++++++++++++++++++
@@ -106,7 +108,7 @@ Subject: [PATCH] NPCBots2013
  src/server/game/Spells/Spell.cpp                   |   133 +
  src/server/game/Spells/Spell.h                     |     1 +
  src/server/game/Spells/SpellEffects.cpp            |   151 +
- src/server/game/Spells/SpellInfo.cpp               |    50 +-
+ src/server/game/Spells/SpellInfo.cpp               |    53 +-
  src/server/game/World/World.cpp                    |     5 +
  src/server/scripts/Commands/cs_npc.cpp             |    28 +
  src/server/scripts/Spells/spell_dk.cpp             |     7 +
@@ -120,7 +122,7 @@ Subject: [PATCH] NPCBots2013
  .../Database/Implementation/CharacterDatabase.cpp  |    18 +
  .../Database/Implementation/CharacterDatabase.h    |    14 +
  src/server/worldserver/worldserver.conf.dist       |   263 +
- 116 files changed, 62245 insertions(+), 9 deletions(-)
+ 118 files changed, 62286 insertions(+), 42 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -2971,6 +2973,99 @@ index 0000000..6356dea
 @@ -0,0 +1 @@
 +UPDATE `npc_text` SET `text0_0`='Auto-equip' WHERE (`ID`='70489');
 \ No newline at end of file
+diff --git a/src/server/game/AI/CoreAI/UnitAI.cpp b/src/server/game/AI/CoreAI/UnitAI.cpp
+index 9abdf9e..055fb19 100644
+--- a/src/server/game/AI/CoreAI/UnitAI.cpp
++++ b/src/server/game/AI/CoreAI/UnitAI.cpp
+@@ -247,6 +247,43 @@ void UnitAI::FillAISpellInfo()
+     }
+ }
+ 
++bool DefaultTargetSelector::operator()(Unit const* target) const
++{
++    if (!me)
++        return false;
++
++    if (!target)
++        return false;
++
++    if (m_playerOnly && (target->GetTypeId() != TYPEID_PLAYER))
++        //npcbot: allow to target bots
++        if (!(target->GetTypeId() == TYPEID_UNIT && target->ToCreature()->IsNPCBot()))
++        //end npcbot
++        return false;
++
++    if (m_dist > 0.0f && !me->IsWithinCombatRange(target, m_dist))
++        return false;
++
++    if (m_dist < 0.0f && me->IsWithinCombatRange(target, -m_dist))
++        return false;
++
++    if (m_aura)
++    {
++        if (m_aura > 0)
++        {
++            if (!target->HasAura(m_aura))
++                return false;
++        }
++        else
++        {
++            if (target->HasAura(-m_aura))
++                return false;
++        }
++    }
++
++    return true;
++}
++
+ //Enable PlayerAI when charmed
+ void PlayerAI::OnCharmed(bool apply)
+ {
+diff --git a/src/server/game/AI/CoreAI/UnitAI.h b/src/server/game/AI/CoreAI/UnitAI.h
+index 33a09fd..08ae288 100644
+--- a/src/server/game/AI/CoreAI/UnitAI.h
++++ b/src/server/game/AI/CoreAI/UnitAI.h
+@@ -52,39 +52,7 @@ struct DefaultTargetSelector : public std::unary_function<Unit*, bool>
+     // aura: if 0: ignored, if > 0: the target shall have the aura, if < 0, the target shall NOT have the aura
+     DefaultTargetSelector(Unit const* unit, float dist, bool playerOnly, int32 aura) : me(unit), m_dist(dist), m_playerOnly(playerOnly), m_aura(aura) { }
+ 
+-    bool operator()(Unit const* target) const
+-    {
+-        if (!me)
+-            return false;
+-
+-        if (!target)
+-            return false;
+-
+-        if (m_playerOnly && (target->GetTypeId() != TYPEID_PLAYER))
+-            return false;
+-
+-        if (m_dist > 0.0f && !me->IsWithinCombatRange(target, m_dist))
+-            return false;
+-
+-        if (m_dist < 0.0f && me->IsWithinCombatRange(target, -m_dist))
+-            return false;
+-
+-        if (m_aura)
+-        {
+-            if (m_aura > 0)
+-            {
+-                if (!target->HasAura(m_aura))
+-                    return false;
+-            }
+-            else
+-            {
+-                if (target->HasAura(-m_aura))
+-                    return false;
+-            }
+-        }
+-
+-        return true;
+-    }
++    bool operator()(Unit const* target) const;
+ };
+ 
+ // Target selector for spell casts checking range, auras and attributes
 diff --git a/src/server/game/AI/NpcBots/bot_Events.h b/src/server/game/AI/NpcBots/bot_Events.h
 new file mode 100644
 index 0000000..35a9695
@@ -64066,7 +64161,7 @@ index 868dc3f..aa5407e 100644
                      unitTarget->ProhibitSpellSchool(curSpellInfo->GetSchoolMask(), unitTarget->ModSpellDuration(m_spellInfo, unitTarget, duration, false, 1 << effIndex));
                  }
 diff --git a/src/server/game/Spells/SpellInfo.cpp b/src/server/game/Spells/SpellInfo.cpp
-index 6b54df2..4a78b7e 100644
+index 6b54df2..91cd6a6 100644
 --- a/src/server/game/Spells/SpellInfo.cpp
 +++ b/src/server/game/Spells/SpellInfo.cpp
 @@ -25,6 +25,10 @@
@@ -64142,7 +64237,17 @@ index 6b54df2..4a78b7e 100644
      }
  
      return radius;
-@@ -2212,6 +2255,11 @@ int32 SpellInfo::CalcPowerCost(Unit const* caster, SpellSchoolMask schoolMask) c
+@@ -1568,6 +1611,9 @@ SpellCastResult SpellInfo::CheckTarget(Unit const* caster, WorldObject const* ta
+ 
+     // corpseOwner and unit specific target checks
+     if (AttributesEx3 & SPELL_ATTR3_ONLY_TARGET_PLAYERS && !unitTarget->ToPlayer())
++        //npcbot: allow to target bots
++        if (!(unitTarget->GetTypeId() == TYPEID_UNIT && unitTarget->ToCreature()->IsNPCBot()))
++        //end npcbot
+        return SPELL_FAILED_TARGET_NOT_PLAYER;
+ 
+     if (!IsAllowingDeadTarget() && !unitTarget->IsAlive())
+@@ -2212,6 +2258,11 @@ int32 SpellInfo::CalcPowerCost(Unit const* caster, SpellSchoolMask schoolMask) c
          }
      }
  

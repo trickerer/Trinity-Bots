@@ -1,6 +1,6 @@
-From 1187d328028fe33e3fb61b94cc6ab4f36553e2e9 Mon Sep 17 00:00:00 2001
+From 26e4df50fea86328c61d8fcc04876bde1dafa0cc Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Tue, 2 Feb 2021 12:36:42 +0700
+Date: Tue, 2 Feb 2021 15:13:42 +0700
 Subject: [PATCH] NPCBots
 
 ---
@@ -30,6 +30,7 @@ Subject: [PATCH] NPCBots
  src/common/Utilities/EventProcessor.h              |     1 +
  .../Database/Implementation/CharacterDatabase.cpp  |    18 +
  .../Database/Implementation/CharacterDatabase.h    |    14 +
+ src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1329 ++
  src/server/game/AI/NpcBots/bot_ai.cpp              | 16239 +++++++++++++++++++
@@ -112,7 +113,7 @@ Subject: [PATCH] NPCBots
  src/server/game/Spells/Spell.cpp                   |   138 +
  src/server/game/Spells/Spell.h                     |     3 +
  src/server/game/Spells/SpellEffects.cpp            |   159 +
- src/server/game/Spells/SpellInfo.cpp               |    43 +
+ src/server/game/Spells/SpellInfo.cpp               |    46 +
  src/server/scripts/Commands/cs_npc.cpp             |    31 +
  .../Northrend/Naxxramas/boss_four_horsemen.cpp     |     4 +-
  src/server/scripts/Spells/spell_dk.cpp             |    17 +
@@ -129,7 +130,7 @@ Subject: [PATCH] NPCBots
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   275 +
- 125 files changed, 63104 insertions(+), 21 deletions(-)
+ 126 files changed, 63110 insertions(+), 21 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -3402,6 +3403,20 @@ index 7404a61..5007f6d 100644
      MAX_CHARACTERDATABASE_STATEMENTS
  };
  
+diff --git a/src/server/game/AI/CoreAI/UnitAI.cpp b/src/server/game/AI/CoreAI/UnitAI.cpp
+index f98e958..e69db3b 100644
+--- a/src/server/game/AI/CoreAI/UnitAI.cpp
++++ b/src/server/game/AI/CoreAI/UnitAI.cpp
+@@ -268,6 +268,9 @@ bool DefaultTargetSelector::operator()(Unit const* target) const
+         return false;
+ 
+     if (_playerOnly && (target->GetTypeId() != TYPEID_PLAYER))
++        //npcbot: allow to target bots
++        if (!(target->GetTypeId() == TYPEID_UNIT && target->ToCreature()->IsNPCBot()))
++        //end npcbot
+         return false;
+ 
+     if (_dist > 0.0f && !_me->IsWithinCombatRange(target, _dist))
 diff --git a/src/server/game/AI/NpcBots/bot_Events.h b/src/server/game/AI/NpcBots/bot_Events.h
 new file mode 100644
 index 0000000..35a9695
@@ -64663,7 +64678,7 @@ index e40b4dc..a882dea 100644
              // Mutilate (for each hand)
              else if (m_spellInfo->SpellFamilyFlags[1] & 0x6)
 diff --git a/src/server/game/Spells/SpellInfo.cpp b/src/server/game/Spells/SpellInfo.cpp
-index d3acdb9..888275c 100644
+index d3acdb9..367671c 100644
 --- a/src/server/game/Spells/SpellInfo.cpp
 +++ b/src/server/game/Spells/SpellInfo.cpp
 @@ -31,6 +31,10 @@
@@ -64728,7 +64743,17 @@ index d3acdb9..888275c 100644
      }
  
      return radius;
-@@ -3214,6 +3252,11 @@ int32 SpellInfo::CalcPowerCost(WorldObject const* caster, SpellSchoolMask school
+@@ -1693,6 +1731,9 @@ SpellCastResult SpellInfo::CheckTarget(WorldObject const* caster, WorldObject co
+ 
+     // corpseOwner and unit specific target checks
+     if (HasAttribute(SPELL_ATTR3_ONLY_TARGET_PLAYERS) && unitTarget->GetTypeId() != TYPEID_PLAYER)
++        //npcbot: allow to target bots
++        if (!(unitTarget->GetTypeId() == TYPEID_UNIT && unitTarget->ToCreature()->IsNPCBot()))
++        //end npcbot
+        return SPELL_FAILED_TARGET_NOT_PLAYER;
+ 
+     if (!IsAllowingDeadTarget() && !unitTarget->IsAlive())
+@@ -3214,6 +3255,11 @@ int32 SpellInfo::CalcPowerCost(WorldObject const* caster, SpellSchoolMask school
          }
      }
  
