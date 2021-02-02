@@ -1,6 +1,6 @@
-From c77611e1417d1a5f8ad892a4505085e2c3c1e500 Mon Sep 17 00:00:00 2001
+From 1187d328028fe33e3fb61b94cc6ab4f36553e2e9 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Mon, 1 Feb 2021 19:48:09 +0700
+Date: Tue, 2 Feb 2021 12:36:42 +0700
 Subject: [PATCH] NPCBots
 
 ---
@@ -32,7 +32,7 @@ Subject: [PATCH] NPCBots
  .../Database/Implementation/CharacterDatabase.h    |    14 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1329 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 16237 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 16239 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   625 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   398 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   936 ++
@@ -44,7 +44,7 @@ Subject: [PATCH] NPCBots
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  1823 +++
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  2737 ++++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  2097 +++
- src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  2017 +++
+ src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  2030 +++
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  2812 ++++
  src/server/game/AI/NpcBots/bot_spellbreaker_ai.cpp |   580 +
  src/server/game/AI/NpcBots/bot_sphynx_ai.cpp       |   610 +
@@ -129,7 +129,7 @@ Subject: [PATCH] NPCBots
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   275 +
- 125 files changed, 63089 insertions(+), 21 deletions(-)
+ 125 files changed, 63104 insertions(+), 21 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -4798,10 +4798,10 @@ index 0000000..2838124
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..092185d
+index 0000000..0efe37e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,16237 @@
+@@ -0,0 +1,16239 @@
 +#include "bot_ai.h"
 +//#include "botcommon.h"
 +#include "bot_Events.h"
@@ -17575,26 +17575,28 @@ index 0000000..092185d
 +            {
 +                if (entry->ProcsPerMinute)
 +                {
-+                    chance = me->GetPPMProcChance(proto->Delay, entry->ProcsPerMinute, spellInfo);
++                    chance = entry->ProcsPerMinute;
 +                    //handle SPELLMOD_PROC_PER_MINUTE spellmods
-+                    if (_botclass == BOT_CLASS_ROGUE)
-+                    {
-+                        //Improved Poisons
-+                        if (_spec == BOT_SPEC_ROGUE_ASSASINATION && me->GetLevel() >= 25 && (spellInfo->SpellFamilyFlags[0] & 0x2000))
-+                            chance *= 1.5f;
-+                    }
++                    //Envenom
++                    if (_spec == BOT_SPEC_ROGUE_ASSASINATION && me->HasAuraTypeWithFamilyFlags(SPELL_AURA_ADD_FLAT_MODIFIER, SPELLFAMILY_ROGUE, 0x800000))
++                        chance *= 1.75f;
++                    //Improved Poisons
++                    if (_spec == BOT_SPEC_ROGUE_ASSASINATION && me->GetLevel() >= 25 && (spellInfo->SpellFamilyFlags[0] & 0x2000))
++                        chance *= 1.5f;
++
++                    chance = me->GetPPMProcChance(proto->Delay, chance, spellInfo);
 +                }
 +                else if (entry->Chance)
 +                    chance = (float)entry->Chance;
 +            }
 +
 +            // Apply SPELLMOD_CHANCE_OF_SUCCESS spell mods
-+            if (_botclass == BOT_CLASS_ROGUE)
-+            {
-+                //Improved Poisons
-+                if (_spec == BOT_SPEC_ROGUE_ASSASINATION && me->GetLevel() >= 25 && (spellInfo->SpellFamilyFlags[0] & 0x10000))
-+                    chance += 20.f;
-+            }
++            //Envenom
++            if (_spec == BOT_SPEC_ROGUE_ASSASINATION && me->HasAuraTypeWithFamilyFlags(SPELL_AURA_ADD_FLAT_MODIFIER, SPELLFAMILY_ROGUE, 0x800000))
++                chance += 15.f;
++            //Improved Poisons
++            if (_spec == BOT_SPEC_ROGUE_ASSASINATION && me->GetLevel() >= 25 && (spellInfo->SpellFamilyFlags[0] & 0x10000))
++                chance += 20.f;
 +
 +            // Shiv has 100% chance to apply the poison
 +            if (me->FindCurrentSpellBySpellId(5938) && e_slot == TEMP_ENCHANTMENT_SLOT)
@@ -38245,10 +38247,10 @@ index 0000000..edc5160
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_rogue_ai.cpp b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 new file mode 100644
-index 0000000..03960d2
+index 0000000..921e4ec
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
-@@ -0,0 +1,2017 @@
+@@ -0,0 +1,2030 @@
 +#include "bot_ai.h"
 +#include "botmgr.h"
 +#include "Group.h"
@@ -38276,6 +38278,7 @@ index 0000000..03960d2
 +    BACKSTAB_1                          = 53,
 +    SINISTER_STRIKE_1                   = 1752,
 +    EVISCERATE_1                        = 2098,
++    ENVENOM_1                           = 32645,
 +    RUPTURE_1                           = 1943,
 +    MUTILATE_1                          = 1329,
 +    HEMORRHAGE_1                        = 16511,
@@ -38316,7 +38319,7 @@ index 0000000..03960d2
 +    //Poisons
 +    CRIPPLING_POISON_1                  = 3408,
 +    INSTANT_POISON_1                    = 8679,
-+    DEADLY_POISON_1                     = 2823, //manual use only
++    DEADLY_POISON_1                     = 2823,
 +    WOUND_POISON_1                      = 13219,
 +    MIND_NUMBING_POISON_1               = 5761, //manual use only
 +    ANESTHETIC_POISON_1                 = 26785,
@@ -38413,7 +38416,7 @@ index 0000000..03960d2
 +};
 +
 +static const uint32 Rogue_spells_damage_arr[] =
-+{ AMBUSH_1, BACKSTAB_1, DEADLY_THROW_1, EVISCERATE_1, FAN_OF_KNIVES_1, GARROTE_1, GHOSTLY_STRIKE_1, GOUGE_1,
++{ AMBUSH_1, BACKSTAB_1, DEADLY_THROW_1, EVISCERATE_1, ENVENOM_1, FAN_OF_KNIVES_1, GARROTE_1, GHOSTLY_STRIKE_1, GOUGE_1,
 +HEMORRHAGE_1, KILLING_SPREE_1, MUTILATE_1, RIPOSTE_1, RUPTURE_1, SINISTER_STRIKE_1 };
 +
 +static const uint32 Rogue_spells_cc_arr[] =
@@ -38477,7 +38480,6 @@ index 0000000..03960d2
 +            if (!bot_ai::StartAttack(u, force))
 +                return;
 +            GetInPosition(force, u);
-+            targetPoisoned = false;
 +        }
 +
 +        void JustEnteredCombat(Unit* u) override { bot_ai::JustEnteredCombat(u); }
@@ -38500,6 +38502,12 @@ index 0000000..03960d2
 +
 +        void UpdateAI(uint32 diff) override
 +        {
++            if (combopointsSpent)
++            {
++                combopointsSpent = false;
++                comboPoints = 0;
++            }
++
 +            getenergy();
 +
 +            if (!GlobalUpdate(diff))
@@ -38789,8 +38797,12 @@ index 0000000..03960d2
 +
 +            DiminishingLevels const stunDivider = opponent->GetDiminishing(DIMINISHING_OPENING_STUN);
 +
++            bool hasHunger = me->GetAuraEffect(SPELL_AURA_MOD_DAMAGE_PERCENT_DONE, SPELLFAMILY_ROGUE, 0x0, 0x1000000, 0x0);
++
 +            //Rupture: little troll with applying rupture on target without breaking gouge (creatures only, pvp - restealth)
-+            if (GetSpell(RUPTURE_1) && !stealthed && !shadowdance && comboPoints > 1 && HasRole(BOT_ROLE_DPS) &&
++            if (GetSpell(RUPTURE_1) && !stealthed && !shadowdance && HasRole(BOT_ROLE_DPS) &&
++                comboPoints > ((hasHunger || !GetSpell(HUNGER_FOR_BLOOD_1)) ? 1 : 0) &&
++                !(hasHunger && _spec == BOT_SPEC_ROGUE_ASSASINATION && GetSpell(ENVENOM_1)) &&
 +                (hasnormalstun || (opponent->CanHaveThreatList() && duration < 2000)) &&
 +                (comboPoints < 4 || !GetSpell(KIDNEY_SHOT_1) || stunDivider > DIMINISHING_LEVEL_2) &&
 +                energy >= ecost(RUPTURE_1) && opponent->GetHealth() > me->GetMaxHealth() / 4 * (1 + opponent->getAttackers().size()) &&
@@ -38813,8 +38825,7 @@ index 0000000..03960d2
 +                //Kidney Shot
 +                if (GetSpell(KIDNEY_SHOT_1) && !stealthed && stunDivider < DIMINISHING_LEVEL_4 &&
 +                    Rand() < 80 && !CCed(opponent) &&
-+                    !(opponent->GetTypeId() == TYPEID_UNIT &&
-+                    (opponent->ToCreature()->GetCreatureTemplate()->MechanicImmuneMask & (1<<(MECHANIC_STUN-1)))) &&
++                    !opponent->IsImmunedToSpellEffect(sSpellMgr->GetSpellInfo(KIDNEY_SHOT_1), EFFECT_0, me) &&
 +                    ((comboPoints >= 4 && stunDivider < DIMINISHING_LEVEL_3 &&
 +                    (opponent->GetHealth() > me->GetMaxHealth() / 2 || opponent->GetTypeId() == TYPEID_PLAYER)) ||
 +                    opponent->IsNonMeleeSpellCast(false,false,true)) &&
@@ -38823,16 +38834,21 @@ index 0000000..03960d2
 +                    if (doCast(opponent, GetSpell(KIDNEY_SHOT_1)))
 +                        return;
 +                }
-+                //Eviscerate
-+                if (IsSpellReady(EVISCERATE_1, diff) && !stealthed && !shadowdance && HasRole(BOT_ROLE_DPS) &&
-+                    (comboPoints >= 4 || opponent->GetHealth() < me->GetMaxHealth() / 4) &&
-+                    energy >= ecost(EVISCERATE_1) && Rand() < (70 + comboPoints * 20))
++                //Envenom / Eviscerate
++                uint32 envescerate = (_spec == BOT_SPEC_ROGUE_ASSASINATION && GetSpell(ENVENOM_1) &&
++                    (opponent->GetHealth() > me->GetMaxHealth() / 5 || !GetSpell(EVISCERATE_1))) ? ENVENOM_1 : GetSpell(EVISCERATE_1) ? EVISCERATE_1 : 0;
++                if (envescerate && IsSpellReady(envescerate, diff) && !stealthed && !shadowdance && HasRole(BOT_ROLE_DPS) &&
++                    (comboPoints >= 4  || (envescerate == EVISCERATE_1 && opponent->GetHealth() < me->GetMaxHealth() / 4)) &&
++                    (envescerate != ENVENOM_1 ||
++                    (opponent->GetAuraEffect(SPELL_AURA_MOD_ATTACKER_SPELL_AND_WEAPON_CRIT_CHANCE, SPELLFAMILY_ROGUE, 0x10000, 0x0, 0x0, me->GetGUID()) &&
++                    (energy >= 110 || !me->HasAuraTypeWithFamilyFlags(SPELL_AURA_ADD_FLAT_MODIFIER, SPELLFAMILY_ROGUE, 0x800000)))) &&
++                    energy >= ecost(envescerate) && Rand() < (70 + comboPoints * 20))
 +                {
 +                    //Cold Blood (no GCD)
 +                    if (IsSpellReady(COLD_BLOOD_1, diff, false) && comboPoints > 3 && Rand() > 50 + 100*(comboPoints == 5))
 +                        if (doCast(me, GetSpell(COLD_BLOOD_1)))
 +                        {}
-+                    if (doCast(opponent, GetSpell(EVISCERATE_1)))
++                    if (doCast(opponent, GetSpell(envescerate)))
 +                        return;
 +                }
 +            }
@@ -38934,7 +38950,7 @@ index 0000000..03960d2
 +            }
 +            //Backstab/Mutilate
 +            uint32 mutistab =
-+                isdaggerMH && isdaggerOH && targetPoisoned && GetSpell(MUTILATE_1) ? MUTILATE_1 :
++                isdaggerMH && isdaggerOH && GetSpell(MUTILATE_1) ? MUTILATE_1 :
 +                isdaggerMH && GetSpell(BACKSTAB_1) ? BACKSTAB_1 : 0;
 +            if (mutistab && comboPoints < 4 && energy >= ecost(mutistab) && (mutistab == MUTILATE_1 || !opponent->HasInArc(M_PI, me)))
 +            {
@@ -38990,23 +39006,25 @@ index 0000000..03960d2
 +
 +            Item* mhWeapon = GetEquips(BOT_SLOT_MAINHAND);
 +            Item* ohWeapon = GetEquips(BOT_SLOT_OFFHAND);
-+            //item must be non-standard, otherwise combat spells won't be rolled anyway
++
 +            bool mhReady = mhWeapon && !mhWeapon->GetEnchantmentId(TEMP_ENCHANTMENT_SLOT);
 +            bool ohReady = ohWeapon && !ohWeapon->GetEnchantmentId(TEMP_ENCHANTMENT_SLOT);
 +            if (!mhReady && !ohReady)
 +                return; //no ecnhantable weapons
 +
 +            //OK choose the poisons
-+            //MH 20+ Instant, 32+ Wound
-+            //OH 20+ Crippling, 40+ Instant (deadly brew inc), 68+ Anesthetic
++            //MH 20+ Instant, 32+ Wound, envenom Instant
++            //OH 20+ Crippling, 40+ Instant (deadly brew inc), 68+ Anesthetic, envenom Deadly
 +            if (needChooseMHEnchant && mhReady)
-+                mhEnchant = me->GetLevel() >= 32 ? WOUND_POISON_1 :
-+                    me->GetLevel() >= 20 ? INSTANT_POISON_1 : 0;
++                mhEnchant = (_spec == BOT_SPEC_ROGUE_ASSASINATION && GetSpell(ENVENOM_1)) ? INSTANT_POISON_1 :
++                    lvl >= 32 ? WOUND_POISON_1 :
++                    lvl >= 20 ? INSTANT_POISON_1 : 0;
 +
 +            if (needChooseOHEnchant && ohReady)
-+                ohEnchant = me->GetLevel() >= 68 ? ANESTHETIC_POISON_1 :
-+                    me->GetLevel() >= 40 ? INSTANT_POISON_1 :
-+                    me->GetLevel() >= 20 ? CRIPPLING_POISON_1 : 0;
++                ohEnchant = (_spec == BOT_SPEC_ROGUE_ASSASINATION && GetSpell(ENVENOM_1)) ? DEADLY_POISON_1 :
++                    lvl >= 68 ? ANESTHETIC_POISON_1 :
++                    lvl >= 40 ? INSTANT_POISON_1 :
++                    lvl >= 20 ? CRIPPLING_POISON_1 : 0;
 +
 +            uint32 MhPoison = !mhReady ? 0 : GetSpell(mhEnchant);
 +            uint32 OhPoison = !ohReady ? 0 : GetSpell(ohEnchant);
@@ -39703,7 +39721,8 @@ index 0000000..03960d2
 +            else if (spell->NeedsComboPoints() && comboPoints)
 +            {
 +                //uint32 tempCP = comboPoints;
-+                comboPoints = 0;
++                //comboPoints = 0;
++                combopointsSpent = true; //envenom problem - cps spent before aura application
 +
 +                //TC_LOG_ERROR("entities.player", "rogue_bot CP SPEND1: %u to 0", tempCP);
 +
@@ -39884,7 +39903,7 @@ index 0000000..03960d2
 +                }
 +            }
 +            //Cut to the Chase: Eviscerate and Envenom will refresh Slice and Dice duration as for 5 points
-+            if ((_spec == BOT_SPEC_ROGUE_ASSASINATION) && lvl >= 55 && (baseId == EVISCERATE_1/* || baseId == ENVENOM_1*/) && GetSpell(SLICE_DICE_1))
++            if (_spec == BOT_SPEC_ROGUE_ASSASINATION && lvl >= 55 && (baseId == EVISCERATE_1 || baseId == ENVENOM_1) && GetSpell(SLICE_DICE_1))
 +            {
 +                if (Aura* dice = me->GetAura(GetSpell(SLICE_DICE_1)))
 +                {
@@ -39901,11 +39920,6 @@ index 0000000..03960d2
 +            if (baseId == CHEAP_SHOT_1 || baseId == KIDNEY_SHOT_1 || baseId == GOUGE_1)
 +                if (target == opponent)
 +                    MoveBehind(target);
-+
-+            //Poison marker
-+            if (baseId == CRIPPLING_POISON_1 || baseId == DEADLY_POISON_PROC_1 ||
-+                baseId == WOUND_POISON_PROC_1 || baseId == MIND_NUMBING_POISON_PROC_1)
-+                targetPoisoned = true;
 +
 +            OnSpellHitTarget(target, spell);
 +        }
@@ -40010,8 +40024,8 @@ index 0000000..03960d2
 +        {
 +            energy = 0;
 +            comboPoints = 0;
++            combopointsSpent = false;
 +            glyphSSProc = false;
-+            targetPoisoned = false;
 +
 +            mhEnchantExpireTimer = 1;
 +            ohEnchantExpireTimer = 1;
@@ -40062,6 +40076,7 @@ index 0000000..03960d2
 +            InitSpellMap(BACKSTAB_1);
 +            InitSpellMap(SINISTER_STRIKE_1);
 +            InitSpellMap(EVISCERATE_1);
++            InitSpellMap(ENVENOM_1);
 +            InitSpellMap(RUPTURE_1);
 +            InitSpellMap(DEADLY_THROW_1);
 +            InitSpellMap(FAN_OF_KNIVES_1);
@@ -40252,9 +40267,9 @@ index 0000000..03960d2
 +
 +    private:
 +        bool glyphSSProc;
-+        bool targetPoisoned;
 +        int32 energy;
 +        uint8 comboPoints;
++        bool combopointsSpent;
 +        bool isdaggerMH, isdaggerOH;
 +        uint32 mhEnchantExpireTimer, ohEnchantExpireTimer;
 +        uint32 mhEnchant, ohEnchant;
@@ -64436,7 +64451,7 @@ index e78bbcb..591f003 100644
          bool IsAutoRepeat() const { return m_autoRepeat; }
          void SetAutoRepeat(bool rep) { m_autoRepeat = rep; }
 diff --git a/src/server/game/Spells/SpellEffects.cpp b/src/server/game/Spells/SpellEffects.cpp
-index e40b4dc..a1ab821 100644
+index e40b4dc..a882dea 100644
 --- a/src/server/game/Spells/SpellEffects.cpp
 +++ b/src/server/game/Spells/SpellEffects.cpp
 @@ -500,6 +500,17 @@ void Spell::EffectSchoolDMG(SpellEffIndex effIndex)
@@ -64479,7 +64494,7 @@ index e40b4dc..a1ab821 100644
 +                                    doses = combo;
 +
 +                                // Master Poisoner
-+                                Unit::AuraEffectList const& auraList = player->GetAuraEffectsByType(SPELL_AURA_MOD_AURA_DURATION_BY_DISPEL_NOT_STACK);
++                                Unit::AuraEffectList const& auraList = unitCaster->GetAuraEffectsByType(SPELL_AURA_MOD_AURA_DURATION_BY_DISPEL_NOT_STACK);
 +                                for (Unit::AuraEffectList::const_iterator iter = auraList.begin(); iter != auraList.end(); ++iter)
 +                                {
 +                                    if ((*iter)->GetSpellInfo()->SpellFamilyName == SPELLFAMILY_ROGUE && (*iter)->GetSpellInfo()->SpellIconID == 1960)
@@ -64498,7 +64513,7 @@ index e40b4dc..a1ab821 100644
 +                                        unitTarget->RemoveAuraFromStack(spellId, unitCaster->GetGUID());
 +
 +                                damage *= doses;
-+                                damage += int32(player->GetTotalAttackPowerValue(BASE_ATTACK) * 0.09f * combo);
++                                damage += int32(unitCaster->GetTotalAttackPowerValue(BASE_ATTACK) * 0.09f * combo);
 +                            }
 +
 +                            // Eviscerate and Envenom Bonus Damage (item set effect)
@@ -64536,9 +64551,9 @@ index e40b4dc..a1ab821 100644
                          damage += int32(caster->GetAmmoDPS() * caster->GetAttackTime(RANGED_ATTACK) * 0.001f);
                      }
 +                    //npcbot: calculate bot weapon damage
-+                    if (m_caster->GetTypeId() == TYPEID_UNIT && m_caster->ToCreature()->IsNPCBot())
++                    if (unitCaster->GetTypeId() == TYPEID_UNIT && unitCaster->ToCreature()->IsNPCBot())
 +                    {
-+                        if (Item* item = m_caster->ToCreature()->GetBotEquips(2/*BOT_SLOT_RANGED*/))
++                        if (Item* item = unitCaster->ToCreature()->GetBotEquips(2/*BOT_SLOT_RANGED*/))
 +                        {
 +                            ItemTemplate const* weaponTemplate = item->GetTemplate();
 +                            float dmg_min = 0.f;
@@ -64552,7 +64567,7 @@ index e40b4dc..a1ab821 100644
 +                                damage += int32(dmg_min);
 +                            else
 +                                damage += irand(int32(dmg_min), int32(dmg_max));
-+                            damage += int32(m_caster->ToCreature()->GetCreatureAmmoDPS() * weaponTemplate->Delay * 0.001f);
++                            damage += int32(unitCaster->ToCreature()->GetCreatureAmmoDPS() * weaponTemplate->Delay * 0.001f);
 +                        }
 +                    }
 +                    //end npcbot

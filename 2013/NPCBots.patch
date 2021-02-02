@@ -1,6 +1,6 @@
-From 4c60d100e4da56e5c962eef1254dcc05cf7c733e Mon Sep 17 00:00:00 2001
+From 86d0f898e9dcae4180653aa9fa17667d8b6476b9 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Mon, 1 Feb 2021 19:48:44 +0700
+Date: Tue, 2 Feb 2021 12:37:54 +0700
 Subject: [PATCH] NPCBots2013
 
 ---
@@ -28,7 +28,7 @@ Subject: [PATCH] NPCBots2013
  sql/Bots/updates/world/2021_02_01_npc_text.sql     |     1 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1329 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 16086 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 16088 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   619 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   388 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   926 ++
@@ -40,7 +40,7 @@ Subject: [PATCH] NPCBots2013
  src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  1808 +++
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  2717 ++++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  2083 +++
- src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  2000 +++
+ src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  2013 +++
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  2798 ++++
  src/server/game/AI/NpcBots/bot_spellbreaker_ai.cpp |   540 +
  src/server/game/AI/NpcBots/bot_sphynx_ai.cpp       |   595 +
@@ -84,7 +84,7 @@ Subject: [PATCH] NPCBots2013
  src/server/game/Entities/Player/Player.h           |    25 +
  src/server/game/Entities/Totem/Totem.cpp           |    25 +
  src/server/game/Entities/Unit/StatSystem.cpp       |    33 +-
- src/server/game/Entities/Unit/Unit.cpp             |  1039 ++
+ src/server/game/Entities/Unit/Unit.cpp             |  1048 ++
  src/server/game/Entities/Unit/Unit.h               |     3 +
  src/server/game/Entities/Vehicle/Vehicle.cpp       |    36 +
  src/server/game/Globals/ObjectMgr.cpp              |    81 +
@@ -120,7 +120,7 @@ Subject: [PATCH] NPCBots2013
  .../Database/Implementation/CharacterDatabase.cpp  |    18 +
  .../Database/Implementation/CharacterDatabase.h    |    14 +
  src/server/worldserver/worldserver.conf.dist       |   263 +
- 116 files changed, 62221 insertions(+), 9 deletions(-)
+ 116 files changed, 62245 insertions(+), 9 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -4367,10 +4367,10 @@ index 0000000..ef3ef03
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000..842a525
+index 0000000..bbc8c18
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,16086 @@
+@@ -0,0 +1,16088 @@
 +#include "bot_ai.h"
 +//#include "botcommon.h"
 +#include "bot_Events.h"
@@ -17024,26 +17024,28 @@ index 0000000..842a525
 +            {
 +                if (entry->PPMChance)
 +                {
-+                    chance = me->GetPPMProcChance(proto->Delay, entry->PPMChance, spellInfo);
++                    chance = entry->PPMChance;
 +                    //handle SPELLMOD_PROC_PER_MINUTE spellmods
-+                    if (_botclass == BOT_CLASS_ROGUE)
-+                    {
-+                        //Improved Poisons
-+                        if (_spec == BOT_SPEC_ROGUE_ASSASINATION && me->getLevel() >= 25 && (spellInfo->SpellFamilyFlags[0] & 0x2000))
-+                            chance *= 1.5f;
-+                    }
++                    //Envenom
++                    if (_spec == BOT_SPEC_ROGUE_ASSASINATION && me->HasAuraTypeWithFamilyFlags(SPELL_AURA_ADD_FLAT_MODIFIER, SPELLFAMILY_ROGUE, 0x800000))
++                        chance *= 1.75f;
++                    //Improved Poisons
++                    if (_spec == BOT_SPEC_ROGUE_ASSASINATION && me->getLevel() >= 25 && (spellInfo->SpellFamilyFlags[0] & 0x2000))
++                        chance *= 1.5f;
++
++                    chance = me->GetPPMProcChance(proto->Delay, chance, spellInfo);
 +                }
 +                else if (entry->customChance)
 +                    chance = (float)entry->customChance;
 +            }
 +
 +            // Apply SPELLMOD_CHANCE_OF_SUCCESS spell mods
-+            if (_botclass == BOT_CLASS_ROGUE)
-+            {
-+                //Improved Poisons
-+                if (_spec == BOT_SPEC_ROGUE_ASSASINATION && me->getLevel() >= 25 && (spellInfo->SpellFamilyFlags[0] & 0x10000))
-+                    chance += 20.f;
-+            }
++            //Envenom
++            if (_spec == BOT_SPEC_ROGUE_ASSASINATION && me->HasAuraTypeWithFamilyFlags(SPELL_AURA_ADD_FLAT_MODIFIER, SPELLFAMILY_ROGUE, 0x800000))
++                chance += 15.f;
++            //Improved Poisons
++            if (_spec == BOT_SPEC_ROGUE_ASSASINATION && me->getLevel() >= 25 && (spellInfo->SpellFamilyFlags[0] & 0x10000))
++                chance += 20.f;
 +
 +            // Shiv has 100% chance to apply the poison
 +            if (me->FindCurrentSpellBySpellId(5938) && e_slot == TEMP_ENCHANTMENT_SLOT)
@@ -37517,10 +37519,10 @@ index 0000000..559a267
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_rogue_ai.cpp b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 new file mode 100644
-index 0000000..1d040d5
+index 0000000..4c9413f
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
-@@ -0,0 +1,2000 @@
+@@ -0,0 +1,2013 @@
 +#include "bot_ai.h"
 +#include "botmgr.h"
 +#include "Group.h"
@@ -37544,6 +37546,7 @@ index 0000000..1d040d5
 +    BACKSTAB_1                          = 53,
 +    SINISTER_STRIKE_1                   = 1752,
 +    EVISCERATE_1                        = 2098,
++    ENVENOM_1                           = 32645,
 +    RUPTURE_1                           = 1943,
 +    MUTILATE_1                          = 1329,
 +    HEMORRHAGE_1                        = 16511,
@@ -37584,7 +37587,7 @@ index 0000000..1d040d5
 +    //Poisons
 +    CRIPPLING_POISON_1                  = 3408,
 +    INSTANT_POISON_1                    = 8679,
-+    DEADLY_POISON_1                     = 2823, //manual use only
++    DEADLY_POISON_1                     = 2823,
 +    WOUND_POISON_1                      = 13219,
 +    MIND_NUMBING_POISON_1               = 5761, //manual use only
 +    ANESTHETIC_POISON_1                 = 26785,
@@ -37681,7 +37684,7 @@ index 0000000..1d040d5
 +};
 +
 +static const uint32 Rogue_spells_damage_arr[] =
-+{ AMBUSH_1, BACKSTAB_1, DEADLY_THROW_1, EVISCERATE_1, FAN_OF_KNIVES_1, GARROTE_1, GHOSTLY_STRIKE_1, GOUGE_1,
++{ AMBUSH_1, BACKSTAB_1, DEADLY_THROW_1, EVISCERATE_1, ENVENOM_1, FAN_OF_KNIVES_1, GARROTE_1, GHOSTLY_STRIKE_1, GOUGE_1,
 +HEMORRHAGE_1, KILLING_SPREE_1, MUTILATE_1, RIPOSTE_1, RUPTURE_1, SINISTER_STRIKE_1 };
 +
 +static const uint32 Rogue_spells_cc_arr[] =
@@ -37745,7 +37748,6 @@ index 0000000..1d040d5
 +            if (!bot_ai::StartAttack(u, force))
 +                return;
 +            GetInPosition(force, u);
-+            targetPoisoned = false;
 +        }
 +
 +        void EnterCombat(Unit* u) { bot_ai::EnterCombat(u); }
@@ -37768,6 +37770,12 @@ index 0000000..1d040d5
 +
 +        void UpdateAI(uint32 diff)
 +        {
++            if (combopointsSpent)
++            {
++                combopointsSpent = false;
++                comboPoints = 0;
++            }
++
 +            getenergy();
 +
 +            if (!GlobalUpdate(diff))
@@ -38057,8 +38065,12 @@ index 0000000..1d040d5
 +
 +            DiminishingLevels const stunDivider = opponent->GetDiminishing(DIMINISHING_OPENING_STUN);
 +
++            bool hasHunger = me->GetAuraEffect(SPELL_AURA_MOD_DAMAGE_PERCENT_DONE, SPELLFAMILY_ROGUE, 0x0, 0x1000000, 0x0);
++
 +            //Rupture: little troll with applying rupture on target without breaking gouge (creatures only, pvp - restealth)
-+            if (GetSpell(RUPTURE_1) && !stealthed && !shadowdance && comboPoints > 1 && HasRole(BOT_ROLE_DPS) &&
++            if (GetSpell(RUPTURE_1) && !stealthed && !shadowdance && HasRole(BOT_ROLE_DPS) &&
++                comboPoints > ((hasHunger || !GetSpell(HUNGER_FOR_BLOOD_1)) ? 1 : 0) &&
++                !(hasHunger && _spec == BOT_SPEC_ROGUE_ASSASINATION && GetSpell(ENVENOM_1)) &&
 +                (hasnormalstun || (opponent->CanHaveThreatList() && duration < 2000)) &&
 +                (comboPoints < 4 || !GetSpell(KIDNEY_SHOT_1) || stunDivider > DIMINISHING_LEVEL_2) &&
 +                energy >= ecost(RUPTURE_1) && opponent->GetHealth() > me->GetMaxHealth() / 4 * (1 + opponent->getAttackers().size()) &&
@@ -38081,8 +38093,7 @@ index 0000000..1d040d5
 +                //Kidney Shot
 +                if (GetSpell(KIDNEY_SHOT_1) && !stealthed && stunDivider < DIMINISHING_LEVEL_4 &&
 +                    Rand() < 80 && !CCed(opponent) &&
-+                    !(opponent->GetTypeId() == TYPEID_UNIT &&
-+                    (opponent->ToCreature()->GetCreatureTemplate()->MechanicImmuneMask & (1<<(MECHANIC_STUN-1)))) &&
++                    !opponent->IsImmunedToSpellEffect(sSpellMgr->GetSpellInfo(KIDNEY_SHOT_1), EFFECT_0) &&
 +                    ((comboPoints >= 4 && stunDivider < DIMINISHING_LEVEL_3 &&
 +                    (opponent->GetHealth() > me->GetMaxHealth() / 2 || opponent->GetTypeId() == TYPEID_PLAYER)) ||
 +                    opponent->IsNonMeleeSpellCasted(false,false,true)) &&
@@ -38091,16 +38102,21 @@ index 0000000..1d040d5
 +                    if (doCast(opponent, GetSpell(KIDNEY_SHOT_1)))
 +                        return;
 +                }
-+                //Eviscerate
-+                if (IsSpellReady(EVISCERATE_1, diff) && !stealthed && !shadowdance && HasRole(BOT_ROLE_DPS) &&
-+                    (comboPoints >= 4 || opponent->GetHealth() < me->GetMaxHealth() / 4) &&
-+                    energy >= ecost(EVISCERATE_1) && Rand() < (70 + comboPoints * 20))
++                //Envenom / Eviscerate
++                uint32 envescerate = (_spec == BOT_SPEC_ROGUE_ASSASINATION && GetSpell(ENVENOM_1) &&
++                    (opponent->GetHealth() > me->GetMaxHealth() / 5 || !GetSpell(EVISCERATE_1))) ? ENVENOM_1 : GetSpell(EVISCERATE_1) ? EVISCERATE_1 : 0;
++                if (envescerate && IsSpellReady(envescerate, diff) && !stealthed && !shadowdance && HasRole(BOT_ROLE_DPS) &&
++                    (comboPoints >= 4  || (envescerate == EVISCERATE_1 && opponent->GetHealth() < me->GetMaxHealth() / 4)) &&
++                    (envescerate != ENVENOM_1 ||
++                    (opponent->GetAuraEffect(SPELL_AURA_MOD_ATTACKER_SPELL_AND_WEAPON_CRIT_CHANCE, SPELLFAMILY_ROGUE, 0x10000, 0x0, 0x0, me->GetGUID()) &&
++                    (energy >= 110 || !me->HasAuraTypeWithFamilyFlags(SPELL_AURA_ADD_FLAT_MODIFIER, SPELLFAMILY_ROGUE, 0x800000)))) &&
++                    energy >= ecost(envescerate) && Rand() < (70 + comboPoints * 20))
 +                {
 +                    //Cold Blood (no GCD)
 +                    if (IsSpellReady(COLD_BLOOD_1, diff, false) && comboPoints > 3 && Rand() > 50 + 100*(comboPoints == 5))
 +                        if (doCast(me, GetSpell(COLD_BLOOD_1)))
 +                        {}
-+                    if (doCast(opponent, GetSpell(EVISCERATE_1)))
++                    if (doCast(opponent, GetSpell(envescerate)))
 +                        return;
 +                }
 +            }
@@ -38202,7 +38218,7 @@ index 0000000..1d040d5
 +            }
 +            //Backstab/Mutilate
 +            uint32 mutistab =
-+                isdaggerMH && isdaggerOH && targetPoisoned && GetSpell(MUTILATE_1) ? MUTILATE_1 :
++                isdaggerMH && isdaggerOH && GetSpell(MUTILATE_1) ? MUTILATE_1 :
 +                isdaggerMH && GetSpell(BACKSTAB_1) ? BACKSTAB_1 : 0;
 +            if (mutistab && comboPoints < 4 && energy >= ecost(mutistab) && (mutistab == MUTILATE_1 || !opponent->HasInArc(M_PI, me)))
 +            {
@@ -38258,23 +38274,25 @@ index 0000000..1d040d5
 +
 +            Item* mhWeapon = GetEquips(BOT_SLOT_MAINHAND);
 +            Item* ohWeapon = GetEquips(BOT_SLOT_OFFHAND);
-+            //item must be non-standard, otherwise combat spells won't be rolled anyway
++
 +            bool mhReady = mhWeapon && !mhWeapon->GetEnchantmentId(TEMP_ENCHANTMENT_SLOT);
 +            bool ohReady = ohWeapon && !ohWeapon->GetEnchantmentId(TEMP_ENCHANTMENT_SLOT);
 +            if (!mhReady && !ohReady)
 +                return; //no ecnhantable weapons
 +
 +            //OK choose the poisons
-+            //MH 20+ Instant, 32+ Wound
-+            //OH 20+ Crippling, 40+ Instant (deadly brew inc), 68+ Anesthetic
++            //MH 20+ Instant, 32+ Wound, envenom Instant
++            //OH 20+ Crippling, 40+ Instant (deadly brew inc), 68+ Anesthetic, envenom Deadly
 +            if (needChooseMHEnchant && mhReady)
-+                mhEnchant = me->getLevel() >= 32 ? WOUND_POISON_1 :
-+                    me->getLevel() >= 20 ? INSTANT_POISON_1 : 0;
++                mhEnchant = (_spec == BOT_SPEC_ROGUE_ASSASINATION && GetSpell(ENVENOM_1)) ? INSTANT_POISON_1 :
++                    lvl >= 32 ? WOUND_POISON_1 :
++                    lvl >= 20 ? INSTANT_POISON_1 : 0;
 +
 +            if (needChooseOHEnchant && ohReady)
-+                ohEnchant = me->getLevel() >= 68 ? ANESTHETIC_POISON_1 :
-+                    me->getLevel() >= 40 ? INSTANT_POISON_1 :
-+                    me->getLevel() >= 20 ? CRIPPLING_POISON_1 : 0;
++                ohEnchant = (_spec == BOT_SPEC_ROGUE_ASSASINATION && GetSpell(ENVENOM_1)) ? DEADLY_POISON_1 :
++                    lvl >= 68 ? ANESTHETIC_POISON_1 :
++                    lvl >= 40 ? INSTANT_POISON_1 :
++                    lvl >= 20 ? CRIPPLING_POISON_1 : 0;
 +
 +            uint32 MhPoison = !mhReady ? 0 : GetSpell(mhEnchant);
 +            uint32 OhPoison = !ohReady ? 0 : GetSpell(ohEnchant);
@@ -38963,7 +38981,8 @@ index 0000000..1d040d5
 +            else if (spell->NeedsComboPoints() && comboPoints)
 +            {
 +                uint32 tempCP = comboPoints;
-+                comboPoints = 0;
++                //comboPoints = 0;
++                combopointsSpent = true; //envenom problem - cps spent before aura application
 +
 +                //TC_LOG_ERROR("entities.player", "rogue_bot CP SPEND1: %u to 0", tempCP);
 +
@@ -39144,7 +39163,7 @@ index 0000000..1d040d5
 +                }
 +            }
 +            //Cut to the Chase: Eviscerate and Envenom will refresh Slice and Dice duration as for 5 points
-+            if ((_spec == BOT_SPEC_ROGUE_ASSASINATION) && lvl >= 55 && (baseId == EVISCERATE_1/* || baseId == ENVENOM_1*/) && GetSpell(SLICE_DICE_1))
++            if (_spec == BOT_SPEC_ROGUE_ASSASINATION && lvl >= 55 && (baseId == EVISCERATE_1 || baseId == ENVENOM_1) && GetSpell(SLICE_DICE_1))
 +            {
 +                if (Aura* dice = me->GetAura(GetSpell(SLICE_DICE_1)))
 +                {
@@ -39161,11 +39180,6 @@ index 0000000..1d040d5
 +            if (baseId == CHEAP_SHOT_1 || baseId == KIDNEY_SHOT_1 || baseId == GOUGE_1)
 +                if (target == opponent)
 +                    MoveBehind(target);
-+
-+            //Poison marker
-+            if (baseId == CRIPPLING_POISON_1 || baseId == DEADLY_POISON_PROC_1 ||
-+                baseId == WOUND_POISON_PROC_1 || baseId == MIND_NUMBING_POISON_PROC_1)
-+                targetPoisoned = true;
 +
 +            OnSpellHitTarget(target, spell);
 +        }
@@ -39266,8 +39280,8 @@ index 0000000..1d040d5
 +        {
 +            energy = 0;
 +            comboPoints = 0;
++            combopointsSpent = false;
 +            glyphSSProc = false;
-+            targetPoisoned = false;
 +
 +            mhEnchantExpireTimer = 1;
 +            ohEnchantExpireTimer = 1;
@@ -39319,6 +39333,7 @@ index 0000000..1d040d5
 +            InitSpellMap(BACKSTAB_1);
 +            InitSpellMap(SINISTER_STRIKE_1);
 +            InitSpellMap(EVISCERATE_1);
++            InitSpellMap(ENVENOM_1);
 +            InitSpellMap(RUPTURE_1);
 +            InitSpellMap(DEADLY_THROW_1);
 +            InitSpellMap(FAN_OF_KNIVES_1);
@@ -39507,9 +39522,9 @@ index 0000000..1d040d5
 +
 +    private:
 +        bool glyphSSProc;
-+        bool targetPoisoned;
 +        int32 energy;
 +        uint8 comboPoints;
++        bool combopointsSpent;
 +        bool isdaggerMH, isdaggerOH;
 +        uint32 mhEnchantExpireTimer, ohEnchantExpireTimer;
 +        uint32 mhEnchant, ohEnchant;
@@ -61020,7 +61035,7 @@ index d2b7fc6..46c636e 100644
      float mindamage = ((base_value + weapon_mindamage) * dmg_multiplier * base_pct + total_value) * total_pct;
      float maxdamage = ((base_value + weapon_maxdamage) * dmg_multiplier * base_pct + total_value) * total_pct;
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index 343adec..8b9d7bc 100644
+index 343adec..0008154 100644
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
 @@ -61,6 +61,10 @@
@@ -61774,7 +61789,7 @@ index 343adec..8b9d7bc 100644
          // Auras which should proc on area aura source (caster in this case):
          // Turn the Tables
          case 52914:
-@@ -8362,6 +8849,20 @@ bool Unit::HandleProcTriggerSpell(Unit* victim, uint32 damage, AuraEffect* trigg
+@@ -8362,6 +8849,25 @@ bool Unit::HandleProcTriggerSpell(Unit* victim, uint32 damage, AuraEffect* trigg
              if (!target)
                  return false;
  
@@ -61787,7 +61802,12 @@ index 343adec..8b9d7bc 100644
 +                target->CastSpell(target, trigger_spell_id, true, castItem, triggeredByAura);
 +
 +                if (cooldown)
-+                    target->ToCreature()->AddBotSpellCooldown(trigger_spell_id, cooldown * IN_MILLISECONDS);
++                {
++                    if (GetTypeId() == TYPEID_PLAYER)
++                        ToPlayer()->AddSpellCooldown(trigger_spell_id, 0, time(NULL) + cooldown);
++                    else if (GetTypeId() == TYPEID_UNIT && ToCreature()->IsNPCBot())
++                        ToCreature()->AddBotSpellCooldown(trigger_spell_id, cooldown * IN_MILLISECONDS);
++                }
 +                return true;
 +            }
 +            //end npcbot
@@ -61795,7 +61815,18 @@ index 343adec..8b9d7bc 100644
              if (cooldown && target->GetTypeId() == TYPEID_PLAYER && target->ToPlayer()->HasSpellCooldown(trigger_spell_id))
                  return false;
  
-@@ -8544,6 +9045,11 @@ bool Unit::HandleProcTriggerSpell(Unit* victim, uint32 damage, AuraEffect* trigg
+@@ -8369,6 +8875,10 @@ bool Unit::HandleProcTriggerSpell(Unit* victim, uint32 damage, AuraEffect* trigg
+ 
+             if (cooldown && GetTypeId() == TYPEID_PLAYER)
+                 ToPlayer()->AddSpellCooldown(trigger_spell_id, 0, time(NULL) + cooldown);
++            //npcbot: handle for bots
++            else if (cooldown && GetTypeId() == TYPEID_UNIT && ToCreature()->IsNPCBot())
++                ToCreature()->AddBotSpellCooldown(trigger_spell_id, cooldown * IN_MILLISECONDS);
++            //end npcbot
+             return true;
+         }
+         // Cast positive spell on enemy target
+@@ -8544,6 +9054,11 @@ bool Unit::HandleProcTriggerSpell(Unit* victim, uint32 damage, AuraEffect* trigg
          }
      }
  
@@ -61807,7 +61838,7 @@ index 343adec..8b9d7bc 100644
      if (cooldown && GetTypeId() == TYPEID_PLAYER && ToPlayer()->HasSpellCooldown(trigger_spell_id))
          return false;
  
-@@ -8559,6 +9065,11 @@ bool Unit::HandleProcTriggerSpell(Unit* victim, uint32 damage, AuraEffect* trigg
+@@ -8559,6 +9074,11 @@ bool Unit::HandleProcTriggerSpell(Unit* victim, uint32 damage, AuraEffect* trigg
      if (cooldown && GetTypeId() == TYPEID_PLAYER)
          ToPlayer()->AddSpellCooldown(trigger_spell_id, 0, time(NULL) + cooldown);
  
@@ -61819,7 +61850,7 @@ index 343adec..8b9d7bc 100644
      return true;
  }
  
-@@ -8653,6 +9164,11 @@ bool Unit::HandleOverrideClassScriptAuraProc(Unit* victim, uint32 /*damage*/, Au
+@@ -8653,6 +9173,11 @@ bool Unit::HandleOverrideClassScriptAuraProc(Unit* victim, uint32 /*damage*/, Au
          return false;
      }
  
@@ -61831,7 +61862,7 @@ index 343adec..8b9d7bc 100644
      if (cooldown && GetTypeId() == TYPEID_PLAYER && ToPlayer()->HasSpellCooldown(triggered_spell_id))
          return false;
  
-@@ -8661,6 +9177,11 @@ bool Unit::HandleOverrideClassScriptAuraProc(Unit* victim, uint32 /*damage*/, Au
+@@ -8661,6 +9186,11 @@ bool Unit::HandleOverrideClassScriptAuraProc(Unit* victim, uint32 /*damage*/, Au
      if (cooldown && GetTypeId() == TYPEID_PLAYER)
          ToPlayer()->AddSpellCooldown(triggered_spell_id, 0, time(NULL) + cooldown);
  
@@ -61843,7 +61874,7 @@ index 343adec..8b9d7bc 100644
      return true;
  }
  
-@@ -8982,6 +9503,9 @@ bool Unit::Attack(Unit* victim, bool meleeAttack)
+@@ -8982,6 +9512,9 @@ bool Unit::Attack(Unit* victim, bool meleeAttack)
      //    ToCreature()->SetCombatStartPosition(GetPositionX(), GetPositionY(), GetPositionZ());
  
      if (GetTypeId() == TYPEID_UNIT && !ToCreature()->IsPet())
@@ -61853,7 +61884,7 @@ index 343adec..8b9d7bc 100644
      {
          // should not let player enter combat by right clicking target - doesn't helps
          SetInCombatWith(victim);
-@@ -9065,6 +9589,19 @@ void Unit::CombatStopWithPets(bool includingCast)
+@@ -9065,6 +9598,19 @@ void Unit::CombatStopWithPets(bool includingCast)
  
      for (ControlList::const_iterator itr = m_Controlled.begin(); itr != m_Controlled.end(); ++itr)
          (*itr)->CombatStop(includingCast);
@@ -61873,7 +61904,7 @@ index 343adec..8b9d7bc 100644
  }
  
  bool Unit::isAttackingPlayer() const
-@@ -9719,6 +10256,11 @@ Unit* Unit::GetNextRandomRaidMemberOrPet(float radius)
+@@ -9719,6 +10265,11 @@ Unit* Unit::GetNextRandomRaidMemberOrPet(float radius)
      else if (GetTypeId() == TYPEID_UNIT && ToCreature()->IsPet())
          player = GetOwner()->ToPlayer();
  
@@ -61885,7 +61916,7 @@ index 343adec..8b9d7bc 100644
      if (!player)
          return NULL;
      Group* group = player->GetGroup();
-@@ -9751,6 +10293,25 @@ Unit* Unit::GetNextRandomRaidMemberOrPet(float radius)
+@@ -9751,6 +10302,25 @@ Unit* Unit::GetNextRandomRaidMemberOrPet(float radius)
          if (Unit* pet = Target->GetGuardianPet())
              if (pet != this && pet->IsAlive() && IsWithinDistInMap(pet, radius) && !IsHostileTo(pet))
                  nearMembers.push_back(pet);
@@ -61911,7 +61942,7 @@ index 343adec..8b9d7bc 100644
          }
  
      if (nearMembers.empty())
-@@ -9880,6 +10441,11 @@ uint32 Unit::SpellDamageBonusDone(Unit* victim, SpellInfo const* spellProto, uin
+@@ -9880,6 +10450,11 @@ uint32 Unit::SpellDamageBonusDone(Unit* victim, SpellInfo const* spellProto, uin
      float ApCoeffMod = 1.0f;
      int32 DoneTotal = 0;
  
@@ -61923,7 +61954,7 @@ index 343adec..8b9d7bc 100644
      // Pet damage?
      if (GetTypeId() == TYPEID_UNIT && !ToCreature()->IsPet())
          DoneTotalMod *= ToCreature()->GetSpellDamageMod(ToCreature()->GetCreatureTemplate()->rank);
-@@ -10295,6 +10861,11 @@ uint32 Unit::SpellDamageBonusTaken(Unit* caster, SpellInfo const* spellProto, ui
+@@ -10295,6 +10870,11 @@ uint32 Unit::SpellDamageBonusTaken(Unit* caster, SpellInfo const* spellProto, ui
      // multiplicative bonus, for example Dispersion + Shadowform (0.10*0.85=0.085)
      TakenTotalMod *= GetTotalAuraMultiplierByMiscMask(SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN, spellProto->GetSchoolMask());
  
@@ -61935,7 +61966,7 @@ index 343adec..8b9d7bc 100644
      //.. taken pct: dummy auras
      AuraEffectList const& mDummyAuras = GetAuraEffectsByType(SPELL_AURA_DUMMY);
      for (AuraEffectList::const_iterator i = mDummyAuras.begin(); i != mDummyAuras.end(); ++i)
-@@ -10378,6 +10949,11 @@ int32 Unit::SpellBaseDamageBonusDone(SpellSchoolMask schoolMask) const
+@@ -10378,6 +10958,11 @@ int32 Unit::SpellBaseDamageBonusDone(SpellSchoolMask schoolMask) const
  {
      int32 DoneAdvertisedBenefit = 0;
  
@@ -61947,7 +61978,7 @@ index 343adec..8b9d7bc 100644
      AuraEffectList const& mDamageDone = GetAuraEffectsByType(SPELL_AURA_MOD_DAMAGE_DONE);
      for (AuraEffectList::const_iterator i = mDamageDone.begin(); i != mDamageDone.end(); ++i)
          if (((*i)->GetMiscValue() & schoolMask) != 0 &&
-@@ -10430,6 +11006,9 @@ bool Unit::isSpellCrit(Unit* victim, SpellInfo const* spellProto, SpellSchoolMas
+@@ -10430,6 +11015,9 @@ bool Unit::isSpellCrit(Unit* victim, SpellInfo const* spellProto, SpellSchoolMas
      //! Mobs can't crit with spells. Player Totems can
      //! Fire Elemental (from totem) can too - but this part is a hack and needs more research
      if (IS_CREATURE_GUID(GetGUID()) && !(IsTotem() && IS_PLAYER_GUID(GetOwnerGUID())) && GetEntry() != 15438)
@@ -61957,7 +61988,7 @@ index 343adec..8b9d7bc 100644
          return false;
  
      // not critting spell
-@@ -10617,6 +11196,11 @@ bool Unit::isSpellCrit(Unit* victim, SpellInfo const* spellProto, SpellSchoolMas
+@@ -10617,6 +11205,11 @@ bool Unit::isSpellCrit(Unit* victim, SpellInfo const* spellProto, SpellSchoolMas
      if (Player* modOwner = GetSpellModOwner())
          modOwner->ApplySpellMod(spellProto->Id, SPELLMOD_CRITICAL_CHANCE, crit_chance);
  
@@ -61969,7 +62000,7 @@ index 343adec..8b9d7bc 100644
      crit_chance = crit_chance > 0.0f ? crit_chance : 0.0f;
      if (roll_chance_f(crit_chance))
          return true;
-@@ -10841,6 +11425,11 @@ uint32 Unit::SpellHealingBonusDone(Unit* victim, SpellInfo const* spellProto, ui
+@@ -10841,6 +11434,11 @@ uint32 Unit::SpellHealingBonusDone(Unit* victim, SpellInfo const* spellProto, ui
      if (Player* modOwner = GetSpellModOwner())
          modOwner->ApplySpellMod(spellProto->Id, damagetype == DOT ? SPELLMOD_DOT : SPELLMOD_DAMAGE, heal);
  
@@ -61981,7 +62012,7 @@ index 343adec..8b9d7bc 100644
      return uint32(std::max(heal, 0.0f));
  }
  
-@@ -10958,6 +11547,11 @@ int32 Unit::SpellBaseHealingBonusDone(SpellSchoolMask schoolMask) const
+@@ -10958,6 +11556,11 @@ int32 Unit::SpellBaseHealingBonusDone(SpellSchoolMask schoolMask) const
          if (!(*i)->GetMiscValue() || ((*i)->GetMiscValue() & schoolMask) != 0)
              advertisedBenefit += (*i)->GetAmount();
  
@@ -61993,7 +62024,7 @@ index 343adec..8b9d7bc 100644
      // Healing bonus of spirit, intellect and strength
      if (GetTypeId() == TYPEID_PLAYER)
      {
-@@ -11348,6 +11942,11 @@ uint32 Unit::MeleeDamageBonusTaken(Unit* attacker, uint32 pdamage, WeaponAttackT
+@@ -11348,6 +11951,11 @@ uint32 Unit::MeleeDamageBonusTaken(Unit* attacker, uint32 pdamage, WeaponAttackT
      // ..taken
      TakenTotalMod *= GetTotalAuraMultiplierByMiscMask(SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN, attacker->GetMeleeDamageSchoolMask());
  
@@ -62005,7 +62036,7 @@ index 343adec..8b9d7bc 100644
      // .. taken pct (special attacks)
      if (spellProto)
      {
-@@ -11522,6 +12121,25 @@ void Unit::Mount(uint32 mount, uint32 VehicleId, uint32 creatureEntry)
+@@ -11522,6 +12130,25 @@ void Unit::Mount(uint32 mount, uint32 VehicleId, uint32 creatureEntry)
  
      SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNT);
  
@@ -62031,7 +62062,7 @@ index 343adec..8b9d7bc 100644
      if (Player* player = ToPlayer())
      {
          // mount as a vehicle
-@@ -11587,6 +12205,19 @@ void Unit::Dismount()
+@@ -11587,6 +12214,19 @@ void Unit::Dismount()
      SendMessageToSet(&data, true);
  
      // dismount as a vehicle
@@ -62051,7 +62082,7 @@ index 343adec..8b9d7bc 100644
      if (GetTypeId() == TYPEID_PLAYER && GetVehicleKit())
      {
          // Send other players that we are no longer a vehicle
-@@ -11685,6 +12316,16 @@ void Unit::SetInCombatState(bool PvP, Unit* enemy)
+@@ -11685,6 +12325,16 @@ void Unit::SetInCombatState(bool PvP, Unit* enemy)
      if (!IsAlive())
          return;
  
@@ -62068,7 +62099,7 @@ index 343adec..8b9d7bc 100644
      if (PvP)
          m_CombatTimer = 5000;
  
-@@ -11728,6 +12369,19 @@ void Unit::SetInCombatState(bool PvP, Unit* enemy)
+@@ -11728,6 +12378,19 @@ void Unit::SetInCombatState(bool PvP, Unit* enemy)
          (*itr)->SetInCombatState(PvP, enemy);
          (*itr)->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PET_IN_COMBAT);
      }
@@ -62088,7 +62119,7 @@ index 343adec..8b9d7bc 100644
  }
  
  void Unit::ClearInCombat()
-@@ -11795,6 +12449,11 @@ bool Unit::_IsValidAttackTarget(Unit const* target, SpellInfo const* bySpell, Wo
+@@ -11795,6 +12458,11 @@ bool Unit::_IsValidAttackTarget(Unit const* target, SpellInfo const* bySpell, Wo
          || (target->GetTypeId() == TYPEID_PLAYER && target->ToPlayer()->IsGameMaster()))
          return false;
  
@@ -62100,7 +62131,7 @@ index 343adec..8b9d7bc 100644
      // can't attack own vehicle or passenger
      if (m_vehicle)
          if (IsOnVehicle(target) || m_vehicle->GetBase()->IsOnVehicle(target))
-@@ -11827,6 +12486,14 @@ bool Unit::_IsValidAttackTarget(Unit const* target, SpellInfo const* bySpell, Wo
+@@ -11827,6 +12495,14 @@ bool Unit::_IsValidAttackTarget(Unit const* target, SpellInfo const* bySpell, Wo
          || (GetEntry() != WORLD_TRIGGER && target->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP_ATTACKABLE) && HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC)))
          return false;
  
@@ -62115,7 +62146,7 @@ index 343adec..8b9d7bc 100644
      // CvC case - can attack each other only when one of them is hostile
      if (!HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP_ATTACKABLE) && !target->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP_ATTACKABLE))
          return GetReactionTo(target) <= REP_HOSTILE || target->GetReactionTo(this) <= REP_HOSTILE;
-@@ -12473,6 +13140,11 @@ bool Unit::CanHaveThreatList(bool skipAliveCheck) const
+@@ -12473,6 +13149,11 @@ bool Unit::CanHaveThreatList(bool skipAliveCheck) const
      if (HasUnitTypeMask(UNIT_MASK_MINION | UNIT_MASK_GUARDIAN | UNIT_MASK_CONTROLABLE_GUARDIAN) && IS_PLAYER_GUID(((Pet*)this)->GetOwnerGUID()))
          return false;
  
@@ -62127,7 +62158,7 @@ index 343adec..8b9d7bc 100644
      return true;
  }
  
-@@ -12726,6 +13398,10 @@ float Unit::ApplyEffectModifiers(SpellInfo const* spellProto, uint8 effect_index
+@@ -12726,6 +13407,10 @@ float Unit::ApplyEffectModifiers(SpellInfo const* spellProto, uint8 effect_index
                  break;
          }
      }
@@ -62138,7 +62169,7 @@ index 343adec..8b9d7bc 100644
      return value;
  }
  
-@@ -12739,6 +13415,23 @@ int32 Unit::CalcSpellDuration(SpellInfo const* spellProto)
+@@ -12739,6 +13424,23 @@ int32 Unit::CalcSpellDuration(SpellInfo const* spellProto)
  {
      uint8 comboPoints = m_movedPlayer ? m_movedPlayer->GetComboPoints() : 0;
  
@@ -62162,7 +62193,7 @@ index 343adec..8b9d7bc 100644
      int32 minduration = spellProto->GetDuration();
      int32 maxduration = spellProto->GetMaxDuration();
  
-@@ -12862,6 +13555,11 @@ void Unit::ModSpellCastTime(SpellInfo const* spellProto, int32 & castTime, Spell
+@@ -12862,6 +13564,11 @@ void Unit::ModSpellCastTime(SpellInfo const* spellProto, int32 & castTime, Spell
      if (Player* modOwner = GetSpellModOwner())
          modOwner->ApplySpellMod(spellProto->Id, SPELLMOD_CASTING_TIME, castTime, spell);
  
@@ -62174,7 +62205,7 @@ index 343adec..8b9d7bc 100644
      if (!(spellProto->Attributes & (SPELL_ATTR0_ABILITY|SPELL_ATTR0_TRADESPELL)) && ((GetTypeId() == TYPEID_PLAYER && spellProto->SpellFamilyName) || GetTypeId() == TYPEID_UNIT))
          castTime = int32(float(castTime) * GetFloatValue(UNIT_MOD_CAST_SPEED));
      else if (spellProto->Attributes & SPELL_ATTR0_REQ_AMMO && !(spellProto->AttributesEx2 & SPELL_ATTR2_AUTOREPEAT_FLAG))
-@@ -12929,6 +13627,11 @@ float Unit::ApplyDiminishingToDuration(DiminishingGroup group, int32 &duration,
+@@ -12929,6 +13636,11 @@ float Unit::ApplyDiminishingToDuration(DiminishingGroup group, int32 &duration,
              || ((Creature*)target)->GetCreatureTemplate()->flags_extra & CREATURE_FLAG_EXTRA_ALL_DIMINISH)
              && source->GetTypeId() == TYPEID_PLAYER)
              duration = limitduration;
@@ -62186,7 +62217,7 @@ index 343adec..8b9d7bc 100644
      }
  
      float mod = 1.0f;
-@@ -13035,6 +13738,17 @@ uint32 Unit::GetCreatureType() const
+@@ -13035,6 +13747,17 @@ uint32 Unit::GetCreatureType() const
          else
              return CREATURE_TYPE_HUMANOID;
      }
@@ -62204,7 +62235,7 @@ index 343adec..8b9d7bc 100644
      else
          return ToCreature()->GetCreatureTemplate()->type;
  }
-@@ -13988,6 +14702,14 @@ void Unit::ProcDamageAndSpellFor(bool isVictim, Unit* target, uint32 procFlag, u
+@@ -13988,6 +14711,14 @@ void Unit::ProcDamageAndSpellFor(bool isVictim, Unit* target, uint32 procFlag, u
                      ModifyAuraState(AURA_STATE_DEFENSE, true);
                      StartReactiveTimer(REACTIVE_DEFENSE);
                  }
@@ -62219,7 +62250,7 @@ index 343adec..8b9d7bc 100644
              }
              else // For attacker
              {
-@@ -13997,6 +14719,14 @@ void Unit::ProcDamageAndSpellFor(bool isVictim, Unit* target, uint32 procFlag, u
+@@ -13997,6 +14728,14 @@ void Unit::ProcDamageAndSpellFor(bool isVictim, Unit* target, uint32 procFlag, u
                      ToPlayer()->AddComboPoints(target, 1);
                      StartReactiveTimer(REACTIVE_OVERPOWER);
                  }
@@ -62234,7 +62265,7 @@ index 343adec..8b9d7bc 100644
              }
          }
      }
-@@ -14098,6 +14828,11 @@ void Unit::ProcDamageAndSpellFor(bool isVictim, Unit* target, uint32 procFlag, u
+@@ -14098,6 +14837,11 @@ void Unit::ProcDamageAndSpellFor(bool isVictim, Unit* target, uint32 procFlag, u
          if (prepare && GetTypeId() == TYPEID_PLAYER && i->spellProcEvent && i->spellProcEvent->cooldown)
              cooldown = i->spellProcEvent->cooldown;
  
@@ -62246,7 +62277,7 @@ index 343adec..8b9d7bc 100644
          // Note: must SetCantProc(false) before return
          if (spellInfo->AttributesEx3 & SPELL_ATTR3_DISABLE_PROC)
              SetCantProc(true);
-@@ -14542,6 +15277,31 @@ void Unit::ClearComboPointHolders()
+@@ -14542,6 +15286,31 @@ void Unit::ClearComboPointHolders()
      }
  }
  
@@ -62278,7 +62309,7 @@ index 343adec..8b9d7bc 100644
  void Unit::ClearAllReactives()
  {
      for (uint8 i = 0; i < MAX_REACTIVE; ++i)
-@@ -14650,6 +15410,9 @@ uint32 Unit::GetCastingTimeForBonus(SpellInfo const* spellProto, DamageEffectTyp
+@@ -14650,6 +15419,9 @@ uint32 Unit::GetCastingTimeForBonus(SpellInfo const* spellProto, DamageEffectTyp
  {
      // Not apply this to creature casted spells with casttime == 0
      if (CastingTime == 0 && GetTypeId() == TYPEID_UNIT && !ToCreature()->IsPet())
@@ -62288,7 +62319,7 @@ index 343adec..8b9d7bc 100644
          return 3500;
  
      if (CastingTime > 7000) CastingTime = 7000;
-@@ -15037,6 +15800,12 @@ bool Unit::IsTriggeredAtSpellProcEvent(Unit* victim, Aura* aura, SpellInfo const
+@@ -15037,6 +15809,12 @@ bool Unit::IsTriggeredAtSpellProcEvent(Unit* victim, Aura* aura, SpellInfo const
      {
          modOwner->ApplySpellMod(spellProto->Id, SPELLMOD_CHANCE_OF_SUCCESS, chance);
      }
@@ -62301,7 +62332,7 @@ index 343adec..8b9d7bc 100644
      return roll_chance_f(chance);
  }
  
-@@ -15139,7 +15908,19 @@ void Unit::Kill(Unit* victim, bool durabilityLoss)
+@@ -15139,7 +15917,19 @@ void Unit::Kill(Unit* victim, bool durabilityLoss)
          return;
  
      // find player: owner of controlled `this` or `this` itself maybe
@@ -62321,7 +62352,7 @@ index 343adec..8b9d7bc 100644
      Creature* creature = victim->ToCreature();
  
      bool isRewardAllowed = true;
-@@ -15286,6 +16067,9 @@ void Unit::Kill(Unit* victim, bool durabilityLoss)
+@@ -15286,6 +16076,9 @@ void Unit::Kill(Unit* victim, bool durabilityLoss)
  
          // only if not player and not controlled by player pet. And not at BG
          if ((durabilityLoss && !player && !victim->ToPlayer()->InBattleground()) || (player && sWorld->getBoolConfig(CONFIG_DURABILITY_LOSS_IN_PVP)))
@@ -62331,7 +62362,7 @@ index 343adec..8b9d7bc 100644
          {
              TC_LOG_DEBUG("entities.unit", "We are dead, losing %f percent durability", sWorld->getRate(RATE_DURABILITY_LOSS_ON_DEATH));
              plrVictim->DurabilityLossAll(sWorld->getRate(RATE_DURABILITY_LOSS_ON_DEATH), false);
-@@ -16021,6 +16805,16 @@ bool Unit::IsInPartyWith(Unit const* unit) const
+@@ -16021,6 +16814,16 @@ bool Unit::IsInPartyWith(Unit const* unit) const
      else if ((u2->GetTypeId() == TYPEID_PLAYER && u1->GetTypeId() == TYPEID_UNIT && u1->ToCreature()->GetCreatureTemplate()->type_flags & CREATURE_TYPEFLAGS_PARTY_MEMBER) ||
          (u1->GetTypeId() == TYPEID_PLAYER && u2->GetTypeId() == TYPEID_UNIT && u2->ToCreature()->GetCreatureTemplate()->type_flags & CREATURE_TYPEFLAGS_PARTY_MEMBER))
          return true;
@@ -62348,7 +62379,7 @@ index 343adec..8b9d7bc 100644
      else
          return false;
  }
-@@ -16040,6 +16834,16 @@ bool Unit::IsInRaidWith(Unit const* unit) const
+@@ -16040,6 +16843,16 @@ bool Unit::IsInRaidWith(Unit const* unit) const
      else if ((u2->GetTypeId() == TYPEID_PLAYER && u1->GetTypeId() == TYPEID_UNIT && u1->ToCreature()->GetCreatureTemplate()->type_flags & CREATURE_TYPEFLAGS_PARTY_MEMBER) ||
              (u1->GetTypeId() == TYPEID_PLAYER && u2->GetTypeId() == TYPEID_UNIT && u2->ToCreature()->GetCreatureTemplate()->type_flags & CREATURE_TYPEFLAGS_PARTY_MEMBER))
          return true;
@@ -62365,7 +62396,7 @@ index 343adec..8b9d7bc 100644
      else
          return false;
  }
-@@ -16068,6 +16872,19 @@ void Unit::GetPartyMembers(std::list<Unit*> &TagUnitMap)
+@@ -16068,6 +16881,19 @@ void Unit::GetPartyMembers(std::list<Unit*> &TagUnitMap)
                  if (Guardian* pet = Target->GetGuardianPet())
                      if (pet->IsAlive() && IsInMap(Target))
                          TagUnitMap.push_back(pet);
@@ -62385,7 +62416,7 @@ index 343adec..8b9d7bc 100644
              }
          }
      }
-@@ -16078,6 +16895,18 @@ void Unit::GetPartyMembers(std::list<Unit*> &TagUnitMap)
+@@ -16078,6 +16904,18 @@ void Unit::GetPartyMembers(std::list<Unit*> &TagUnitMap)
          if (Guardian* pet = owner->GetGuardianPet())
              if (pet->IsAlive() && (pet == this || IsInMap(pet)))
                  TagUnitMap.push_back(pet);
@@ -62404,7 +62435,7 @@ index 343adec..8b9d7bc 100644
      }
  }
  
-@@ -16229,6 +17058,16 @@ float Unit::MeleeSpellMissChance(const Unit* victim, WeaponAttackType attType, i
+@@ -16229,6 +17067,16 @@ float Unit::MeleeSpellMissChance(const Unit* victim, WeaponAttackType attType, i
      //calculate miss chance
      float missChance = victim->GetUnitMissChance(attType);
  
@@ -62421,7 +62452,7 @@ index 343adec..8b9d7bc 100644
      if (!spellId && haveOffhandWeapon())
          missChance += 19;
  
-@@ -16257,6 +17096,11 @@ float Unit::MeleeSpellMissChance(const Unit* victim, WeaponAttackType attType, i
+@@ -16257,6 +17105,11 @@ float Unit::MeleeSpellMissChance(const Unit* victim, WeaponAttackType attType, i
      else
          missChance -= m_modMeleeHitChance;
  
@@ -62433,7 +62464,7 @@ index 343adec..8b9d7bc 100644
      // Limit miss chance from 0 to 60%
      if (missChance < 0.0f)
          return 0.0f;
-@@ -16316,6 +17160,11 @@ void Unit::SetPhaseMask(uint32 newPhaseMask, bool update)
+@@ -16316,6 +17169,11 @@ void Unit::SetPhaseMask(uint32 newPhaseMask, bool update)
          if ((*itr)->GetTypeId() == TYPEID_UNIT)
              (*itr)->SetPhaseMask(newPhaseMask, true);
  
@@ -62445,7 +62476,7 @@ index 343adec..8b9d7bc 100644
      for (uint8 i = 0; i < MAX_SUMMON_SLOT; ++i)
          if (m_SummonSlot[i])
              if (Creature* summon = GetMap()->GetCreature(m_SummonSlot[i]))
-@@ -16563,6 +17412,183 @@ uint32 Unit::GetModelForForm(ShapeshiftForm form) const
+@@ -16563,6 +17421,183 @@ uint32 Unit::GetModelForForm(ShapeshiftForm form) const
                  break;
          }
      }
@@ -62629,7 +62660,7 @@ index 343adec..8b9d7bc 100644
  
      uint32 modelid = 0;
      SpellShapeshiftEntry const* formEntry = sSpellShapeshiftStore.LookupEntry(form);
-@@ -17196,6 +18222,19 @@ void Unit::StopAttackFaction(uint32 faction_id)
+@@ -17196,6 +18231,19 @@ void Unit::StopAttackFaction(uint32 faction_id)
  
      for (ControlList::const_iterator itr = m_Controlled.begin(); itr != m_Controlled.end(); ++itr)
              (*itr)->StopAttackFaction(faction_id);
@@ -63824,7 +63855,7 @@ index 927ecd3..14ec724 100644
          bool IsAutoRepeat() const { return m_autoRepeat; }
          void SetAutoRepeat(bool rep) { m_autoRepeat = rep; }
 diff --git a/src/server/game/Spells/SpellEffects.cpp b/src/server/game/Spells/SpellEffects.cpp
-index 868dc3f..bc4853d 100644
+index 868dc3f..aa5407e 100644
 --- a/src/server/game/Spells/SpellEffects.cpp
 +++ b/src/server/game/Spells/SpellEffects.cpp
 @@ -497,6 +497,17 @@ void Spell::EffectSchoolDMG(SpellEffIndex effIndex)
@@ -63867,7 +63898,7 @@ index 868dc3f..bc4853d 100644
 +                                    doses = combo;
 +
 +                                // Master Poisoner
-+                                Unit::AuraEffectList const& auraList = player->GetAuraEffectsByType(SPELL_AURA_MOD_AURA_DURATION_BY_DISPEL_NOT_STACK);
++                                Unit::AuraEffectList const& auraList = m_caster->GetAuraEffectsByType(SPELL_AURA_MOD_AURA_DURATION_BY_DISPEL_NOT_STACK);
 +                                for (Unit::AuraEffectList::const_iterator iter = auraList.begin(); iter != auraList.end(); ++iter)
 +                                {
 +                                    if ((*iter)->GetSpellInfo()->SpellFamilyName == SPELLFAMILY_ROGUE && (*iter)->GetSpellInfo()->SpellIconID == 1960)
@@ -63886,7 +63917,7 @@ index 868dc3f..bc4853d 100644
 +                                        unitTarget->RemoveAuraFromStack(spellId, m_caster->GetGUID());
 +
 +                                damage *= doses;
-+                                damage += int32(player->GetTotalAttackPowerValue(BASE_ATTACK) * 0.09f * combo);
++                                damage += int32(m_caster->GetTotalAttackPowerValue(BASE_ATTACK) * 0.09f * combo);
 +                            }
 +
 +                            // Eviscerate and Envenom Bonus Damage (item set effect)
