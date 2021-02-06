@@ -1,6 +1,6 @@
-From 0aa1dff51f14420a81fd101e406c12f18b43df5d Mon Sep 17 00:00:00 2001
+From b62b16d55f20c291c474f81aba000cef1290e836 Mon Sep 17 00:00:00 2001
 From: trickerer <onlysuffering@gmail.com>
-Date: Tue, 2 Feb 2021 15:14:21 +0700
+Date: Sat, 6 Feb 2021 19:01:03 +0700
 Subject: [PATCH] NPCBots2013
 
 ---
@@ -54,7 +54,7 @@ Subject: [PATCH] NPCBots2013
  src/server/game/AI/NpcBots/botdatamgr.h            |   128 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   131 +
  src/server/game/AI/NpcBots/botdpstracker.h         |    36 +
- src/server/game/AI/NpcBots/botdump.cpp             |   951 ++
+ src/server/game/AI/NpcBots/botdump.cpp             |   946 ++
  src/server/game/AI/NpcBots/botdump.h               |    47 +
  src/server/game/AI/NpcBots/botgiver.cpp            |   255 +
  src/server/game/AI/NpcBots/botmgr.cpp              |  1376 ++
@@ -122,7 +122,7 @@ Subject: [PATCH] NPCBots2013
  .../Database/Implementation/CharacterDatabase.cpp  |    18 +
  .../Database/Implementation/CharacterDatabase.h    |    14 +
  src/server/worldserver/worldserver.conf.dist       |   263 +
- 118 files changed, 62286 insertions(+), 42 deletions(-)
+ 118 files changed, 62281 insertions(+), 42 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -51375,10 +51375,10 @@ index 0000000..e164a57
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botdump.cpp b/src/server/game/AI/NpcBots/botdump.cpp
 new file mode 100644
-index 0000000..76c7688
+index 0000000..6f53c46
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdump.cpp
-@@ -0,0 +1,951 @@
+@@ -0,0 +1,946 @@
 +/*
 + * NpcBots Data Migration System by Trickerer (onlysuffering@gmail.com)
 + *
@@ -51407,6 +51407,7 @@ index 0000000..76c7688
 +# define CharacterDatabasePreparedStatement PreparedStatement
 +# define CharacterDatabaseTransaction SQLTransaction
 +# define WorldDatabaseTransaction SQLTransaction
++# define GenerateCreatureSpawnId() GenerateLowGuid(HIGHGUID_UNIT)
 +#endif //SCRIPT_VERSION_LAST
 +
 +class BotStringTransaction
@@ -51597,7 +51598,7 @@ index 0000000..76c7688
 +    s_disabled`,`equipMhEx`,`equipOhEx`,`equipRhEx`,`equipHead`,`equipShoulders`,`eq
 +    uipChest`,`equipWaist`,`equipLegs`,`equipFeet`,`equipWrist`,`equipHands`,`equipB
 +    ack`,`equipBody`,`equipFinger1`,`equipFinger2`,`equipTrinket1`,`equipTrinket2`,`
-+    equipNeck`) VALUES ('70027','2204','19','3','35',NULL,'4305063','4305032','0','0
++    equipNeck`) VALUES ('70027','2204','19','3','35','NULL','4305063','4305032','0','0
 +    ','4305069','4237321','4237326','4305049','4305067','4305055','0','4305054','430
 +    5029','4303835','0','0','0','0');
 +    */
@@ -51639,7 +51640,7 @@ index 0000000..76c7688
 +
 +                TC_LOG_ERROR("scripts", "import: ReGuidBotEquip no guidVal from %s offset %u!",
 +                    line.substr(begin_pos, end_pos - begin_pos).c_str(), uint32(ne_guid_offset));
-+                return false;
++                break;
 +            }
 +
 +            if (itemReguidMap.count(guidVal) == 0)
@@ -51758,7 +51759,7 @@ index 0000000..76c7688
 +    return true;
 +}
 +
-+inline bool ReGuidCreature(std::string& line, uint32& nextGuid)
++inline bool ReGuidCreature(std::string& line)
 +{
 +    /*
 +    INSERT INTO `item_instance` (`guid`,`id`,`map`,`spawnMask`,`phaseMask`,`position
@@ -51804,10 +51805,10 @@ index 0000000..76c7688
 +                return false;
 +            }
 +
++            uint32 nextGuid = sObjectMgr->GenerateCreatureSpawnId();
 +            //TC_LOG_ERROR("scripts", "import: ReGuidCreature replacing %u with %u", guidVal, nextGuid);
 +            line.replace(begin_pos, end_pos - begin_pos, ValToString(nextGuid));
 +
-+            ++nextGuid;
 +            reguidDone = true;
 +            break;
 +        }
@@ -51858,12 +51859,6 @@ index 0000000..76c7688
 +    fields = result->Fetch();
 +    static uint32 NextItemGuid = (*fields).GetUInt32() + 1;
 +    //TC_LOG_ERROR("scripts", "import: NextItemGuid %u", NextItemGuid);
-+    //creature guid
-+    result = WorldDatabase.Query("SELECT MAX(`guid`) FROM `creature`");
-+    ASSERT(result);
-+    fields = result->Fetch();
-+    static uint32 NextCreatureGuid = (*fields).GetUInt32() + 1;
-+    //TC_LOG_ERROR("scripts", "import: NextCreatureGuid %u", NextCreatureGuid);
 +
 +    CharacterDatabaseTransaction ctrans = CharacterDatabase.BeginTransaction();
 +    WorldDatabaseTransaction wtrans = WorldDatabase.BeginTransaction();
@@ -51990,7 +51985,7 @@ index 0000000..76c7688
 +                }
 +                break;
 +            case TABLE_TYPE_CREATURE:
-+                if (!ReGuidCreature(curExecLine, NextCreatureGuid))
++                if (!ReGuidCreature(curExecLine))
 +                {
 +                    TC_LOG_ERROR("scripts", "import: unable to reguid creature at line %u!", lineNum);
 +                    return BOT_DUMP_FAIL_FILE_CORRUPTED;
