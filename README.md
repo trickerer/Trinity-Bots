@@ -1,5 +1,5 @@
 ### This mod was last updated:
-### last version: 19 Jan 2021, TrinityCore revision: [4c0a8ad3b3](https://github.com/TrinityCore/TrinityCore/commit/4c0a8ad3b3)
+### last version: 08 Mar 2021, TrinityCore revision: [84ad438d15](https://github.com/TrinityCore/TrinityCore/commit/84ad438d15)
 ### 2013 version: 12 Dec 2013. TrinityCore revision: [385e2dba37](https://github.com/TrinityCore/TrinityCore/commit/385e2dba37)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
