@@ -47,7 +47,7 @@ DECLARE item1 INT DEFAULT 0;
 DECLARE item2 INT DEFAULT 0;
 DECLARE item3 INT DEFAULT 0;
 
-DELETE FROM `creature_equip_template` WHERE `entry` BETWEEN NPCBOT_ENTRY_BEGIN AND NPCBOT_ENTRY_END;
+DELETE FROM `creature_equip_template` WHERE `CreatureID` BETWEEN NPCBOT_ENTRY_BEGIN AND NPCBOT_ENTRY_END;
 
 SET cur_pos = NPCBOT_ENTRY_BEGIN;
 WHILE cur_pos < NPCBOT_ENTRY_END DO
@@ -135,14 +135,14 @@ WHILE cur_pos < NPCBOT_ENTRY_END DO
             SET item3 = 34529; -- vengeful gladiator's longbow
         END IF;
 
-        INSERT INTO `creature_equip_template` (`entry`,`id`,`itemEntry1`,`itemEntry2`,`itemEntry3`) VALUES (cur_pos,1,item1,item2,item3);
+        INSERT INTO `creature_equip_template` (`CreatureID`,`ID`,`itemID1`,`itemID2`,`itemID3`,`VerifiedBuild`) VALUES (cur_pos,1,item1,item2,item3,-1);
 
     ELSEIF cur_pos = NPCBOT_ENTRY_PET_DARK_MINION OR cur_pos = NPCBOT_ENTRY_PET_DARK_MINION_ELITE THEN
         SET item1 = 3935;
         SET item2 = 15648;
         SET item3 = 0;
 
-        INSERT INTO `creature_equip_template` (`entry`,`id`,`itemEntry1`,`itemEntry2`,`itemEntry3`) VALUES (cur_pos,1,item1,item2,item3);
+        INSERT INTO `creature_equip_template` (`CreatureID`,`ID`,`itemID1`,`itemID2`,`itemID3`,`VerifiedBuild`) VALUES (cur_pos,1,item1,item2,item3,-1);
 
     END IF;
 
@@ -156,4 +156,4 @@ DELIMITER ;
 
 CALL `sp__generate_npcbot_equips`();
 
-DROP PROCEDURE IF EXISTS `trinity`.`sp__generate_npcbot_equips`;
+DROP PROCEDURE IF EXISTS `sp__generate_npcbot_equips`;
