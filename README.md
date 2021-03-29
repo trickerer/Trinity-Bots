@@ -1,13 +1,12 @@
 ### This mod was last updated:
-### last version: 08 Mar 2021, TrinityCore revision: [84ad438d15](https://github.com/TrinityCore/TrinityCore/commit/84ad438d15)
-### 2013 version: 12 Dec 2013. TrinityCore revision: [385e2dba37](https://github.com/TrinityCore/TrinityCore/commit/385e2dba37)
+### last version: 26 Mar 2021, TrinityCore revision: [80f30d5ca9](https://github.com/TrinityCore/TrinityCore/commit/80f30d5ca9)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 ### Make your support tangible: [Donate](https://paypal.me/trickerer)
 
 # [ THE NPCBOTS MANUAL ]
 >Compiled by: Trickerer (onlysuffering @ Gmail dot Com)  
->Version 0.14 - 23 Jan 2021  
+>Version 0.15 - 29 Mar 2021  
 >Original version by: Thesawolf (@ Gmail dot Com) Version 0.3 - 20 July 2016 [here](https://github.com/thesawolf/TrinityCore/blob/TrinityCoreLegacy/README_Bots.md)
 
 ---------------------------------------
@@ -79,13 +78,17 @@ Features of the NPCBots:
 
 ### NPCBot Mod Installation
 NPCBots is a TrinityCore mod (https://github.com/TrinityCore/TrinityCore/), currently only 3.3.5 branch is supported  
+
+**There is a pre-patched repository available [here](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/)**  
+If you still prefer the patch then keep on reading, otherwise clone the patched repo and jump to step 4  
+
 At the very start of this document you can find a link for TrinityCore revision for the last version of NPCBots. There is no guarantee you will be able to apply the mod if you are using other version of TrinityCore  
-Follow TrinityCore Installation Guide (https://TrinityCore.info/) to install the server first  
-Download NPCBots.patch and put it into your TrinityCore folder  
-Apply the patch using `patch -p1 < NPCBots.patch` command (creating new files)  
-(Re)run CMake and (re)build  
-Merge worldserver.conf.dist into your worldserver.conf file (NPCBot mod settings)  
-Apply SQL files from `/TrinityCore/sql/Bots/` to your DB (files starting with `characters_` and `world_` go into your `characters` and `world` DB respectively):
+1. Follow TrinityCore Installation Guide (https://TrinityCore.info/) to install the server first  
+2. Download NPCBots.patch and put it into your TrinityCore folder  
+3. Apply the patch using `patch -p1 < NPCBots.patch` command (creating new files)  
+4. (Re)run CMake and (re)build  
+5. Merge worldserver.conf.dist into your worldserver.conf file (NPCBot mod settings)  
+6. Apply SQL files from `/TrinityCore/sql/Bots/` to your DB (files starting with `characters_` and `world_` go into your `characters` and `world` DB respectively):
 ```
 1_world_bot_appearance.sql
 2_world_bot_extras.sql
@@ -94,11 +97,14 @@ Apply SQL files from `/TrinityCore/sql/Bots/` to your DB (files starting with `c
 5_world_botgiver.sql
 characters_bots.sql
 ```
-Apply SQL update files from `/TrinityCore/sql/Bots/updates` to your DB  
+7. Apply SQL update files from `/TrinityCore/sql/Bots/updates` to your DB  
+```
+Hint: for fresh installation there are also shell scripts available for you to quickly merge all required SQL files into `ALL_chracters.sql` and `ALL_world.sql` to go to `characters` and `world` DB respectively
+```
 And after that you are ready to go
 
 ### NPCBot Commands
-First of all, to list your bot's stats, use `/bonk` on him (Warning: big list)  
+First of all, to list your bot's stats, use `/bonk` on them (Warning: big list)  
 
 Note that some commands may not be available to all accounts (depending on their access level and permissions set in the RBAC tables). You may need to change your account permissions to enable usage of some commands
 Most NPCBot commands are divised by persmissions into two groups: player commands and GM commands
@@ -758,6 +764,8 @@ Bots are being added to world at server loading (after Map System is started)
 ---------------------------------------
 ## Guide Changelog
 
+- **Version 0.15** (_29 Mar 2021_)
+    - Added info on new installation method
 - **Version 0.14** (_23 Jan 2021_)
     - Added info on vehicle and dump commands
 - **Version 0.13** (_20 Jan 2021_)
