@@ -6,6 +6,10 @@
  sql/Bots/5_world_botgiver.sql                      |    18 +
  sql/Bots/characters_bots.sql                       |    26 +
  sql/Bots/locales/zhCN/npc_text_locale.sql          |   343 +
+ sql/Bots/merge_sqls_characters_unix.sh             |     3 +
+ sql/Bots/merge_sqls_characters_windows.bat         |     1 +
+ sql/Bots/merge_sqls_world_unix.sh                  |     3 +
+ sql/Bots/merge_sqls_world_windows.bat              |     1 +
  ...15_characters_npcbot_NPCBots_4.7.8a-4.7.27a.sql |     1 +
  .../2020_06_21_characters_npcbot_43fceb98.sql      |   172 +
  ...8_characters_npcbot_NPCBots_4.7.34a-4.7.39a.sql |     1 +
@@ -126,7 +130,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   291 +
- 128 files changed, 63216 insertions(+), 47 deletions(-)
+ 132 files changed, 63224 insertions(+), 47 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -134,6 +138,10 @@
  create mode 100644 sql/Bots/5_world_botgiver.sql
  create mode 100644 sql/Bots/characters_bots.sql
  create mode 100644 sql/Bots/locales/zhCN/npc_text_locale.sql
+ create mode 100644 sql/Bots/merge_sqls_characters_unix.sh
+ create mode 100644 sql/Bots/merge_sqls_characters_windows.bat
+ create mode 100644 sql/Bots/merge_sqls_world_unix.sh
+ create mode 100644 sql/Bots/merge_sqls_world_windows.bat
  create mode 100644 sql/Bots/updates/characters/2020_05_15_characters_npcbot_NPCBots_4.7.8a-4.7.27a.sql
  create mode 100644 sql/Bots/updates/characters/2020_06_21_characters_npcbot_43fceb98.sql
  create mode 100644 sql/Bots/updates/characters/2020_10_08_characters_npcbot_NPCBots_4.7.34a-4.7.39a.sql
@@ -2077,6 +2085,38 @@ index 00000000..8e191413
 +('70618','zhCN','恐惧魔王',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 +('70619','zhCN','破法者',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 +('70620','zhCN','黑暗游侠',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+diff --git a/sql/Bots/merge_sqls_characters_unix.sh b/sql/Bots/merge_sqls_characters_unix.sh
+new file mode 100644
+index 00000000..40f062d9
+--- /dev/null
++++ b/sql/Bots/merge_sqls_characters_unix.sh
+@@ -0,0 +1,3 @@
++#!/bin/bash
++cat characters_bots.sql > ALL_characters.sql
++cat updates/characters/*.sql >> ALL_characters.sql
+diff --git a/sql/Bots/merge_sqls_characters_windows.bat b/sql/Bots/merge_sqls_characters_windows.bat
+new file mode 100644
+index 00000000..45cf6a33
+--- /dev/null
++++ b/sql/Bots/merge_sqls_characters_windows.bat
+@@ -0,0 +1 @@
++copy /a characters_bots.sql + /a updates\characters\*.sql /b ALL_characters.sql
+diff --git a/sql/Bots/merge_sqls_world_unix.sh b/sql/Bots/merge_sqls_world_unix.sh
+new file mode 100644
+index 00000000..ab7b2b1f
+--- /dev/null
++++ b/sql/Bots/merge_sqls_world_unix.sh
+@@ -0,0 +1,3 @@
++#!/bin/bash
++cat *world_*.sql > ALL_world.sql
++cat updates/world/*.sql >> ALL_world.sql
+diff --git a/sql/Bots/merge_sqls_world_windows.bat b/sql/Bots/merge_sqls_world_windows.bat
+new file mode 100644
+index 00000000..26b87e56
+--- /dev/null
++++ b/sql/Bots/merge_sqls_world_windows.bat
+@@ -0,0 +1 @@
++copy /a *world_*.sql + /a updates\world\*.sql /b ALL_world.sql
 diff --git a/sql/Bots/updates/characters/2020_05_15_characters_npcbot_NPCBots_4.7.8a-4.7.27a.sql b/sql/Bots/updates/characters/2020_05_15_characters_npcbot_NPCBots_4.7.8a-4.7.27a.sql
 new file mode 100644
 index 00000000..ab44f651
@@ -60991,7 +61031,7 @@ index 75dd4abd..4cb80fff 100644
              sLFGMgr->LeaveLfg(group->GetGUID());
              group->Disband();
 diff --git a/src/server/game/Entities/Creature/Creature.cpp b/src/server/game/Entities/Creature/Creature.cpp
-index c3740629..2450da39 100644
+index c9e8471a..efe096cc 100644
 --- a/src/server/game/Entities/Creature/Creature.cpp
 +++ b/src/server/game/Entities/Creature/Creature.cpp
 @@ -56,6 +56,11 @@
@@ -61251,13 +61291,13 @@ index c3740629..2450da39 100644
  }
  
 @@ -3219,6 +3353,13 @@ void Creature::ReleaseSpellFocus(Spell const* focusSpell, bool withDelay)
-         if (!HasFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_DISABLE_TURN))
+         if (!HasFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_CANNOT_TURN))
              ReacquireSpellFocusTarget();
      }
 +    //npcbot: bots and botpets do not use delay
 +    else if (IsNPCBot() || IsNPCBotPet())
 +    {
-+        if (!HasFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_DISABLE_TURN))
++        if (!HasFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_CANNOT_TURN))
 +            ReacquireSpellFocusTarget();
 +    }
 +    //end npcbot
@@ -61584,10 +61624,10 @@ index c3740629..2450da39 100644
 +}
 +//END NPCBOT
 diff --git a/src/server/game/Entities/Creature/Creature.h b/src/server/game/Entities/Creature/Creature.h
-index aced250d..b96df722 100644
+index 672c0133..a3979a94 100644
 --- a/src/server/game/Entities/Creature/Creature.h
 +++ b/src/server/game/Entities/Creature/Creature.h
-@@ -27,6 +27,11 @@
+@@ -28,6 +28,11 @@
  #include "MapObject.h"
  #include <list>
  
@@ -61599,7 +61639,7 @@ index aced250d..b96df722 100644
  class CreatureAI;
  class CreatureGroup;
  class Group;
-@@ -370,6 +375,75 @@ class TC_GAME_API Creature : public Unit, public GridObject<Creature>, public Ma
+@@ -371,6 +376,75 @@ class TC_GAME_API Creature : public Unit, public GridObject<Creature>, public Ma
  
          std::string GetDebugInfo() const override;
  
@@ -61675,7 +61715,7 @@ index aced250d..b96df722 100644
      protected:
          bool CreateFromProto(ObjectGuid::LowType guidlow, uint32 entry, CreatureData const* data = nullptr, uint32 vehId = 0);
          bool InitEntry(uint32 entry, CreatureData const* data = nullptr);
-@@ -424,6 +498,11 @@ class TC_GAME_API Creature : public Unit, public GridObject<Creature>, public Ma
+@@ -425,6 +499,11 @@ class TC_GAME_API Creature : public Unit, public GridObject<Creature>, public Ma
          bool CanAlwaysSee(WorldObject const* obj) const override;
  
      private:
@@ -61688,7 +61728,7 @@ index aced250d..b96df722 100644
          bool CheckNoGrayAggroConfig(uint32 playerLevel, uint32 creatureLevel) const; // No aggro from gray creatures
  
 diff --git a/src/server/game/Entities/Creature/CreatureData.h b/src/server/game/Entities/Creature/CreatureData.h
-index e92446d2..63eb2bc7 100644
+index 4c59b4e8..5885712a 100644
 --- a/src/server/game/Entities/Creature/CreatureData.h
 +++ b/src/server/game/Entities/Creature/CreatureData.h
 @@ -60,8 +60,8 @@ enum CreatureFlagsExtra : uint32
@@ -61776,7 +61816,7 @@ index 183f2eb7..77bfcf8b 100644
      SetFaction(GetOwner()->GetFaction());
  
 diff --git a/src/server/game/Entities/Creature/enuminfo_CreatureData.cpp b/src/server/game/Entities/Creature/enuminfo_CreatureData.cpp
-index b7e8c77c..a2d95547 100644
+index 6cca23a3..a121b22c 100644
 --- a/src/server/game/Entities/Creature/enuminfo_CreatureData.cpp
 +++ b/src/server/game/Entities/Creature/enuminfo_CreatureData.cpp
 @@ -57,8 +57,8 @@ TC_API_EXPORT EnumText EnumUtils<CreatureFlagsExtra>::ToString(CreatureFlagsExtr
@@ -62024,7 +62064,7 @@ index 65b9fffc..37c8714c 100644
          player->GiveXP(xp, _victim, _groupRate);
          if (Pet* pet = player->GetPet())
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index 16c3638c..287b8e74 100644
+index 51f5586c..c2075d24 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -103,6 +103,11 @@
@@ -62250,7 +62290,7 @@ index 16c3638c..287b8e74 100644
          else
          {
              if (!victim->ToCreature()->IsRacialLeader())
-@@ -21712,6 +21851,18 @@ bool Player::BuyItemFromVendorSlot(ObjectGuid vendorguid, uint32 vendorslot, uin
+@@ -21718,6 +21857,18 @@ bool Player::BuyItemFromVendorSlot(ObjectGuid vendorguid, uint32 vendorslot, uin
          return false;
      }
  
@@ -62269,7 +62309,7 @@ index 16c3638c..287b8e74 100644
      if (!(pProto->AllowableClass & GetClassMask()) && pProto->Bonding == BIND_WHEN_PICKED_UP && !IsGameMaster())
      {
          SendBuyError(BUY_ERR_CANT_FIND_ITEM, nullptr, item, 0);
-@@ -21985,6 +22136,11 @@ void Player::UpdatePvP(bool state, bool _override)
+@@ -21991,6 +22142,11 @@ void Player::UpdatePvP(bool state, bool _override)
          pvpInfo.EndTimer = GameTime::GetGameTime();
          SetPvP(state);
      }
@@ -62281,7 +62321,7 @@ index 16c3638c..287b8e74 100644
  }
  
  void Player::UpdatePotionCooldown(Spell* spell)
-@@ -23847,6 +24003,11 @@ bool Player::isHonorOrXPTarget(Unit* victim) const
+@@ -23853,6 +24009,11 @@ bool Player::isHonorOrXPTarget(Unit* victim) const
  
      if (Creature const* creature = victim->ToCreature())
      {
@@ -62294,10 +62334,10 @@ index 16c3638c..287b8e74 100644
              return false;
      }
 diff --git a/src/server/game/Entities/Player/Player.h b/src/server/game/Entities/Player/Player.h
-index 1c9dd9e4..fd22aced 100644
+index d8ae36a5..1bbcf5cf 100644
 --- a/src/server/game/Entities/Player/Player.h
 +++ b/src/server/game/Entities/Player/Player.h
-@@ -79,6 +79,10 @@ enum ItemClass : uint8;
+@@ -80,6 +80,10 @@ enum ItemClass : uint8;
  enum LootError : uint8;
  enum LootType : uint8;
  
@@ -62308,7 +62348,7 @@ index 1c9dd9e4..fd22aced 100644
  typedef std::deque<Mail*> PlayerMails;
  
  #define PLAYER_MAX_SKILLS           127
-@@ -2173,6 +2177,19 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
+@@ -2174,6 +2178,19 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
  
          std::string GetDebugInfo() const override;
  
@@ -62328,7 +62368,7 @@ index 1c9dd9e4..fd22aced 100644
      protected:
          // Gamemaster whisper whitelist
          GuidList WhisperList;
-@@ -2429,6 +2446,14 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
+@@ -2430,6 +2447,14 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
          TimeTracker m_groupUpdateTimer;
  
      private:
@@ -62459,7 +62499,7 @@ index 0458f14b..15d78366 100644
      float totalPct         = addTotalPct ? GetPctModifierValue(unitMod, TOTAL_PCT) : 1.0f;
      float dmgMultiplier    = GetCreatureTemplate()->ModDamage; // = ModDamage * _GetDamageMod(rank);
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index 8e69c5d0..74ab8b32 100644
+index 0b01709c..efd8da8b 100644
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
 @@ -77,6 +77,10 @@
@@ -63953,7 +63993,7 @@ index c3ac4582..8a406b9b 100644
          return;
  
 diff --git a/src/server/game/Maps/Map.cpp b/src/server/game/Maps/Map.cpp
-index e3289f08..d8c35952 100644
+index 3eacffc1..453ae9f9 100644
 --- a/src/server/game/Maps/Map.cpp
 +++ b/src/server/game/Maps/Map.cpp
 @@ -54,6 +54,10 @@
@@ -63965,7 +64005,7 @@ index e3289f08..d8c35952 100644
 +//end npcbot
 +
  u_map_magic MapMagic        = { {'M','A','P','S'} };
- u_map_magic MapVersionMagic = { {'v','1','.','9'} };
+ uint32 MapVersionMagic      = 10;
  u_map_magic MapAreaMagic    = { {'A','R','E','A'} };
 @@ -3635,7 +3639,26 @@ uint32 Map::GetPlayersCountExceptGMs() const
      uint32 count = 0;
@@ -64184,10 +64224,10 @@ index 18b46ffd..447cf119 100644
          {
              maxPacketCounterAllowed = 100;
 diff --git a/src/server/game/Spells/Auras/SpellAuraEffects.cpp b/src/server/game/Spells/Auras/SpellAuraEffects.cpp
-index 46af96aa..c15ae6ea 100644
+index 3dc138b3..490648e1 100644
 --- a/src/server/game/Spells/Auras/SpellAuraEffects.cpp
 +++ b/src/server/game/Spells/Auras/SpellAuraEffects.cpp
-@@ -1822,6 +1822,10 @@ void AuraEffect::HandleAuraModShapeshift(AuraApplication const* aurApp, uint8 mo
+@@ -1823,6 +1823,10 @@ void AuraEffect::HandleAuraModShapeshift(AuraApplication const* aurApp, uint8 mo
              case FORM_DEFENSIVESTANCE:
              case FORM_BERSERKERSTANCE:
              {
@@ -64198,7 +64238,7 @@ index 46af96aa..c15ae6ea 100644
                  uint32 Rage_val = 0;
                  // Defensive Tactics
                  if (form == FORM_DEFENSIVESTANCE)
-@@ -1857,6 +1861,10 @@ void AuraEffect::HandleAuraModShapeshift(AuraApplication const* aurApp, uint8 mo
+@@ -1858,6 +1862,10 @@ void AuraEffect::HandleAuraModShapeshift(AuraApplication const* aurApp, uint8 mo
  
      if (target->GetTypeId() == TYPEID_PLAYER)
          target->ToPlayer()->InitDataForForm();
@@ -64209,7 +64249,7 @@ index 46af96aa..c15ae6ea 100644
      else
          target->UpdateDisplayPower();
  
-@@ -2739,6 +2747,17 @@ void AuraEffect::HandleAuraModTotalThreat(AuraApplication const* aurApp, uint8 m
+@@ -2740,6 +2748,17 @@ void AuraEffect::HandleAuraModTotalThreat(AuraApplication const* aurApp, uint8 m
  
      Unit* target = aurApp->GetTarget();
  
@@ -64227,7 +64267,7 @@ index 46af96aa..c15ae6ea 100644
      if (!target->IsAlive() || target->GetTypeId() != TYPEID_PLAYER)
          return;
  
-@@ -5116,6 +5135,14 @@ void AuraEffect::HandlePeriodicDamageAurasTick(Unit* target, Unit* caster) const
+@@ -5117,6 +5136,14 @@ void AuraEffect::HandlePeriodicDamageAurasTick(Unit* target, Unit* caster) const
  
      if (GetAuraType() == SPELL_AURA_PERIODIC_DAMAGE)
      {
@@ -64242,7 +64282,7 @@ index 46af96aa..c15ae6ea 100644
          // leave only target depending bonuses, rest is handled in calculate amount
          if (GetBase()->GetType() == DYNOBJ_AURA_TYPE)
              damage = caster->SpellDamageBonusDone(target, GetSpellInfo(), damage, DOT, GetEffIndex(), { }, GetBase()->GetStackAmount());
-@@ -5642,6 +5669,46 @@ void AuraEffect::HandleProcTriggerSpellAuraProc(AuraApplication* aurApp, ProcEve
+@@ -5643,6 +5670,46 @@ void AuraEffect::HandleProcTriggerSpellAuraProc(AuraApplication* aurApp, ProcEve
      if (SpellInfo const* triggeredSpellInfo = sSpellMgr->GetSpellInfo(triggerSpellId))
      {
          TC_LOG_DEBUG("spells.aura.effect", "AuraEffect::HandleProcTriggerSpellAuraProc: Triggering spell %u from aura %u proc", triggeredSpellInfo->Id, GetId());
@@ -64338,7 +64378,7 @@ index 0e10c5fa..1e1f834f 100644
                              break;
  
 diff --git a/src/server/game/Spells/Spell.cpp b/src/server/game/Spells/Spell.cpp
-index 1e3f9e34..38d2c5cb 100644
+index cd78f49c..0f71a3ad 100644
 --- a/src/server/game/Spells/Spell.cpp
 +++ b/src/server/game/Spells/Spell.cpp
 @@ -62,6 +62,10 @@
@@ -64835,7 +64875,7 @@ index 23af38a2..84f02af4 100644
              // Mutilate (for each hand)
              else if (m_spellInfo->SpellFamilyFlags[1] & 0x6)
 diff --git a/src/server/game/Spells/SpellInfo.cpp b/src/server/game/Spells/SpellInfo.cpp
-index d3acdb93..367671c1 100644
+index 492ced10..b64e1ddb 100644
 --- a/src/server/game/Spells/SpellInfo.cpp
 +++ b/src/server/game/Spells/SpellInfo.cpp
 @@ -31,6 +31,10 @@
@@ -64910,7 +64950,7 @@ index d3acdb93..367671c1 100644
         return SPELL_FAILED_TARGET_NOT_PLAYER;
  
      if (!IsAllowingDeadTarget() && !unitTarget->IsAlive())
-@@ -3214,6 +3255,11 @@ int32 SpellInfo::CalcPowerCost(WorldObject const* caster, SpellSchoolMask school
+@@ -3238,6 +3279,11 @@ int32 SpellInfo::CalcPowerCost(WorldObject const* caster, SpellSchoolMask school
          }
      }
  
@@ -64979,27 +65019,27 @@ index d0c2f87f..661d93fc 100644
          sObjectMgr->RemoveCreatureFromGrid(lowguid, data);
          const_cast<CreatureData*>(data)->spawnPoint.Relocate(*player);
 diff --git a/src/server/scripts/Northrend/Naxxramas/boss_four_horsemen.cpp b/src/server/scripts/Northrend/Naxxramas/boss_four_horsemen.cpp
-index ce890117..1b60bc20 100644
+index 18f293e4..963fb254 100644
 --- a/src/server/scripts/Northrend/Naxxramas/boss_four_horsemen.cpp
 +++ b/src/server/scripts/Northrend/Naxxramas/boss_four_horsemen.cpp
-@@ -592,7 +592,7 @@ class boss_four_horsemen_lady : public CreatureScript
-                 if (me->HasUnitState(UNIT_STATE_CASTING))
-                     return;
+@@ -565,7 +565,7 @@ struct boss_four_horsemen_lady : public boss_four_horsemen_baseAI
+         if (me->HasUnitState(UNIT_STATE_CASTING))
+             return;
  
--                if (Unit* target = SelectTarget(SelectTargetMethod::MinDistance, 0, 45.0f, true))
-+                if (Unit* target = SelectTarget(SelectTargetMethod::MinDistance, 0, 45.0f))
-                     DoCast(target, SPELL_SHADOW_BOLT);
-                 else
-                 {
-@@ -662,7 +662,7 @@ class boss_four_horsemen_sir : public CreatureScript
-                 if (me->HasUnitState(UNIT_STATE_CASTING))
-                     return;
+-        if (Unit* target = SelectTarget(SelectTargetMethod::MinDistance, 0, 45.0f, true))
++        if (Unit* target = SelectTarget(SelectTargetMethod::MinDistance, 0, 45.0f))
+             DoCast(target, SPELL_SHADOW_BOLT);
+         else
+         {
+@@ -624,7 +624,7 @@ struct boss_four_horsemen_sir : public boss_four_horsemen_baseAI
+         if (me->HasUnitState(UNIT_STATE_CASTING))
+             return;
  
--                if (Unit* target = SelectTarget(SelectTargetMethod::MinDistance, 0, 45.0f, true))
-+                if (Unit* target = SelectTarget(SelectTargetMethod::MinDistance, 0, 45.0f))
-                     DoCast(target, SPELL_HOLY_BOLT);
-                 else
-                 {
+-        if (Unit* target = SelectTarget(SelectTargetMethod::MinDistance, 0, 45.0f, true))
++        if (Unit* target = SelectTarget(SelectTargetMethod::MinDistance, 0, 45.0f))
+             DoCast(target, SPELL_HOLY_BOLT);
+         else
+         {
 diff --git a/src/server/scripts/Spells/spell_dk.cpp b/src/server/scripts/Spells/spell_dk.cpp
 index d0db750f..47f1bd68 100644
 --- a/src/server/scripts/Spells/spell_dk.cpp
@@ -65217,32 +65257,32 @@ index 3d4a012c..0bda83e6 100644
              return;                     /// @todo Research possibility of scaling down
  
 diff --git a/src/server/scripts/Spells/spell_hunter.cpp b/src/server/scripts/Spells/spell_hunter.cpp
-index 5eb840dd..7835a349 100644
+index a504362c..89951838 100644
 --- a/src/server/scripts/Spells/spell_hunter.cpp
 +++ b/src/server/scripts/Spells/spell_hunter.cpp
-@@ -1402,6 +1402,22 @@ class spell_hun_sniper_training : public SpellScriptLoader
+@@ -1122,6 +1122,22 @@ class spell_hun_sniper_training : public AuraScript
  
-             void HandleUpdatePeriodic(AuraEffect* aurEff)
-             {
-+                //npcbot: handle creatures, remove dead trigger
-+                if (!GetUnitOwner()->IsAlive())
-+                    return;
-+                if (Creature const* bot = GetUnitOwner()->ToCreature())
-+                {
-+                    if (!bot->IsNPCBot())
-+                        return;
+     void HandleUpdatePeriodic(AuraEffect* aurEff)
+     {
++        //npcbot: handle creatures, remove dead trigger
++        if (!GetUnitOwner()->IsAlive())
++            return;
++        if (Creature const* bot = GetUnitOwner()->ToCreature())
++        {
++            if (!bot->IsNPCBot())
++                return;
 +
-+                    int32 baseAmount = aurEff->GetBaseAmount();
-+                    int32 amount = bot->isMoving() ?
-+                    bot->CalculateSpellDamage(GetSpellInfo(), aurEff->GetEffIndex(), &baseAmount) :
-+                    aurEff->GetAmount() - 1;
-+                    aurEff->SetAmount(amount);
-+                    return;
-+                }
-+                //end npcbot
-                 if (Player* playerTarget = GetUnitOwner()->ToPlayer())
-                 {
-                     int32 baseAmount = aurEff->GetBaseAmount();
++            int32 baseAmount = aurEff->GetBaseAmount();
++            int32 amount = bot->isMoving() ?
++            bot->CalculateSpellDamage(GetSpellInfo(), aurEff->GetEffIndex(), &baseAmount) :
++            aurEff->GetAmount() - 1;
++            aurEff->SetAmount(amount);
++            return;
++        }
++        //end npcbot
+         if (Player* playerTarget = GetUnitOwner()->ToPlayer())
+         {
+             int32 baseAmount = aurEff->GetBaseAmount();
 diff --git a/src/server/scripts/Spells/spell_mage.cpp b/src/server/scripts/Spells/spell_mage.cpp
 index 79fd6e20..4fb97e24 100644
 --- a/src/server/scripts/Spells/spell_mage.cpp
@@ -65353,39 +65393,39 @@ index 27a0da2f..8aa70100 100644
  
          if (Unit* target = GetExplTargetUnit())
 diff --git a/src/server/scripts/Spells/spell_priest.cpp b/src/server/scripts/Spells/spell_priest.cpp
-index 7566035e..a61a7375 100644
+index 803ecee8..5cf53cc5 100644
 --- a/src/server/scripts/Spells/spell_priest.cpp
 +++ b/src/server/scripts/Spells/spell_priest.cpp
-@@ -987,6 +987,9 @@ class spell_pri_penance : public SpellScriptLoader
+@@ -784,6 +784,9 @@ class spell_pri_penance : public SpellScript
  
-             bool Load() override
-             {
+     bool Load() override
+     {
 +                //npcbot
 +                if (GetCaster() && GetCaster()->GetTypeId() == TYPEID_UNIT && GetCaster()->ToCreature()->IsNPCBot()) return true;
 +                //end npcbot
-                 return GetCaster()->GetTypeId() == TYPEID_PLAYER;
-             }
+         return GetCaster()->GetTypeId() == TYPEID_PLAYER;
+     }
  
-@@ -1029,6 +1032,10 @@ class spell_pri_penance : public SpellScriptLoader
-             SpellCastResult CheckCast()
+@@ -826,6 +829,10 @@ class spell_pri_penance : public SpellScript
+     SpellCastResult CheckCast()
+     {
+         Player* caster = GetCaster()->ToPlayer();
++        //npcbot: check for player makes no sense
++        if (!caster && GetCaster()->GetTypeId() == TYPEID_UNIT && GetCaster()->ToCreature()->IsNPCBot())
++            caster = (Player*)GetCaster();
++        //end npcbot
+         if (Unit* target = GetExplTargetUnit())
+             if (!caster->IsFriendlyTo(target))
              {
-                 Player* caster = GetCaster()->ToPlayer();
-+                //npcbot: check for player makes no sense
-+                if (!caster && GetCaster()->GetTypeId() == TYPEID_UNIT && GetCaster()->ToCreature()->IsNPCBot())
-+                    caster = (Player*)GetCaster();
-+                //end npcbot
-                 if (Unit* target = GetExplTargetUnit())
-                     if (!caster->IsFriendlyTo(target))
-                     {
-@@ -1220,6 +1227,9 @@ class spell_pri_renew : public SpellScriptLoader
+@@ -979,6 +986,9 @@ class spell_pri_renew : public AuraScript
  
-             bool Load() override
-             {
+     bool Load() override
+     {
 +                //npcbot
 +                if (GetCaster() && GetCaster()->GetTypeId() == TYPEID_UNIT && GetCaster()->ToCreature()->IsNPCBot()) return true;
 +                //end npcbot
-                 return GetCaster() && GetCaster()->GetTypeId() == TYPEID_PLAYER;
-             }
+         return GetCaster() && GetCaster()->GetTypeId() == TYPEID_PLAYER;
+     }
  
 diff --git a/src/server/scripts/Spells/spell_rogue.cpp b/src/server/scripts/Spells/spell_rogue.cpp
 index 17a5cdb6..6a3918a5 100644
@@ -65486,187 +65526,187 @@ index 17a5cdb6..6a3918a5 100644
                  player->CastSpell(nullptr, SPELL_ROGUE_HONOR_AMONG_THIEVES_2, true);
          }
 diff --git a/src/server/scripts/Spells/spell_shaman.cpp b/src/server/scripts/Spells/spell_shaman.cpp
-index 1f4c4d44..20436743 100644
+index 3b725c23..2351acc8 100644
 --- a/src/server/scripts/Spells/spell_shaman.cpp
 +++ b/src/server/scripts/Spells/spell_shaman.cpp
-@@ -475,6 +475,16 @@ class spell_sha_earthbind_totem : public SpellScriptLoader
-             {
-                 if (!GetCaster())
-                     return;
+@@ -382,6 +382,16 @@ class spell_sha_earthbind_totem : public AuraScript
+     {
+         if (!GetCaster())
+             return;
 +
-+                //npcbot: workaround for bots
-+                if (ObjectGuid creatorGuid = GetCaster()->GetCreatorGUID())
-+                    if (!creatorGuid.IsPlayer())
-+                        if (Creature const* bot = ObjectAccessor::GetCreature(*GetCaster(), creatorGuid))
-+                            if (AuraEffect const* aur = bot->GetDummyAuraEffect(SPELLFAMILY_SHAMAN, 2289, 0))
-+                                if (roll_chance_i(aur->GetBaseAmount()))
-+                                    GetTarget()->CastSpell(nullptr, SPELL_SHAMAN_TOTEM_EARTHEN_POWER, true);
-+                //end npcbot
++        //npcbot: workaround for bots
++        if (ObjectGuid creatorGuid = GetCaster()->GetCreatorGUID())
++            if (!creatorGuid.IsPlayer())
++                if (Creature const* bot = ObjectAccessor::GetCreature(*GetCaster(), creatorGuid))
++                    if (AuraEffect const* aur = bot->GetDummyAuraEffect(SPELLFAMILY_SHAMAN, 2289, 0))
++                        if (roll_chance_i(aur->GetBaseAmount()))
++                            GetTarget()->CastSpell(nullptr, SPELL_SHAMAN_TOTEM_EARTHEN_POWER, true);
++        //end npcbot
 +
-                 if (Player* owner = GetCaster()->GetCharmerOrOwnerPlayerOrPlayerItself())
-                     if (AuraEffect* aur = owner->GetDummyAuraEffect(SPELLFAMILY_SHAMAN, 2289, 0))
-                         if (roll_chance_i(aur->GetBaseAmount()))
-@@ -713,6 +723,23 @@ class spell_sha_flametongue_weapon : public SpellScriptLoader
+         if (Player* owner = GetCaster()->GetCharmerOrOwnerPlayerOrPlayerItself())
+             if (AuraEffect* aur = owner->GetDummyAuraEffect(SPELLFAMILY_SHAMAN, 2289, 0))
+                 if (roll_chance_i(aur->GetBaseAmount()))
+@@ -565,6 +575,23 @@ class spell_sha_flametongue_weapon : public AuraScript
  
-             bool CheckProc(ProcEventInfo& eventInfo)
-             {
-+                //npcbot: handle bot enchant check
-+                Creature* bot = eventInfo.GetActor()->ToCreature();
-+                if (bot && bot->IsNPCBot())
+     bool CheckProc(ProcEventInfo& eventInfo)
+     {
++        //npcbot: handle bot enchant check
++        Creature* bot = eventInfo.GetActor()->ToCreature();
++        if (bot && bot->IsNPCBot())
++        {
++            Item* item = bot->GetBotEquipsByGuid(GetAura()->GetCastItemGUID());
++            if (!item)
++                return false;
++
++            WeaponAttackType attType = bot->GetBotEquips(0/*BOT_SLOT_MAINHAND*/) == item ? BASE_ATTACK : OFF_ATTACK;
++            if ((attType == BASE_ATTACK && !(eventInfo.GetTypeMask() & PROC_FLAG_DONE_MAINHAND_ATTACK)) ||
++                (attType == OFF_ATTACK && !(eventInfo.GetTypeMask() & PROC_FLAG_DONE_OFFHAND_ATTACK)))
++                return false;
++
++            return true;
++        }
++        //end npcbot
++
+         Player* player = eventInfo.GetActor()->ToPlayer();
+         if (!player)
+             return false;
+@@ -588,6 +615,42 @@ class spell_sha_flametongue_weapon : public AuraScript
+     {
+         PreventDefaultAction();
+ 
++        //npcbot: handle bot enchant proc
++        Creature* bot = eventInfo.GetActor()->ToCreature();
++        if (bot && bot->IsNPCBot())
++        {
++            Unit* target = eventInfo.GetProcTarget();
++            WeaponAttackType attType;
++            if (eventInfo.GetTypeMask() & PROC_FLAG_DONE_MAINHAND_ATTACK)
++                attType = BASE_ATTACK;
++            else
++                attType = OFF_ATTACK;
++
++            Item* item = ASSERT_NOTNULL(bot->GetBotEquipsByGuid(GetAura()->GetCastItemGUID()));
++
++            float basePoints = GetSpellInfo()->Effects[aurEff->GetEffIndex()].CalcValue();
++
++            float attackSpeed = bot->GetAttackTime(attType) / 1000.f;
++            float fireDamage = basePoints / 100.0f;
++            fireDamage *= attackSpeed;
++
++            RoundToInterval(fireDamage, basePoints / 77.0f, basePoints / 25.0f);            
++            float spellPowerBonus = bot->SpellBaseDamageBonusDone(SPELL_SCHOOL_MASK_FIRE);
++            spellPowerBonus += target->GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_DAMAGE_TAKEN, SPELL_SCHOOL_MASK_FIRE);
++
++            float const factorMod = bot->CalculateSpellpowerCoefficientLevelPenalty(GetSpellInfo());
++            float const spCoeff = 0.03811f;
++            spellPowerBonus *= spCoeff * attackSpeed * factorMod;
++
++            CastSpellExtraArgs args(aurEff);
++            args
++                .SetCastItem(item)
++                .AddSpellBP0(fireDamage + spellPowerBonus);
++            bot->CastSpell(target, SPELL_SHAMAN_FLAMETONGUE_ATTACK, args);
++            return;
++        }
++        //end npcbot
++
+         Player* player = eventInfo.GetActor()->ToPlayer();
+         Unit* target = eventInfo.GetProcTarget();
+         WeaponAttackType attType = BASE_ATTACK;
+@@ -1808,6 +1871,23 @@ class spell_sha_windfury_weapon : public AuraScript
+ 
+     bool CheckProc(ProcEventInfo& eventInfo)
+     {
++        //npcbot: handle bot enchant check
++        Creature* bot = eventInfo.GetActor()->ToCreature();
++        if (bot && bot->IsNPCBot())
++        {
++            Item* item = bot->GetBotEquipsByGuid(GetAura()->GetCastItemGUID());
++            if (!item)
++                return false;
++
++            WeaponAttackType attType = bot->GetBotEquips(0/*BOT_SLOT_MAINHAND*/) == item ? BASE_ATTACK : OFF_ATTACK;
++            if ((attType == BASE_ATTACK && !(eventInfo.GetTypeMask() & PROC_FLAG_DONE_MAINHAND_ATTACK)) ||
++                (attType == OFF_ATTACK && !(eventInfo.GetTypeMask() & PROC_FLAG_DONE_OFFHAND_ATTACK)))
++                return false;
++
++            return true;
++        }
++        //end npcbot
++
+         Player* player = eventInfo.GetActor()->ToPlayer();
+         if (!player)
+             return false;
+@@ -1831,6 +1911,53 @@ class spell_sha_windfury_weapon : public AuraScript
+     {
+         PreventDefaultAction();
+ 
++        //npcbot: handle bot enchant proc
++        Creature* bot = eventInfo.GetActor()->ToCreature();
++        if (bot && bot->IsNPCBot())
++        {
++            uint32 spellId = 0;
++            WeaponAttackType attType;
++            if (eventInfo.GetTypeMask() & PROC_FLAG_DONE_MAINHAND_ATTACK)
++            {
++                spellId = SPELL_SHAMAN_WINDFURY_ATTACK_MH;
++                attType = BASE_ATTACK;
++            }
++            else
++            {
++                spellId = SPELL_SHAMAN_WINDFURY_ATTACK_OH;
++                attType = OFF_ATTACK;
++            }
++
++            Item* item = ASSERT_NOTNULL(bot->GetBotEquipsByGuid(GetAura()->GetCastItemGUID()));
++
++            int32 enchantId = static_cast<int32>(item->GetEnchantmentId(TEMP_ENCHANTMENT_SLOT));
++            int32 extraAttackPower = 0;
++            SpellInfo const* spellInfo = sSpellMgr->AssertSpellInfo(SPELL_SHAMAN_WINDFURY_WEAPON_R1);
++            while (spellInfo)
++            {
++                if (spellInfo->Effects[EFFECT_0].MiscValue == enchantId)
 +                {
-+                    Item* item = bot->GetBotEquipsByGuid(GetAura()->GetCastItemGUID());
-+                    if (!item)
-+                        return false;
-+
-+                    WeaponAttackType attType = bot->GetBotEquips(0/*BOT_SLOT_MAINHAND*/) == item ? BASE_ATTACK : OFF_ATTACK;
-+                    if ((attType == BASE_ATTACK && !(eventInfo.GetTypeMask() & PROC_FLAG_DONE_MAINHAND_ATTACK)) ||
-+                        (attType == OFF_ATTACK && !(eventInfo.GetTypeMask() & PROC_FLAG_DONE_OFFHAND_ATTACK)))
-+                        return false;
-+
-+                    return true;
++                    extraAttackPower = spellInfo->Effects[EFFECT_1].CalcValue(bot);
++                    break;
 +                }
-+                //end npcbot
++                spellInfo = spellInfo->GetNextRankSpell();
++            }
 +
-                 Player* player = eventInfo.GetActor()->ToPlayer();
-                 if (!player)
-                     return false;
-@@ -736,6 +763,42 @@ class spell_sha_flametongue_weapon : public SpellScriptLoader
-             {
-                 PreventDefaultAction();
++            if (!extraAttackPower)
++                return;
++
++            int32 amount = static_cast<int32>(extraAttackPower / 14.f * bot->GetAttackTime(attType) / 1000.f);
++
++            CastSpellExtraArgs args(aurEff);
++            args.AddSpellBP0(amount);
++            // Attack twice
++            for (uint8 i = 0; i < 2; ++i)
++                bot->CastSpell(eventInfo.GetProcTarget(), spellId, args);
++
++            return;
++        }
++        //end npcbot
++
+         Player* player = eventInfo.GetActor()->ToPlayer();
  
-+                //npcbot: handle bot enchant proc
-+                Creature* bot = eventInfo.GetActor()->ToCreature();
-+                if (bot && bot->IsNPCBot())
-+                {
-+                    Unit* target = eventInfo.GetProcTarget();
-+                    WeaponAttackType attType;
-+                    if (eventInfo.GetTypeMask() & PROC_FLAG_DONE_MAINHAND_ATTACK)
-+                        attType = BASE_ATTACK;
-+                    else
-+                        attType = OFF_ATTACK;
-+
-+                    Item* item = ASSERT_NOTNULL(bot->GetBotEquipsByGuid(GetAura()->GetCastItemGUID()));
-+
-+                    float basePoints = GetSpellInfo()->Effects[aurEff->GetEffIndex()].CalcValue();
-+
-+                    float attackSpeed = bot->GetAttackTime(attType) / 1000.f;
-+                    float fireDamage = basePoints / 100.0f;
-+                    fireDamage *= attackSpeed;
-+
-+                    RoundToInterval(fireDamage, basePoints / 77.0f, basePoints / 25.0f);
-+                    float spellPowerBonus = bot->SpellBaseDamageBonusDone(SPELL_SCHOOL_MASK_FIRE);
-+                    spellPowerBonus += target->GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_DAMAGE_TAKEN, SPELL_SCHOOL_MASK_FIRE);
-+
-+                    float const factorMod = bot->CalculateSpellpowerCoefficientLevelPenalty(GetSpellInfo());
-+                    float const spCoeff = 0.03811f;
-+                    spellPowerBonus *= spCoeff * attackSpeed * factorMod;
-+
-+                    CastSpellExtraArgs args(aurEff);
-+                    args
-+                        .SetCastItem(item)
-+                        .AddSpellBP0(fireDamage + spellPowerBonus);
-+                    bot->CastSpell(target, SPELL_SHAMAN_FLAMETONGUE_ATTACK, args);
-+                    return;
-+                }
-+                //end npcbot
-+
-                 Player* player = eventInfo.GetActor()->ToPlayer();
-                 Unit* target = eventInfo.GetProcTarget();
-                 WeaponAttackType attType = BASE_ATTACK;
-@@ -2308,6 +2371,23 @@ class spell_sha_windfury_weapon : public SpellScriptLoader
- 
-             bool CheckProc(ProcEventInfo& eventInfo)
-             {
-+                //npcbot: handle bot enchant check
-+                Creature* bot = eventInfo.GetActor()->ToCreature();
-+                if (bot && bot->IsNPCBot())
-+                {
-+                    Item* item = bot->GetBotEquipsByGuid(GetAura()->GetCastItemGUID());
-+                    if (!item)
-+                        return false;
-+
-+                    WeaponAttackType attType = bot->GetBotEquips(0/*BOT_SLOT_MAINHAND*/) == item ? BASE_ATTACK : OFF_ATTACK;
-+                    if ((attType == BASE_ATTACK && !(eventInfo.GetTypeMask() & PROC_FLAG_DONE_MAINHAND_ATTACK)) ||
-+                        (attType == OFF_ATTACK && !(eventInfo.GetTypeMask() & PROC_FLAG_DONE_OFFHAND_ATTACK)))
-+                        return false;
-+
-+                    return true;
-+                }
-+                //end npcbot
-+
-                 Player* player = eventInfo.GetActor()->ToPlayer();
-                 if (!player)
-                     return false;
-@@ -2331,6 +2411,53 @@ class spell_sha_windfury_weapon : public SpellScriptLoader
-             {
-                 PreventDefaultAction();
- 
-+                //npcbot: handle bot enchant proc
-+                Creature* bot = eventInfo.GetActor()->ToCreature();
-+                if (bot && bot->IsNPCBot())
-+                {
-+                    uint32 spellId = 0;
-+                    WeaponAttackType attType;
-+                    if (eventInfo.GetTypeMask() & PROC_FLAG_DONE_MAINHAND_ATTACK)
-+                    {
-+                        spellId = SPELL_SHAMAN_WINDFURY_ATTACK_MH;
-+                        attType = BASE_ATTACK;
-+                    }
-+                    else
-+                    {
-+                        spellId = SPELL_SHAMAN_WINDFURY_ATTACK_OH;
-+                        attType = OFF_ATTACK;
-+                    }
-+
-+                    Item* item = ASSERT_NOTNULL(bot->GetBotEquipsByGuid(GetAura()->GetCastItemGUID()));
-+
-+                    int32 enchantId = static_cast<int32>(item->GetEnchantmentId(TEMP_ENCHANTMENT_SLOT));
-+                    int32 extraAttackPower = 0;
-+                    SpellInfo const* spellInfo = sSpellMgr->AssertSpellInfo(SPELL_SHAMAN_WINDFURY_WEAPON_R1);
-+                    while (spellInfo)
-+                    {
-+                        if (spellInfo->Effects[EFFECT_0].MiscValue == enchantId)
-+                        {
-+                            extraAttackPower = spellInfo->Effects[EFFECT_1].CalcValue(bot);
-+                            break;
-+                        }
-+                        spellInfo = spellInfo->GetNextRankSpell();
-+                    }
-+
-+                    if (!extraAttackPower)
-+                        return;
-+
-+                    int32 amount = static_cast<int32>(extraAttackPower / 14.f * bot->GetAttackTime(attType) / 1000.f);
-+
-+                    CastSpellExtraArgs args(aurEff);
-+                    args.AddSpellBP0(amount);
-+                    // Attack twice
-+                    for (uint8 i = 0; i < 2; ++i)
-+                        bot->CastSpell(eventInfo.GetProcTarget(), spellId, args);
-+
-+                    return;
-+                }
-+                //end npcbot
-+
-                 Player* player = eventInfo.GetActor()->ToPlayer();
- 
-                 uint32 spellId = 0;
+         uint32 spellId = 0;
 diff --git a/src/server/scripts/Spells/spell_warrior.cpp b/src/server/scripts/Spells/spell_warrior.cpp
-index 2452a0b8..9b1a773e 100644
+index 09b594ff..9c237385 100644
 --- a/src/server/scripts/Spells/spell_warrior.cpp
 +++ b/src/server/scripts/Spells/spell_warrior.cpp
-@@ -336,6 +336,12 @@ class spell_warr_deep_wounds_aura : public SpellScriptLoader
-                 if (!damageInfo)
-                     return false;
+@@ -265,6 +265,12 @@ class spell_warr_deep_wounds_aura : public AuraScript
+         if (!damageInfo)
+             return false;
  
-+                //npcbot: allow for bots
-+                if (eventInfo.GetActor()->GetTypeId() == TYPEID_UNIT &&
-+                    eventInfo.GetActor()->ToCreature()->IsNPCBot())
-+                    return true;
-+                //end npcbot
++        //npcbot: allow for bots
++        if (eventInfo.GetActor()->GetTypeId() == TYPEID_UNIT &&
++            eventInfo.GetActor()->ToCreature()->IsNPCBot())
++            return true;
++        //end npcbot
 +
-                 return eventInfo.GetActor()->GetTypeId() == TYPEID_PLAYER;
-             }
+         return eventInfo.GetActor()->GetTypeId() == TYPEID_PLAYER;
+     }
  
 diff --git a/src/server/shared/DataStores/DBCStructure.h b/src/server/shared/DataStores/DBCStructure.h
 index 56ea1141..ff218838 100644
@@ -65716,10 +65756,10 @@ index 69d4e5f8..35c8ca00 100644
  char constexpr ItemExtendedCostEntryfmt[] = "niiiiiiiiiiiiiix";
  char constexpr ItemLimitCategoryEntryfmt[] = "nxxxxxxxxxxxxxxxxxii";
 diff --git a/src/server/shared/SharedDefines.h b/src/server/shared/SharedDefines.h
-index 13397f4f..a55a813d 100644
+index e3e0deb0..5392b6fc 100644
 --- a/src/server/shared/SharedDefines.h
 +++ b/src/server/shared/SharedDefines.h
-@@ -194,7 +194,14 @@ enum UnitClass
+@@ -193,7 +193,14 @@ enum UnitClass
      UNIT_CLASS_MAGE                     = 8
  };
  
