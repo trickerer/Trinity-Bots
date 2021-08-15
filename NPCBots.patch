@@ -33,23 +33,23 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1329 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 16260 +++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |   628 +
- src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   398 +
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 16268 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |   629 +
+ src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   400 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   936 ++
- src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp  |   620 +
+ src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp  |   622 +
  src/server/game/AI/NpcBots/bot_death_knight_ai.cpp |  2102 +++
  src/server/game/AI/NpcBots/bot_dreadlord_ai.cpp    |   533 +
- src/server/game/AI/NpcBots/bot_druid_ai.cpp        |  2913 ++++
- src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  2354 +++
- src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  1824 +++
- src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  2737 ++++
- src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  2097 +++
+ src/server/game/AI/NpcBots/bot_druid_ai.cpp        |  2915 ++++
+ src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  2356 +++
+ src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  1826 +++
+ src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  2762 ++++
+ src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  2099 +++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  2030 +++
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  2812 ++++
  src/server/game/AI/NpcBots/bot_spellbreaker_ai.cpp |   580 +
  src/server/game/AI/NpcBots/bot_sphynx_ai.cpp       |   610 +
- src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  2074 +++
+ src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  2077 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2248 +++
  src/server/game/AI/NpcBots/botcommands.cpp         |  1595 ++
  src/server/game/AI/NpcBots/botcommon.h             |  1087 ++
@@ -63,7 +63,7 @@
  src/server/game/AI/NpcBots/botmgr.cpp              |  1459 ++
  src/server/game/AI/NpcBots/botmgr.h                |   199 +
  src/server/game/AI/NpcBots/bpet_ai.cpp             |  2276 +++
- src/server/game/AI/NpcBots/bpet_ai.h               |   165 +
+ src/server/game/AI/NpcBots/bpet_ai.h               |   166 +
  src/server/game/AI/NpcBots/bpet_archmage.cpp       |   139 +
  src/server/game/AI/NpcBots/bpet_dark_ranger.cpp    |   213 +
  src/server/game/AI/NpcBots/bpet_death_knight.cpp   |   191 +
@@ -86,7 +86,7 @@
  src/server/game/Entities/Creature/CreatureData.h   |     6 +-
  .../game/Entities/Creature/TemporarySummon.cpp     |    32 +
  .../Entities/Creature/enuminfo_CreatureData.cpp    |    12 +-
- src/server/game/Entities/Object/Object.cpp         |    84 +
+ src/server/game/Entities/Object/Object.cpp         |    85 +-
  src/server/game/Entities/Player/KillRewarder.cpp   |    15 +
  src/server/game/Entities/Player/Player.cpp         |   161 +
  src/server/game/Entities/Player/Player.h           |    25 +
@@ -131,7 +131,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   291 +
- 133 files changed, 63229 insertions(+), 47 deletions(-)
+ 133 files changed, 63279 insertions(+), 48 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -4951,10 +4951,10 @@ index 00000000..971b6c72
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 00000000..2d5ae4fa
+index 00000000..50b02f3b
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,16260 @@
+@@ -0,0 +1,16268 @@
 +#include "bot_ai.h"
 +//#include "botcommon.h"
 +#include "bot_Events.h"
@@ -8945,6 +8945,11 @@ index 00000000..2d5ae4fa
 +    if ((target->m_movementInfo.GetMovementFlags() & MOVEMENTFLAG_FORWARD) && target->HasInArc(float(M_PI)/2, me))
 +        dist = std::min<float>(dist + 10, 30);
 +
++    //if ranged try to acquire a position in the back (will be ignored if too far away from master)
++    static const float rangedAngleDelta = float(M_PI) * 0.62f;
++    if (HasRole(BOT_ROLE_RANGED) && !IAmFree() && target->GetTypeId() != TYPEID_PLAYER && target->HasInArc(float(M_PI), me))
++        angle += (target->GetRelativeAngle(master) > 0.f) ? rangedAngleDelta : -rangedAngleDelta;
++
 +    float clockwise = (me->GetEntry() % 2) ? 1.f : -1.f;
 +    float angleDelta1 = ((IsTank(master) && !IsTank(me)) ? frand(float(M_PI)*0.40f, float(M_PI)*0.60f) : frand(0.0f, float(M_PI)*0.15f)) * clockwise;
 +    float angleDelta2 = frand(0.0f, float(M_PI)*0.08f) * clockwise;
@@ -9245,28 +9250,32 @@ index 00000000..2d5ae4fa
 +            DoMeleeAttackIfReady();
 +    }
 +}
-+
++//Move behind current target if needed (avoid cleaves and dodges/parries, also rogues/ferals)
 +void bot_ai::MoveBehind(Unit const* target) const
 +{
-+    if (HasBotCommandState(BOT_COMMAND_MASK_UNMOVING)) return;
-+    if (me->GetVehicle()) return;
-+    if (HasRole(BOT_ROLE_RANGED) || (IsTank() && target->GetVictim() == me) || CCed(me, true)) return;
-+    if (JumpingOrFalling()) return;
-+    if (((_botclass == BOT_CLASS_ROGUE || GetBotStance() == DRUID_CAT_FORM) ?
-+        target->GetVictim() != me || CCed(target) || target->GetTypeId() == TYPEID_PLAYER :
-+        target->GetVictim() != me && !CCed(target))      &&
-+        target->IsWithinCombatRange(me, ATTACK_DISTANCE) &&
-+        target->HasInArc(float(M_PI), me))
++    if (HasBotCommandState(BOT_COMMAND_MASK_UNMOVING) || HasRole(BOT_ROLE_RANGED) || JumpingOrFalling() ||
++        /*(me->isMoving() && target->GetTypeId() != TYPEID_PLAYER) ||*/
++        me->GetVehicle() || (IsTank() && target->GetVictim() == me) || CCed(me, true) ||
++        !target->IsWithinCombatRange(me, ATTACK_DISTANCE) || !target->HasInArc(float(M_PI), me))
++        return;
++
++    bool targetMe = target->GetVictim() == me;
++    bool cced = CCed(target);
++    bool isPlayer = target->GetTypeId() == TYPEID_PLAYER;
++
++    if ((_botclass == BOT_CLASS_ROGUE || GetBotStance() == DRUID_CAT_FORM) ? (!targetMe || cced || isPlayer) : (!targetMe && (!cced || isPlayer)))
 +    {
++        float myangle = Position::NormalizeOrientation(target->GetAbsoluteAngle(me) + float(M_PI));
++        float mydist = me->GetCombatReach();
 +        Position position;
-+        target->GetNearPoint(me, position.m_positionX, position.m_positionY, position.m_positionZ, me->GetCombatReach(), target->GetAbsoluteAngle(me) + M_PI);
++        target->GetNearPoint(me, position.m_positionX, position.m_positionY, position.m_positionZ, mydist, myangle);
 +
 +        if (IsWithinAoERadius(position))
 +            return;
 +
 +        BotMovement(BOT_MOVE_POINT, &position);
 +        //me->GetMotionMaster()->MovePoint(me->GetMapId(), x, y, z);
-+        const_cast<bot_ai*>(this)->waitTimer = 500;
++        waitTimer = 500;
 +    }
 +}
 +//MOUNT SUPPORT
@@ -10023,19 +10032,18 @@ index 00000000..2d5ae4fa
 +    if (!newSpell)
 +    {
 +        newSpell = new BotSpell();
-+
-+        NpcBotData const* npcBotData = BotDataMgr::SelectNpcBotData(me->GetEntry());
-+        if (npcBotData->disabled_spells.find(basespell) != npcBotData->disabled_spells.end())
-+        {
-+            newSpell->enabled = false;
-+            //TC_LOG_ERROR("entities.player", "bot_ai::InitSpellMap(): %s (%u -> %u) is disabled for %s!",
-+            //    sSpellMgr->GetSpellInfo(basespell)->SpellName[0], basespell, spellId, me->GetName().c_str());
-+        }
-+
 +        _spells[basespell] = newSpell;
 +    }
 +
 +    newSpell->spellId = spellId;
++
++    NpcBotData const* npcBotData = BotDataMgr::SelectNpcBotData(me->GetEntry());
++    if (npcBotData->disabled_spells.find(basespell) != npcBotData->disabled_spells.end())
++    {
++        newSpell->enabled = false;
++        //TC_LOG_ERROR("entities.player", "bot_ai::InitSpellMap(): %s (%u -> %u) is disabled for %s!",
++        //    sSpellMgr->GetSpellInfo(basespell)->SpellName[0], basespell, spellId, me->GetName().c_str());
++    }
 +}
 +//Using first-rank spell as source, return true if spell is inited
 +bool bot_ai::HasSpell(uint32 basespell) const
@@ -21217,10 +21225,10 @@ index 00000000..2d5ae4fa
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 00000000..464db6a6
+index 00000000..1e4000fe
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,628 @@
+@@ -0,0 +1,629 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -21251,7 +21259,7 @@ index 00000000..464db6a6
 +        void JustEnteredCombat(Unit* u) override;
 +        void MoveInLineOfSight(Unit* u) override;
 +        void DamageDealt(Unit* victim, uint32& damage, DamageEffectType damageType) override;
-+        void DamageTaken(Unit* /*attacker*/, uint32& /*damage*/) override { }
++        void DamageTaken(Unit* /*attacker*/, uint32& /*damage*/, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo*/) override { }
 +        void ReceiveEmote(Player* player, uint32 emote) override;
 +        void EnterEvadeMode(EvadeReason/* why*/ = EVADE_REASON_OTHER) override { }
 +
@@ -21758,7 +21766,8 @@ index 00000000..464db6a6
 +
 +        //timers
 +        uint32 _reviveTimer, _powersTimer, _chaseTimer, _engageTimer, _potionTimer;
-+        uint32 lastdiff, checkAurasTimer, checkMasterTimer, roleTimer, ordersTimer, waitTimer, regenTimer, _updateTimerMedium, _updateTimerEx1;
++        uint32 lastdiff, checkAurasTimer, checkMasterTimer, roleTimer, ordersTimer, regenTimer, _updateTimerMedium, _updateTimerEx1;
++        mutable uint32 waitTimer;
 +        //save timers
 +        uint32 _saveDisabledSpellsTimer;
 +
@@ -21851,10 +21860,10 @@ index 00000000..464db6a6
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_archmage_ai.cpp b/src/server/game/AI/NpcBots/bot_archmage_ai.cpp
 new file mode 100644
-index 00000000..96b9761c
+index 00000000..3c6e48b6
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_archmage_ai.cpp
-@@ -0,0 +1,398 @@
+@@ -0,0 +1,400 @@
 +#include "bot_ai.h"
 +#include "MotionMaster.h"
 +#include "Player.h"
@@ -22023,6 +22032,8 @@ index 00000000..96b9761c
 +        {
 +            StartAttack(opponent, IsMelee());
 +
++            MoveBehind(opponent);
++
 +            if (!HasRole(BOT_ROLE_DPS))
 +                return;
 +
@@ -22105,7 +22116,7 @@ index 00000000..96b9761c
 +            bot_ai::DamageDealt(victim, damage, damageType);
 +        }
 +
-+        void DamageTaken(Unit* u, uint32& /*damage*/) override
++        void DamageTaken(Unit* u, uint32& /*damage*/, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo*/) override
 +        {
 +            if (!u)
 +                return;
@@ -22255,7 +22266,7 @@ index 00000000..96b9761c
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_bm_ai.cpp b/src/server/game/AI/NpcBots/bot_bm_ai.cpp
 new file mode 100644
-index 00000000..b3732fcf
+index 00000000..3aefefdc
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_bm_ai.cpp
 @@ -0,0 +1,936 @@
@@ -23015,7 +23026,7 @@ index 00000000..b3732fcf
 +            bot_ai::DamageDealt(victim, damage, damageType);
 +        }
 +
-+        void DamageTaken(Unit* u, uint32& damage) override
++        void DamageTaken(Unit* u, uint32& damage, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo*/) override
 +        {
 +            //illusions take twice as much damage
 +            if (IsTempBot())
@@ -23197,10 +23208,10 @@ index 00000000..b3732fcf
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp b/src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp
 new file mode 100644
-index 00000000..f113bc99
+index 00000000..1e232e77
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp
-@@ -0,0 +1,620 @@
+@@ -0,0 +1,622 @@
 +#include "bot_ai.h"
 +#include "bot_GridNotifiers.h"
 +#include "ScriptMgr.h"
@@ -23401,6 +23412,8 @@ index 00000000..f113bc99
 +
 +            CheckBlackArrow(diff);
 +
++            MoveBehind(opponent);
++
 +            float dist = me->GetDistance(opponent);
 +            float maxRangeLong = 30.f;
 +
@@ -23595,7 +23608,7 @@ index 00000000..f113bc99
 +            bot_ai::DamageDealt(victim, damage, damageType);
 +        }
 +
-+        void DamageTaken(Unit* u, uint32& /*damage*/) override
++        void DamageTaken(Unit* u, uint32& /*damage*/, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo*/) override
 +        {
 +            if (!u)
 +                return;
@@ -23823,7 +23836,7 @@ index 00000000..f113bc99
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_death_knight_ai.cpp b/src/server/game/AI/NpcBots/bot_death_knight_ai.cpp
 new file mode 100644
-index 00000000..039e8f56
+index 00000000..3da79bfa
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_death_knight_ai.cpp
 @@ -0,0 +1,2102 @@
@@ -25459,7 +25472,7 @@ index 00000000..039e8f56
 +            bot_ai::DamageDealt(victim, damage, damageType);
 +        }
 +
-+        void DamageTaken(Unit* u, uint32& /*damage*/) override
++        void DamageTaken(Unit* u, uint32& /*damage*/, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo*/) override
 +        {
 +            if (!u)
 +                return;
@@ -25931,7 +25944,7 @@ index 00000000..039e8f56
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_dreadlord_ai.cpp b/src/server/game/AI/NpcBots/bot_dreadlord_ai.cpp
 new file mode 100644
-index 00000000..b353b91f
+index 00000000..d37554e1
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_dreadlord_ai.cpp
 @@ -0,0 +1,533 @@
@@ -26297,7 +26310,7 @@ index 00000000..b353b91f
 +            bot_ai::DamageDealt(victim, damage, damageType);
 +        }
 +
-+        void DamageTaken(Unit* u, uint32& damage) override
++        void DamageTaken(Unit* u, uint32& damage, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo*/) override
 +        {
 +            if (damage)
 +            {
@@ -26470,10 +26483,10 @@ index 00000000..b353b91f
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_druid_ai.cpp b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 new file mode 100644
-index 00000000..70652787
+index 00000000..960764e0
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
-@@ -0,0 +1,2913 @@
+@@ -0,0 +1,2915 @@
 +#include "bot_ai.h"
 +#include "botmgr.h"
 +#include "Group.h"
@@ -27573,6 +27586,8 @@ index 00000000..70652787
 +            if (me->GetPowerType() != POWER_MANA)
 +                return;
 +
++            MoveBehind(opponent);
++
 +            if (HasRole(BOT_ROLE_HEAL) && GetManaPCT(me) < 25)
 +                return;
 +
@@ -28230,7 +28245,7 @@ index 00000000..70652787
 +            if (_form == DRUID_CAT_FORM &&
 +                (baseId == CLAW_1 || baseId == MANGLE_CAT_1 || baseId == POUNCE_1 ||
 +                baseId == RAKE_1 || baseId == RAVAGE_1 || baseId == SHRED_1))
-+                const_cast<bot_druid_ai*>(this)->primalFuryProc = crit && lvl >= 25;
++                primalFuryProc = crit && lvl >= 25;
 +
 +            damage = int32(fdamage * (1.0f + pctbonus));
 +        }
@@ -28948,7 +28963,7 @@ index 00000000..70652787
 +            bot_ai::DamageDealt(victim, damage, damageType);
 +        }
 +
-+        void DamageTaken(Unit* u, uint32& /*damage*/) override
++        void DamageTaken(Unit* u, uint32& /*damage*/, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo*/) override
 +        {
 +            if (!u)
 +                return;
@@ -29371,7 +29386,7 @@ index 00000000..70652787
 +        ObjectGuid _treants[MAX_TREANTS];
 +        //Timers/other
 +/*Form*/BotStances _form;
-+/*Misc*/bool primalFuryProc;
++/*Misc*/mutable bool primalFuryProc;
 +/*Misc*/uint8 comboPoints;
 +/*Misc*/uint32 ragetimer;
 +        bool hibery;
@@ -29389,10 +29404,10 @@ index 00000000..70652787
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_hunter_ai.cpp b/src/server/game/AI/NpcBots/bot_hunter_ai.cpp
 new file mode 100644
-index 00000000..368a82f7
+index 00000000..5e5bd1be
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_hunter_ai.cpp
-@@ -0,0 +1,2354 @@
+@@ -0,0 +1,2356 @@
 +#include "bot_ai.h"
 +#include "botmgr.h"
 +#include "GridNotifiersImpl.h"
@@ -30137,6 +30152,8 @@ index 00000000..368a82f7
 +
 +            Counter(diff);
 +            CheckTranquil(diff);
++
++            MoveBehind(opponent);
 +
 +            float dist = me->GetDistance(opponent);
 +            float maxRangeLong = me->GetLevel() >= 10 ? 51.f : 45.f;
@@ -31298,7 +31315,7 @@ index 00000000..368a82f7
 +            bot_ai::DamageDealt(victim, damage, damageType);
 +        }
 +
-+        void DamageTaken(Unit* u, uint32& /*damage*/) override
++        void DamageTaken(Unit* u, uint32& /*damage*/, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo*/) override
 +        {
 +            if (!u)
 +                return;
@@ -31749,10 +31766,10 @@ index 00000000..368a82f7
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_mage_ai.cpp b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 new file mode 100644
-index 00000000..5b000cf8
+index 00000000..e66f6a5b
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
-@@ -0,0 +1,1824 @@
+@@ -0,0 +1,1826 @@
 +#include "bot_ai.h"
 +#include "botmgr.h"
 +#include "GameEventMgr.h"
@@ -32145,6 +32162,8 @@ index 00000000..5b000cf8
 +                return;
 +
 +            StartAttack(opponent, IsMelee());
++
++            MoveBehind(opponent);
 +
 +            //mage
 +            if (me->HasInvisibilityAura()) return;
@@ -33280,7 +33299,7 @@ index 00000000..5b000cf8
 +            bot_ai::DamageDealt(victim, damage, damageType);
 +        }
 +
-+        void DamageTaken(Unit* u, uint32& /*damage*/) override
++        void DamageTaken(Unit* u, uint32& /*damage*/, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo*/) override
 +        {
 +            if (!u)
 +                return;
@@ -33579,10 +33598,10 @@ index 00000000..5b000cf8
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 new file mode 100644
-index 00000000..790240df
+index 00000000..15bfbaa5
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
-@@ -0,0 +1,2737 @@
+@@ -0,0 +1,2762 @@
 +#include "bot_ai.h"
 +#include "botmgr.h"
 +#include "Group.h"
@@ -33764,7 +33783,7 @@ index 00000000..790240df
 +    JUDGEMENTS_OF_THE_JUST_AURA         = 68055, //melee attack speed reduce
 +
 +    //JUDGEMENT_OF_LIGHT_AURA             = 20185,
-+    //JUDGEMENT_OF_WISDOM_AURA            = 20186,
++    JUDGEMENT_OF_WISDOM_AURA            = 20186,
 +    //JUDGEMENT_OF_JUSTICE_AURA           = 20184,
 +
 +    GREATER_BLESSING_OF_MIGHT_1         = 25782,
@@ -33907,7 +33926,7 @@ index 00000000..790240df
 +        void CheckSacrifice(uint32 diff)
 +        {
 +            if (!IsSpellReady(DIVINE_SACRIFICE_1, diff) || IAmFree() || me->IsMounted() ||
-+                IsTank() || Feasting() || !CanBlock() || IsCasting() || Rand() > 25 || GetHealthPCT(me) < 50)
++                IsTank() || Feasting() || !CanBlock() || IsCasting() || Rand() > 25 || GetHealthPCT(me) < 60)
 +                return;
 +
 +            Group const* gr = master->GetGroup();
@@ -35166,8 +35185,8 @@ index 00000000..790240df
 +                if (!JUDGEMENT && GetSpell(JUDGEMENT_OF_WISDOM_1) && dist < CalcSpellMaxRange(JUDGEMENT_OF_WISDOM_1))
 +                {
 +                    //from 35% to 50% mana
-+                    //opponent->GetAuraEffect(JUDGEMENT_OF_WISDOM_AURA, 0, me->GetGUID()
-+                    AuraEffect const* wisd = opponent->GetAuraEffect(SPELL_AURA_DUMMY, SPELLFAMILY_PALADIN, 3014, 0);
++                    AuraEffect const* wisd = opponent->GetAuraEffect(JUDGEMENT_OF_WISDOM_AURA, 0);
++                    //AuraEffect const* wisd = opponent->GetAuraEffect(SPELL_AURA_DUMMY, SPELLFAMILY_PALADIN, 3014, 0);
 +                    uint8 myManaPct = GetManaPCT(me);
 +                    if ((!wisd && myManaPct < 35) || (wisd && wisd->GetCasterGUID() == me->GetGUID() && myManaPct < 50))
 +                        JUDGEMENT = JUDGEMENT_OF_WISDOM_1;
@@ -35655,6 +35674,11 @@ index 00000000..790240df
 +                else if (infu && infu->IsAffectedOnSpell(spellInfo))
 +                    me->RemoveAurasDueToSpell(INFUSION_OF_LIGHT_BUFF);
 +            }
++
++            if (baseId == DIVINE_SACRIFICE_1)
++            {
++                _sacDamage = 0;
++            }
 +        }
 +
 +        void SpellHitTarget(WorldObject* wtarget, SpellInfo const* spell) override
@@ -35881,18 +35905,36 @@ index 00000000..790240df
 +            OnSpellHit(caster, spell);
 +        }
 +
-+        void DamageTaken(Unit* u, uint32& /*damage*/) override
++        void DamageDealt(Unit* victim, uint32& damage, DamageEffectType damageType) override
 +        {
++            bot_ai::DamageDealt(victim, damage, damageType);
++        }
++
++        void DamageTaken(Unit* u, uint32& damage, DamageEffectType /*damageType*/, SpellInfo const* spellInfo) override
++        {
++            // Divine Sacrifice helper - calculate remaining damage amount and find if we can be one-shot'ed
++            if (damage && _sacDamage < int32(me->GetMaxHealth() / 4))
++            {
++                if (spellInfo && spellInfo->Id == DIVINE_SACRIFICE_1)
++                    _sacDamage -= int32(damage);
++                else
++                    _sacDamage += int32(damage);
++
++                if (me->GetHealth() - _sacDamage < me->GetMaxHealth() / 5)
++                {
++                    if (me->GetAuraEffect(SPELL_AURA_SPLIT_DAMAGE_PCT, SPELLFAMILY_PALADIN, 0x0, 0x0, 0x4, me->GetGUID()))
++                    {
++                        _sacDamage = me->GetMaxHealth();
++                        me->RemoveAurasDueToSpell(DIVINE_SACRIFICE_1, me->GetGUID());
++                    }
++                }
++            }
++
 +            if (!u)
 +                return;
 +            if (!u->IsInCombat() && !me->IsInCombat())
 +                return;
 +            OnOwnerDamagedBy(u);
-+        }
-+
-+        void DamageDealt(Unit* victim, uint32& damage, DamageEffectType damageType) override
-+        {
-+            bot_ai::DamageDealt(victim, damage, damageType);
 +        }
 +
 +        //healer may be nullptr
@@ -35933,6 +35975,7 @@ index 00000000..790240df
 +            avDelayTimer = 0;
 +            shieldDelayTimer = 0;
 +            _aura = NOAURA;
++            _sacDamage = 0;
 +
 +            CLEANSE = 0;
 +
@@ -36212,6 +36255,7 @@ index 00000000..790240df
 +/*misc*/uint32 checkAuraTimer, checkSealTimer, checkShieldTimer, checkBeaconTimer, avDelayTimer, shieldDelayTimer;
 +        //Special
 +/*misc*/uint8 _aura;
++/*misc*/int32 _sacDamage;
 +
 +        typedef std::unordered_map<uint32 /*baseId*/, int32 /*amount*/> HealMap;
 +        HealMap _heals;
@@ -36322,10 +36366,10 @@ index 00000000..790240df
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_priest_ai.cpp b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 new file mode 100644
-index 00000000..edc5160e
+index 00000000..ed10a842
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
-@@ -0,0 +1,2097 @@
+@@ -0,0 +1,2099 @@
 +#include "bot_ai.h"
 +#include "botmgr.h"
 +#include "Group.h"
@@ -36884,6 +36928,8 @@ index 00000000..edc5160e
 +            Counter(diff);
 +
 +            StartAttack(opponent, IsMelee());
++
++            MoveBehind(opponent);
 +
 +            if (GC_Timer > diff)
 +                return;
@@ -38101,7 +38147,7 @@ index 00000000..edc5160e
 +            bot_ai::DamageDealt(victim, damage, damageType);
 +        }
 +
-+        void DamageTaken(Unit* u, uint32& /*damage*/) override
++        void DamageTaken(Unit* u, uint32& /*damage*/, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo*/) override
 +        {
 +            if (!u)
 +                return;
@@ -38425,7 +38471,7 @@ index 00000000..edc5160e
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_rogue_ai.cpp b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 new file mode 100644
-index 00000000..a3266b25
+index 00000000..c569cd21
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 @@ -0,0 +1,2030 @@
@@ -39513,7 +39559,7 @@ index 00000000..a3266b25
 +
 +            //Glyph of Sinister Strike: 50% chance to add 1 cp on crit
 +            if (baseId == SINISTER_STRIKE_1)
-+                const_cast<rogue_botAI*>(this)->glyphSSProc = crit && lvl >= 15 && urand(1,100) <= 50;
++                glyphSSProc = crit && lvl >= 15 && urand(1,100) <= 50;
 +
 +            damage = int32(fdamage * (1.0f + pctbonus));
 +        }
@@ -40107,7 +40153,7 @@ index 00000000..a3266b25
 +            bot_ai::DamageDealt(victim, damage, damageType);
 +        }
 +
-+        void DamageTaken(Unit* u, uint32& /*damage*/) override
++        void DamageTaken(Unit* u, uint32& /*damage*/, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo*/) override
 +        {
 +            if (!u)
 +                return;
@@ -40444,7 +40490,7 @@ index 00000000..a3266b25
 +        }
 +
 +    private:
-+        bool glyphSSProc;
++        mutable bool glyphSSProc;
 +        int32 energy;
 +        uint8 comboPoints;
 +        bool combopointsSpent;
@@ -40461,7 +40507,7 @@ index 00000000..a3266b25
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_shaman_ai.cpp b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 new file mode 100644
-index 00000000..bd185b23
+index 00000000..64b437cd
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 @@ -0,0 +1,2812 @@
@@ -42083,7 +42129,7 @@ index 00000000..bd185b23
 +                if (maelstrom)
 +                {
 +                    pctbonus += 0.2f * maelstrom->GetStackAmount();
-+                    const_cast<shaman_botAI*>(this)->maelUseUp = true;
++                    maelUseUp = true;
 +                }
 +            }
 +            //Tidal Waves (Healing Wave cast time)
@@ -42487,7 +42533,7 @@ index 00000000..bd185b23
 +            bot_ai::DamageDealt(victim, damage, damageType);
 +        }
 +
-+        void DamageTaken(Unit* u, uint32& /*damage*/) override
++        void DamageTaken(Unit* u, uint32& /*damage*/, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo*/) override
 +        {
 +            if (!u)
 +                return;
@@ -43178,7 +43224,7 @@ index 00000000..bd185b23
 +        uint32 HexyCheckTimer, EarthyCheckTimer, ShieldCheckTimer, BloodlustCheckTimer, MaelstromTimer;
 +        uint8 MaelstromCount;
 +        bool Hexy, Earthy;
-+        bool maelUseUp;
++        mutable bool maelUseUp;
 +        uint32 mhEnchantExpireTimer, ohEnchantExpireTimer;
 +        uint32 mhEnchant, ohEnchant;
 +        bool needChooseMHEnchant, needChooseOHEnchant;
@@ -43279,7 +43325,7 @@ index 00000000..bd185b23
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_spellbreaker_ai.cpp b/src/server/game/AI/NpcBots/bot_spellbreaker_ai.cpp
 new file mode 100644
-index 00000000..c1715729
+index 00000000..52958f33
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_spellbreaker_ai.cpp
 @@ -0,0 +1,580 @@
@@ -43457,10 +43503,10 @@ index 00000000..c1715729
 +            {
 +                pctbonus *= 3.f;
 +                if (_doCrit == false && urand(1,100) < 2 * GetBotCritChance())
-+                    const_cast<spellbreaker_botAI*>(this)->_doCrit = true;
++                    _doCrit = true;
 +            }
 +            else if (_doCrit == true)
-+                const_cast<spellbreaker_botAI*>(this)->_doCrit = false;
++                _doCrit = false;
 +
 +            damageinfo.Damages[0].Damage *= pctbonus;
 +        }
@@ -43534,7 +43580,7 @@ index 00000000..c1715729
 +            bot_ai::DamageDealt(victim, damage, damageType);
 +        }
 +
-+        void DamageTaken(Unit* u, uint32& /*damage*/) override
++        void DamageTaken(Unit* u, uint32& /*damage*/, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo*/) override
 +        {
 +            if (!u)
 +                return;
@@ -43605,7 +43651,7 @@ index 00000000..c1715729
 +
 +    private:
 +
-+        bool _doCrit;
++        mutable bool _doCrit;
 +
 +        void ProcessSpellsteal(Unit* target)
 +        {
@@ -43865,7 +43911,7 @@ index 00000000..c1715729
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_sphynx_ai.cpp b/src/server/game/AI/NpcBots/bot_sphynx_ai.cpp
 new file mode 100644
-index 00000000..76f1cbf4
+index 00000000..1160257c
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_sphynx_ai.cpp
 @@ -0,0 +1,610 @@
@@ -44355,7 +44401,7 @@ index 00000000..76f1cbf4
 +            bot_ai::DamageDealt(victim, damage, damageType);
 +        }
 +
-+        void DamageTaken(Unit* u, uint32& damage) override
++        void DamageTaken(Unit* u, uint32& damage, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo*/) override
 +        {
 +            if (damage)
 +            {
@@ -44481,10 +44527,10 @@ index 00000000..76f1cbf4
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warlock_ai.cpp b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 new file mode 100644
-index 00000000..ae994068
+index 00000000..7be1e835
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
-@@ -0,0 +1,2074 @@
+@@ -0,0 +1,2077 @@
 +#include "bot_ai.h"
 +#include "botmgr.h"
 +#include "Group.h"
@@ -45207,6 +45253,8 @@ index 00000000..ae994068
 +        {
 +            StartAttack(opponent, IsMelee());
 +
++            MoveBehind(opponent);
++
 +            if (GC_Timer > diff)
 +                return;
 +
@@ -45485,7 +45533,7 @@ index 00000000..ae994068
 +            //Molten Core part 2.2: 15% additional critical chance for Soul Fire
 +            if (lvl >= 35 && baseId == SOUL_FIRE_1)
 +            {
-+                const_cast<warlock_botAI*>(this)->moltencore = me->HasAura(MOLTEN_CORE_BUFF);
++                moltencore = me->HasAura(MOLTEN_CORE_BUFF);
 +                if (moltencore)
 +                    crit_chance += 15.f;
 +            }
@@ -45712,8 +45760,8 @@ index 00000000..ae994068
 +            //Backlash: -100% cast time for Shadow Bolt or Incinerate
 +            if (lvl >= 15 && (baseId == SHADOW_BOLT_1 || baseId == INCINERATE_1))
 +            {
-+                const_cast<warlock_botAI*>(this)->backlash = me->HasAura(BACKLASH_BUFF);
-+                const_cast<warlock_botAI*>(this)->shadowtrance = (baseId == SHADOW_BOLT_1 && me->HasAura(SHADOW_TRANCE_BUFF));
++                backlash = me->HasAura(BACKLASH_BUFF);
++                shadowtrance = (baseId == SHADOW_BOLT_1 && me->HasAura(SHADOW_TRANCE_BUFF));
 +                if (backlash || shadowtrance)
 +                    timebonus += casttime;
 +            }
@@ -45723,7 +45771,7 @@ index 00000000..ae994068
 +            //Chaotic Mind (custom)
 +            if (baseId == SOUL_FIRE_1)
 +            {
-+                const_cast<warlock_botAI*>(this)->chaoticmind = me->HasAura(CHAOTIC_MIND_BUFF);
++                chaoticmind = me->HasAura(CHAOTIC_MIND_BUFF);
 +                if (chaoticmind)
 +                    timebonus += casttime;
 +            }
@@ -45734,14 +45782,14 @@ index 00000000..ae994068
 +                ((spellInfo->SpellFamilyFlags[0] & 0x165) || (spellInfo->SpellFamilyFlags[1] & 0x310C0)))
 +            {
 +                //skip soul fire insta cast
-+                const_cast<warlock_botAI*>(this)->backdraft = me->HasAura(BACKDRAFT_BUFF) && !(chaoticmind && baseId == SOUL_FIRE_1);
++                backdraft = me->HasAura(BACKDRAFT_BUFF) && !(chaoticmind && baseId == SOUL_FIRE_1);
 +                if (backdraft)
 +                    pctbonus += 0.3f;
 +            }
 +            //Molten Core part 2.1: -30% cast time for Incinerate
 +            if (lvl >= 35 && baseId == INCINERATE_1)
 +            {
-+                const_cast<warlock_botAI*>(this)->moltencore = me->HasAura(MOLTEN_CORE_BUFF);
++                moltencore = me->HasAura(MOLTEN_CORE_BUFF);
 +                if (moltencore)
 +                    pctbonus += 0.3f;
 +            }
@@ -45770,7 +45818,7 @@ index 00000000..ae994068
 +
 +            casttime = std::max<int32>((float(casttime) * (1.0f - pctbonus)) - timebonus, 0);
 +
-+            const_cast<warlock_botAI*>(this)->instaCast = (casttime <= 500); //triggered GCD is too long
++            instaCast = (casttime <= 500); //triggered GCD is too long
 +        }
 +
 +        void ApplyClassSpellCooldownMods(SpellInfo const* /*spellInfo*/, uint32& cooldown) const override
@@ -46145,7 +46193,7 @@ index 00000000..ae994068
 +            bot_ai::DamageDealt(victim, damage, damageType);
 +        }
 +
-+        void DamageTaken(Unit* u, uint32& /*damage*/) override
++        void DamageTaken(Unit* u, uint32& /*damage*/, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo*/) override
 +        {
 +            if (!u)
 +                return;
@@ -46513,9 +46561,10 @@ index 00000000..ae994068
 +        uint32 myPetType;
 +        uint32 petSummonTimer;
 +        //Special
-+        bool backlash, shadowtrance, backdraft, moltencore, chaoticmind;
++        mutable bool backlash, shadowtrance, backdraft, moltencore, chaoticmind;
 +        bool canShadowWard;
-+        bool longCasted, instaCast; //some sort of rotation thing
++        bool longCasted; //some sort of rotation thing
++        mutable bool instaCast;
 +        bool hasHealthstone, hasSoulstone;
 +
 +        uint32 _getCursesMask(Unit const* unit) const
@@ -46561,7 +46610,7 @@ index 00000000..ae994068
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warrior_ai.cpp b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 new file mode 100644
-index 00000000..071da4da
+index 00000000..f551e896
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 @@ -0,0 +1,2248 @@
@@ -48510,7 +48559,7 @@ index 00000000..071da4da
 +            bot_ai::DamageDealt(victim, damage, damageType);
 +        }
 +
-+        void DamageTaken(Unit* u, uint32& /*damage*/) override
++        void DamageTaken(Unit* u, uint32& /*damage*/, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo*/) override
 +        {
 +            if (!u)
 +                return;
@@ -55271,7 +55320,7 @@ index 00000000..b951c4ad
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bpet_ai.cpp b/src/server/game/AI/NpcBots/bpet_ai.cpp
 new file mode 100644
-index 00000000..107e3bdf
+index 00000000..505be337
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_ai.cpp
 @@ -0,0 +1,2276 @@
@@ -56747,7 +56796,7 @@ index 00000000..107e3bdf
 +        float x,y,z;
 +        target->GetNearPoint(me, x, y, z, me->GetCombatReach(), me->GetAbsoluteAngle(target));
 +        me->GetMotionMaster()->MovePoint(me->GetMapId(), x, y, z);
-+        const_cast<bot_pet_ai*>(this)->waitTimer = 500;
++        waitTimer = 500;
 +    }
 +}
 +bool bot_pet_ai::_canRegenerate() const
@@ -57553,10 +57602,10 @@ index 00000000..107e3bdf
 +}
 diff --git a/src/server/game/AI/NpcBots/bpet_ai.h b/src/server/game/AI/NpcBots/bpet_ai.h
 new file mode 100644
-index 00000000..0e858c33
+index 00000000..a58d3694
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_ai.h
-@@ -0,0 +1,165 @@
+@@ -0,0 +1,166 @@
 +#ifndef _BOT_PET_AI_H
 +#define _BOT_PET_AI_H
 +
@@ -57581,7 +57630,7 @@ index 00000000..0e858c33
 +        //virtual void JustEnteredCombat(Unit* u) override;
 +        void MoveInLineOfSight(Unit* /*u*/) override {}
 +        void DamageDealt(Unit* victim, uint32& damage, DamageEffectType damageType) override;
-+        void DamageTaken(Unit* /*attacker*/, uint32& /*damage*/) override { }
++        void DamageTaken(Unit* /*attacker*/, uint32& /*damage*/, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo*/) override { }
 +        //void ReceiveEmote(Player* player, uint32 emote);
 +        uint32 GetData(uint32 data) const override;
 +        void IsSummonedBy(WorldObject* summoner) override;
@@ -57700,7 +57749,8 @@ index 00000000..0e858c33
 +        uint8 m_botCommandState;
 +
 +        //timers
-+        uint32 lastdiff, checkAurasTimer, waitTimer, regenTimer, _updateTimerMedium, _updateTimerEx1;
++        uint32 lastdiff, checkAurasTimer, regenTimer, _updateTimerMedium, _updateTimerEx1;
++        mutable uint32 waitTimer;
 +
 +        float _energyFraction;
 +
@@ -57724,7 +57774,7 @@ index 00000000..0e858c33
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bpet_archmage.cpp b/src/server/game/AI/NpcBots/bpet_archmage.cpp
 new file mode 100644
-index 00000000..3ef0fdad
+index 00000000..7068b7d6
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_archmage.cpp
 @@ -0,0 +1,139 @@
@@ -57830,7 +57880,7 @@ index 00000000..3ef0fdad
 +            bot_pet_ai::DamageDealt(victim, damage, damageType);
 +        }
 +
-+        void DamageTaken(Unit* u, uint32& /*damage*/) override
++        void DamageTaken(Unit* u, uint32& /*damage*/, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo*/) override
 +        {
 +            if (!u)
 +                return;
@@ -57869,7 +57919,7 @@ index 00000000..3ef0fdad
 +}
 diff --git a/src/server/game/AI/NpcBots/bpet_dark_ranger.cpp b/src/server/game/AI/NpcBots/bpet_dark_ranger.cpp
 new file mode 100644
-index 00000000..2c1d27b9
+index 00000000..2f41f33d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_dark_ranger.cpp
 @@ -0,0 +1,213 @@
@@ -58013,7 +58063,7 @@ index 00000000..2c1d27b9
 +            bot_pet_ai::DamageDealt(victim, damage, damageType);
 +        }
 +
-+        void DamageTaken(Unit* u, uint32& /*damage*/) override
++        void DamageTaken(Unit* u, uint32& /*damage*/, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo*/) override
 +        {
 +            if (!u)
 +                return;
@@ -58088,7 +58138,7 @@ index 00000000..2c1d27b9
 +}
 diff --git a/src/server/game/AI/NpcBots/bpet_death_knight.cpp b/src/server/game/AI/NpcBots/bpet_death_knight.cpp
 new file mode 100644
-index 00000000..02c6013e
+index 00000000..5a58713e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_death_knight.cpp
 @@ -0,0 +1,191 @@
@@ -58241,7 +58291,7 @@ index 00000000..02c6013e
 +            bot_pet_ai::DamageDealt(victim, damage, damageType);
 +        }
 +
-+        void DamageTaken(Unit* u, uint32& /*damage*/) override
++        void DamageTaken(Unit* u, uint32& /*damage*/, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo*/) override
 +        {
 +            if (!u)
 +                return;
@@ -58285,7 +58335,7 @@ index 00000000..02c6013e
 +}
 diff --git a/src/server/game/AI/NpcBots/bpet_dreadlord.cpp b/src/server/game/AI/NpcBots/bpet_dreadlord.cpp
 new file mode 100644
-index 00000000..40e89189
+index 00000000..13488364
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_dreadlord.cpp
 @@ -0,0 +1,163 @@
@@ -58414,7 +58464,7 @@ index 00000000..40e89189
 +            bot_pet_ai::DamageDealt(victim, damage, damageType);
 +        }
 +
-+        void DamageTaken(Unit* u, uint32& /*damage*/) override
++        void DamageTaken(Unit* u, uint32& /*damage*/, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo*/) override
 +        {
 +            if (!u)
 +                return;
@@ -58454,7 +58504,7 @@ index 00000000..40e89189
 +}
 diff --git a/src/server/game/AI/NpcBots/bpet_druid.cpp b/src/server/game/AI/NpcBots/bpet_druid.cpp
 new file mode 100644
-index 00000000..10a00bf2
+index 00000000..94a840e7
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_druid.cpp
 @@ -0,0 +1,146 @@
@@ -58566,7 +58616,7 @@ index 00000000..10a00bf2
 +            bot_pet_ai::DamageDealt(victim, damage, damageType);
 +        }
 +
-+        void DamageTaken(Unit* u, uint32& /*damage*/) override
++        void DamageTaken(Unit* u, uint32& /*damage*/, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo*/) override
 +        {
 +            if (!u)
 +                return;
@@ -58606,7 +58656,7 @@ index 00000000..10a00bf2
 +}
 diff --git a/src/server/game/AI/NpcBots/bpet_hunter.cpp b/src/server/game/AI/NpcBots/bpet_hunter.cpp
 new file mode 100644
-index 00000000..9070e04c
+index 00000000..32b8ef83
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_hunter.cpp
 @@ -0,0 +1,1000 @@
@@ -59309,7 +59359,7 @@ index 00000000..9070e04c
 +            bot_pet_ai::DamageDealt(victim, damage, damageType);
 +        }
 +
-+        void DamageTaken(Unit* u, uint32& /*damage*/) override
++        void DamageTaken(Unit* u, uint32& /*damage*/, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo*/) override
 +        {
 +            if (!u)
 +                return;
@@ -59612,7 +59662,7 @@ index 00000000..9070e04c
 +}
 diff --git a/src/server/game/AI/NpcBots/bpet_mage.cpp b/src/server/game/AI/NpcBots/bpet_mage.cpp
 new file mode 100644
-index 00000000..67e35efd
+index 00000000..4e7ae041
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_mage.cpp
 @@ -0,0 +1,176 @@
@@ -59752,7 +59802,7 @@ index 00000000..67e35efd
 +            bot_pet_ai::DamageDealt(victim, damage, damageType);
 +        }
 +
-+        void DamageTaken(Unit* u, uint32& /*damage*/) override
++        void DamageTaken(Unit* u, uint32& /*damage*/, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo*/) override
 +        {
 +            if (!u)
 +                return;
@@ -59794,7 +59844,7 @@ index 00000000..67e35efd
 +}
 diff --git a/src/server/game/AI/NpcBots/bpet_priest.cpp b/src/server/game/AI/NpcBots/bpet_priest.cpp
 new file mode 100644
-index 00000000..db247b08
+index 00000000..474348cf
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_priest.cpp
 @@ -0,0 +1,172 @@
@@ -59926,7 +59976,7 @@ index 00000000..db247b08
 +            bot_pet_ai::DamageDealt(victim, damage, damageType);
 +        }
 +
-+        void DamageTaken(Unit* u, uint32& damage) override
++        void DamageTaken(Unit* u, uint32& damage, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo*/) override
 +        {
 +            if (damage >= me->GetHealth())
 +                petOwner->CastSpell(petOwner, GLYPH_SHADOWFIEND_PROC, true);
@@ -59972,7 +60022,7 @@ index 00000000..db247b08
 +}
 diff --git a/src/server/game/AI/NpcBots/bpet_shaman.cpp b/src/server/game/AI/NpcBots/bpet_shaman.cpp
 new file mode 100644
-index 00000000..ef327a8f
+index 00000000..42514d80
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_shaman.cpp
 @@ -0,0 +1,191 @@
@@ -60124,7 +60174,7 @@ index 00000000..ef327a8f
 +            bot_pet_ai::DamageDealt(victim, damage, damageType);
 +        }
 +
-+        void DamageTaken(Unit* u, uint32& /*damage*/) override
++        void DamageTaken(Unit* u, uint32& /*damage*/, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo*/) override
 +        {
 +            if (!u)
 +                return;
@@ -60169,7 +60219,7 @@ index 00000000..ef327a8f
 +}
 diff --git a/src/server/game/AI/NpcBots/bpet_warlock.cpp b/src/server/game/AI/NpcBots/bpet_warlock.cpp
 new file mode 100644
-index 00000000..13ce014c
+index 00000000..fc90c0df
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_warlock.cpp
 @@ -0,0 +1,409 @@
@@ -60510,7 +60560,7 @@ index 00000000..13ce014c
 +            bot_pet_ai::DamageDealt(victim, damage, damageType);
 +        }
 +
-+        void DamageTaken(Unit* u, uint32& /*damage*/) override
++        void DamageTaken(Unit* u, uint32& /*damage*/, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo*/) override
 +        {
 +            if (!u)
 +                return;
@@ -60583,7 +60633,7 @@ index 00000000..13ce014c
 +    new warlock_pet_bot();
 +}
 diff --git a/src/server/game/Combat/CombatManager.cpp b/src/server/game/Combat/CombatManager.cpp
-index 0d396b73..95176daf 100644
+index ce6ca5e6..6f3868b0 100644
 --- a/src/server/game/Combat/CombatManager.cpp
 +++ b/src/server/game/Combat/CombatManager.cpp
 @@ -21,6 +21,10 @@
@@ -61032,7 +61082,7 @@ index 75dd4abd..4cb80fff 100644
              sLFGMgr->LeaveLfg(group->GetGUID());
              group->Disband();
 diff --git a/src/server/game/Entities/Creature/Creature.cpp b/src/server/game/Entities/Creature/Creature.cpp
-index 69222b13..787d035a 100644
+index 502d214e..9df0eee2 100644
 --- a/src/server/game/Entities/Creature/Creature.cpp
 +++ b/src/server/game/Entities/Creature/Creature.cpp
 @@ -56,6 +56,11 @@
@@ -61729,7 +61779,7 @@ index b64e09ec..71cd59fb 100644
          bool CheckNoGrayAggroConfig(uint32 playerLevel, uint32 creatureLevel) const; // No aggro from gray creatures
  
 diff --git a/src/server/game/Entities/Creature/CreatureData.h b/src/server/game/Entities/Creature/CreatureData.h
-index de427e95..307313c1 100644
+index 83fd502f..230ae6f7 100644
 --- a/src/server/game/Entities/Creature/CreatureData.h
 +++ b/src/server/game/Entities/Creature/CreatureData.h
 @@ -60,8 +60,8 @@ enum CreatureFlagsExtra : uint32
@@ -61817,7 +61867,7 @@ index 183f2eb7..77bfcf8b 100644
      SetFaction(GetOwner()->GetFaction());
  
 diff --git a/src/server/game/Entities/Creature/enuminfo_CreatureData.cpp b/src/server/game/Entities/Creature/enuminfo_CreatureData.cpp
-index 3b5bbbd6..8286cd28 100644
+index 13fcc0cb..e5cc13d6 100644
 --- a/src/server/game/Entities/Creature/enuminfo_CreatureData.cpp
 +++ b/src/server/game/Entities/Creature/enuminfo_CreatureData.cpp
 @@ -57,8 +57,8 @@ TC_API_EXPORT EnumText EnumUtils<CreatureFlagsExtra>::ToString(CreatureFlagsExtr
@@ -61854,7 +61904,7 @@ index 3b5bbbd6..8286cd28 100644
          case CREATURE_FLAG_EXTRA_IGNORE_PATHFINDING: return 29;
          case CREATURE_FLAG_EXTRA_IMMUNITY_KNOCKBACK: return 30;
 diff --git a/src/server/game/Entities/Object/Object.cpp b/src/server/game/Entities/Object/Object.cpp
-index 5baee788..4de941c5 100644
+index 95f25061..f1c9bad7 100644
 --- a/src/server/game/Entities/Object/Object.cpp
 +++ b/src/server/game/Entities/Object/Object.cpp
 @@ -1001,6 +1001,11 @@ void WorldObject::setActive(bool on)
@@ -61869,17 +61919,18 @@ index 5baee788..4de941c5 100644
      m_isActive = on;
  
      if (on && !IsInWorld())
-@@ -1645,6 +1650,9 @@ bool WorldObject::CanDetect(WorldObject const* obj, bool ignoreStealth, bool che
+@@ -1645,7 +1650,9 @@ bool WorldObject::CanDetect(WorldObject const* obj, bool ignoreStealth, bool che
  {
      WorldObject const* seer = this;
  
+-    // If a unit is possessing another one, it uses the detection of the latter
 +    //npcbot: master's invisibility should not affect bots' sight
 +    if (!(GetTypeId() == TYPEID_UNIT && ToCreature()->IsNPCBot()))
 +    //end npcbot
      // Pets don't have detection, they use the detection of their masters
      if (Unit const* thisUnit = ToUnit())
-         if (Unit* controller = thisUnit->GetCharmerOrOwner())
-@@ -1920,6 +1928,11 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
+     {
+@@ -1928,6 +1935,11 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
              summon = new Puppet(properties, summonerUnit);
              break;
          case UNIT_MASK_TOTEM:
@@ -61891,7 +61942,7 @@ index 5baee788..4de941c5 100644
              summon = new Totem(properties, summonerUnit);
              break;
          case UNIT_MASK_MINION:
-@@ -1933,6 +1946,11 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
+@@ -1941,6 +1953,11 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
          return nullptr;
      }
  
@@ -61903,7 +61954,7 @@ index 5baee788..4de941c5 100644
      summon->SetUInt32Value(UNIT_CREATED_BY_SPELL, spellId);
  
      summon->SetHomePosition(pos);
-@@ -1944,6 +1962,11 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
+@@ -1952,6 +1969,11 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
      AddToMap(summon->ToCreature());
      summon->InitSummon();
  
@@ -61915,7 +61966,7 @@ index 5baee788..4de941c5 100644
      // call MoveInLineOfSight for nearby creatures
      Trinity::AIRelocationNotifier notifier(*summon);
      Cell::VisitAllObjects(summon, notifier, GetVisibilityRange());
-@@ -2271,12 +2294,36 @@ float WorldObject::ApplyEffectModifiers(SpellInfo const* spellInfo, uint8 effInd
+@@ -2279,12 +2301,36 @@ float WorldObject::ApplyEffectModifiers(SpellInfo const* spellInfo, uint8 effInd
                  break;
          }
      }
@@ -61952,7 +62003,7 @@ index 5baee788..4de941c5 100644
      if (Unit const* unit = ToUnit())
          comboPoints = unit->GetComboPoints();
  
-@@ -2395,6 +2442,11 @@ void WorldObject::ModSpellCastTime(SpellInfo const* spellInfo, int32& castTime,
+@@ -2403,6 +2449,11 @@ void WorldObject::ModSpellCastTime(SpellInfo const* spellInfo, int32& castTime,
      if (Player* modOwner = GetSpellModOwner())
          modOwner->ApplySpellMod(spellInfo->Id, SPELLMOD_CASTING_TIME, castTime, spell);
  
@@ -61964,7 +62015,7 @@ index 5baee788..4de941c5 100644
      Unit const* unitCaster = ToUnit();
      if (!unitCaster)
          return;
-@@ -2420,6 +2472,11 @@ void WorldObject::ModSpellDurationTime(SpellInfo const* spellInfo, int32& durati
+@@ -2428,6 +2479,11 @@ void WorldObject::ModSpellDurationTime(SpellInfo const* spellInfo, int32& durati
      if (Player* modOwner = GetSpellModOwner())
          modOwner->ApplySpellMod(spellInfo->Id, SPELLMOD_CASTING_TIME, duration, spell);
  
@@ -61976,7 +62027,7 @@ index 5baee788..4de941c5 100644
      Unit const* unitCaster = ToUnit();
      if (!unitCaster)
          return;
-@@ -2488,6 +2545,11 @@ SpellMissInfo WorldObject::MagicSpellHitResult(Unit* victim, SpellInfo const* sp
+@@ -2496,6 +2552,11 @@ SpellMissInfo WorldObject::MagicSpellHitResult(Unit* victim, SpellInfo const* sp
      if (Unit const* unit = ToUnit())
          HitChance += int32(unit->m_modSpellHitChance * 100.0f);
  
@@ -61988,7 +62039,7 @@ index 5baee788..4de941c5 100644
      RoundToInterval(HitChance, 0, 10000);
  
      int32 tmp = 10000 - HitChance;
-@@ -2813,6 +2875,15 @@ SpellCastResult WorldObject::CastSpell(SpellCastTargets const& targets, uint32 s
+@@ -2821,6 +2882,15 @@ SpellCastResult WorldObject::CastSpell(SpellCastTargets const& targets, uint32 s
          return SPELL_FAILED_SPELL_UNAVAILABLE;
      }
  
@@ -62004,7 +62055,7 @@ index 5baee788..4de941c5 100644
      Spell* spell = new Spell(this, info, args.TriggerFlags, args.OriginalCaster);
      for (auto const& pair : args.SpellValueOverrides)
          spell->SetSpellValue(pair.first, pair.second);
-@@ -2867,6 +2938,11 @@ bool WorldObject::IsValidAttackTarget(WorldObject const* target, SpellInfo const
+@@ -2875,6 +2945,11 @@ bool WorldObject::IsValidAttackTarget(WorldObject const* target, SpellInfo const
      if (target->GetTypeId() == TYPEID_PLAYER && target->ToPlayer()->IsGameMaster())
          return false;
  
@@ -62016,7 +62067,7 @@ index 5baee788..4de941c5 100644
      Unit const* unit = ToUnit();
      // visibility checks (only units)
      if (unit)
-@@ -2918,6 +2994,14 @@ bool WorldObject::IsValidAttackTarget(WorldObject const* target, SpellInfo const
+@@ -2926,6 +3001,14 @@ bool WorldObject::IsValidAttackTarget(WorldObject const* target, SpellInfo const
              return false;
      }
  
@@ -62065,7 +62116,7 @@ index 65b9fffc..37c8714c 100644
          player->GiveXP(xp, _victim, _groupRate);
          if (Pet* pet = player->GetPet())
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index e1be438e..20967330 100644
+index 7d7f39ed..ff4ee6f1 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -104,6 +104,11 @@
@@ -62291,7 +62342,7 @@ index e1be438e..20967330 100644
          else
          {
              if (!victim->ToCreature()->IsRacialLeader())
-@@ -21717,6 +21856,18 @@ bool Player::BuyItemFromVendorSlot(ObjectGuid vendorguid, uint32 vendorslot, uin
+@@ -21716,6 +21855,18 @@ bool Player::BuyItemFromVendorSlot(ObjectGuid vendorguid, uint32 vendorslot, uin
          return false;
      }
  
@@ -62310,7 +62361,7 @@ index e1be438e..20967330 100644
      if (!(pProto->AllowableClass & GetClassMask()) && pProto->Bonding == BIND_WHEN_PICKED_UP && !IsGameMaster())
      {
          SendBuyError(BUY_ERR_CANT_FIND_ITEM, nullptr, item, 0);
-@@ -21990,6 +22141,11 @@ void Player::UpdatePvP(bool state, bool _override)
+@@ -21989,6 +22140,11 @@ void Player::UpdatePvP(bool state, bool _override)
          pvpInfo.EndTimer = GameTime::GetGameTime();
          SetPvP(state);
      }
@@ -62322,7 +62373,7 @@ index e1be438e..20967330 100644
  }
  
  void Player::UpdatePotionCooldown(Spell* spell)
-@@ -23852,6 +24008,11 @@ bool Player::isHonorOrXPTarget(Unit* victim) const
+@@ -23851,6 +24007,11 @@ bool Player::isHonorOrXPTarget(Unit* victim) const
  
      if (Creature const* creature = victim->ToCreature())
      {
@@ -62500,7 +62551,7 @@ index 0458f14b..15d78366 100644
      float totalPct         = addTotalPct ? GetPctModifierValue(unitMod, TOTAL_PCT) : 1.0f;
      float dmgMultiplier    = GetCreatureTemplate()->ModDamage; // = ModDamage * _GetDamageMod(rank);
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index 8d711548..34813d4c 100644
+index bffe3258..c91d3ae4 100644
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
 @@ -79,6 +79,10 @@
@@ -63448,7 +63499,7 @@ index 8d711548..34813d4c 100644
  
  void Unit::OutDebugInfo() const
 diff --git a/src/server/game/Entities/Unit/Unit.h b/src/server/game/Entities/Unit/Unit.h
-index 16a8bea8..2e53ad90 100644
+index 0d3e1f69..8611bd5f 100644
 --- a/src/server/game/Entities/Unit/Unit.h
 +++ b/src/server/game/Entities/Unit/Unit.h
 @@ -1195,6 +1195,10 @@ class TC_GAME_API Unit : public WorldObject
@@ -63463,7 +63514,7 @@ index 16a8bea8..2e53ad90 100644
          Player* GetControllingPlayer() const;
          ObjectGuid GetCharmerOrOwnerGUID() const override { return IsCharmed() ? GetCharmerGUID() : GetOwnerGUID(); }
 @@ -1747,6 +1751,10 @@ class TC_GAME_API Unit : public WorldObject
-         void SetIgnoringCombat(bool apply) { _isIgnoringCombat = apply; }
+         void SetIsCombatDisallowed(bool apply) { _isCombatDisallowed = apply; }
  
          std::string GetDebugInfo() const override;
 +
@@ -65301,7 +65352,7 @@ index 9273cf24..8f8220fb 100644
          {
              int32 baseAmount = aurEff->GetBaseAmount();
 diff --git a/src/server/scripts/Spells/spell_mage.cpp b/src/server/scripts/Spells/spell_mage.cpp
-index a7fc940a..aa0931b9 100644
+index 1de22db2..47ff77f2 100644
 --- a/src/server/scripts/Spells/spell_mage.cpp
 +++ b/src/server/scripts/Spells/spell_mage.cpp
 @@ -1161,6 +1161,12 @@ class spell_mage_summon_water_elemental : public SpellScript
@@ -65318,7 +65369,7 @@ index a7fc940a..aa0931b9 100644
          if (caster->HasAura(SPELL_MAGE_GLYPH_OF_ETERNAL_WATER))
              caster->CastSpell(caster, SPELL_MAGE_SUMMON_WATER_ELEMENTAL_PERMANENT, true);
 diff --git a/src/server/scripts/Spells/spell_paladin.cpp b/src/server/scripts/Spells/spell_paladin.cpp
-index a33ac213..7dc581dc 100644
+index a33ac213..e0d46eaa 100644
 --- a/src/server/scripts/Spells/spell_paladin.cpp
 +++ b/src/server/scripts/Spells/spell_paladin.cpp
 @@ -164,6 +164,12 @@ class spell_pal_ardent_defender : public AuraScript
@@ -65389,7 +65440,7 @@ index a33ac213..7dc581dc 100644
 +                if (owner->GetGroup())
 +                    groupSize = owner->GetGroup()->GetMembersCount();
 +                else
-+                    groupSize = 1;
++                    groupSize = 1 + owner->GetNpcBotsCount();
 +
 +                remainingAmount = (caster->CountPctFromMaxHealth(GetSpellInfo()->Effects[EFFECT_2].CalcValue(caster)) * groupSize);
 +                minHpPct = GetSpellInfo()->Effects[EFFECT_1].CalcValue(caster);
@@ -65792,10 +65843,10 @@ index 43658b24..3e0c7b1f 100644
  #define CLASSMASK_WAND_USERS ((1<<(CLASS_PRIEST-1))|(1<<(CLASS_MAGE-1))|(1<<(CLASS_WARLOCK-1)))
  
 diff --git a/src/server/worldserver/worldserver.conf.dist b/src/server/worldserver/worldserver.conf.dist
-index d9f145a7..941fb6df 100644
+index 022bca30..801e55b2 100644
 --- a/src/server/worldserver/worldserver.conf.dist
 +++ b/src/server/worldserver/worldserver.conf.dist
-@@ -4108,3 +4108,294 @@ Metric.OverallStatusInterval = 1
+@@ -4117,3 +4117,294 @@ Metric.OverallStatusInterval = 1
  
  #
  ###################################################################################################
