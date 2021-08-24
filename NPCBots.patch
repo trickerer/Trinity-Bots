@@ -34,8 +34,8 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1329 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 16268 +++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |   629 +
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 16297 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |   630 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   400 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   936 ++
  src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp  |   622 +
@@ -48,10 +48,10 @@
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  2099 +++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  2030 +++
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  2812 ++++
- src/server/game/AI/NpcBots/bot_spellbreaker_ai.cpp |   580 +
+ src/server/game/AI/NpcBots/bot_spellbreaker_ai.cpp |   583 +
  src/server/game/AI/NpcBots/bot_sphynx_ai.cpp       |   610 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  2077 +++
- src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2248 +++
+ src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2251 +++
  src/server/game/AI/NpcBots/botcommands.cpp         |  1595 ++
  src/server/game/AI/NpcBots/botcommon.h             |  1087 ++
  src/server/game/AI/NpcBots/botdatamgr.cpp          |   509 +
@@ -75,6 +75,7 @@
  src/server/game/AI/NpcBots/bpet_priest.cpp         |   172 +
  src/server/game/AI/NpcBots/bpet_shaman.cpp         |   191 +
  src/server/game/AI/NpcBots/bpet_warlock.cpp        |   409 +
+ src/server/game/AI/SmartScripts/SmartScript.cpp    |     3 +
  src/server/game/Combat/CombatManager.cpp           |    25 +
  src/server/game/Combat/ThreatManager.cpp           |     5 +
  src/server/game/Conditions/ConditionMgr.cpp        |    49 +
@@ -132,7 +133,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   291 +
- 134 files changed, 63281 insertions(+), 48 deletions(-)
+ 135 files changed, 63320 insertions(+), 48 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -4959,10 +4960,10 @@ index 00000000..971b6c72
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 00000000..50b02f3b
+index 00000000..511849f2
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,16268 @@
+@@ -0,0 +1,16297 @@
 +#include "bot_ai.h"
 +//#include "botcommon.h"
 +#include "bot_Events.h"
@@ -4988,7 +4989,7 @@ index 00000000..50b02f3b
 +#include "TemporarySummon.h"
 +/*
 +NpcBot System by Trickerer (https://github.com/trickerer/Trinity-Bots; onlysuffering@gmail.com)
-+Version 4.10.1a
++Version 4.10.15a
 +Original idea: https://bitbucket.org/lordpsyan/trinitycore-patches/src/3b8b9072280e/Individual/11185-BOTS-NPCBots.patch
 +TODO:
 +Bot commands to RBAC permissions
@@ -8258,6 +8259,16 @@ index 00000000..50b02f3b
 +
 +    uint8 followdist = IAmFree() ? BotMgr::GetBotFollowDistDefault() : master->GetBotMgr()->GetBotFollowDist();
 +    float foldist = _getAttackDistance(float(followdist));
++    float spelldist;
++    if (!IAmFree() && (HasRole(BOT_ROLE_RANGED) || HasVehicleRoleOverride(BOT_ROLE_RANGED)))
++    {
++        uint8 rangeMode = master->GetBotMgr()->GetBotAttackRangeMode();
++        if (rangeMode == BOT_ATTACK_RANGE_EXACT)
++            spelldist = master->GetBotMgr()->GetBotExactAttackRange();
++        else
++            spelldist = GetSpellAttackRange(rangeMode == BOT_ATTACK_RANGE_LONG);
++        foldist = std::max<float>(foldist, spelldist + 4.f);
++    }
 +
 +    SpellSchoolMask mainMask;
 +    if (!byspell)
@@ -8284,8 +8295,7 @@ index 00000000..50b02f3b
 +        (target->IsAlive() && target->IsVisible() && me->IsValidAttackTarget(target) &&
 +        target->isTargetableForAttack(false) && !IsInBotParty(target) &&
 +        ((me->CanSeeOrDetect(target) && target->InSamePhase(me)) || CanSeeEveryone()) &&
-+        (!master->IsAlive() || target->IsControlledByPlayer() ||
-+        (target->GetDistance(master) < foldist && me->GetDistance(master) < followdist)) &&//if master is killed pursue to the end
++        (!master->IsAlive() || target->IsControlledByPlayer() || master->GetDistance(target) <= foldist) &&//if master is killed pursue to the end
 +        (target->IsHostileTo(master) || target->IsHostileTo(me) ||//if master is controlled
 +        (target->GetReactionTo(me) < REP_FRIENDLY && (master->IsInCombat() || target->IsInCombat()))) &&
 +        (byspell == -1 || !target->IsTotem()) &&
@@ -8541,14 +8551,30 @@ index 00000000..50b02f3b
 +        return u;//forced
 +    }
 +    //Follow if...
-+    uint8 followdist = IAmFree() ? BotMgr::GetBotFollowDistDefault() : master->GetBotMgr()->GetBotFollowDist();
++    uint8 followdist = IAmFree() ? BotMgr::GetBotFollowDistDefault() / 2 : master->GetBotMgr()->GetBotFollowDist();
 +    float foldist = _getAttackDistance(float(followdist));
-+    if ((!u || IAmFree()) && master->IsAlive() && (me->GetDistance(master) > foldist ||
-+        (IAmFree() && mytar && me->GetDistance(mytar) > followdist) ||
-+        (mytar && master->GetDistance(mytar) > followdist / 2 && !mytar->IsWithinLOSInMap(me)) ||
-+        (mytar && master->GetDistance(mytar) > foldist && me->GetDistance(master) > foldist)))
++    float spelldist;
++    if (!IAmFree() && (HasRole(BOT_ROLE_RANGED) || HasVehicleRoleOverride(BOT_ROLE_RANGED)))
 +    {
-+        //TC_LOG_ERROR("entities.player", "bot %s cannot attack target %s, too far away or not in LoS", me->GetName().c_str(), mytar ? mytar->GetName().c_str() : "");
++        uint8 rangeMode = master->GetBotMgr()->GetBotAttackRangeMode();
++        if (rangeMode == BOT_ATTACK_RANGE_EXACT)
++            spelldist = master->GetBotMgr()->GetBotExactAttackRange();
++        else
++            spelldist = GetSpellAttackRange(rangeMode == BOT_ATTACK_RANGE_LONG);
++        foldist = std::max<float>(foldist, spelldist + 4.f);
++
++        //TC_LOG_ERROR("entities.player", "bot %s ranged foldist %.2f spelldist %.2f", me->GetName().c_str(), foldist, spelldist);
++    }
++    bool dropTarget = false;
++    if ((!u || IAmFree()) && master->IsAlive() && mytar)
++    {
++        dropTarget = IAmFree() ?
++            me->GetDistance(mytar) > foldist :
++            (master->GetDistance(mytar) > foldist || (master->GetDistance(mytar) > foldist * 0.75f && !mytar->IsWithinLOSInMap(me)));
++    }
++    if (dropTarget)
++    {
++        //TC_LOG_ERROR("entities.player", "bot %s cannot attack target %s, too far away or not in LoS", me->GetName().c_str(), mytar ? mytar->GetName().c_str() : "unk");
 +        return nullptr;
 +    }
 +
@@ -8955,7 +8981,8 @@ index 00000000..50b02f3b
 +
 +    //if ranged try to acquire a position in the back (will be ignored if too far away from master)
 +    static const float rangedAngleDelta = float(M_PI) * 0.62f;
-+    if (HasRole(BOT_ROLE_RANGED) && !IAmFree() && target->GetTypeId() != TYPEID_PLAYER && target->HasInArc(float(M_PI), me))
++    if (HasRole(BOT_ROLE_RANGED) && !IAmFree() && !target->IsControlledByPlayer() && target->HasInArc(float(M_PI), me) &&
++        (IsTank(master) || master->GetDistance(target) < 2.5f || !target->HasInArc(float(M_PI), master)))
 +        angle += (target->GetRelativeAngle(master) > 0.f) ? rangedAngleDelta : -rangedAngleDelta;
 +
 +    float clockwise = (me->GetEntry() % 2) ? 1.f : -1.f;
@@ -9045,6 +9072,7 @@ index 00000000..50b02f3b
 +    AoeSafeSpotsVec safespots;
 +    CalculateAoeSafeSpots(target, float(followdist), safespots);
 +
++    bool toofaraway1 = false;
 +    for (uint8 i = 0; i < 5; ++i)
 +    {
 +        ppos = target->GetFirstCollisionPosition(dist, Position::NormalizeOrientation(angle - target->GetOrientation()));
@@ -9052,14 +9080,16 @@ index 00000000..50b02f3b
 +        if (!toofaraway)
 +            break;
 +
-+        if (toofaraway)
++        if (!toofaraway1)
 +        {
++            toofaraway1 = true;
 +            angle = target->GetAbsoluteAngle(master);
-+            if (i >= 3)
-+                angle += angleDelta1 * (i - 3 + 1);
-+            if (i >= 1 && i <= 3)
-+                dist = std::max<float>(0.f, dist - 5.f);
 +        }
++        else
++            angle += angleDelta1;
++
++        if (i >= 1 && i <= 3)
++            dist = std::max<float>(0.f, dist - 5.f);
 +    }
 +
 +    if (!safespots.empty())
@@ -9283,7 +9313,7 @@ index 00000000..50b02f3b
 +
 +        BotMovement(BOT_MOVE_POINT, &position);
 +        //me->GetMotionMaster()->MovePoint(me->GetMapId(), x, y, z);
-+        waitTimer = 500;
++        const_cast<bot_ai*>(this)->waitTimer = 500;
 +    }
 +}
 +//MOUNT SUPPORT
@@ -21233,10 +21263,10 @@ index 00000000..50b02f3b
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 00000000..1e4000fe
+index 00000000..9fa48fa9
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,629 @@
+@@ -0,0 +1,630 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -21282,8 +21312,8 @@ index 00000000..1e4000fe
 +        bool OnGossipSelect(Player* player, uint32 menuId, uint32 gossipListId) override;
 +        bool OnGossipSelectCode(Player* player, uint32 menuId, uint32 gossipListId, char const* code) override;
 +
-+        virtual void OnBotEnterVehicle(Vehicle const* vehicle);
-+        virtual void OnBotExitVehicle(Vehicle const* vehicle);
++        virtual void OnBotEnterVehicle(Vehicle const* /*vehicle*/);
++        virtual void OnBotExitVehicle(Vehicle const* /*vehicle*/);
 +        virtual void AfterBotOwnerEnterVehicle();
 +        virtual void OnBotOwnerEnterVehicle(Vehicle const* /*vehicle*/);
 +        virtual void OnBotOwnerExitVehicle(Vehicle const* /*vehicle*/);
@@ -21775,7 +21805,7 @@ index 00000000..1e4000fe
 +        //timers
 +        uint32 _reviveTimer, _powersTimer, _chaseTimer, _engageTimer, _potionTimer;
 +        uint32 lastdiff, checkAurasTimer, checkMasterTimer, roleTimer, ordersTimer, regenTimer, _updateTimerMedium, _updateTimerEx1;
-+        mutable uint32 waitTimer;
++        uint32 waitTimer;
 +        //save timers
 +        uint32 _saveDisabledSpellsTimer;
 +
@@ -21806,12 +21836,14 @@ index 00000000..1e4000fe
 +
 +        struct BotSpell
 +        {
-+            explicit BotSpell() : cooldown(0), enabled(true) {}
++            BotSpell() : cooldown(0), enabled(true) {}
++            BotSpell(BotSpell const&) = delete;
++            BotSpell(BotSpell&&) = delete;
++            BotSpell& operator=(BotSpell const&) = delete;
++            BotSpell& operator=(BotSpell&&) = delete;
 +            uint32 spellId;
 +            uint32 cooldown;
 +            bool enabled;
-+        private:
-+            BotSpell(BotSpell const&);
 +        };
 +
 +        typedef int32 ItemStatBonus[MAX_BOT_ITEM_MOD];
@@ -21830,7 +21862,7 @@ index 00000000..1e4000fe
 +        struct BotOrder
 +        {
 +            friend class bot_ai;
-+        public:
++
 +            enum { ORDERS_PARAMS_MAX_SIZE = sizeof(uint64) + sizeof(uint32) };
 +            union
 +            {
@@ -21851,8 +21883,6 @@ index 00000000..1e4000fe
 +            BotOrderTypes _type;
 +        };
 +
-+        typedef std::queue<BotOrder const*> OrdersQueue;
-+
 +        bool HasOrders() const { return !_orders.empty(); }
 +        bool AddOrder(BotOrder const* order);
 +        void CancelOrder(BotOrder const* order);
@@ -21862,6 +21892,7 @@ index 00000000..1e4000fe
 +    private:
 +        void _ProcessOrders();
 +
++        typedef std::queue<BotOrder const*> OrdersQueue;
 +        OrdersQueue _orders;
 +};
 +
@@ -43333,10 +43364,10 @@ index 00000000..64b437cd
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_spellbreaker_ai.cpp b/src/server/game/AI/NpcBots/bot_spellbreaker_ai.cpp
 new file mode 100644
-index 00000000..52958f33
+index 00000000..0b010e13
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_spellbreaker_ai.cpp
-@@ -0,0 +1,580 @@
+@@ -0,0 +1,583 @@
 +#include "bot_ai.h"
 +#include "bot_GridNotifiers.h"
 +//#include "GridNotifiers.h"
@@ -43878,7 +43909,7 @@ index 00000000..52958f33
 +                            oldAura->ModCharges(aura->GetCharges());
 +                        else
 +                            oldAura->ModStackAmount(aura->GetStackAmount());
-+                        oldAura->SetDuration(std::max<int32>(dur, oldAura->GetDuration()));
++                        oldAura->SetDuration(dur);
 +                    }
 +                    else
 +                    {
@@ -43889,6 +43920,9 @@ index 00000000..52958f33
 +                        AuraCreateInfo createInfo(aura->GetSpellInfo(), effMask, newTarget);
 +                        createInfo.SetCasterGUID(aura->GetCasterGUID());
 +                        createInfo.SetBaseAmount(baseDamage);
++                        //Auras created by scripts may have no caster, prevent crash in Aura::TryRefreshStackOrCreate()
++                        if (!createInfo.CasterGUID)
++                            createInfo.SetCasterGUID(me->GetGUID());
 +                        if (Aura* newAura = Aura::TryRefreshStackOrCreate(createInfo))
 +                        {
 +                            // created aura must not be single target aura,, so stealer won't loose it on recast
@@ -46618,10 +46652,10 @@ index 00000000..7be1e835
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warrior_ai.cpp b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 new file mode 100644
-index 00000000..f551e896
+index 00000000..7303fe3c
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
-@@ -0,0 +1,2248 @@
+@@ -0,0 +1,2251 @@
 +#include "bot_ai.h"
 +#include "botmgr.h"
 +#include "Group.h"
@@ -47549,8 +47583,8 @@ index 00000000..f551e896
 +            if (IAmFree())
 +            {
 +                if (GetSpell(BATTLE_SHOUT_1) &&
-+                    !me->HasAuraTypeWithFamilyFlags(SPELL_AURA_MOD_ATTACK_POWER, SPELLFAMILY_WARRIOR, 0x10000)
-+                    /*!HasAuraName(me, BATTLE_SHOUT_1, me->GetGUID())*/)
++                    !me->GetAuraEffect(SPELL_AURA_MOD_RANGED_ATTACK_POWER, SPELLFAMILY_WARRIOR, 0x10000, 0x0, 0x0) &&
++                    !me->GetAuraEffect(SPELL_AURA_MOD_RANGED_ATTACK_POWER, SPELLFAMILY_PALADIN, 0x2, 0x0, 0x0))
 +                {
 +                    if (rage < rcost(BATTLE_SHOUT_1))
 +                    {
@@ -47574,16 +47608,19 @@ index 00000000..f551e896
 +            if (me->GetDistance(master) > 30)
 +                return;
 +
-+            AuraApplication const* bs = me->GetAuraApplicationOfRankedSpell(BATTLE_SHOUT_1);
-+            AuraApplication const* cs = me->GetAuraApplicationOfRankedSpell(COMMANDING_SHOUT_1);
++            //ignore Blood Pact
++            AuraEffect const* bs = me->GetAuraEffect(SPELL_AURA_MOD_RANGED_ATTACK_POWER, SPELLFAMILY_WARRIOR, 0x10000, 0x0, 0x0);
++            AuraEffect const* cs = me->GetAuraEffect(SPELL_AURA_230, SPELLFAMILY_WARRIOR, 0x0, 0x80, 0x0);
++            AuraEffect const* bm = me->GetAuraEffect(SPELL_AURA_MOD_RANGED_ATTACK_POWER, SPELLFAMILY_PALADIN, 0x2, 0x0, 0x0);
 +
-+            bool hasBS = bs && bs->GetBase()->GetDuration() >= 30000 && bs->GetBase()->GetId() >= GetSpell(BATTLE_SHOUT_1);
-+            bool hasCS = cs && cs->GetBase()->GetDuration() >= 30000 && cs->GetBase()->GetId() >= GetSpell(COMMANDING_SHOUT_1);
++            bool hasBS = bs && (bs->GetBase()->GetDuration() >= 30000 || bs->GetBase()->GetCasterGUID() != me->GetGUID()) && bs->GetBase()->GetId() >= GetSpell(BATTLE_SHOUT_1);
++            bool hasCS = cs && (cs->GetBase()->GetDuration() >= 30000 || cs->GetBase()->GetCasterGUID() != me->GetGUID()) && cs->GetBase()->GetId() >= GetSpell(COMMANDING_SHOUT_1);
++            bool hasBM = bm != nullptr;
 +
-+            if (hasCS && hasBS)
++            if (hasCS && (hasBS || hasBM))
 +                return;
 +
-+            bool battleshout = !hasBS && (!cs || cs->GetBase()->GetCasterGUID() != me->GetGUID()) &&
++            bool battleshout = !hasBM && !hasBS && (!cs || cs->GetBase()->GetCasterGUID() != me->GetGUID()) &&
 +                (!IsTank(me) || !GetSpell(COMMANDING_SHOUT_1)) && GetSpell(BATTLE_SHOUT_1);
 +            bool commandingshout = !hasCS && (!bs || bs->GetBase()->GetCasterGUID() != me->GetGUID()) &&
 +                GetSpell(COMMANDING_SHOUT_1);
@@ -60640,6 +60677,20 @@ index 00000000..fc90c0df
 +{
 +    new warlock_pet_bot();
 +}
+diff --git a/src/server/game/AI/SmartScripts/SmartScript.cpp b/src/server/game/AI/SmartScripts/SmartScript.cpp
+index 251d47de..880c1f07 100644
+--- a/src/server/game/AI/SmartScripts/SmartScript.cpp
++++ b/src/server/game/AI/SmartScripts/SmartScript.cpp
+@@ -284,6 +284,9 @@ void SmartScript::ProcessAction(SmartScriptHolder& e, Unit* unit, uint32 var0, u
+                         talkTarget = target->ToCreature();
+                     }
+                     else
++                    //npcbot: prevent using bots as talkers
++                    if (!target->ToCreature()->IsNPCBotOrPet())
++                    //end npcbot
+                         talker = target->ToCreature();
+                     break;
+                 }
 diff --git a/src/server/game/Combat/CombatManager.cpp b/src/server/game/Combat/CombatManager.cpp
 index ce6ca5e6..6f3868b0 100644
 --- a/src/server/game/Combat/CombatManager.cpp
