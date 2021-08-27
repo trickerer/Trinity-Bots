@@ -13,8 +13,8 @@ RETURNS VARCHAR(20)
 BEGIN
 	DECLARE role VARCHAR(20);
 
-	IF		role_mask & 4 THEN	SET role = 'Heal';
-	ELSEIF	role_mask & 2 THEN	SET role = 'DPS';
+	IF		role_mask & 8 THEN	SET role = 'Heal';
+	ELSEIF	role_mask & 4 THEN	SET role = 'DPS';
 	ELSEIF	role_mask & 1 THEN	SET role = 'Tank';
 	END IF;
 

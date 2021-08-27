@@ -1,5 +1,5 @@
 ### This mod was last updated:
-### 16 Aug 2021, [0aa1651977](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/0aa1651977)
+### 27 Aug 2021, [cc36c50fab](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/cc36c50fab)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 ### Make your support tangible: [Donate](https://paypal.me/trickerer)
@@ -433,6 +433,7 @@ To adjust the NPCBot's roles, you need to right-click that NPCBot and choose `_M
 - Gathering...
 - Looting...
 - Tank
+- Off-Tank
 - DPS
 - Heal
 - Ranged
@@ -443,6 +444,8 @@ Clicking on the respective Role will toggle it on/off (changing the icon)
 The roles can be a little tricky to understand:
 
 - "Tanking" role only means that NPCBots will try to produce as much threat as possible, use taunt-like abilities to reaggro targets attacking friends and use defensive cooldowns more liberally. This does NOT include attacking anything. Also, if NPCBot has no tanking abilities this role will do nothing
+
+- "Off-Tanking" role makes tanking NPCBots to prioritize targets pointed by `OffTankTargetIconMask` (see [Config Settings](#npcbot-config-settings))
 
 - "DPS" role allows NPCBots to actually deal damage. If this role is disabled NPCBot will not use damaging abilities, not even auto-attack
 
@@ -589,12 +592,12 @@ If some config settings look ambiguous to you, this section may help you
 - **`NpcBot.HealTargetIconsMask`**
     - This parameter allows players to mark units not under player's control as friends using Target Icons  
     Explanation. Sometimes you need to protect targets other that yourself, escort quests are a good example. With this parameter activated players can set *Raid Icon* on a target they want bots to care about. Bots will treat said target as a member of player's party, heal it if needed and assist it in combat. Parameter itself is a bit mask and consists of a combination of values assigned to each target icon: **Star - 1, Circle - 2, Diamond - 4, Triangle - 8, Moon - 16, Square - 32, Cross - 64, Skull - 128**. *Example: Star, Diamond and Triangle = 1 + 4 + 8 = 13*
-- **`NpcBot.TankTargetIconsMask`**
-    - This parameter is similar to `NpcBot.HealTargetIconsMask`, but this one marks targets for your NPCBot tanks
+- **`NpcBot.OffTankTargetIconsMask`**
+    - This parameter is similar to `NpcBot.HealTargetIconsMask`, but this one marks targets for your NPCBot off-tanks
     - Icon priority: targets in combat first, from *Skull* (highest) to *Star* (lowest)
-    - Your tanks **will not stop attacking pointed target** until it's dead or icon is unset
+    - Your off-tanks **will not stop attacking pointed target** until it's dead or icon is unset
 - **`NpcBot.DPSTargetIconsMask`**
-    - Same as `NpcBot.TankTargetIconsMask`, but this one affects your non-tanks with the same rules
+    - Same as `NpcBot.OffTankTargetIconsMask`, but this one affects your damage dealers and main tank(s) with the same rules
 - **`Heal / Tank / DPS _TargetIconsMask` intersections**
     - If there are any bitmask intersections between target icons (simply put, same icon is used, on accident or otherwise), these rules are applied:
         - Target **will not be protected** by taunting or attacking the attackers
