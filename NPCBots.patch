@@ -35,9 +35,9 @@
  .../Database/Implementation/CharacterDatabase.h    |    14 +
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
- src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1329 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 16358 +++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |   631 +
+ src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1339 ++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 16442 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |   635 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   400 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   936 ++
  src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp  |   622 +
@@ -45,7 +45,7 @@
  src/server/game/AI/NpcBots/bot_dreadlord_ai.cpp    |   533 +
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        |  2917 ++++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  2356 +++
- src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  1826 +++
+ src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  1826 ++
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  2763 ++++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  2099 +++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  2030 +++
@@ -63,9 +63,9 @@
  src/server/game/AI/NpcBots/botdump.cpp             |   936 ++
  src/server/game/AI/NpcBots/botdump.h               |    47 +
  src/server/game/AI/NpcBots/botgiver.cpp            |   263 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  1459 ++
- src/server/game/AI/NpcBots/botmgr.h                |   199 +
- src/server/game/AI/NpcBots/bpet_ai.cpp             |  2297 +++
+ src/server/game/AI/NpcBots/botmgr.cpp              |  1480 ++
+ src/server/game/AI/NpcBots/botmgr.h                |   201 +
+ src/server/game/AI/NpcBots/bpet_ai.cpp             |  2313 +++
  src/server/game/AI/NpcBots/bpet_ai.h               |   167 +
  src/server/game/AI/NpcBots/bpet_archmage.cpp       |   139 +
  src/server/game/AI/NpcBots/bpet_dark_ranger.cpp    |   213 +
@@ -134,8 +134,8 @@
  src/server/shared/DataStores/DBCStructure.h        |    11 +-
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
- src/server/worldserver/worldserver.conf.dist       |   261 +
- 137 files changed, 63394 insertions(+), 48 deletions(-)
+ src/server/worldserver/worldserver.conf.dist       |   265 +
+ 137 files changed, 63535 insertions(+), 48 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -3654,10 +3654,10 @@ index 00000000..35a96959
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_GridNotifiers.h b/src/server/game/AI/NpcBots/bot_GridNotifiers.h
 new file mode 100644
-index 00000000..971b6c72
+index 00000000..9ec1bd87
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_GridNotifiers.h
-@@ -0,0 +1,1329 @@
+@@ -0,0 +1,1339 @@
 +#ifndef _BOT_GRIDNOTIFIERS_H
 +#define _BOT_GRIDNOTIFIERS_H
 +
@@ -4150,6 +4150,9 @@ index 00000000..971b6c72
 +                return false;
 +            if (u->IsImmunedToSpell(sSpellMgr->GetSpellInfo(m_spellId), me))
 +                return false;
++            if (me->GetTypeId() == TYPEID_UNIT && me->ToCreature()->GetBotAI() && me->ToCreature()->GetBotAI()->IsPointedNoDPSTarget(u) &&
++                bot_ai::IsDamagingSpell(sSpellMgr->GetSpellInfo(m_spellId)))
++                return false;
 +
 +            return true;
 +        }
@@ -4199,6 +4202,8 @@ index 00000000..971b6c72
 +                u->HasAuraType(SPELL_AURA_MOD_PACIFY_SILENCE)/*hex*/ ||
 +                u->HasAuraTypeWithFamilyFlags(SPELL_AURA_MOD_STUN, SPELLFAMILY_PALADIN, 0x4)/*repentance*/ ||
 +                u->HasAuraTypeWithFamilyFlags(SPELL_AURA_MOD_STUN, SPELLFAMILY_PRIEST, 0x40000000)/*shackle undead*/)
++                return false;
++            if (m_ai->IsPointedNoDPSTarget(u) && bot_ai::IsDamagingSpell(sSpellMgr->GetSpellInfo(m_spellId)))
 +                return false;
 +            if (!u->IsImmunedToSpell(sSpellMgr->GetSpellInfo(m_spellId), me))
 +                return true;
@@ -4274,6 +4279,10 @@ index 00000000..971b6c72
 +
 +                SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(m_spell);
 +                if (u->IsImmunedToSpell(spellInfo, me))
++                    return false;
++
++                if (me->GetTypeId() == TYPEID_UNIT && me->ToCreature()->GetBotAI() && me->ToCreature()->GetBotAI()->IsPointedNoDPSTarget(u) &&
++                    bot_ai::IsDamagingSpell(spellInfo))
 +                    return false;
 +
 +                if (!CastInterruptionCheck(u, spellInfo))
@@ -4398,7 +4407,8 @@ index 00000000..971b6c72
 +                ai->IsInBotParty(u->GetVictim()) &&
 +                u->GetReactionTo(me) <= REP_NEUTRAL)
 +            {
-+                if (u->IsImmunedToSpell(sSpellMgr->GetSpellInfo(19801), me)) return false;//immune to tranquilizing shot
++                if (u->IsImmunedToSpell(sSpellMgr->GetSpellInfo(19801), me))
++                    return false;//immune to tranquilizing shot
 +                Unit::AuraMap const &Auras = u->GetOwnedAuras();
 +                for (Unit::AuraMap::const_iterator itr = Auras.begin(); itr != Auras.end(); ++itr)
 +                {
@@ -4989,10 +4999,10 @@ index 00000000..971b6c72
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 00000000..8e4d669d
+index 00000000..f4281f8c
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,16358 @@
+@@ -0,0 +1,16442 @@
 +#include "bot_ai.h"
 +//#include "botcommon.h"
 +#include "bot_Events.h"
@@ -5715,6 +5725,7 @@ index 00000000..8e4d669d
 +        //return false;
 +    }
 +
++    //spells with cast time
 +    if (me->isMoving() && !HasBotCommandState(BOT_COMMAND_ISSUED_ORDER) &&
 +        ((m_botSpellInfo->InterruptFlags & SPELL_INTERRUPT_FLAG_MOVEMENT)
 +        //autorepeat spells missing SPELL_INTERRUPT_FLAG_MOVEMENT
@@ -5723,9 +5734,11 @@ index 00000000..8e4d669d
 +        //Mind Flay (Rank 8)
 +        || spellId == 48155) &&
 +        !(m_botSpellInfo->Attributes & SPELL_ATTR0_ON_NEXT_SWING) && !m_botSpellInfo->IsAutoRepeatRangedSpell() &&
-+        !(flags & TRIGGERED_FULL_MASK) && (m_botSpellInfo->IsChanneled() || m_botSpellInfo->CalcCastTime()))
++        !(flags & TRIGGERED_CAST_DIRECTLY) && (m_botSpellInfo->IsChanneled() || m_botSpellInfo->CalcCastTime()))
 +    {
 +        if (JumpingOrFalling())
++            return false;
++        if (!me->GetVictim() && me->IsInWorld() && (me->GetMap()->IsRaid() || me->GetMap()->IsHeroic()))
 +            return false;
 +        if (!m_botSpellInfo->HasEffect(SPELL_EFFECT_HEAL) && Rand() > (IAmFree() ? 80 : 50))
 +            return false;
@@ -6095,6 +6108,29 @@ index 00000000..8e4d669d
 +{
 +    if (Group const* gr = (IAmFree() ? nullptr : master->GetGroup()))
 +        if (uint8 dpsFlags = BotMgr::GetDPSTargetIconFlags())
++            for (uint8 i = 0; i != TARGETICONCOUNT; ++i)
++                if (dpsFlags & GroupIconsFlags[i])
++                    if (target->GetGUID() == gr->GetTargetIcons()[i])
++                        return true;
++
++    return false;
++}
++//unused
++bool bot_ai::IsPointedRangedDPSTarget(Unit const* target) const
++{
++    if (Group const* gr = (IAmFree() ? nullptr : master->GetGroup()))
++        if (uint8 dpsFlags = BotMgr::GetRangedDPSTargetIconFlags())
++            for (uint8 i = 0; i != TARGETICONCOUNT; ++i)
++                if (dpsFlags & GroupIconsFlags[i])
++                    if (target->GetGUID() == gr->GetTargetIcons()[i])
++                        return true;
++
++    return false;
++}
++bool bot_ai::IsPointedNoDPSTarget(Unit const* target) const
++{
++    if (Group const* gr = (IAmFree() ? nullptr : master->GetGroup()))
++        if (uint8 dpsFlags = BotMgr::GetNoDPSTargetIconFlags())
 +            for (uint8 i = 0; i != TARGETICONCOUNT; ++i)
 +                if (dpsFlags & GroupIconsFlags[i])
 +                    if (target->GetGUID() == gr->GetTargetIcons()[i])
@@ -8309,6 +8345,8 @@ index 00000000..8e4d669d
 +        return false;
 +    if (!CanBotAttackOnVehicle())
 +        return false;
++    if (IsPointedNoDPSTarget(target))
++        return false;
 +
 +    uint8 followdist = IAmFree() ? BotMgr::GetBotFollowDistDefault() : master->GetBotMgr()->GetBotFollowDist();
 +    float foldist = _getAttackDistance(float(followdist));
@@ -8418,9 +8456,25 @@ index 00000000..8e4d669d
 +    {
 +        for (int8 i = TARGETICONCOUNT - 1; i >= 0; --i)
 +        {
-+            if (BotMgr::GetDPSTargetIconFlags() & GroupIconsFlags[i])
++            if (ObjectGuid guid = gr->GetTargetIcons()[i])
 +            {
-+                if (ObjectGuid guid = gr->GetTargetIcons()[i])
++                if ((HasRole(BOT_ROLE_RANGED)|| HasVehicleRoleOverride(BOT_ROLE_RANGED)) &&
++                    (BotMgr::GetRangedDPSTargetIconFlags() & GroupIconsFlags[i]))
++                {
++                    if (mytar && mytar->GetGUID() == guid)
++                        return mytar;
++
++                    if (Unit* unit = ObjectAccessor::GetUnit(*me, guid))
++                    {
++                        if (unit->IsVisible() && unit->isTargetableForAttack(false) && me->IsValidAttackTarget(unit) &&
++                            unit->IsInCombat() && (CanSeeEveryone() || (me->CanSeeOrDetect(unit) && unit->InSamePhase(me))))
++                        {
++                            //TC_LOG_ERROR("entities.unit", "_getTarget: found dps icon target %s", unit->GetName().c_str());
++                            return unit;
++                        }
++                    }
++                }
++                if (BotMgr::GetDPSTargetIconFlags() & GroupIconsFlags[i])
 +                {
 +                    if (mytar && mytar->GetGUID() == guid)
 +                        return mytar;
@@ -8451,8 +8505,8 @@ index 00000000..8e4d669d
 +
 +    if (mmover->IsAlive())
 +    {
-+        if (followdist == 0 || veh->GetDistance(mmover) > followdist ||
-+            (mytar && mmover->GetDistance(mytar) > followdist / 2 && !mytar->IsWithinLOSInMap(veh)))
++        if (followdist == 0 || (mytar &&
++            (mmover->GetDistance(mytar) > followdist || (mmover->GetDistance(mytar) > followdist * 0.75f && !mytar->IsWithinLOSInMap(veh)))))
 +        {
 +            //if (mytar)
 +            //{
@@ -8539,9 +8593,24 @@ index 00000000..8e4d669d
 +    {
 +        for (int8 i = TARGETICONCOUNT - 1; i >= 0; --i)
 +        {
-+            if (BotMgr::GetDPSTargetIconFlags() & GroupIconsFlags[i])
++            if (ObjectGuid guid = gr->GetTargetIcons()[i])
 +            {
-+                if (ObjectGuid guid = gr->GetTargetIcons()[i])
++                if (HasRole(BOT_ROLE_RANGED) && (BotMgr::GetRangedDPSTargetIconFlags() & GroupIconsFlags[i]))
++                {
++                    if (mytar && mytar->GetGUID() == guid)
++                        return mytar;
++
++                    if (Unit* unit = ObjectAccessor::GetUnit(*me, guid))
++                    {
++                        if (unit->IsVisible() && unit->isTargetableForAttack(false) && me->IsValidAttackTarget(unit) &&
++                            unit->IsInCombat() && (CanSeeEveryone() || (me->CanSeeOrDetect(unit) && unit->InSamePhase(me))))
++                        {
++                            //TC_LOG_ERROR("entities.unit", "_getTarget: found dps icon target %s", unit->GetName().c_str());
++                            return unit;
++                        }
++                    }
++                }
++                if (BotMgr::GetDPSTargetIconFlags() & GroupIconsFlags[i])
 +                {
 +                    if (mytar && mytar->GetGUID() == guid)
 +                        return mytar;
@@ -8606,9 +8675,9 @@ index 00000000..8e4d669d
 +    //Follow if...
 +    uint8 followdist = IAmFree() ? BotMgr::GetBotFollowDistDefault() / 2 : master->GetBotMgr()->GetBotFollowDist();
 +    float foldist = _getAttackDistance(float(followdist));
-+    float spelldist;
 +    if (!IAmFree() && (HasRole(BOT_ROLE_RANGED) || HasVehicleRoleOverride(BOT_ROLE_RANGED)))
 +    {
++        float spelldist;
 +        uint8 rangeMode = master->GetBotMgr()->GetBotAttackRangeMode();
 +        if (rangeMode == BOT_ATTACK_RANGE_EXACT)
 +            spelldist = master->GetBotMgr()->GetBotExactAttackRange();
@@ -20458,6 +20527,31 @@ index 00000000..8e4d669d
 +    return OnGossipSelectCode(player, me, sender, action, code);
 +}
 +
++bool bot_ai::IsDamagingSpell(SpellInfo const* spellInfo)
++{
++    for (uint8 i = 0; i < MAX_SPELL_EFFECTS; ++i)
++    {
++        if (spellInfo->Effects[i].IsEffect())
++        {
++            switch (spellInfo->Effects[i].Effect)
++            {
++                case SPELL_EFFECT_WEAPON_DAMAGE:
++                case SPELL_EFFECT_WEAPON_DAMAGE_NOSCHOOL:
++                case SPELL_EFFECT_NORMALIZED_WEAPON_DMG:
++                case SPELL_EFFECT_WEAPON_PERCENT_DAMAGE:
++                case SPELL_EFFECT_SCHOOL_DAMAGE:
++                case SPELL_EFFECT_ENVIRONMENTAL_DAMAGE:
++                case SPELL_EFFECT_HEALTH_LEECH:
++                    return true;
++                default:
++                    break;
++            }
++        }
++    }
++
++    return false;
++}
++
 +bool bot_ai::IsBotCustomSpell(uint32 spellId)
 +{
 +    return BotCustomSpells.find(spellId) != BotCustomSpells.end();
@@ -21353,10 +21447,10 @@ index 00000000..8e4d669d
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 00000000..757265d2
+index 00000000..49af9871
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,631 @@
+@@ -0,0 +1,635 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -21590,6 +21684,14 @@ index 00000000..757265d2
 +        Unit* HelpFindCastingTarget(float maxdist = 10, float mindist = 0, uint32 spellId = 0, uint8 minHpPct = 0) const { return FindCastingTarget(maxdist, mindist, spellId, minHpPct); }
 +        void HelpGetNearbyTargetsList(std::list<Unit*> &targets, float maxdist, uint8 CCoption, WorldObject const* source = nullptr) const { GetNearbyTargetsList(targets, maxdist, CCoption, source); }
 +
++        bool IsPointedHealTarget(Unit const* target) const;
++        bool IsPointedTankingTarget(Unit const* target) const;
++        bool IsPointedDPSTarget(Unit const* target) const;
++        bool IsPointedRangedDPSTarget(Unit const* target) const;
++        bool IsPointedNoDPSTarget(Unit const* target) const;
++
++        static bool IsDamagingSpell(SpellInfo const* spellInfo);
++
 +    protected:
 +        explicit bot_ai(Creature* creature);
 +
@@ -21598,10 +21700,6 @@ index 00000000..757265d2
 +
 +        virtual bool HealTarget(Unit* /*target*/, uint32 /*diff*/) { return false; }
 +        virtual bool BuffTarget(Unit* /*target*/, uint32 /*diff*/) { return false; }
-+
-+        bool IsPointedHealTarget(Unit const* target) const;
-+        bool IsPointedTankingTarget(Unit const* target) const;
-+        bool IsPointedDPSTarget(Unit const* target) const;
 +
 +        void BuffAndHealGroup(uint32 diff);
 +        void RezGroup(uint32 REZZ);
@@ -53793,10 +53891,10 @@ index 00000000..2a0f62b4
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 00000000..18fb9614
+index 00000000..ba51d7a5
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,1459 @@
+@@ -0,0 +1,1480 @@
 +#include "bot_ai.h"
 +#include "botdpstracker.h"
 +#include "bot_Events.h"
@@ -53829,8 +53927,10 @@ index 00000000..18fb9614
 +uint8 _maxClassNpcBots;
 +uint8 _xpReductionNpcBots;
 +uint8 _healTargetIconFlags;
-+uint8 _tankingTargetIconFlags;
++uint8 _offTankingTargetIconFlags;
 +uint8 _dpsTargetIconFlags;
++uint8 _rangedDpsTargetIconFlags;
++uint8 _noDpsTargetIconFlags;
 +int32 _botInfoPacketsLimit;
 +uint32 _npcBotsCost;
 +uint32 _npcBotUpdateDelayBase;
@@ -53971,55 +54071,66 @@ index 00000000..18fb9614
 +    else if (!reload)
 +        return;
 +
-+    _enableNpcBots          = sConfigMgr->GetBoolDefault("NpcBot.Enable", true);
-+    _maxNpcBots             = sConfigMgr->GetIntDefault("NpcBot.MaxBots", 1);
-+    _maxClassNpcBots        = sConfigMgr->GetIntDefault("NpcBot.MaxBotsPerClass", 1);
-+    _basefollowdist         = sConfigMgr->GetIntDefault("NpcBot.BaseFollowDistance", 30);
-+    _xpReductionNpcBots     = sConfigMgr->GetIntDefault("NpcBot.XpReduction", 0);
-+    _healTargetIconFlags    = sConfigMgr->GetIntDefault("NpcBot.HealTargetIconsMask", 0);
-+    _tankingTargetIconFlags = sConfigMgr->GetIntDefault("NpcBot.OffTankTargetIconMask", 0);
-+    _dpsTargetIconFlags     = sConfigMgr->GetIntDefault("NpcBot.DPSTargetIconMask", 0);
-+    _mult_dmg_physical      = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Physical", 1.0f);
-+    _mult_dmg_spell         = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Spell", 1.0f);
-+    _mult_healing           = sConfigMgr->GetFloatDefault("NpcBot.Mult.Healing", 1.0f);
-+    _enableNpcBotsDungeons  = sConfigMgr->GetBoolDefault("NpcBot.Enable.Dungeon", true);
-+    _enableNpcBotsRaids     = sConfigMgr->GetBoolDefault("NpcBot.Enable.Raid", false);
-+    _enableNpcBotsBGs       = sConfigMgr->GetBoolDefault("NpcBot.Enable.BG", false);
-+    _enableNpcBotsArenas    = sConfigMgr->GetBoolDefault("NpcBot.Enable.Arena", false);
-+    _enableDungeonFinder    = sConfigMgr->GetBoolDefault("NpcBot.Enable.DungeonFinder", true);
-+    _limitNpcBotsDungeons   = sConfigMgr->GetBoolDefault("NpcBot.Limit.Dungeon", true);
-+    _limitNpcBotsRaids      = sConfigMgr->GetBoolDefault("NpcBot.Limit.Raid", true);
-+    _botInfoPacketsLimit    = sConfigMgr->GetIntDefault("NpcBot.InfoPacketsLimit", -1);
-+    _npcBotsCost            = sConfigMgr->GetIntDefault("NpcBot.Cost", 1000000);
-+    _npcBotUpdateDelayBase  = sConfigMgr->GetIntDefault("NpcBot.UpdateDelay.Base", 0);
-+    _npcBotEngageDelayDPS_default = sConfigMgr->GetIntDefault("NpcBot.EngageDelay.DPS", 0);
-+    _npcBotEngageDelayHeal_default = sConfigMgr->GetIntDefault("NpcBot.EngageDelay.Heal", 0);
-+    _npcBotOwnerExpireTime  = sConfigMgr->GetIntDefault("NpcBot.OwnershipExpireTime", 0);
-+    _botPvP                 = sConfigMgr->GetBoolDefault("NpcBot.PvP", true);
-+    _botMovementFoodInterrupt=sConfigMgr->GetBoolDefault("NpcBot.Movements.InterruptFood", false);
-+    _displayEquipment       = sConfigMgr->GetBoolDefault("NpcBot.EquipmentDisplay.Enable", true);
-+    _showCloak              = sConfigMgr->GetBoolDefault("NpcBot.EquipmentDisplay.ShowCloak", true);
-+    _showHelm               = sConfigMgr->GetBoolDefault("NpcBot.EquipmentDisplay.ShowHelm", false);
-+    _sendEquipListItems     = sConfigMgr->GetBoolDefault("NpcBot.Gossip.ShowEquipmentListItems", false);
-+    _enableclass_blademaster= sConfigMgr->GetBoolDefault("NpcBot.NewClasses.Blademaster.Enable", true);
-+    _enableclass_sphynx     = sConfigMgr->GetBoolDefault("NpcBot.NewClasses.ObsidianDestroyer.Enable", true);
-+    _enableclass_archmage   = sConfigMgr->GetBoolDefault("NpcBot.NewClasses.Archmage.Enable", true);
-+    _enableclass_dreadlord  = sConfigMgr->GetBoolDefault("NpcBot.NewClasses.Dreadlord.Enable", true);
-+    _enableclass_spellbreaker=sConfigMgr->GetBoolDefault("NpcBot.NewClasses.SpellBreaker.Enable", true);
-+    _enableclass_darkranger = sConfigMgr->GetBoolDefault("NpcBot.NewClasses.DarkRanger.Enable", true);
-+    _botStatLimits          = sConfigMgr->GetBoolDefault("NpcBot.Stats.Limits.Enable", false);
-+    _botStatLimits_dodge    = sConfigMgr->GetFloatDefault("NpcBot.Stats.Limits.Dodge", 95.0f);
-+    _botStatLimits_parry    = sConfigMgr->GetFloatDefault("NpcBot.Stats.Limits.Parry", 95.0f);
-+    _botStatLimits_block    = sConfigMgr->GetFloatDefault("NpcBot.Stats.Limits.Block", 95.0f);
-+    _botStatLimits_crit     = sConfigMgr->GetFloatDefault("NpcBot.Stats.Limits.Crit", 95.0f);
++    _enableNpcBots                  = sConfigMgr->GetBoolDefault("NpcBot.Enable", true);
++    _maxNpcBots                     = sConfigMgr->GetIntDefault("NpcBot.MaxBots", 1);
++    _maxClassNpcBots                = sConfigMgr->GetIntDefault("NpcBot.MaxBotsPerClass", 1);
++    _basefollowdist                 = sConfigMgr->GetIntDefault("NpcBot.BaseFollowDistance", 30);
++    _xpReductionNpcBots             = sConfigMgr->GetIntDefault("NpcBot.XpReduction", 0);
++    _healTargetIconFlags            = sConfigMgr->GetIntDefault("NpcBot.HealTargetIconsMask", 0);
++    _offTankingTargetIconFlags      = sConfigMgr->GetIntDefault("NpcBot.OffTankTargetIconMask", 0);
++    _dpsTargetIconFlags             = sConfigMgr->GetIntDefault("NpcBot.DPSTargetIconMask", 0);
++    _rangedDpsTargetIconFlags       = sConfigMgr->GetIntDefault("NpcBot.RangedDPSTargetIconMask", 0);
++    _noDpsTargetIconFlags           = sConfigMgr->GetIntDefault("NpcBot.NoDPSTargetIconMask", 0);
++    _mult_dmg_physical              = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Physical", 1.0f);
++    _mult_dmg_spell                 = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Spell", 1.0f);
++    _mult_healing                   = sConfigMgr->GetFloatDefault("NpcBot.Mult.Healing", 1.0f);
++    _enableNpcBotsDungeons          = sConfigMgr->GetBoolDefault("NpcBot.Enable.Dungeon", true);
++    _enableNpcBotsRaids             = sConfigMgr->GetBoolDefault("NpcBot.Enable.Raid", false);
++    _enableNpcBotsBGs               = sConfigMgr->GetBoolDefault("NpcBot.Enable.BG", false);
++    _enableNpcBotsArenas            = sConfigMgr->GetBoolDefault("NpcBot.Enable.Arena", false);
++    _enableDungeonFinder            = sConfigMgr->GetBoolDefault("NpcBot.Enable.DungeonFinder", true);
++    _limitNpcBotsDungeons           = sConfigMgr->GetBoolDefault("NpcBot.Limit.Dungeon", true);
++    _limitNpcBotsRaids              = sConfigMgr->GetBoolDefault("NpcBot.Limit.Raid", true);
++    _botInfoPacketsLimit            = sConfigMgr->GetIntDefault("NpcBot.InfoPacketsLimit", -1);
++    _npcBotsCost                    = sConfigMgr->GetIntDefault("NpcBot.Cost", 1000000);
++    _npcBotUpdateDelayBase          = sConfigMgr->GetIntDefault("NpcBot.UpdateDelay.Base", 0);
++    _npcBotEngageDelayDPS_default   = sConfigMgr->GetIntDefault("NpcBot.EngageDelay.DPS", 0);
++    _npcBotEngageDelayHeal_default  = sConfigMgr->GetIntDefault("NpcBot.EngageDelay.Heal", 0);
++    _npcBotOwnerExpireTime          = sConfigMgr->GetIntDefault("NpcBot.OwnershipExpireTime", 0);
++    _botPvP                         = sConfigMgr->GetBoolDefault("NpcBot.PvP", true);
++    _botMovementFoodInterrupt       = sConfigMgr->GetBoolDefault("NpcBot.Movements.InterruptFood", false);
++    _displayEquipment               = sConfigMgr->GetBoolDefault("NpcBot.EquipmentDisplay.Enable", true);
++    _showCloak                      = sConfigMgr->GetBoolDefault("NpcBot.EquipmentDisplay.ShowCloak", true);
++    _showHelm                       = sConfigMgr->GetBoolDefault("NpcBot.EquipmentDisplay.ShowHelm", false);
++    _sendEquipListItems             = sConfigMgr->GetBoolDefault("NpcBot.Gossip.ShowEquipmentListItems", false);
++    _enableclass_blademaster        = sConfigMgr->GetBoolDefault("NpcBot.NewClasses.Blademaster.Enable", true);
++    _enableclass_sphynx             = sConfigMgr->GetBoolDefault("NpcBot.NewClasses.ObsidianDestroyer.Enable", true);
++    _enableclass_archmage           = sConfigMgr->GetBoolDefault("NpcBot.NewClasses.Archmage.Enable", true);
++    _enableclass_dreadlord          = sConfigMgr->GetBoolDefault("NpcBot.NewClasses.Dreadlord.Enable", true);
++    _enableclass_spellbreaker       = sConfigMgr->GetBoolDefault("NpcBot.NewClasses.SpellBreaker.Enable", true);
++    _enableclass_darkranger         = sConfigMgr->GetBoolDefault("NpcBot.NewClasses.DarkRanger.Enable", true);
++    _botStatLimits                  = sConfigMgr->GetBoolDefault("NpcBot.Stats.Limits.Enable", false);
++    _botStatLimits_dodge            = sConfigMgr->GetFloatDefault("NpcBot.Stats.Limits.Dodge", 95.0f);
++    _botStatLimits_parry            = sConfigMgr->GetFloatDefault("NpcBot.Stats.Limits.Parry", 95.0f);
++    _botStatLimits_block            = sConfigMgr->GetFloatDefault("NpcBot.Stats.Limits.Block", 95.0f);
++    _botStatLimits_crit             = sConfigMgr->GetFloatDefault("NpcBot.Stats.Limits.Crit", 95.0f);
 +
 +    //limits
-+    _mult_dmg_physical      = std::max<float>(_mult_dmg_physical, 0.1f);
-+    _mult_dmg_spell         = std::max<float>(_mult_dmg_spell, 0.1f);
-+    _mult_healing           = std::max<float>(_mult_healing,   0.1f);
-+    _mult_dmg_physical      = std::min<float>(_mult_dmg_physical, 10.f);
-+    _mult_dmg_spell         = std::min<float>(_mult_dmg_spell, 10.f);
-+    _mult_healing           = std::min<float>(_mult_healing,   10.f);
++    _mult_dmg_physical              = std::max<float>(_mult_dmg_physical, 0.1f);
++    _mult_dmg_spell                 = std::max<float>(_mult_dmg_spell, 0.1f);
++    _mult_healing                   = std::max<float>(_mult_healing,   0.1f);
++    _mult_dmg_physical              = std::min<float>(_mult_dmg_physical, 10.f);
++    _mult_dmg_spell                 = std::min<float>(_mult_dmg_spell, 10.f);
++    _mult_healing                   = std::min<float>(_mult_healing,   10.f);
++
++    //exclusions
++    uint8 dpsFlags = /*_offTankingTargetIconFlags | */_dpsTargetIconFlags | _rangedDpsTargetIconFlags;
++    if (uint8 interFlags = (_noDpsTargetIconFlags & dpsFlags))
++    {
++        _noDpsTargetIconFlags &= ~interFlags;
++        TC_LOG_ERROR("scripts", "BotMgr::LoadConfig: _noDpsTargetIconFlags intersects with targets flags 0x%02X! Removed, new mask: 0x%02X",
++            uint32(interFlags), uint32(_noDpsTargetIconFlags));
++    }
 +}
 +
 +uint8 BotMgr::GetNpcBotsCount() const
@@ -54156,11 +54267,19 @@ index 00000000..18fb9614
 +}
 +uint8 BotMgr::GetOffTankTargetIconFlags()
 +{
-+    return _tankingTargetIconFlags;
++    return _offTankingTargetIconFlags;
 +}
 +uint8 BotMgr::GetDPSTargetIconFlags()
 +{
 +    return _dpsTargetIconFlags;
++}
++uint8 BotMgr::GetRangedDPSTargetIconFlags()
++{
++    return _rangedDpsTargetIconFlags;
++}
++uint8 BotMgr::GetNoDPSTargetIconFlags()
++{
++    return _noDpsTargetIconFlags;
 +}
 +uint32 BotMgr::GetBaseUpdateDelay()
 +{
@@ -55258,10 +55377,10 @@ index 00000000..18fb9614
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.h b/src/server/game/AI/NpcBots/botmgr.h
 new file mode 100644
-index 00000000..b0a3ed18
+index 00000000..2c19fd4a
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.h
-@@ -0,0 +1,199 @@
+@@ -0,0 +1,201 @@
 +#ifndef _BOTMGR_H
 +#define _BOTMGR_H
 +
@@ -55335,6 +55454,8 @@ index 00000000..b0a3ed18
 +        static uint8 GetHealTargetIconFlags();
 +        static uint8 GetOffTankTargetIconFlags();
 +        static uint8 GetDPSTargetIconFlags();
++        static uint8 GetRangedDPSTargetIconFlags();
++        static uint8 GetNoDPSTargetIconFlags();
 +        static uint32 GetBaseUpdateDelay();
 +        static uint32 GetOwnershipExpireTime();
 +        static float GetBotStatLimitDodge();
@@ -55463,10 +55584,10 @@ index 00000000..b0a3ed18
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bpet_ai.cpp b/src/server/game/AI/NpcBots/bpet_ai.cpp
 new file mode 100644
-index 00000000..5fc15b22
+index 00000000..5272f431
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_ai.cpp
-@@ -0,0 +1,2297 @@
+@@ -0,0 +1,2313 @@
 +#include "bpet_ai.h"
 +#include "bot_GridNotifiers.h"
 +#include "botmgr.h"
@@ -56766,16 +56887,32 @@ index 00000000..5fc15b22
 +    }
 +
 +    uint8 followdist = IAmFree() ? BotMgr::GetBotFollowDistDefault() : petOwner->GetBotOwner()->GetBotMgr()->GetBotFollowDist();
-+    float foldist = _getAttackDistance(float(followdist));
-+    if ((!u || IAmFree()) && petOwner->GetBotOwner()->IsAlive() && (me->GetDistance(petOwner->GetBotOwner()) > foldist ||
-+        (IAmFree() && mytar && me->GetDistance(mytar) > followdist) ||
-+        (mytar && petOwner->GetBotOwner()->GetDistance(mytar) > followdist / 2 && !mytar->IsWithinLOSInMap(me)) ||
-+        (mytar && petOwner->GetBotOwner()->GetDistance(mytar) > foldist && me->GetDistance(petOwner->GetBotOwner()) > foldist)))
-+    {
-+        return nullptr;
-+    }
 +
-+    if (mytar && (!IAmFree() || me->GetDistance(mytar) < BOT_MAX_CHASE_RANGE) && me->IsValidAttackTarget(mytar))
++    if (followdist == 0)
++        return nullptr;
++
++    float foldist = _getAttackDistance(float(followdist));
++    if (!IAmFree() && !IsPetMelee())
++    {
++        float spelldist;
++        uint8 rangeMode = petOwner->GetBotOwner()->GetBotMgr()->GetBotAttackRangeMode();
++        if (rangeMode == BOT_ATTACK_RANGE_EXACT)
++            spelldist = petOwner->GetBotOwner()->GetBotMgr()->GetBotExactAttackRange();
++        else
++            spelldist = GetSpellAttackRange(rangeMode == BOT_ATTACK_RANGE_LONG);
++        foldist = std::max<float>(foldist, spelldist + 4.f);
++    }
++    bool dropTarget = false;
++    if (!dropTarget && mytar)
++    {
++        dropTarget = IAmFree() ?
++            petOwner->GetDistance(mytar) > foldist :
++            (petOwner->GetBotOwner()->GetDistance(mytar) > foldist || (petOwner->GetBotOwner()->GetDistance(mytar) > foldist * 0.75f && !mytar->IsWithinLOSInMap(petOwner)));
++    }
++    if (dropTarget)
++        return nullptr;
++
++    if (mytar && (!IAmFree() || me->GetDistance(mytar) < BOT_MAX_CHASE_RANGE) && me->IsValidAttackTarget(mytar) && !petOwner->GetBotAI()->IsPointedNoDPSTarget(mytar))
 +    {
 +        if (me->GetDistance(mytar) > (!IsPetMelee() ? 20.f : 5.f) && m_botCommandState != COMMAND_STAY && m_botCommandState != COMMAND_FOLLOW)
 +            reset = true;
@@ -66022,10 +66159,10 @@ index 43658b24..3e0c7b1f 100644
  #define CLASSMASK_WAND_USERS ((1<<(CLASS_PRIEST-1))|(1<<(CLASS_MAGE-1))|(1<<(CLASS_WARLOCK-1)))
  
 diff --git a/src/server/worldserver/worldserver.conf.dist b/src/server/worldserver/worldserver.conf.dist
-index 022bca30..cbaa80fe 100644
+index 022bca30..938f00f7 100644
 --- a/src/server/worldserver/worldserver.conf.dist
 +++ b/src/server/worldserver/worldserver.conf.dist
-@@ -4117,3 +4117,264 @@ Metric.OverallStatusInterval = 1
+@@ -4117,3 +4117,268 @@ Metric.OverallStatusInterval = 1
  
  #
  ###################################################################################################
@@ -66079,13 +66216,15 @@ index 022bca30..cbaa80fe 100644
 +#    NpcBot.HealTargetIconsMask
 +#    NpcBot.OffTankTargetIconMask
 +#    NpcBot.DPSTargetIconMask
++#    NpcBot.RangedDPSTargetIconMask
++#    NpcBot.NoDPSTargetIconMask
 +#        Description: Icon number bitmask which bots use to search for primary attack
-+#                     target, off-tanking target, or target to heal and protect (out of party).
++#                     target, off-tanking target, target to heal and protect (out of party),
++#                     or target to try to not damage.
 +#        Note:        Many creatures cannot accept heal.
 +#        Note2:       While icon is active NPCBot ddealers/tanks will ignore any other targets
 +#                     and will not break from combat to follow you.
 +#        Note3:       If you set multiple targets only one target at a time will be used.
-+#        Note4:       Off-tanking bots will prioritize DPS targets.
 +#        Example:     To check Star, Triangle and Square we need 1 + 8 + 32 = 41.
 +#        Default:     0 (Disable)
 +#                     1 - Star
@@ -66100,6 +66239,8 @@ index 022bca30..cbaa80fe 100644
 +NpcBot.HealTargetIconsMask = 0
 +NpcBot.OffTankTargetIconMask = 0
 +NpcBot.DPSTargetIconMask = 0
++NpcBot.RangedDPSTargetIconMask = 0
++NpcBot.NoDPSTargetIconMask = 0
 +
 +#
 +#    NpcBot.Mult.Damage.Physical

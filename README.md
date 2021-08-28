@@ -1,5 +1,5 @@
 ### This mod was last updated:
-### 27 Aug 2021, [cc36c50fab](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/cc36c50fab)
+### 28 Aug 2021, [53d4238de2](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/53d4238de2)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 ### Make your support tangible: [Donate](https://paypal.me/trickerer)
@@ -598,11 +598,16 @@ If some config settings look ambiguous to you, this section may help you
     - Your off-tanks **will not stop attacking pointed target** until it's dead or icon is unset
 - **`NpcBot.DPSTargetIconsMask`**
     - Same as `NpcBot.OffTankTargetIconsMask`, but this one affects your damage dealers and main tank(s) with the same rules
+- **`NpcBot.RangedDPSTargetIconsMask`**
+    - Same as `NpcBot.DPSTargetIconsMask` but this one is higher priority for ranged NPCBots
+- **`NpcBot.NoDPSTargetIconMask`**
+    - NPCBots will try to not damage these targets
 - **`Heal / Tank / DPS _TargetIconsMask` intersections**
     - If there are any bitmask intersections between target icons (simply put, same icon is used, on accident or otherwise), these rules are applied:
         - Target **will not be protected** by taunting or attacking the attackers
         - Target **may still be healed** if can be healed
         - Target **may still be attacked** if attackable and in combat
+        - All DPS icons will be automatically excluded from **`NoDPSTargetIconMask`**
 - **`NpcBot.Cost`**
     - This parameter determines how much money player has to pay to hire a bot
     - This is how much money player has to pay **at level 80**, for lower levels cost is reduced:
