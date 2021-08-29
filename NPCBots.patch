@@ -85,7 +85,7 @@
  src/server/game/DataStores/DBCStores.h             |     2 +-
  src/server/game/DungeonFinding/LFGMgr.cpp          |   176 +
  src/server/game/DungeonFinding/LFGScripts.cpp      |     1 +
- src/server/game/Entities/Creature/Creature.cpp     |   456 +
+ src/server/game/Entities/Creature/Creature.cpp     |   451 +
  src/server/game/Entities/Creature/Creature.h       |    79 +
  src/server/game/Entities/Creature/CreatureData.h   |     6 +-
  .../game/Entities/Creature/TemporarySummon.cpp     |    32 +
@@ -105,7 +105,7 @@
  src/server/game/Groups/Group.h                     |     4 +
  src/server/game/Handlers/ItemHandler.cpp           |    13 +
  src/server/game/Handlers/SpellHandler.cpp          |   109 +
- src/server/game/Maps/Map.cpp                       |    31 +
+ src/server/game/Maps/Map.cpp                       |    36 +
  src/server/game/Maps/MapManager.cpp                |     8 +
  src/server/game/Movement/MotionMaster.cpp          |    20 +
  src/server/game/OutdoorPvP/OutdoorPvP.cpp          |    17 +
@@ -61398,7 +61398,7 @@ index 75dd4abd..4cb80fff 100644
              sLFGMgr->LeaveLfg(group->GetGUID());
              group->Disband();
 diff --git a/src/server/game/Entities/Creature/Creature.cpp b/src/server/game/Entities/Creature/Creature.cpp
-index 502d214e..9df0eee2 100644
+index 502d214e..257fe4db 100644
 --- a/src/server/game/Entities/Creature/Creature.cpp
 +++ b/src/server/game/Entities/Creature/Creature.cpp
 @@ -56,6 +56,11 @@
@@ -61628,19 +61628,7 @@ index 502d214e..9df0eee2 100644
          m_corpseRemoveTime = GameTime::GetGameTime() + m_corpseDelay;
  
          uint32 respawnDelay = m_respawnDelay;
-@@ -2428,6 +2547,11 @@ void Creature::SaveRespawnTime(uint32 forceDelay)
-     if (IsSummon() || !m_spawnId || (m_creatureData && !m_creatureData->dbData))
-         return;
- 
-+    //npcbots: do not save respawn time for bots
-+    if (IsNPCBotOrPet())
-+        return;
-+    //end npcbots
-+
-     if (m_respawnCompatibilityMode)
-     {
-         RespawnInfo ri;
-@@ -2600,6 +2724,16 @@ void Creature::SendZoneUnderAttackMessage(Player* attacker)
+@@ -2600,6 +2719,16 @@ void Creature::SendZoneUnderAttackMessage(Player* attacker)
  
  uint32 Creature::GetShieldBlockValue() const                  //dunno mob block value
  {
@@ -61657,7 +61645,7 @@ index 502d214e..9df0eee2 100644
      return (GetLevel()/2 + uint32(GetStat(STAT_STRENGTH)/20));
  }
  
-@@ -3222,6 +3356,13 @@ void Creature::ReleaseSpellFocus(Spell const* focusSpell, bool withDelay)
+@@ -3222,6 +3351,13 @@ void Creature::ReleaseSpellFocus(Spell const* focusSpell, bool withDelay)
          if (!HasFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_CANNOT_TURN))
              ReacquireSpellFocusTarget();
      }
@@ -61671,7 +61659,7 @@ index 502d214e..9df0eee2 100644
      else // don't allow re-target right away to prevent visual bugs
          _spellFocusInfo.Delay = withDelay ? 1000 : 1;
  
-@@ -3406,3 +3547,318 @@ void Creature::ExitVehicle(Position const* /*exitPosition*/)
+@@ -3406,3 +3542,318 @@ void Creature::ExitVehicle(Position const* /*exitPosition*/)
      // exited position so it won't run away (home) and evade if it's hostile
      SetHomePosition(GetPosition());
  }
@@ -64361,7 +64349,7 @@ index 775a57c4..990d528e 100644
          return;
  
 diff --git a/src/server/game/Maps/Map.cpp b/src/server/game/Maps/Map.cpp
-index b18020b6..f38c99ad 100644
+index b18020b6..9afd8e4a 100644
 --- a/src/server/game/Maps/Map.cpp
 +++ b/src/server/game/Maps/Map.cpp
 @@ -54,6 +54,10 @@
@@ -64424,6 +64412,18 @@ index b18020b6..f38c99ad 100644
          else
          {
              GridCoord p2 = Trinity::ComputeGridCoord(c->GetPositionX(), c->GetPositionY());
+@@ -4434,6 +4465,11 @@ void Map::SaveRespawnTime(SpawnObjectType type, ObjectGuid::LowType spawnId, uin
+ 
+ void Map::SaveRespawnInfoDB(RespawnInfo const& info, CharacterDatabaseTransaction dbTrans)
+ {
++    //npcbot: DO NOT save npcbots respawn time
++    if (info.type == SPAWN_TYPE_CREATURE && info.entry >= BOT_ENTRY_BEGIN && info.entry <= BOT_ENTRY_END)
++        return;
++    //end npcbot
++
+     CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_REP_RESPAWN);
+     stmt->setUInt16(0, info.type);
+     stmt->setUInt32(1, info.spawnId);
 diff --git a/src/server/game/Maps/MapManager.cpp b/src/server/game/Maps/MapManager.cpp
 index f80aded9..82d8fb62 100644
 --- a/src/server/game/Maps/MapManager.cpp
