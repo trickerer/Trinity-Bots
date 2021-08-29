@@ -4999,7 +4999,7 @@ index 00000000..9ec1bd87
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 00000000..f4281f8c
+index 00000000..d869dc0e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
 @@ -0,0 +1,16442 @@
@@ -17805,12 +17805,13 @@ index 00000000..f4281f8c
 +    GC_Timer = 0; //reset global cooldown since cast is canceled
 +}
 +
-+void bot_ai::CastBotItemCombatSpell(Unit* target, WeaponAttackType attType, uint32 procVictim, uint32 procEx)
++void bot_ai::CastBotItemCombatSpell(DamageInfo const& damageInfo)
 +{
++    Unit* target = damageInfo.GetVictim();
 +    if (!target || !target->IsAlive() || target == me)
 +        return;
 +
-+    if (!me->CanUseAttackType(attType))
++    if (!me->CanUseAttackType(damageInfo.GetAttackType()))
 +        return;
 +
 +    Item* item;
@@ -17837,7 +17838,7 @@ index 00000000..f4281f8c
 +        if (proto->Class == ITEM_CLASS_WEAPON)
 +        {
 +            // offhand item cannot proc from main hand hit etc
-+            switch (attType)
++            switch (damageInfo.GetAttackType())
 +            {
 +                case BASE_ATTACK:   slot = BOT_SLOT_MAINHAND;   break;
 +                case OFF_ATTACK:    slot = BOT_SLOT_OFFHAND;    break;
@@ -17848,16 +17849,17 @@ index 00000000..f4281f8c
 +                continue;
 +        }
 +
-+        CastBotItemCombatSpell(target, attType, procVictim, procEx, item, proto);
++        CastBotItemCombatSpell(damageInfo, item, proto);
 +    }
 +}
 +
-+void bot_ai::CastBotItemCombatSpell(Unit* target, WeaponAttackType attType, uint32 procVictim, uint32 procEx, Item* item, ItemTemplate const* proto)
++void bot_ai::CastBotItemCombatSpell(DamageInfo const& damageInfo, Item* item, ItemTemplate const* proto)
 +{
 +    //TODO: custom spell triggers maybe?
 +
 +    // Can do effect if any damage done to target
-+    if (procVictim & PROC_FLAG_TAKEN_DAMAGE)
++    bool canTrigger = (damageInfo.GetHitMask() & (PROC_HIT_NORMAL | PROC_HIT_CRITICAL | PROC_HIT_ABSORB)) != 0;
++    if (canTrigger)
 +    {
 +        for (uint8 i = 0; i != MAX_ITEM_PROTO_SPELLS; ++i)
 +        {
@@ -17885,7 +17887,7 @@ index 00000000..f4281f8c
 +
 +            if (spellData.SpellPPMRate)
 +            {
-+                uint32 WeaponSpeed = me->GetAttackTime(attType);
++                uint32 WeaponSpeed = me->GetAttackTime(damageInfo.GetAttackType());
 +                chance = me->GetPPMProcChance(WeaponSpeed, spellData.SpellPPMRate, spellInfo);
 +            }
 +            else if (chance > 100.0f)
@@ -17894,7 +17896,7 @@ index 00000000..f4281f8c
 +            if (roll_chance_f(chance))
 +            {
 +                CastSpellExtraArgs args(item);
-+                me->CastSpell(me, spellInfo->Id, args);
++                me->CastSpell(damageInfo.GetVictim(), spellInfo->Id, args);
 +            }
 +        }
 +    }
@@ -17913,30 +17915,28 @@ index 00000000..f4281f8c
 +                continue;
 +
 +            SpellEnchantProcEntry const* entry = sSpellMgr->GetSpellEnchantProcEvent(enchant_id);
-+
 +            if (entry && entry->HitMask)
 +            {
 +                // Check hit/crit/dodge/parry requirement
-+                if ((entry->HitMask & procEx) == 0)
++                if ((entry->HitMask & damageInfo.GetHitMask()) == 0)
 +                    continue;
 +            }
 +            else
 +            {
 +                // Can do effect if any damage done to target
-+                if (!(procVictim & PROC_FLAG_TAKEN_DAMAGE))
++                if (!canTrigger)
 +                    continue;
 +            }
 +
++            // check if enchant procs only on white hits
++            if (entry && (entry->AttributesMask & ENCHANT_PROC_ATTR_WHITE_HIT) && damageInfo.GetSpellInfo())
++                continue;
++
 +            SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(pEnchant->EffectArg[s]);
 +            if (!spellInfo)
-+            {
-+                //TC_LOG_ERROR("entities.player.items", "Player::CastItemCombatSpell(GUID: %u, name: %s, enchant: %i): unknown spell %i is casted, ignoring...",
-+                //    GetGUID().GetCounter(), GetName().c_str(), pEnchant->ID, pEnchant->EffectArg[s]);
 +                continue;
-+            }
 +
 +            float chance = pEnchant->EffectPointsMin[s] != 0 ? float(pEnchant->EffectPointsMin[s]) : me->GetWeaponProcChance();
-+
 +            if (entry)
 +            {
 +                if (entry->ProcsPerMinute)
@@ -17971,7 +17971,7 @@ index 00000000..f4281f8c
 +            if (roll_chance_f(chance))
 +            {
 +                CastSpellExtraArgs args(item);
-+                me->CastSpell(spellInfo->IsPositive() ? me : target, spellInfo->Id, args);
++                me->CastSpell(spellInfo->IsPositive() ? me : damageInfo.GetVictim(), spellInfo->Id, args);
 +            }
 +        }
 +    }
@@ -21447,7 +21447,7 @@ index 00000000..f4281f8c
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 00000000..49af9871
+index 00000000..e9afc2a7
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
 @@ -0,0 +1,635 @@
@@ -21629,8 +21629,8 @@ index 00000000..49af9871
 +        bool UnEquipAll(ObjectGuid::LowType receiver);
 +        float GetAverageItemLevel() const;
 +
-+        void CastBotItemCombatSpell(Unit* target, WeaponAttackType attType, uint32 procVictim, uint32 procEx);
-+        void CastBotItemCombatSpell(Unit* target, WeaponAttackType attType, uint32 procVictim, uint32 procEx, Item* item, ItemTemplate const* proto);
++        void CastBotItemCombatSpell(DamageInfo const& damageInfo);
++        void CastBotItemCombatSpell(DamageInfo const& damageInfo, Item* item, ItemTemplate const* proto);
 +        void OnBotSpellInterrupted(SpellSchoolMask schoolMask, uint32 unTimeMs);
 +        void OnBotSpellGo(Spell const* spell, bool ok = true);
 +        void OnBotOwnerSpellGo(Spell const* spell, bool ok = true);
@@ -61399,7 +61399,7 @@ index 75dd4abd..4cb80fff 100644
              sLFGMgr->LeaveLfg(group->GetGUID());
              group->Disband();
 diff --git a/src/server/game/Entities/Creature/Creature.cpp b/src/server/game/Entities/Creature/Creature.cpp
-index 502d214e..257fe4db 100644
+index 502d214e..e3b5b38c 100644
 --- a/src/server/game/Entities/Creature/Creature.cpp
 +++ b/src/server/game/Entities/Creature/Creature.cpp
 @@ -56,6 +56,11 @@
@@ -61923,10 +61923,10 @@ index 502d214e..257fe4db 100644
 +    return bot_AI ? bot_AI->BotRollCustomMeleeOutcomeAgainst(victim, attType) : RollMeleeOutcomeAgainst(victim, attType);
 +}
 +
-+void Creature::CastCreatureItemCombatSpell(Unit* target, WeaponAttackType attType, uint32 procVictim, uint32 procEx)
++void Creature::CastCreatureItemCombatSpell(DamageInfo const& damageInfo)
 +{
 +    if (bot_AI)
-+        bot_AI->CastBotItemCombatSpell(target, attType, procVictim, procEx);
++        bot_AI->CastBotItemCombatSpell(damageInfo);
 +}
 +
 +bool Creature::HasSpellCooldown(uint32 spell_id) const
@@ -61980,7 +61980,7 @@ index 502d214e..257fe4db 100644
 +}
 +//END NPCBOT
 diff --git a/src/server/game/Entities/Creature/Creature.h b/src/server/game/Entities/Creature/Creature.h
-index b64e09ec..71cd59fb 100644
+index b64e09ec..1b6b7be9 100644
 --- a/src/server/game/Entities/Creature/Creature.h
 +++ b/src/server/game/Entities/Creature/Creature.h
 @@ -28,6 +28,11 @@
@@ -62053,7 +62053,7 @@ index b64e09ec..71cd59fb 100644
 +
 +        MeleeHitOutcome BotRollMeleeOutcomeAgainst(Unit const* victim, WeaponAttackType attType) const;
 +
-+        void CastCreatureItemCombatSpell(Unit* target, WeaponAttackType attType, uint32 procVictim, uint32 procEx);
++        void CastCreatureItemCombatSpell(DamageInfo const& damageInfo);
 +
 +        bool HasSpellCooldown(uint32 spellId) const;
 +        void AddBotSpellCooldown(uint32 spellId, uint32 cooldown);
@@ -62856,7 +62856,7 @@ index 0458f14b..15d78366 100644
      float totalPct         = addTotalPct ? GetPctModifierValue(unitMod, TOTAL_PCT) : 1.0f;
      float dmgMultiplier    = GetCreatureTemplate()->ModDamage; // = ModDamage * _GetDamageMod(rank);
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index bffe3258..c91d3ae4 100644
+index bffe3258..274b17ca 100644
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
 @@ -79,6 +79,10 @@
@@ -62980,7 +62980,7 @@ index bffe3258..c91d3ae4 100644
 +    else if (ToCreature()->IsNPCBot())
 +    {
 +        DamageInfo dmgInfo(*damageInfo);
-+        ToCreature()->CastCreatureItemCombatSpell(victim, damageInfo->AttackType, damageInfo->ProcVictim, dmgInfo.GetHitMask());
++        ToCreature()->CastCreatureItemCombatSpell(dmgInfo);
 +    }
 +    //end npcbot
  
@@ -64747,7 +64747,7 @@ index 0e10c5fa..1e1f834f 100644
                              break;
  
 diff --git a/src/server/game/Spells/Spell.cpp b/src/server/game/Spells/Spell.cpp
-index 1847ddaf..f9e4b7ac 100644
+index 1847ddaf..58f01090 100644
 --- a/src/server/game/Spells/Spell.cpp
 +++ b/src/server/game/Spells/Spell.cpp
 @@ -62,6 +62,10 @@
@@ -64809,7 +64809,7 @@ index 1847ddaf..f9e4b7ac 100644
 +            if (caster->GetTypeId() == TYPEID_UNIT && caster->ToCreature()->IsNPCBot() && (procSpellType & (PROC_SPELL_TYPE_DAMAGE | PROC_SPELL_TYPE_NO_DMG_HEAL)) &&
 +                !(spell->m_spellInfo->Attributes & SPELL_ATTR0_STOP_ATTACK_TARGET) && !spell->m_spellInfo->HasAttribute(SPELL_ATTR4_CANT_TRIGGER_ITEM_SPELLS) &&
 +                (spell->m_spellInfo->DmgClass == SPELL_DAMAGE_CLASS_MELEE || spell->m_spellInfo->DmgClass == SPELL_DAMAGE_CLASS_RANGED))
-+                caster->ToCreature()->CastCreatureItemCombatSpell(spell->unitTarget, spell->m_attackType, procVictim, hitMask);
++                caster->ToCreature()->CastCreatureItemCombatSpell(*spellDamageInfo);
 +            //end npcbot
          }
  
