@@ -51,7 +51,7 @@
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  2030 +++
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  2812 ++++
  src/server/game/AI/NpcBots/bot_spellbreaker_ai.cpp |   583 +
- src/server/game/AI/NpcBots/bot_sphynx_ai.cpp       |   610 +
+ src/server/game/AI/NpcBots/bot_sphynx_ai.cpp       |   590 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  2077 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2252 +++
  src/server/game/AI/NpcBots/botcommands.cpp         |  1595 ++
@@ -135,7 +135,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   265 +
- 137 files changed, 63536 insertions(+), 48 deletions(-)
+ 137 files changed, 63516 insertions(+), 48 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -4999,7 +4999,7 @@ index 00000000..9ec1bd87
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 00000000..d869dc0e
+index 00000000..cf83ebbd
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
 @@ -0,0 +1,16442 @@
@@ -20722,19 +20722,19 @@ index 00000000..d869dc0e
 +    //sinfo->AttributesEx2 |= SPELL_ATTR2_CAN_TARGET_NOT_IN_LOS;
 +    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
 +
-+    sinfo->Effects[0].BasePoints = 200;
++    sinfo->Effects[0].BasePoints = 300;
 +    sinfo->Effects[0].DieSides = 0;
 +    sinfo->Effects[0].BonusMultiplier = 0.f;
-+    sinfo->Effects[0].DamageMultiplier = 1.0f;
-+    sinfo->Effects[0].RealPointsPerLevel = 10.f;
++    sinfo->Effects[0].DamageMultiplier = 0.75f;
++    sinfo->Effects[0].RealPointsPerLevel = 50.f;
 +    //sinfo->Effects[0].ValueMultiplier = 1.f;
 +
 +    sinfo->Effects[1].Effect = SPELL_EFFECT_SCHOOL_DAMAGE;
-+    sinfo->Effects[1].BasePoints = 150;
-+    sinfo->Effects[1].BonusMultiplier = 2.0f;
-+    sinfo->Effects[1].DamageMultiplier = 1.0f;
++    sinfo->Effects[1].BasePoints = 50;
++    sinfo->Effects[1].BonusMultiplier = 1.0f;
++    sinfo->Effects[1].DamageMultiplier = 0.5f;
 +    sinfo->Effects[1].DieSides = /*17*/25;
-+    sinfo->Effects[1].RealPointsPerLevel = 10.f;
++    sinfo->Effects[1].RealPointsPerLevel = 30.f;
 +    //sinfo->Effects[1].ValueMultiplier = 1.f;
 +    sinfo->Effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
 +    sinfo->Effects[1].TargetB = SpellImplicitTargetInfo(TARGET_UNIT_DEST_AREA_ENEMY);
@@ -44147,10 +44147,10 @@ index 00000000..0b010e13
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_sphynx_ai.cpp b/src/server/game/AI/NpcBots/bot_sphynx_ai.cpp
 new file mode 100644
-index 00000000..1160257c
+index 00000000..bfe7135f
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_sphynx_ai.cpp
-@@ -0,0 +1,610 @@
+@@ -0,0 +1,590 @@
 +#include "bot_ai.h"
 +#include "bot_GridNotifiers.h"
 +#include "botmgr.h"
@@ -44266,6 +44266,8 @@ index 00000000..1160257c
 +            me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_SLEEP, true);
 +            me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_SILENCE, true);
 +            me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_SNARE, true);
++            me->ApplySpellImmune(0, IMMUNITY_EFFECT, SPELL_EFFECT_KNOCK_BACK, true);
++            me->ApplySpellImmune(0, IMMUNITY_EFFECT, SPELL_EFFECT_KNOCK_BACK_DEST, true);
 +        }
 +
 +        bool doCast(Unit* victim, uint32 spellId, bool triggered = false)
@@ -44338,13 +44340,10 @@ index 00000000..1160257c
 +            if (me->isMoving() && !me->HasInArc(float(M_PI)/2, opponent))
 +                return;
 +
-+            if (me->GetPower(POWER_MANA) >= SPLASH_ATTACK_COST)
++            if (me->GetPower(POWER_MANA) >= SPLASH_ATTACK_COST && IsSpellReady(SPLASH_ATTACK_1, diff))
 +            {
-+                if (IsSpellReady(SPLASH_ATTACK_1, diff))
-+                {
-+                    if (doCast(opponent, GetSpell(SPLASH_ATTACK_1)))
-+                        return;
-+                }
++                if (doCast(opponent, GetSpell(SPLASH_ATTACK_1)))
++                    return;
 +            }
 +            else if (IsSpellReady(MAIN_ATTACK_1, diff))
 +            {
@@ -44369,7 +44368,7 @@ index 00000000..1160257c
 +
 +        void CheckDrainMana(uint32 diff)
 +        {
-+            if (DraincheckTimer > diff || Rand() < 40 || IAmFree() || !HasRole(BOT_ROLE_DPS) || IsCasting() ||
++            if (DraincheckTimer > diff || Rand() > 40 || IAmFree() || !HasRole(BOT_ROLE_DPS) || IsCasting() ||
 +                !IsSpellReady(DRAIN_MANA_1, diff, false) || me->GetPower(POWER_MANA) >= SPLASH_ATTACK_COST)
 +                return;
 +
@@ -44432,8 +44431,7 @@ index 00000000..1160257c
 +                    else if (bot->IsAlive())
 +                        partynocombat++;
 +
-+                    if (!haveHp && bot != me && bot->IsInWorld() && bot->IsAlive() && me->GetDistance(bot) < 15 &&
-+                        GetHealthPCT(bot) < 95)
++                    if (!haveHp && bot != me && bot->IsAlive() && me->GetDistance(bot) < 15 && GetHealthPCT(bot) < 95)
 +                        haveHp = true;
 +                }
 +            }
@@ -44510,26 +44508,8 @@ index 00000000..1160257c
 +            if (crit)
 +                pctbonus *= 1.333f;
 +
-+            if (baseId == MAIN_ATTACK_1)
-+                fdamage += me->SpellBaseDamageBonusDone(SPELL_SCHOOL_MASK_MAGIC) * (spellInfo->Effects[0].BonusMultiplier - 1.f) * me->CalculateDefaultCoefficient(spellInfo, SPELL_DIRECT_DAMAGE) * me->CalculateSpellpowerCoefficientLevelPenalty(spellInfo);
-+            if (baseId == SPLASH_ATTACK_1)
-+                fdamage += me->SpellBaseDamageBonusDone(SPELL_SCHOOL_MASK_MAGIC) * (spellInfo->Effects[1].BonusMultiplier - 1.f) * me->CalculateDefaultCoefficient(spellInfo, SPELL_DIRECT_DAMAGE) * me->CalculateSpellpowerCoefficientLevelPenalty(spellInfo);
-+
 +            damage = int32(fdamage * pctbonus);
 +        }
-+
-+        //void ApplyClassEffectModsTarget(Unit const* target, SpellInfo const* spellInfo, uint8 effIndex, float& value) const
-+        //{
-+        //    uint32 baseId = spellInfo->GetFirstRankSpell()->Id;
-+        //    uint8 lvl = me->getLevel();
-+        //    float pctbonus = 1.0f;
-+
-+        //    //Drain Mana: limits
-+        //    if (baseId == DRAIN_MANA_1 && target/* && effIndex == EFFECT_0*/)
-+        //        value = std::min<uint32>(me->GetMaxPower(POWER_MANA), target->GetMaxPower(POWER_MANA));
-+
-+        //    value = value * pctbonus;
-+        //}
 +
 +        void OnClassSpellGo(SpellInfo const* spellInfo) override
 +        {
@@ -44551,7 +44531,7 @@ index 00000000..1160257c
 +                if (dispelsDealt > 0)
 +                {
 +                    //gain 20% of max mana and 5% of max health for every dispel
-+                    int32 manaGain = me->GetMaxPower(POWER_MANA)/5 * dispelsDealt;
++                    int32 manaGain = me->GetMaxPower(POWER_MANA) / 5 * dispelsDealt;
 +                    uint32 healthGain = me->GetMaxHealth() / 20 * dispelsDealt;
 +
 +                    HealInfo hinfo(me, me, healthGain, spellInfo, spellInfo->GetSchoolMask());
