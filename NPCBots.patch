@@ -36,8 +36,8 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1339 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 16442 +++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |   635 +
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 16447 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |   637 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   400 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   936 ++
  src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp  |   622 +
@@ -135,7 +135,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   265 +
- 137 files changed, 63516 insertions(+), 48 deletions(-)
+ 137 files changed, 63523 insertions(+), 48 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -1525,7 +1525,7 @@ index 00000000..725010f7
 +WHERE `entry`=@PET_DARK_MINION_ELITE;
 diff --git a/sql/Bots/4_world_generate_bot_equips.sql b/sql/Bots/4_world_generate_bot_equips.sql
 new file mode 100644
-index 00000000..9503ab6c
+index 00000000..3658fab4
 --- /dev/null
 +++ b/sql/Bots/4_world_generate_bot_equips.sql
 @@ -0,0 +1,159 @@
@@ -1687,7 +1687,7 @@ index 00000000..9503ab6c
 +
 +CALL `sp__generate_npcbot_equips`();
 +
-+DROP PROCEDURE IF EXISTS `trinity`.`sp__generate_npcbot_equips`;
++DROP PROCEDURE IF EXISTS `sp__generate_npcbot_equips`;
 diff --git a/sql/Bots/5_world_botgiver.sql b/sql/Bots/5_world_botgiver.sql
 new file mode 100644
 index 00000000..71bf3443
@@ -3580,7 +3580,7 @@ index 7404a615..5007f6d7 100644
  };
  
 diff --git a/src/server/game/AI/CoreAI/UnitAI.cpp b/src/server/game/AI/CoreAI/UnitAI.cpp
-index f98e9581..5bf87e34 100644
+index 79d847cf..c311dd82 100644
 --- a/src/server/game/AI/CoreAI/UnitAI.cpp
 +++ b/src/server/game/AI/CoreAI/UnitAI.cpp
 @@ -268,6 +268,9 @@ bool DefaultTargetSelector::operator()(Unit const* target) const
@@ -3654,7 +3654,7 @@ index 00000000..35a96959
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_GridNotifiers.h b/src/server/game/AI/NpcBots/bot_GridNotifiers.h
 new file mode 100644
-index 00000000..9ec1bd87
+index 00000000..4f0b1579
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_GridNotifiers.h
 @@ -0,0 +1,1339 @@
@@ -4319,8 +4319,8 @@ index 00000000..9ec1bd87
 +            bool silenceSpell = false;
 +            for (uint8 i = 0; i != MAX_SPELL_EFFECTS; ++i)
 +            {
-+                if (spellInfo->Effects[i].Effect == SPELL_EFFECT_APPLY_AURA &&
-+                    spellInfo->Effects[i].ApplyAuraName == SPELL_AURA_MOD_SILENCE)
++                if (spellInfo->_effects[i].Effect == SPELL_EFFECT_APPLY_AURA &&
++                    spellInfo->_effects[i].ApplyAuraName == SPELL_AURA_MOD_SILENCE)
 +                {
 +                    silenceSpell = true;
 +                    break;
@@ -4999,10 +4999,10 @@ index 00000000..9ec1bd87
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 00000000..cf83ebbd
+index 00000000..3df6b105
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,16442 @@
+@@ -0,0 +1,16447 @@
 +#include "bot_ai.h"
 +//#include "botcommon.h"
 +#include "bot_Events.h"
@@ -5574,7 +5574,7 @@ index 00000000..cf83ebbd
 +    {
 +        for (uint8 i = 0; i < MAX_SPELL_EFFECTS; ++i)
 +        {
-+            if (spellInfo->Effects[i].Effect == SPELL_EFFECT_APPLY_AURA && spellInfo->IsPositiveEffect(i))
++            if (spellInfo->_effects[i].Effect == SPELL_EFFECT_APPLY_AURA && spellInfo->IsPositiveEffect(i))
 +            {
 +                //TC_LOG_ERROR("scripts", "CheckBotCast(): deny cast of %s by %s on low-level target %s (lvl %u)",
 +                //    spellInfo->SpellName[0], me->GetName().c_str(), victim->GetName().c_str(), victim->GetLevel());
@@ -5686,9 +5686,9 @@ index 00000000..cf83ebbd
 +            uint8 nonAuraEffectMask = 0;
 +            for (uint8 i = 0; i < MAX_SPELL_EFFECTS; ++i)
 +            {
-+                if (m_botSpellInfo->Effects[i].IsAura())
++                if (m_botSpellInfo->_effects[i].IsAura())
 +                    approximateAuraEffectMask |= 1 << i;
-+                else if (m_botSpellInfo->Effects[i].IsEffect())
++                else if (m_botSpellInfo->_effects[i].IsEffect())
 +                    nonAuraEffectMask |= 1 << i;
 +            }
 +
@@ -5696,8 +5696,8 @@ index 00000000..cf83ebbd
 +            {
 +                // check if target already has the same type, but more powerful aura
 +                if (!nonAuraEffectMask && (approximateAuraEffectMask & (1 << i)))
-+                    if (!victim->IsHighestExclusiveAuraEffect(m_botSpellInfo, AuraType(m_botSpellInfo->Effects[i].ApplyAuraName),
-+                        m_botSpellInfo->Effects[i].CalcValue(me, &m_botSpellInfo->Effects[i].BasePoints), approximateAuraEffectMask, false))
++                    if (!victim->IsHighestExclusiveAuraEffect(m_botSpellInfo, AuraType(m_botSpellInfo->_effects[i].ApplyAuraName),
++                        m_botSpellInfo->_effects[i].CalcValue(me, &m_botSpellInfo->_effects[i].BasePoints), approximateAuraEffectMask, false))
 +                        return false;
 +            }
 +        }
@@ -6691,8 +6691,8 @@ index 00000000..cf83ebbd
 +
 +    uint32 dispelMask = 0;
 +    for (uint8 i = 0; i != MAX_SPELL_EFFECTS; ++i)
-+        if (info->Effects[i].Effect == SPELL_EFFECT_DISPEL)
-+            dispelMask |= SpellInfo::GetDispelMask(DispelType(info->Effects[i].MiscValue));
++        if (info->_effects[i].Effect == SPELL_EFFECT_DISPEL)
++            dispelMask |= SpellInfo::GetDispelMask(DispelType(info->_effects[i].MiscValue));
 +
 +    //SpellBreaker addins
 +    if (cureSpell == SPELL_STEAL_MAGIC)
@@ -6788,13 +6788,13 @@ index 00000000..cf83ebbd
 +        //bool directDamage = false;
 +        //for (uint8 i = 0; i != MAX_SPELL_EFFECTS; ++i)
 +        //{
-+        //    if (spellInfo->Effects[i].TargetA.GetTarget() == TARGET_UNIT_TARGET_ENEMY)
++        //    if (spellInfo->_effects[i].TargetA.GetTarget() == TARGET_UNIT_TARGET_ENEMY)
 +        //    {
-+        //        if (spellInfo->Effects[i].IsEffect(SPELL_EFFECT_SCHOOL_DAMAGE) ||
-+        //            spellInfo->Effects[i].IsAura(SPELL_AURA_PERIODIC_DAMAGE) ||
-+        //            spellInfo->Effects[i].IsAura(SPELL_AURA_PERIODIC_LEECH) ||
-+        //            spellInfo->Effects[i].IsAura(SPELL_AURA_MOD_SPEED_SLOW_ALL) ||//Icy Touch
-+        //            spellInfo->Effects[i].IsAura(SPELL_AURA_HASTE_SPELLS))//Slow
++        //        if (spellInfo->_effects[i].IsEffect(SPELL_EFFECT_SCHOOL_DAMAGE) ||
++        //            spellInfo->_effects[i].IsAura(SPELL_AURA_PERIODIC_DAMAGE) ||
++        //            spellInfo->_effects[i].IsAura(SPELL_AURA_PERIODIC_LEECH) ||
++        //            spellInfo->_effects[i].IsAura(SPELL_AURA_MOD_SPEED_SLOW_ALL) ||//Icy Touch
++        //            spellInfo->_effects[i].IsAura(SPELL_AURA_HASTE_SPELLS))//Slow
 +        //        {
 +        //            directDamage = true;
 +        //            break;
@@ -6854,7 +6854,7 @@ index 00000000..cf83ebbd
 +        if (!spellInfo)
 +            continue;
 +        uint32 id = spellInfo->Id;
-+        SpellInfo const* learnSpellInfo = sSpellMgr->GetSpellInfo(spellInfo->Effects[0].TriggerSpell);
++        SpellInfo const* learnSpellInfo = sSpellMgr->GetSpellInfo(spellInfo->_effects[0].TriggerSpell);
 +        const std::string name = spellInfo->SpellName[locale];
 +        botstring << "\n" << id << " - |cffffffff|Hspell:" << id << "|h[" << name;
 +        botstring << ' ' << localeNames[locale] << "]|h|r";
@@ -8964,7 +8964,7 @@ index 00000000..cf83ebbd
 +        spellInfo = sSpellMgr->GetSpellInfo(57429); //Static Field damage
 +        for (std::list<Creature*>::const_iterator ci = cList.begin(); ci != cList.end(); ++ci)
 +        {
-+            float radius = spellInfo->Effects[0].CalcRadius() + unit->GetVehicleBase()->GetCombatReach() * 1.2f;
++            float radius = spellInfo->_effects[0].CalcRadius() + unit->GetVehicleBase()->GetCombatReach() * 1.2f;
 +            spots.push_back(AoeSpotsVec::value_type(*(*ci), radius));
 +        }
 +    }
@@ -8980,7 +8980,7 @@ index 00000000..cf83ebbd
 +        spellInfo = sSpellMgr->GetSpellInfo(42630); //Fire Bomb
 +        for (std::list<Creature*>::const_iterator ci = cList.begin(); ci != cList.end(); ++ci)
 +        {
-+            float radius = spellInfo->Effects[0].CalcRadius() + DEFAULT_PLAYER_COMBAT_REACH * 1.2f;
++            float radius = spellInfo->_effects[0].CalcRadius() + DEFAULT_PLAYER_COMBAT_REACH * 1.2f;
 +            spots.push_back(AoeSpotsVec::value_type(*(*ci), radius));
 +        }
 +    }
@@ -9020,10 +9020,10 @@ index 00000000..cf83ebbd
 +    {
 +        for (uint8 i = 0; i != MAX_SPELL_EFFECTS; ++i)
 +        {
-+            if (spellInfo->Effects[i].Effect == SPELL_EFFECT_PERSISTENT_AREA_AURA &&
-+                spellInfo->Effects[i].ApplyAuraName != 0)
++            if (spellInfo->_effects[i].Effect == SPELL_EFFECT_PERSISTENT_AREA_AURA &&
++                spellInfo->_effects[i].ApplyAuraName != 0)
 +            {
-+                switch (spellInfo->Effects[i].ApplyAuraName)
++                switch (spellInfo->_effects[i].ApplyAuraName)
 +                {
 +                    case SPELL_AURA_PERIODIC_DAMAGE:
 +                    case SPELL_AURA_PERIODIC_DAMAGE_PERCENT:
@@ -10635,7 +10635,7 @@ index 00000000..cf83ebbd
 +
 +    for (uint8 i = 0; i != MAX_SPELL_EFFECTS; ++i)
 +    {
-+        uint32 const auraname = spell->Effects[i].ApplyAuraName;
++        uint32 const auraname = spell->_effects[i].ApplyAuraName;
 +        //remove pet on mount
 +        if (auraname == SPELL_AURA_MOUNTED)
 +        {
@@ -10653,9 +10653,9 @@ index 00000000..cf83ebbd
 +                    //TC_LOG_ERROR("entities.unit", "OnSpellHit: found aura");
 +                    for (uint8 j = 0; j != MAX_SPELL_EFFECTS; ++j)
 +                    {
-+                        if (spell->Effects[j].ApplyAuraName != SPELL_AURA_MOD_INCREASE_VEHICLE_FLIGHT_SPEED &&
-+                            spell->Effects[j].ApplyAuraName != SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED &&
-+                            spell->Effects[j].ApplyAuraName != SPELL_AURA_MOD_INCREASE_MOUNTED_SPEED)
++                        if (spell->_effects[j].ApplyAuraName != SPELL_AURA_MOD_INCREASE_VEHICLE_FLIGHT_SPEED &&
++                            spell->_effects[j].ApplyAuraName != SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED &&
++                            spell->_effects[j].ApplyAuraName != SPELL_AURA_MOD_INCREASE_MOUNTED_SPEED)
 +                            continue;
 +                        if (AuraEffect* meff = mount->GetEffect(j))
 +                        {
@@ -10687,7 +10687,7 @@ index 00000000..cf83ebbd
 +        else if (auraname == SPELL_AURA_MOD_INCREASE_ENERGY || auraname == SPELL_AURA_MOD_INCREASE_ENERGY_PERCENT)
 +            UpdateMana(); //Divine Hymn - max mana increase
 +
-+        uint32 const effect = spell->Effects[i].Effect;
++        uint32 const effect = spell->_effects[i].Effect;
 +        if (effect == SPELL_EFFECT_RESURRECT || effect == SPELL_EFFECT_RESURRECT_NEW || effect == SPELL_EFFECT_SELF_RESURRECT)
 +        {
 +            //resurrect effects are not handled for creatures
@@ -10695,7 +10695,7 @@ index 00000000..cf83ebbd
 +            {
 +                uint32 health = 0;
 +                uint32 mana = 0;
-+                int32 damage = spell->Effects[i].BasePoints;
++                int32 damage = spell->_effects[i].BasePoints;
 +
 +                if (effect == SPELL_EFFECT_RESURRECT_NEW)
 +                {
@@ -10704,12 +10704,12 @@ index 00000000..cf83ebbd
 +                        health = me->GetMaxHealth();
 +                    else
 +                        health = damage;
-+                    mana = spell->Effects[i].MiscValue;
++                    mana = spell->_effects[i].MiscValue;
 +                }
 +                else if (damage < 0)
 +                {
 +                    health = uint32(-damage);
-+                    mana = spell->Effects[i].MiscValue;
++                    mana = spell->_effects[i].MiscValue;
 +                }
 +                else
 +                {
@@ -10728,7 +10728,7 @@ index 00000000..cf83ebbd
 +        //ravasaur poison (EffectEnchantHeldItem) for mh and oh
 +        if (effect == SPELL_EFFECT_ENCHANT_HELD_ITEM)
 +        {
-+            uint32 enchant_id = spell->Effects[i].MiscValue;
++            uint32 enchant_id = spell->_effects[i].MiscValue;
 +            if (!enchant_id)
 +                continue;
 +
@@ -19130,14 +19130,14 @@ index 00000000..cf83ebbd
 +                bool isAreaSpell = false;
 +                for (uint8 j = 0; j != 3 && isAreaSpell == false; ++j)
 +                {
-+                    if (info->Effects[j].IsEffect() && info->Effects[j].TargetA.GetTarget())
++                    if (info->_effects[j].IsEffect() && info->_effects[j].TargetA.GetTarget())
 +                    {
-+                        if (info->Effects[j].TargetA.GetSelectionCategory() == TARGET_SELECT_CATEGORY_NEARBY ||
-+                            info->Effects[j].TargetA.GetSelectionCategory() == TARGET_SELECT_CATEGORY_AREA)
++                        if (info->_effects[j].TargetA.GetSelectionCategory() == TARGET_SELECT_CATEGORY_NEARBY ||
++                            info->_effects[j].TargetA.GetSelectionCategory() == TARGET_SELECT_CATEGORY_AREA)
 +                            isAreaSpell = true;
 +                        if (!isAreaSpell)
 +                        {
-+                            switch (info->Effects[j].TargetA.GetTarget())
++                            switch (info->_effects[j].TargetA.GetTarget())
 +                            {
 +                            case TARGET_UNIT_CASTER_AREA_PARTY:
 +                            case TARGET_DEST_CHANNEL_TARGET:
@@ -20531,9 +20531,9 @@ index 00000000..cf83ebbd
 +{
 +    for (uint8 i = 0; i < MAX_SPELL_EFFECTS; ++i)
 +    {
-+        if (spellInfo->Effects[i].IsEffect())
++        if (spellInfo->_effects[i].IsEffect())
 +        {
-+            switch (spellInfo->Effects[i].Effect)
++            switch (spellInfo->_effects[i].Effect)
 +            {
 +                case SPELL_EFFECT_WEAPON_DAMAGE:
 +                case SPELL_EFFECT_WEAPON_DAMAGE_NOSCHOOL:
@@ -20550,6 +20550,11 @@ index 00000000..cf83ebbd
 +    }
 +
 +    return false;
++}
++
++bool bot_ai::IsImmunedToMySpellEffect(Unit const* unit, SpellInfo const* spellInfo, SpellEffIndex index) const
++{
++    return unit->IsImmunedToSpellEffect(spellInfo, spellInfo->GetEffect(index), me);
 +}
 +
 +bool bot_ai::IsBotCustomSpell(uint32 spellId)
@@ -20646,35 +20651,35 @@ index 00000000..cf83ebbd
 +        AURA_INTERRUPT_FLAG_NOT_ABOVEWATER | AURA_INTERRUPT_FLAG_MOUNT; //0x00003C07;vanish
 +    sinfo->CasterAuraStateNot = 0;
 +
-+    sinfo->Effects[0].Effect = SPELL_EFFECT_APPLY_AURA;
-+    sinfo->Effects[0].BasePoints = 100;
-+    sinfo->Effects[0].RealPointsPerLevel = 2.5f;
-+    sinfo->Effects[0].ValueMultiplier = 1.0f;
-+    sinfo->Effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
-+    sinfo->Effects[0].ApplyAuraName = SPELL_AURA_MOD_INVISIBILITY;
-+    sinfo->Effects[0].Amplitude = 0;
-+    sinfo->Effects[0].TriggerSpell = 0;
-+    sinfo->Effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS);
++    sinfo->_effects[0].Effect = SPELL_EFFECT_APPLY_AURA;
++    sinfo->_effects[0].BasePoints = 100;
++    sinfo->_effects[0].RealPointsPerLevel = 2.5f;
++    sinfo->_effects[0].ValueMultiplier = 1.0f;
++    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
++    sinfo->_effects[0].ApplyAuraName = SPELL_AURA_MOD_INVISIBILITY;
++    sinfo->_effects[0].Amplitude = 0;
++    sinfo->_effects[0].TriggerSpell = 0;
++    sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS);
 +
-+    sinfo->Effects[1].Effect = SPELL_EFFECT_APPLY_AURA;
-+    sinfo->Effects[1].BasePoints = 10;
-+    sinfo->Effects[1].RealPointsPerLevel = 0.5f;
-+    sinfo->Effects[1].ValueMultiplier = 1.0f;
-+    sinfo->Effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
-+    sinfo->Effects[1].TargetB = SpellImplicitTargetInfo(0);
-+    sinfo->Effects[1].ApplyAuraName = SPELL_AURA_MOD_INCREASE_SPEED;
-+    sinfo->Effects[1].Amplitude = 0;
-+    sinfo->Effects[1].TriggerSpell = 0;
-+    sinfo->Effects[1].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS); //14
++    sinfo->_effects[1].Effect = SPELL_EFFECT_APPLY_AURA;
++    sinfo->_effects[1].BasePoints = 10;
++    sinfo->_effects[1].RealPointsPerLevel = 0.5f;
++    sinfo->_effects[1].ValueMultiplier = 1.0f;
++    sinfo->_effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
++    sinfo->_effects[1].TargetB = SpellImplicitTargetInfo(0);
++    sinfo->_effects[1].ApplyAuraName = SPELL_AURA_MOD_INCREASE_SPEED;
++    sinfo->_effects[1].Amplitude = 0;
++    sinfo->_effects[1].TriggerSpell = 0;
++    sinfo->_effects[1].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS); //14
 +
-+    sinfo->Effects[2].Effect = SPELL_EFFECT_TRIGGER_SPELL;
-+    sinfo->Effects[2].BasePoints = 0;
-+    sinfo->Effects[2].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
-+    sinfo->Effects[2].TargetB = SpellImplicitTargetInfo(0);
-+    sinfo->Effects[2].ApplyAuraName = SPELL_AURA_NONE;
-+    sinfo->Effects[2].Amplitude = 0;
-+    sinfo->Effects[2].TriggerSpell = trig;
-+    sinfo->Effects[2].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS); //14
++    sinfo->_effects[2].Effect = SPELL_EFFECT_TRIGGER_SPELL;
++    sinfo->_effects[2].BasePoints = 0;
++    sinfo->_effects[2].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
++    sinfo->_effects[2].TargetB = SpellImplicitTargetInfo(0);
++    sinfo->_effects[2].ApplyAuraName = SPELL_AURA_NONE;
++    sinfo->_effects[2].Amplitude = 0;
++    sinfo->_effects[2].TriggerSpell = trig;
++    sinfo->_effects[2].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS); //14
 +    //3) END WINDWALK
 +
 +    //4) MIRROR IMAGE (BLADEMASTER)
@@ -20692,11 +20697,11 @@ index 00000000..cf83ebbd
 +    sinfo->AttributesEx2 &= ~(SPELL_ATTR2_CAN_TARGET_NOT_IN_LOS);
 +    //sinfo->AttributesEx3 |= SPELL_ATTR3_DONT_DISPLAY_RANGE;
 +
-+    sinfo->Effects[0].Effect = SPELL_EFFECT_DUMMY;
-+    sinfo->Effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
-+    sinfo->Effects[0].MiscValue = 0;
-+    sinfo->Effects[0].MiscValueB = 0;
-+    sinfo->Effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS);
++    sinfo->_effects[0].Effect = SPELL_EFFECT_DUMMY;
++    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
++    sinfo->_effects[0].MiscValue = 0;
++    sinfo->_effects[0].MiscValueB = 0;
++    sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS);
 +    //4) END MIRROR IMAGE (BLADEMASTER)
 +
 +    //SPHYNX
@@ -20722,23 +20727,23 @@ index 00000000..cf83ebbd
 +    //sinfo->AttributesEx2 |= SPELL_ATTR2_CAN_TARGET_NOT_IN_LOS;
 +    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
 +
-+    sinfo->Effects[0].BasePoints = 300;
-+    sinfo->Effects[0].DieSides = 0;
-+    sinfo->Effects[0].BonusMultiplier = 0.f;
-+    sinfo->Effects[0].DamageMultiplier = 0.75f;
-+    sinfo->Effects[0].RealPointsPerLevel = 50.f;
-+    //sinfo->Effects[0].ValueMultiplier = 1.f;
++    sinfo->_effects[0].BasePoints = 300;
++    sinfo->_effects[0].DieSides = 0;
++    sinfo->_effects[0].BonusMultiplier = 0.f;
++    sinfo->_effects[0].DamageMultiplier = 0.75f;
++    sinfo->_effects[0].RealPointsPerLevel = 50.f;
++    //sinfo->_effects[0].ValueMultiplier = 1.f;
 +
-+    sinfo->Effects[1].Effect = SPELL_EFFECT_SCHOOL_DAMAGE;
-+    sinfo->Effects[1].BasePoints = 50;
-+    sinfo->Effects[1].BonusMultiplier = 1.0f;
-+    sinfo->Effects[1].DamageMultiplier = 0.5f;
-+    sinfo->Effects[1].DieSides = /*17*/25;
-+    sinfo->Effects[1].RealPointsPerLevel = 30.f;
-+    //sinfo->Effects[1].ValueMultiplier = 1.f;
-+    sinfo->Effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
-+    sinfo->Effects[1].TargetB = SpellImplicitTargetInfo(TARGET_UNIT_DEST_AREA_ENEMY);
-+    sinfo->Effects[1].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_12_YARDS);
++    sinfo->_effects[1].Effect = SPELL_EFFECT_SCHOOL_DAMAGE;
++    sinfo->_effects[1].BasePoints = 50;
++    sinfo->_effects[1].BonusMultiplier = 1.0f;
++    sinfo->_effects[1].DamageMultiplier = 0.5f;
++    sinfo->_effects[1].DieSides = /*17*/25;
++    sinfo->_effects[1].RealPointsPerLevel = 30.f;
++    //sinfo->_effects[1].ValueMultiplier = 1.f;
++    sinfo->_effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
++    sinfo->_effects[1].TargetB = SpellImplicitTargetInfo(TARGET_UNIT_DEST_AREA_ENEMY);
++    sinfo->_effects[1].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_12_YARDS);
 +    //5) END SHADOW BLAST (SPLASH ATTACK)
 +
 +    //6) SHADOW BOLT (BASE ATTACK)
@@ -20757,12 +20762,12 @@ index 00000000..cf83ebbd
 +    //sinfo->Attributes |= SPELL_ATTR0_HIDE_IN_COMBAT_LOG | SPELL_ATTR0_HIDDEN_CLIENTSIDE | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE;
 +    //sinfo->AttributesEx3 |= SPELL_ATTR3_DONT_DISPLAY_RANGE;
 +
-+    sinfo->Effects[0].BasePoints = 200;
-+    sinfo->Effects[0].DieSides = /*12*/25;
-+    sinfo->Effects[0].BonusMultiplier = 1.15f;
-+    sinfo->Effects[0].DamageMultiplier = 1.f;
-+    sinfo->Effects[0].RealPointsPerLevel = 10.f;
-+    //sinfo->Effects[0].ValueMultiplier = 1.f;
++    sinfo->_effects[0].BasePoints = 200;
++    sinfo->_effects[0].DieSides = /*12*/25;
++    sinfo->_effects[0].BonusMultiplier = 1.15f;
++    sinfo->_effects[0].DamageMultiplier = 1.f;
++    sinfo->_effects[0].RealPointsPerLevel = 10.f;
++    //sinfo->_effects[0].ValueMultiplier = 1.f;
 +    //6) END SHADOW BOLT (BASE ATTACK)
 +
 +    //7) ATTACK ANIMATION
@@ -20792,15 +20797,15 @@ index 00000000..cf83ebbd
 +    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
 +    sinfo->AttributesEx5 |= SPELL_ATTR5_USABLE_WHILE_STUNNED | SPELL_ATTR5_USABLE_WHILE_CONFUSED | SPELL_ATTR5_USABLE_WHILE_FEARED;
 +
-+    sinfo->Effects[0].Effect = SPELL_EFFECT_DUMMY;
-+    sinfo->Effects[0].BasePoints = 1;
-+    sinfo->Effects[0].RealPointsPerLevel = 0.f;
-+    sinfo->Effects[0].ValueMultiplier = 0.f;
-+    sinfo->Effects[0].RealPointsPerLevel = 0.f;
-+    sinfo->Effects[0].DamageMultiplier = 0.f;
-+    sinfo->Effects[0].TargetB = SpellImplicitTargetInfo(0);
-+    sinfo->Effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS);
-+    sinfo->Effects[0].TargetA = SpellImplicitTargetInfo(TARGET_DEST_DEST);
++    sinfo->_effects[0].Effect = SPELL_EFFECT_DUMMY;
++    sinfo->_effects[0].BasePoints = 1;
++    sinfo->_effects[0].RealPointsPerLevel = 0.f;
++    sinfo->_effects[0].ValueMultiplier = 0.f;
++    sinfo->_effects[0].RealPointsPerLevel = 0.f;
++    sinfo->_effects[0].DamageMultiplier = 0.f;
++    sinfo->_effects[0].TargetB = SpellImplicitTargetInfo(0);
++    sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS);
++    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_DEST_DEST);
 +    //8) END SPLASH ANIMATION
 +
 +    //9) DEVOUR MAGIC
@@ -20827,23 +20832,23 @@ index 00000000..cf83ebbd
 +    //sinfo->Attributes &= ~(SPELL_ATTR0_HIDE_IN_COMBAT_LOG);
 +    //sinfo->AttributesEx3 |= SPELL_ATTR3_DONT_DISPLAY_RANGE;
 +
-+    sinfo->Effects[0].Effect = SPELL_EFFECT_DISPEL;
-+    sinfo->Effects[0].BasePoints = 2;
-+    sinfo->Effects[0].MiscValue = DISPEL_MAGIC;
-+    sinfo->Effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_DEST_AREA_ALLY);
-+    sinfo->Effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_20_YARDS);
++    sinfo->_effects[0].Effect = SPELL_EFFECT_DISPEL;
++    sinfo->_effects[0].BasePoints = 2;
++    sinfo->_effects[0].MiscValue = DISPEL_MAGIC;
++    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_DEST_AREA_ALLY);
++    sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_20_YARDS);
 +
-+    sinfo->Effects[1].Effect = SPELL_EFFECT_DISPEL;
-+    sinfo->Effects[1].BasePoints = 2;
-+    sinfo->Effects[1].MiscValue = DISPEL_CURSE;
-+    sinfo->Effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_DEST_AREA_ALLY);
-+    sinfo->Effects[1].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_20_YARDS);
++    sinfo->_effects[1].Effect = SPELL_EFFECT_DISPEL;
++    sinfo->_effects[1].BasePoints = 2;
++    sinfo->_effects[1].MiscValue = DISPEL_CURSE;
++    sinfo->_effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_DEST_AREA_ALLY);
++    sinfo->_effects[1].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_20_YARDS);
 +
-+    sinfo->Effects[2].Effect = SPELL_EFFECT_DISPEL;
-+    sinfo->Effects[2].BasePoints = 2;
-+    sinfo->Effects[2].MiscValue = DISPEL_MAGIC;
-+    sinfo->Effects[2].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_DEST_AREA_ENEMY);
-+    sinfo->Effects[2].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_20_YARDS);
++    sinfo->_effects[2].Effect = SPELL_EFFECT_DISPEL;
++    sinfo->_effects[2].BasePoints = 2;
++    sinfo->_effects[2].MiscValue = DISPEL_MAGIC;
++    sinfo->_effects[2].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_DEST_AREA_ENEMY);
++    sinfo->_effects[2].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_20_YARDS);
 +    //9) END DEVOUR MAGIC
 +
 +    //10) DRAIN MANA
@@ -20867,15 +20872,15 @@ index 00000000..cf83ebbd
 +    sinfo->Attributes |= SPELL_ATTR0_ABILITY | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE;
 +    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT | SPELL_ATTR3_NO_DONE_BONUS;
 +
-+    //sinfo->Effects[0].Effect = SPELL_EFFECT_POWER_DRAIN;
-+    sinfo->Effects[0].BasePoints = 999999;
-+    sinfo->Effects[0].RealPointsPerLevel = 0.f;
-+    sinfo->Effects[0].ValueMultiplier = 1.f;
-+    sinfo->Effects[0].RealPointsPerLevel = 0.f;
-+    sinfo->Effects[0].DamageMultiplier = 1.f;
-+    sinfo->Effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ANY);
++    //sinfo->_effects[0].Effect = SPELL_EFFECT_POWER_DRAIN;
++    sinfo->_effects[0].BasePoints = 999999;
++    sinfo->_effects[0].RealPointsPerLevel = 0.f;
++    sinfo->_effects[0].ValueMultiplier = 1.f;
++    sinfo->_effects[0].RealPointsPerLevel = 0.f;
++    sinfo->_effects[0].DamageMultiplier = 1.f;
++    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ANY);
 +
-+    sinfo->Effects[1].Effect = 0;
++    sinfo->_effects[1].Effect = SPELL_EFFECT_NONE;
 +    //10) END DRAIN MANA
 +
 +    //11) REPLENISH MANA
@@ -20899,17 +20904,17 @@ index 00000000..cf83ebbd
 +    sinfo->AttributesEx5 |= SPELL_ATTR5_DONT_TURN_DURING_CAST;
 +    sinfo->AttributesEx6 |= SPELL_ATTR6_CAN_TARGET_POSSESSED_FRIENDS;
 +
-+    sinfo->Effects[0].Effect = SPELL_EFFECT_TRIGGER_SPELL;
-+    sinfo->Effects[0].BasePoints = 2;
-+    sinfo->Effects[0].DieSides = 0;
-+    sinfo->Effects[0].RealPointsPerLevel = 0.f;
-+    sinfo->Effects[0].ValueMultiplier = 0.f;
-+    sinfo->Effects[0].RealPointsPerLevel = 0.f;
-+    sinfo->Effects[0].DamageMultiplier = 0.f;
-+    sinfo->Effects[0].TriggerSpell = SPELL_TRIGGERED_ENERGIZE;
-+    sinfo->Effects[0].TargetA = SpellImplicitTargetInfo(TARGET_SRC_CASTER);
-+    sinfo->Effects[0].TargetB = SpellImplicitTargetInfo(TARGET_UNIT_SRC_AREA_ALLY);
-+    sinfo->Effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_25_YARDS);
++    sinfo->_effects[0].Effect = SPELL_EFFECT_TRIGGER_SPELL;
++    sinfo->_effects[0].BasePoints = 2;
++    sinfo->_effects[0].DieSides = 0;
++    sinfo->_effects[0].RealPointsPerLevel = 0.f;
++    sinfo->_effects[0].ValueMultiplier = 0.f;
++    sinfo->_effects[0].RealPointsPerLevel = 0.f;
++    sinfo->_effects[0].DamageMultiplier = 0.f;
++    sinfo->_effects[0].TriggerSpell = SPELL_TRIGGERED_ENERGIZE;
++    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_SRC_CASTER);
++    sinfo->_effects[0].TargetB = SpellImplicitTargetInfo(TARGET_UNIT_SRC_AREA_ALLY);
++    sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_25_YARDS);
 +    //11) END REPLENISH MANA
 +
 +    //12) REPLENISH HEALTH
@@ -20934,17 +20939,17 @@ index 00000000..cf83ebbd
 +    sinfo->AttributesEx5 |= SPELL_ATTR5_DONT_TURN_DURING_CAST;
 +    sinfo->AttributesEx6 |= SPELL_ATTR6_CAN_TARGET_POSSESSED_FRIENDS;
 +
-+    sinfo->Effects[0].Effect = SPELL_EFFECT_TRIGGER_SPELL;
-+    sinfo->Effects[0].BasePoints = 3;
-+    sinfo->Effects[0].DieSides = 0;
-+    sinfo->Effects[0].RealPointsPerLevel = 0.f;
-+    sinfo->Effects[0].ValueMultiplier = 0.f;
-+    sinfo->Effects[0].RealPointsPerLevel = 0.f;
-+    sinfo->Effects[0].DamageMultiplier = 0.f;
-+    sinfo->Effects[0].TriggerSpell = SPELL_TRIGGERED_HEAL;
-+    sinfo->Effects[0].TargetA = SpellImplicitTargetInfo(TARGET_SRC_CASTER);
-+    sinfo->Effects[0].TargetB = SpellImplicitTargetInfo(TARGET_UNIT_SRC_AREA_ALLY);
-+    sinfo->Effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_25_YARDS);
++    sinfo->_effects[0].Effect = SPELL_EFFECT_TRIGGER_SPELL;
++    sinfo->_effects[0].BasePoints = 3;
++    sinfo->_effects[0].DieSides = 0;
++    sinfo->_effects[0].RealPointsPerLevel = 0.f;
++    sinfo->_effects[0].ValueMultiplier = 0.f;
++    sinfo->_effects[0].RealPointsPerLevel = 0.f;
++    sinfo->_effects[0].DamageMultiplier = 0.f;
++    sinfo->_effects[0].TriggerSpell = SPELL_TRIGGERED_HEAL;
++    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_SRC_CASTER);
++    sinfo->_effects[0].TargetB = SpellImplicitTargetInfo(TARGET_UNIT_SRC_AREA_ALLY);
++    sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_25_YARDS);
 +    //12) END REPLENISH HEALTH
 +
 +    //ARCHMAGE
@@ -20962,25 +20967,25 @@ index 00000000..cf83ebbd
 +    sinfo->AttributesEx4 |= SPELL_ATTR4_DONT_REMOVE_IN_ARENA;
 +    sinfo->AttributesEx7 |= SPELL_ATTR7_CONSOLIDATED_RAID_BUFF;
 +
-+    sinfo->Effects[0].Effect = SPELL_EFFECT_APPLY_AREA_AURA_RAID;
-+    sinfo->Effects[0].ApplyAuraName = SPELL_AURA_MOD_POWER_REGEN_PERCENT;
-+    sinfo->Effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
-+    sinfo->Effects[0].BasePoints = 100;
-+    sinfo->Effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_40_YARDS);
++    sinfo->_effects[0].Effect = SPELL_EFFECT_APPLY_AREA_AURA_RAID;
++    sinfo->_effects[0].ApplyAuraName = SPELL_AURA_MOD_POWER_REGEN_PERCENT;
++    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
++    sinfo->_effects[0].BasePoints = 100;
++    sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_40_YARDS);
 +
-+    sinfo->Effects[1].Effect = SPELL_EFFECT_APPLY_AREA_AURA_RAID;
-+    sinfo->Effects[1].ApplyAuraName = SPELL_AURA_MOD_INCREASE_ENERGY_PERCENT;
-+    sinfo->Effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
-+    sinfo->Effects[1].BasePoints = 10;
-+    sinfo->Effects[1].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_40_YARDS);
++    sinfo->_effects[1].Effect = SPELL_EFFECT_APPLY_AREA_AURA_RAID;
++    sinfo->_effects[1].ApplyAuraName = SPELL_AURA_MOD_INCREASE_ENERGY_PERCENT;
++    sinfo->_effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
++    sinfo->_effects[1].BasePoints = 10;
++    sinfo->_effects[1].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_40_YARDS);
 +
 +    //for stacking rule
 +    /*
-+    sinfo->Effects[2].Effect = SPELL_EFFECT_APPLY_AURA;
-+    sinfo->Effects[2].ApplyAuraName = SPELL_AURA_DUMMY;
-+    sinfo->Effects[2].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
-+    sinfo->Effects[2].BasePoints = 1;
-+    sinfo->Effects[2].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS);
++    sinfo->_effects[2].Effect = SPELL_EFFECT_APPLY_AURA;
++    sinfo->_effects[2].ApplyAuraName = SPELL_AURA_DUMMY;
++    sinfo->_effects[2].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
++    sinfo->_effects[2].BasePoints = 1;
++    sinfo->_effects[2].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS);
 +    */
 +    //13) END BRILLIANCE AURA
 +
@@ -21004,12 +21009,12 @@ index 00000000..cf83ebbd
 +    sinfo->Attributes &= ~(SPELL_ATTR0_LEVEL_DAMAGE_CALCULATION);
 +    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
 +
-+    sinfo->Effects[0].BasePoints = 15;
-+    sinfo->Effects[0].DieSides = 9;
-+    sinfo->Effects[0].BonusMultiplier = 0.5f;
-+    sinfo->Effects[0].DamageMultiplier = 1.f;
-+    sinfo->Effects[0].RealPointsPerLevel = 15.f;
-+    sinfo->Effects[0].ValueMultiplier = 1.f;
++    sinfo->_effects[0].BasePoints = 15;
++    sinfo->_effects[0].DieSides = 9;
++    sinfo->_effects[0].BonusMultiplier = 0.5f;
++    sinfo->_effects[0].DamageMultiplier = 1.f;
++    sinfo->_effects[0].RealPointsPerLevel = 15.f;
++    sinfo->_effects[0].ValueMultiplier = 1.f;
 +    //14) END FIREBALL (MAIN ATTACK)
 +
 +    //15) BLIZZARD
@@ -21035,14 +21040,14 @@ index 00000000..cf83ebbd
 +    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
 +    sinfo->AttributesEx5 |= SPELL_ATTR5_HASTE_AFFECT_DURATION;
 +
-+    sinfo->Effects[0].BasePoints = 26;
-+    sinfo->Effects[0].DieSides = 0;
-+    sinfo->Effects[0].BonusMultiplier = 1.f;
-+    sinfo->Effects[0].DamageMultiplier = 1.f;
-+    sinfo->Effects[0].RealPointsPerLevel = 15.f;
-+    sinfo->Effects[0].ValueMultiplier = 1.f;
-+    sinfo->Effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_13_YARDS);
-+    sinfo->Effects[0].Amplitude = 1000;
++    sinfo->_effects[0].BasePoints = 26;
++    sinfo->_effects[0].DieSides = 0;
++    sinfo->_effects[0].BonusMultiplier = 1.f;
++    sinfo->_effects[0].DamageMultiplier = 1.f;
++    sinfo->_effects[0].RealPointsPerLevel = 15.f;
++    sinfo->_effects[0].ValueMultiplier = 1.f;
++    sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_13_YARDS);
++    sinfo->_effects[0].Amplitude = 1000;
 +    //15) END BLIZZARD
 +
 +    //16) SUMMON WATER ELEMENTAL (dummy spell)
@@ -21062,10 +21067,10 @@ index 00000000..cf83ebbd
 +    sinfo->SchoolMask = SPELL_SCHOOL_MASK_FROST | SPELL_SCHOOL_MASK_ARCANE;
 +    sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
 +
-+    sinfo->Effects[0].Effect = SPELL_EFFECT_DUMMY;
-+    //sinfo->Effects[0].BasePoints = 1;
-+    sinfo->Effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
-+    sinfo->Effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS);
++    sinfo->_effects[0].Effect = SPELL_EFFECT_DUMMY;
++    //sinfo->_effects[0].BasePoints = 1;
++    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
++    sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS);
 +    //16) END SUMMON WATER ELEMENTAL
 +
 +    //17) WATERBOLT (MAIN_ATTACK)
@@ -21085,12 +21090,12 @@ index 00000000..cf83ebbd
 +    sinfo->SchoolMask = SPELL_SCHOOL_MASK_FROST | SPELL_SCHOOL_MASK_ARCANE;
 +    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
 +
-+    sinfo->Effects[0].BasePoints = 25;
-+    sinfo->Effects[0].DieSides = 20;
-+    sinfo->Effects[0].BonusMultiplier = 1.f;
-+    sinfo->Effects[0].DamageMultiplier = 1.f;
-+    sinfo->Effects[0].RealPointsPerLevel = 25.f;
-+    sinfo->Effects[0].ValueMultiplier = 1.f;
++    sinfo->_effects[0].BasePoints = 25;
++    sinfo->_effects[0].DieSides = 20;
++    sinfo->_effects[0].BonusMultiplier = 1.f;
++    sinfo->_effects[0].DamageMultiplier = 1.f;
++    sinfo->_effects[0].RealPointsPerLevel = 25.f;
++    sinfo->_effects[0].ValueMultiplier = 1.f;
 +    //17) END WATERBOLT (MAIN ATTACK)
 +
 +    //DREADLORD
@@ -21113,27 +21118,27 @@ index 00000000..cf83ebbd
 +    sinfo->AttributesEx4 |= SPELL_ATTR4_DONT_REMOVE_IN_ARENA;
 +    sinfo->AttributesEx7 |= SPELL_ATTR7_CONSOLIDATED_RAID_BUFF;
 +
-+    sinfo->Effects[0].Effect = SPELL_EFFECT_APPLY_AREA_AURA_RAID;
-+    sinfo->Effects[0].ApplyAuraName = SPELL_AURA_MOD_CRIT_DAMAGE_BONUS;
-+    sinfo->Effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
-+    sinfo->Effects[0].BasePoints = 5;
-+    sinfo->Effects[0].MiscValue = SPELL_SCHOOL_MASK_NORMAL;
-+    sinfo->Effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_40_YARDS);
++    sinfo->_effects[0].Effect = SPELL_EFFECT_APPLY_AREA_AURA_RAID;
++    sinfo->_effects[0].ApplyAuraName = SPELL_AURA_MOD_CRIT_DAMAGE_BONUS;
++    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
++    sinfo->_effects[0].BasePoints = 5;
++    sinfo->_effects[0].MiscValue = SPELL_SCHOOL_MASK_NORMAL;
++    sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_40_YARDS);
 +
-+    sinfo->Effects[1].Effect = SPELL_EFFECT_APPLY_AREA_AURA_RAID;
-+    sinfo->Effects[1].ApplyAuraName = SPELL_AURA_PROC_TRIGGER_SPELL;
-+    sinfo->Effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
-+    sinfo->Effects[1].BasePoints = 1;
-+    sinfo->Effects[1].TriggerSpell = SPELL_TRIGGERED_HEAL;
-+    sinfo->Effects[1].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_40_YARDS);
++    sinfo->_effects[1].Effect = SPELL_EFFECT_APPLY_AREA_AURA_RAID;
++    sinfo->_effects[1].ApplyAuraName = SPELL_AURA_PROC_TRIGGER_SPELL;
++    sinfo->_effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
++    sinfo->_effects[1].BasePoints = 1;
++    sinfo->_effects[1].TriggerSpell = SPELL_TRIGGERED_HEAL;
++    sinfo->_effects[1].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_40_YARDS);
 +
 +    //for stacking rule
 +    /*
-+    sinfo->Effects[2].Effect = SPELL_EFFECT_APPLY_AURA;
-+    sinfo->Effects[2].ApplyAuraName = SPELL_AURA_DUMMY;
-+    sinfo->Effects[2].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
-+    sinfo->Effects[2].BasePoints = 1;
-+    sinfo->Effects[2].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS);
++    sinfo->_effects[2].Effect = SPELL_EFFECT_APPLY_AURA;
++    sinfo->_effects[2].ApplyAuraName = SPELL_AURA_DUMMY;
++    sinfo->_effects[2].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
++    sinfo->_effects[2].BasePoints = 1;
++    sinfo->_effects[2].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS);
 +    */
 +    //18) END VAMPIRIC AURA
 +
@@ -21149,9 +21154,9 @@ index 00000000..cf83ebbd
 +    sinfo->AttributesEx2 |= SPELL_ATTR2_CANT_CRIT;
 +    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT | SPELL_ATTR3_DISABLE_PROC | SPELL_ATTR3_CAN_PROC_WITH_TRIGGERED | SPELL_ATTR3_NO_DONE_BONUS;
 +
-+    sinfo->Effects[0].BasePoints = 1;
++    sinfo->_effects[0].BasePoints = 1;
 +
-+    sinfo->Effects[1].Effect = 0;
++    sinfo->_effects[1].Effect = SPELL_EFFECT_NONE;
 +    //19) END VAMPIRIC HEAL
 +
 +    //20) SLEEP
@@ -21181,16 +21186,16 @@ index 00000000..cf83ebbd
 +    sinfo->AttributesEx |= SPELL_ATTR1_CANT_BE_REDIRECTED | SPELL_ATTR1_CANT_BE_REFLECTED;
 +    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
 +
-+    //sinfo->Effects[0].Effect = SPELL_EFFECT_APPLY_AURA;
-+    //sinfo->Effects[0].ApplyAuraName = SPELL_AURA_MOD_STUN;
-+    //sinfo->Effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
-+    //sinfo->Effects[0].BasePoints = 1;
++    //sinfo->_effects[0].Effect = SPELL_EFFECT_APPLY_AURA;
++    //sinfo->_effects[0].ApplyAuraName = SPELL_AURA_MOD_STUN;
++    //sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
++    //sinfo->_effects[0].BasePoints = 1;
 +
-+    sinfo->Effects[1].Effect = SPELL_EFFECT_APPLY_AURA;
-+    sinfo->Effects[1].ApplyAuraName = SPELL_AURA_MOD_RESISTANCE_PCT;
-+    sinfo->Effects[1].MiscValue = SPELL_SCHOOL_MASK_NORMAL;
-+    sinfo->Effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
-+    sinfo->Effects[1].BasePoints = -100;
++    sinfo->_effects[1].Effect = SPELL_EFFECT_APPLY_AURA;
++    sinfo->_effects[1].ApplyAuraName = SPELL_AURA_MOD_RESISTANCE_PCT;
++    sinfo->_effects[1].MiscValue = SPELL_SCHOOL_MASK_NORMAL;
++    sinfo->_effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
++    sinfo->_effects[1].BasePoints = -100;
 +    //20) END SLEEP
 +
 +    //21) CARRION SWARM
@@ -21217,15 +21222,15 @@ index 00000000..cf83ebbd
 +    sinfo->AttributesEx2 |= SPELL_ATTR2_CANT_CRIT/* | SPELL_ATTR2_CAN_TARGET_NOT_IN_LOS*/;
 +    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
 +
-+    //sinfo->Effects[0].Effect = SPELL_EFFECT_SCHOOL_DAMAGE;
-+    sinfo->Effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CONE_ENEMY_104);
-+    sinfo->Effects[0].BasePoints = 425;
-+    sinfo->Effects[0].DieSides = 150;
-+    sinfo->Effects[0].BonusMultiplier = 2.f;
-+    sinfo->Effects[0].DamageMultiplier = 1.f;
-+    sinfo->Effects[0].RealPointsPerLevel = 37.5f; //2000 avg at 80
-+    sinfo->Effects[0].ValueMultiplier = 1.f;
-+    sinfo->Effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_40_YARDS);
++    //sinfo->_effects[0].Effect = SPELL_EFFECT_SCHOOL_DAMAGE;
++    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CONE_ENEMY_104);
++    sinfo->_effects[0].BasePoints = 425;
++    sinfo->_effects[0].DieSides = 150;
++    sinfo->_effects[0].BonusMultiplier = 2.f;
++    sinfo->_effects[0].DamageMultiplier = 1.f;
++    sinfo->_effects[0].RealPointsPerLevel = 37.5f; //2000 avg at 80
++    sinfo->_effects[0].ValueMultiplier = 1.f;
++    sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_40_YARDS);
 +    //21) END CARRION SWARM
 +
 +    //22) INFERNO (dummy summon)
@@ -21246,9 +21251,9 @@ index 00000000..cf83ebbd
 +    sinfo->AttributesEx |= /*SPELL_ATTR1_UNAFFECTED_BY_SCHOOL_IMMUNE | */SPELL_ATTR1_NO_THREAT;
 +    //sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
 +
-+    sinfo->Effects[0].Effect = SPELL_EFFECT_DUMMY;
-+    sinfo->Effects[0].TargetA = SpellImplicitTargetInfo(TARGET_DEST_DEST);
-+    sinfo->Effects[0].BasePoints = 1;
++    sinfo->_effects[0].Effect = SPELL_EFFECT_DUMMY;
++    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_DEST_DEST);
++    sinfo->_effects[0].BasePoints = 1;
 +    //22) END INFERNO
 +
 +    //23) INFERNO VISUAL (dummy summon)
@@ -21257,8 +21262,8 @@ index 00000000..cf83ebbd
 +
 +    sinfo->ExplicitTargetMask = TARGET_FLAG_DEST_LOCATION;
 +
-+    //sinfo->Effects[0].Effect = SPELL_EFFECT_DUMMY;
-+    sinfo->Effects[0].TargetA = SpellImplicitTargetInfo(TARGET_DEST_DEST);
++    //sinfo->_effects[0].Effect = SPELL_EFFECT_DUMMY;
++    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_DEST_DEST);
 +    //23) END INFERNO VISUAL
 +
 +    //SPELL BREAKER
@@ -21278,10 +21283,10 @@ index 00000000..cf83ebbd
 +    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
 +    sinfo->AttributesEx6 |= SPELL_ATTR6_CAN_TARGET_POSSESSED_FRIENDS;
 +
-+    sinfo->Effects[0].Effect = SPELL_EFFECT_DUMMY;
-+    sinfo->Effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ANY);
++    sinfo->_effects[0].Effect = SPELL_EFFECT_DUMMY;
++    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ANY);
 +
-+    sinfo->Effects[1].Effect = 0;
++    sinfo->_effects[1].Effect = SPELL_EFFECT_NONE;
 +    //24) END STEAL MAGIC
 +
 +    //25) FEEDBACK
@@ -21303,9 +21308,9 @@ index 00000000..cf83ebbd
 +    sinfo->AttributesEx2 |= SPELL_ATTR2_CANT_CRIT;
 +    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
 +
-+    sinfo->Effects[0].Effect = SPELL_EFFECT_POWER_BURN;
-+    sinfo->Effects[0].DieSides = 0;
-+    sinfo->Effects[0].ValueMultiplier = 1.f;
++    sinfo->_effects[0].Effect = SPELL_EFFECT_POWER_BURN;
++    sinfo->_effects[0].DieSides = 0;
++    sinfo->_effects[0].ValueMultiplier = 1.f;
 +    //25) END FEEDBACK
 +
 +    // DARK RANGER
@@ -21342,27 +21347,27 @@ index 00000000..cf83ebbd
 +    sinfo->AttributesEx2 |= SPELL_ATTR2_NOT_RESET_AUTO_ACTIONS/* | SPELL_ATTR2_CANT_CRIT*/;
 +    sinfo->AttributesEx4 |= SPELL_ATTR4_IGNORE_RESISTANCES;
 +
-+    sinfo->Effects[0].Effect = SPELL_EFFECT_WEAPON_PERCENT_DAMAGE;
-+    sinfo->Effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
-+    sinfo->Effects[0].BasePoints = 150;
-+    sinfo->Effects[0].DieSides = 0;
-+    sinfo->Effects[0].BonusMultiplier = 1.f;
-+    sinfo->Effects[0].DamageMultiplier = 1.f;
-+    sinfo->Effects[0].RealPointsPerLevel = 0.f;
-+    sinfo->Effects[0].ValueMultiplier = 1.f;
-+    sinfo->Effects[0].RadiusEntry = nullptr;
++    sinfo->_effects[0].Effect = SPELL_EFFECT_WEAPON_PERCENT_DAMAGE;
++    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
++    sinfo->_effects[0].BasePoints = 150;
++    sinfo->_effects[0].DieSides = 0;
++    sinfo->_effects[0].BonusMultiplier = 1.f;
++    sinfo->_effects[0].DamageMultiplier = 1.f;
++    sinfo->_effects[0].RealPointsPerLevel = 0.f;
++    sinfo->_effects[0].ValueMultiplier = 1.f;
++    sinfo->_effects[0].RadiusEntry = nullptr;
 +
-+    sinfo->Effects[1].Effect = SPELL_EFFECT_APPLY_AURA;
-+    sinfo->Effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
-+    sinfo->Effects[1].ApplyAuraName = SPELL_AURA_PERIODIC_DAMAGE;
-+    sinfo->Effects[1].BasePoints = 100;
-+    sinfo->Effects[1].DieSides = 0;
-+    sinfo->Effects[1].BonusMultiplier = 2.f;
-+    sinfo->Effects[1].DamageMultiplier = 1.f;
-+    sinfo->Effects[1].RealPointsPerLevel = 10.f;
-+    sinfo->Effects[1].ValueMultiplier = 1.f;
-+    sinfo->Effects[1].RadiusEntry = nullptr;
-+    sinfo->Effects[1].Amplitude = 2000;
++    sinfo->_effects[1].Effect = SPELL_EFFECT_APPLY_AURA;
++    sinfo->_effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
++    sinfo->_effects[1].ApplyAuraName = SPELL_AURA_PERIODIC_DAMAGE;
++    sinfo->_effects[1].BasePoints = 100;
++    sinfo->_effects[1].DieSides = 0;
++    sinfo->_effects[1].BonusMultiplier = 2.f;
++    sinfo->_effects[1].DamageMultiplier = 1.f;
++    sinfo->_effects[1].RealPointsPerLevel = 10.f;
++    sinfo->_effects[1].ValueMultiplier = 1.f;
++    sinfo->_effects[1].RadiusEntry = nullptr;
++    sinfo->_effects[1].Amplitude = 2000;
 +    //26) END BLACK ARROW
 +
 +    //27) DRAIN LIFE
@@ -21395,17 +21400,17 @@ index 00000000..cf83ebbd
 +    sinfo->AttributesEx4 |= SPELL_ATTR4_IGNORE_RESISTANCES;
 +    sinfo->AttributesEx5 |= SPELL_ATTR5_START_PERIODIC_AT_APPLY;
 +
-+    sinfo->Effects[0].Effect = SPELL_EFFECT_APPLY_AURA;
-+    sinfo->Effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
-+    sinfo->Effects[0].ApplyAuraName = SPELL_AURA_PERIODIC_LEECH;
-+    sinfo->Effects[0].BasePoints = 45;
-+    sinfo->Effects[0].DieSides = 0;
-+    sinfo->Effects[0].BonusMultiplier = 1.f;
-+    sinfo->Effects[0].DamageMultiplier = 1.f;
-+    sinfo->Effects[0].RealPointsPerLevel = 6.f;
-+    sinfo->Effects[0].ValueMultiplier = 2.f;
-+    sinfo->Effects[0].RadiusEntry = nullptr;
-+    sinfo->Effects[0].Amplitude = 1000;
++    sinfo->_effects[0].Effect = SPELL_EFFECT_APPLY_AURA;
++    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
++    sinfo->_effects[0].ApplyAuraName = SPELL_AURA_PERIODIC_LEECH;
++    sinfo->_effects[0].BasePoints = 45;
++    sinfo->_effects[0].DieSides = 0;
++    sinfo->_effects[0].BonusMultiplier = 1.f;
++    sinfo->_effects[0].DamageMultiplier = 1.f;
++    sinfo->_effects[0].RealPointsPerLevel = 6.f;
++    sinfo->_effects[0].ValueMultiplier = 2.f;
++    sinfo->_effects[0].RadiusEntry = nullptr;
++    sinfo->_effects[0].Amplitude = 1000;
 +    //27) END DRAIN LIFE
 +
 +    //28) SILENCE
@@ -21434,12 +21439,12 @@ index 00000000..cf83ebbd
 +    sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT | TARGET_FLAG_DEST_LOCATION;
 +    sinfo->AttributesEx |= SPELL_ATTR1_CANT_BE_REFLECTED | SPELL_ATTR1_CANT_BE_REDIRECTED;
 +
-+    sinfo->Effects[0].Effect = SPELL_EFFECT_APPLY_AURA;
-+    sinfo->Effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
-+    sinfo->Effects[0].TargetB = SpellImplicitTargetInfo(TARGET_UNIT_DEST_AREA_ENEMY);
-+    sinfo->Effects[0].ApplyAuraName = SPELL_AURA_MOD_SILENCE;
-+    sinfo->Effects[0].BasePoints = 1;
-+    sinfo->Effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_15_YARDS);
++    sinfo->_effects[0].Effect = SPELL_EFFECT_APPLY_AURA;
++    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
++    sinfo->_effects[0].TargetB = SpellImplicitTargetInfo(TARGET_UNIT_DEST_AREA_ENEMY);
++    sinfo->_effects[0].ApplyAuraName = SPELL_AURA_MOD_SILENCE;
++    sinfo->_effects[0].BasePoints = 1;
++    sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_15_YARDS);
 +    //28) END SILENCE
 +
 +    TC_LOG_INFO("server.loading", "Re-Loading Spell Proc conditions...");
@@ -21447,10 +21452,10 @@ index 00000000..cf83ebbd
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 00000000..e9afc2a7
+index 00000000..42e50e0f
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,635 @@
+@@ -0,0 +1,637 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -21691,6 +21696,8 @@ index 00000000..e9afc2a7
 +        bool IsPointedNoDPSTarget(Unit const* target) const;
 +
 +        static bool IsDamagingSpell(SpellInfo const* spellInfo);
++
++        bool IsImmunedToMySpellEffect(Unit const* unit, SpellInfo const* spellInfo, SpellEffIndex index) const;
 +
 +    protected:
 +        explicit bot_ai(Creature* creature);
@@ -22088,7 +22095,7 @@ index 00000000..e9afc2a7
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_archmage_ai.cpp b/src/server/game/AI/NpcBots/bot_archmage_ai.cpp
 new file mode 100644
-index 00000000..3c6e48b6
+index 00000000..66c53f8b
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_archmage_ai.cpp
 @@ -0,0 +1,400 @@
@@ -22302,7 +22309,7 @@ index 00000000..3c6e48b6
 +                pctbonus *= 1.333f;
 +
 +            if (baseId == MAIN_ATTACK_1 || baseId == BLIZZARD_1)
-+                fdamage += me->SpellBaseDamageBonusDone(SPELL_SCHOOL_MASK_MAGIC) * (spellInfo->Effects[0].BonusMultiplier - 1.f) * me->CalculateDefaultCoefficient(spellInfo, SPELL_DIRECT_DAMAGE) * me->CalculateSpellpowerCoefficientLevelPenalty(spellInfo);
++                fdamage += me->SpellBaseDamageBonusDone(SPELL_SCHOOL_MASK_MAGIC) * (spellInfo->_effects[0].BonusMultiplier - 1.f) * me->CalculateDefaultCoefficient(spellInfo, SPELL_DIRECT_DAMAGE) * me->CalculateSpellpowerCoefficientLevelPenalty(spellInfo);
 +
 +            damage = int32(fdamage * pctbonus);
 +        }
@@ -26173,7 +26180,7 @@ index 00000000..50f69ddb
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_dreadlord_ai.cpp b/src/server/game/AI/NpcBots/bot_dreadlord_ai.cpp
 new file mode 100644
-index 00000000..d37554e1
+index 00000000..5d84097d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_dreadlord_ai.cpp
 @@ -0,0 +1,533 @@
@@ -26479,7 +26486,7 @@ index 00000000..d37554e1
 +                pctbonus *= 2.f;
 +
 +            if (baseId == CARRION_SWARM_1)
-+                fdamage += me->SpellBaseDamageBonusDone(SPELL_SCHOOL_MASK_MAGIC) * (spellInfo->Effects[0].BonusMultiplier - 1.f) * me->CalculateDefaultCoefficient(spellInfo, SPELL_DIRECT_DAMAGE) * me->CalculateSpellpowerCoefficientLevelPenalty(spellInfo);
++                fdamage += me->SpellBaseDamageBonusDone(SPELL_SCHOOL_MASK_MAGIC) * (spellInfo->_effects[0].BonusMultiplier - 1.f) * me->CalculateDefaultCoefficient(spellInfo, SPELL_DIRECT_DAMAGE) * me->CalculateSpellpowerCoefficientLevelPenalty(spellInfo);
 +
 +            damage = int32(fdamage * pctbonus);
 +        }
@@ -26712,7 +26719,7 @@ index 00000000..d37554e1
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_druid_ai.cpp b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 new file mode 100644
-index 00000000..0554dd65
+index 00000000..4af2dbe2
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 @@ -0,0 +1,2917 @@
@@ -28618,8 +28625,8 @@ index 00000000..0554dd65
 +                pctbonus += 0.5f;
 +            //Natural Shapeshifter:
 +            if (lvl >= 15 &&
-+                spellInfo->Effects[0].Effect == SPELL_EFFECT_APPLY_AURA &&
-+                spellInfo->Effects[0].ApplyAuraName == SPELL_AURA_MOD_SHAPESHIFT)
++                spellInfo->_effects[0].Effect == SPELL_EFFECT_APPLY_AURA &&
++                spellInfo->_effects[0].ApplyAuraName == SPELL_AURA_MOD_SHAPESHIFT)
 +                pctbonus += 0.3f;
 +            //King of the Jungle part 3:
 +            if (lvl >= 15 && (spellInfo->SpellFamilyFlags[0] & 0xC0000000))
@@ -29582,7 +29589,7 @@ index 00000000..0554dd65
 +            if (InitSpell(me, NOURISH_1))
 +            {
 +                spellInfo = sSpellMgr->GetSpellInfo(InitSpell(me, NOURISH_1));
-+                _heals[NOURISH_1] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->Effects[0].CalcValue(me), HEAL, 0, {});
++                _heals[NOURISH_1] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->_effects[0].CalcValue(me), HEAL, spellInfo->GetEffect(EFFECT_0), {});
 +            }
 +            else
 +                _heals[NOURISH_1] = 0;
@@ -29590,7 +29597,7 @@ index 00000000..0554dd65
 +            if (InitSpell(me, REGROWTH_1))
 +            {
 +                spellInfo = sSpellMgr->GetSpellInfo(InitSpell(me, REGROWTH_1));
-+                _heals[REGROWTH_1] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->Effects[0].CalcValue(me), HEAL, 0, {});
++                _heals[REGROWTH_1] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->_effects[0].CalcValue(me), HEAL, spellInfo->GetEffect(EFFECT_0), {});
 +            }
 +            else
 +                _heals[REGROWTH_1] = 0;
@@ -29598,7 +29605,7 @@ index 00000000..0554dd65
 +            if (InitSpell(me, HEALING_TOUCH_1))
 +            {
 +                spellInfo = sSpellMgr->GetSpellInfo(InitSpell(me, HEALING_TOUCH_1));
-+                _heals[HEALING_TOUCH_1] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->Effects[0].CalcValue(me), HEAL, 0, {});
++                _heals[HEALING_TOUCH_1] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->_effects[0].CalcValue(me), HEAL, spellInfo->GetEffect(EFFECT_0), {});
 +            }
 +            else
 +                _heals[HEALING_TOUCH_1] = 0;
@@ -29606,7 +29613,7 @@ index 00000000..0554dd65
 +            if (InitSpell(me, REJUVENATION_1))
 +            {
 +                spellInfo = sSpellMgr->GetSpellInfo(InitSpell(me, REJUVENATION_1));
-+                _heals[REJUVENATION_1] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->Effects[0].CalcValue(me), DOT, 0, {});
++                _heals[REJUVENATION_1] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->_effects[0].CalcValue(me), DOT, spellInfo->GetEffect(EFFECT_0), {});
 +            }
 +            else
 +                _heals[REJUVENATION_1] = 0;
@@ -31997,7 +32004,7 @@ index 00000000..5e5bd1be
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_mage_ai.cpp b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 new file mode 100644
-index 00000000..e66f6a5b
+index 00000000..ecd1b723
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 @@ -0,0 +1,1826 @@
@@ -32536,7 +32543,7 @@ index 00000000..e66f6a5b
 +            }
 +            //Deep Freeze (damage only)
 +            if (fbCasted && IsSpellReady(DEEP_FREEZE_1, diff) && dist < CalcSpellMaxRange(DEEP_FREEZE_1) && Rand() < 30 &&
-+                opponent->IsImmunedToSpellEffect(sSpellMgr->GetSpellInfo(DEEP_FREEZE_1), 0, me) && (opponent->IsFrozen() || me->HasAuraType(SPELL_AURA_ABILITY_IGNORE_AURASTATE)))
++                IsImmunedToMySpellEffect(opponent, sSpellMgr->GetSpellInfo(DEEP_FREEZE_1), EFFECT_0) && (opponent->IsFrozen() || me->HasAuraType(SPELL_AURA_ABILITY_IGNORE_AURASTATE)))
 +            {
 +                if (doCast(opponent, GetSpell(DEEP_FREEZE_1)))
 +                    return;
@@ -33254,7 +33261,7 @@ index 00000000..e66f6a5b
 +            //Mana gem conjure and use
 +            if (baseId == CONJURE_MANA_GEM_1)
 +            {
-+                //ItemTemplate const* gem = sObjectMgr->GetItemTemplate(spellInfo->Effects[0].ItemType);
++                //ItemTemplate const* gem = sObjectMgr->GetItemTemplate(spellInfo->_effects[0].ItemType);
 +                //ASSERT(gem);
 +                //manaGemCharges = uint8(abs(gem->Spells[1].SpellCharges)); //at index 1
 +
@@ -33371,12 +33378,12 @@ index 00000000..e66f6a5b
 +                //handle effects
 +                for (uint8 i = 0; i != MAX_SPELL_EFFECTS; ++i)
 +                {
-+                    switch (spell->Effects[i].Effect)
++                    switch (spell->_effects[i].Effect)
 +                    {
 +                        case SPELL_EFFECT_CREATE_ITEM:
 +                        case SPELL_EFFECT_CREATE_ITEM_2:
 +                        {
-+                            uint32 newitemid = spell->Effects[i].ItemType;
++                            uint32 newitemid = spell->_effects[i].ItemType;
 +                            if (newitemid)
 +                            {
 +                                ItemPosCountVec dest;
@@ -33829,7 +33836,7 @@ index 00000000..e66f6a5b
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 new file mode 100644
-index 00000000..890ebedf
+index 00000000..a947eeb2
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 @@ -0,0 +1,2764 @@
@@ -35375,7 +35382,7 @@ index 00000000..890ebedf
 +            //Hammer of Justice
 +            if (IsSpellReady(HAMMER_OF_JUSTICE_1, diff) && !CCed(opponent) && dist < 10 && Rand() < 20 &&
 +                opponent->GetDiminishing(DIMINISHING_STUN) <= DIMINISHING_LEVEL_2 &&
-+                !opponent->IsImmunedToSpellEffect(sSpellMgr->GetSpellInfo(HAMMER_OF_JUSTICE_1), 0, me))
++                !IsImmunedToMySpellEffect(opponent, sSpellMgr->GetSpellInfo(HAMMER_OF_JUSTICE_1), EFFECT_0))
 +            {
 +                if (doCast(opponent, GetSpell(HAMMER_OF_JUSTICE_1)))
 +                    return;
@@ -36459,7 +36466,7 @@ index 00000000..890ebedf
 +            if (InitSpell(me, HOLY_SHOCK_HEAL_1))
 +            {
 +                spellInfo = sSpellMgr->GetSpellInfo(InitSpell(me, HOLY_SHOCK_HEAL_1));
-+                _heals[HOLY_SHOCK_1] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->Effects[0].CalcValue(me), HEAL, 0, {});
++                _heals[HOLY_SHOCK_1] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->_effects[0].CalcValue(me), HEAL, spellInfo->GetEffect(EFFECT_0), {});
 +            }
 +            else
 +                _heals[HOLY_SHOCK_1] = 0;
@@ -36467,7 +36474,7 @@ index 00000000..890ebedf
 +            if (InitSpell(me, HOLY_LIGHT_1))
 +            {
 +                spellInfo = sSpellMgr->GetSpellInfo(InitSpell(me, HOLY_LIGHT_1));
-+                _heals[HOLY_LIGHT_1] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->Effects[0].CalcValue(me), HEAL, 0, {});
++                _heals[HOLY_LIGHT_1] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->_effects[0].CalcValue(me), HEAL, spellInfo->GetEffect(EFFECT_0), {});
 +            }
 +            else
 +                _heals[HOLY_LIGHT_1] = 0;
@@ -36475,7 +36482,7 @@ index 00000000..890ebedf
 +            if (InitSpell(me, FLASH_OF_LIGHT_1))
 +            {
 +                spellInfo = sSpellMgr->GetSpellInfo(InitSpell(me, FLASH_OF_LIGHT_1));
-+                _heals[FLASH_OF_LIGHT_1] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->Effects[0].CalcValue(me), HEAL, 0, {});
++                _heals[FLASH_OF_LIGHT_1] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->_effects[0].CalcValue(me), HEAL, spellInfo->GetEffect(EFFECT_0), {});
 +            }
 +            else
 +                _heals[FLASH_OF_LIGHT_1] = 0;
@@ -36599,7 +36606,7 @@ index 00000000..890ebedf
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_priest_ai.cpp b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 new file mode 100644
-index 00000000..ed10a842
+index 00000000..126336b2
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 @@ -0,0 +1,2099 @@
@@ -38658,7 +38665,7 @@ index 00000000..ed10a842
 +            if (InitSpell(me, HEAL))
 +            {
 +                spellInfo = sSpellMgr->GetSpellInfo(InitSpell(me, HEAL));
-+                _heals[HEAL] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->Effects[0].CalcValue(me), DamageEffectType(3), 0, {});
++                _heals[HEAL] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->_effects[0].CalcValue(me), DamageEffectType(3), spellInfo->GetEffect(EFFECT_0), {});
 +            }
 +            else
 +                _heals[HEAL] = 0;
@@ -38666,7 +38673,7 @@ index 00000000..ed10a842
 +            if (InitSpell(me, FLASH_HEAL_1))
 +            {
 +                spellInfo = sSpellMgr->GetSpellInfo(InitSpell(me, FLASH_HEAL_1));
-+                _heals[FLASH_HEAL_1] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->Effects[0].CalcValue(me), DamageEffectType(3), 0, {});
++                _heals[FLASH_HEAL_1] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->_effects[0].CalcValue(me), DamageEffectType(3), spellInfo->GetEffect(EFFECT_0), {});
 +            }
 +            else
 +                _heals[FLASH_HEAL_1] = 0;
@@ -38674,7 +38681,7 @@ index 00000000..ed10a842
 +            if (InitSpell(me, PENANCE_HEAL_1))
 +            {
 +                spellInfo = sSpellMgr->GetSpellInfo(InitSpell(me, PENANCE_HEAL_1));
-+                _heals[PENANCE_1] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->Effects[0].CalcValue(me), DamageEffectType(3), 0, {});
++                _heals[PENANCE_1] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->_effects[0].CalcValue(me), DamageEffectType(3), spellInfo->GetEffect(EFFECT_0), {});
 +            }
 +            else
 +                _heals[PENANCE_1] = 0;
@@ -38682,7 +38689,7 @@ index 00000000..ed10a842
 +            if (InitSpell(me, DESPERATE_PRAYER_1))
 +            {
 +                spellInfo = sSpellMgr->GetSpellInfo(InitSpell(me, DESPERATE_PRAYER_1));
-+                _heals[DESPERATE_PRAYER_1] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->Effects[0].CalcValue(me), DamageEffectType(3), 0, {});
++                _heals[DESPERATE_PRAYER_1] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->_effects[0].CalcValue(me), DamageEffectType(3), spellInfo->GetEffect(EFFECT_0), {});
 +            }
 +            else
 +                _heals[DESPERATE_PRAYER_1] = 0;
@@ -38704,7 +38711,7 @@ index 00000000..ed10a842
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_rogue_ai.cpp b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 new file mode 100644
-index 00000000..c569cd21
+index 00000000..2407f71e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 @@ -0,0 +1,2030 @@
@@ -39282,7 +39289,7 @@ index 00000000..c569cd21
 +                //Kidney Shot
 +                if (GetSpell(KIDNEY_SHOT_1) && !stealthed && stunDivider < DIMINISHING_LEVEL_4 &&
 +                    Rand() < 80 && !CCed(opponent) &&
-+                    !opponent->IsImmunedToSpellEffect(sSpellMgr->GetSpellInfo(KIDNEY_SHOT_1), EFFECT_0, me) &&
++                    !IsImmunedToMySpellEffect(opponent, sSpellMgr->GetSpellInfo(KIDNEY_SHOT_1), EFFECT_0) &&
 +                    ((comboPoints >= 4 && stunDivider < DIMINISHING_LEVEL_3 &&
 +                    (opponent->GetHealth() > me->GetMaxHealth() / 2 || opponent->GetTypeId() == TYPEID_PLAYER)) ||
 +                    opponent->IsNonMeleeSpellCast(false,false,true)) &&
@@ -39328,7 +39335,7 @@ index 00000000..c569cd21
 +                    !opponent->HasAuraType(SPELL_AURA_MOD_STUN) && stunDivider < DIMINISHING_LEVEL_3 &&
 +                    (opponent->GetTypeId() == TYPEID_PLAYER || (!IAmFree() && master->GetNpcBotsCount() > 1)) ? CHEAP_SHOT_1 :
 +                    GetSpell(GARROTE_1) && HasRole(BOT_ROLE_DPS) && opponent->GetHealth() > me->GetMaxHealth() / 4 &&
-+                    !opponent->IsImmunedToSpellEffect(sSpellMgr->GetSpellInfo(GARROTE_1), 0, me) &&
++                    !IsImmunedToMySpellEffect(opponent, sSpellMgr->GetSpellInfo(GARROTE_1), EFFECT_0) &&
 +                    (!isdaggerMH || (opponent->GetTypeId() == TYPEID_PLAYER &&
 +                    (opponent->GetClass() == CLASS_MAGE || opponent->GetClass() == CLASS_PRIEST || opponent->GetClass() == CLASS_WARLOCK))) &&
 +                    !opponent->GetAuraEffect(SPELL_AURA_PERIODIC_DAMAGE, SPELLFAMILY_ROGUE, 0x100, 0x0, 0x0, me->GetGUID()) ? GARROTE_1 :
@@ -39570,10 +39577,10 @@ index 00000000..c569cd21
 +                            count += 2;
 +                        }
 +                        //area spell
-+                        if ((spell->GetSpellInfo()->Effects[0].IsEffect() &&
-+                            spell->GetSpellInfo()->Effects[0].TargetB.GetSelectionCategory() == TARGET_SELECT_CATEGORY_NEARBY) ||
-+                            (spell->GetSpellInfo()->Effects[1].IsEffect() &&
-+                            spell->GetSpellInfo()->Effects[1].TargetB.GetSelectionCategory() == TARGET_SELECT_CATEGORY_NEARBY))
++                        if ((spell->GetSpellInfo()->_effects[0].IsEffect() &&
++                            spell->GetSpellInfo()->_effects[0].TargetB.GetSelectionCategory() == TARGET_SELECT_CATEGORY_NEARBY) ||
++                            (spell->GetSpellInfo()->_effects[1].IsEffect() &&
++                            spell->GetSpellInfo()->_effects[1].TargetB.GetSelectionCategory() == TARGET_SELECT_CATEGORY_NEARBY))
 +                        {
 +                            count += 2;
 +                        }
@@ -40048,7 +40055,7 @@ index 00000000..c569cd21
 +                uint32 slot = TEMP_ENCHANTMENT_SLOT;
 +                uint32 duration = 2 * IN_MILLISECONDS;
 +                uint32 charges = 0;
-+                uint32 enchant_id = spellInfo->Effects[0].MiscValue;
++                uint32 enchant_id = spellInfo->_effects[0].MiscValue;
 +                //SpellItemEnchantmentEntry const* pEnchant = sSpellItemEnchantmentStore.LookupEntry(enchant_id);
 +                Item* mh = GetEquips(BOT_SLOT_MAINHAND);
 +                Item* oh = GetEquips(BOT_SLOT_OFFHAND);
@@ -40740,7 +40747,7 @@ index 00000000..c569cd21
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_shaman_ai.cpp b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 new file mode 100644
-index 00000000..64b437cd
+index 00000000..4b246ea3
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 @@ -0,0 +1,2812 @@
@@ -42621,7 +42628,7 @@ index 00000000..64b437cd
 +                uint32 slot = TEMP_ENCHANTMENT_SLOT;
 +                uint32 duration = 2 * IN_MILLISECONDS;
 +                uint32 charges = 0;
-+                uint32 enchant_id = spellInfo->Effects[0].MiscValue;
++                uint32 enchant_id = spellInfo->_effects[0].MiscValue;
 +                //SpellItemEnchantmentEntry const* pEnchant = sSpellItemEnchantmentStore.LookupEntry(enchant_id);
 +                Item* mh = GetEquips(BOT_SLOT_MAINHAND);
 +                Item* oh = GetEquips(BOT_SLOT_OFFHAND);
@@ -42743,7 +42750,7 @@ index 00000000..64b437cd
 +                    if (baseId == CHAIN_LIGHTNING_1)
 +                    {
 +                        //Normalize chance
-+                        if (urand(1,100) <= (100.f / spell->Effects[0].ChainTarget))
++                        if (urand(1,100) <= (100.f / spell->_effects[0].ChainTarget))
 +                            me->CastSpell(target, procId, true);
 +                    }
 +                }
@@ -42973,7 +42980,7 @@ index 00000000..64b437cd
 +
 +            float radius = 30.f;
 +            if (SpellInfo const* info = sSpellMgr->GetSpellInfo(summon->m_spells[0]))
-+                if (SpellRadiusEntry const* entry = info->Effects[0].RadiusEntry)
++                if (SpellRadiusEntry const* entry = info->_effects[0].RadiusEntry)
 +                    radius = std::max<float>(entry->RadiusMax, radius);
 +
 +            uint32 createSpell = summon->GetUInt32Value(UNIT_CREATED_BY_SPELL);
@@ -43405,7 +43412,7 @@ index 00000000..64b437cd
 +            if (InitSpell(me, HEALING_WAVE_1))
 +            {
 +                spellInfo = sSpellMgr->GetSpellInfo(InitSpell(me, HEALING_WAVE_1));
-+                _heals[HEALING_WAVE_1] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->Effects[0].CalcValue(me), HEAL, 0, {});
++                _heals[HEALING_WAVE_1] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->_effects[0].CalcValue(me), HEAL, spellInfo->GetEffect(EFFECT_0), {});
 +            }
 +            else
 +                _heals[HEALING_WAVE_1] = 0;
@@ -43413,7 +43420,7 @@ index 00000000..64b437cd
 +            if (InitSpell(me, LESSER_HEALING_WAVE_1))
 +            {
 +                spellInfo = sSpellMgr->GetSpellInfo(InitSpell(me, LESSER_HEALING_WAVE_1));
-+                _heals[LESSER_HEALING_WAVE_1] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->Effects[0].CalcValue(me), HEAL, 0, {});
++                _heals[LESSER_HEALING_WAVE_1] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->_effects[0].CalcValue(me), HEAL, spellInfo->GetEffect(EFFECT_0), {});
 +            }
 +            else
 +                _heals[LESSER_HEALING_WAVE_1] = 0;
@@ -43421,7 +43428,7 @@ index 00000000..64b437cd
 +            if (InitSpell(me, RIPTIDE_1))
 +            {
 +                spellInfo = sSpellMgr->GetSpellInfo(InitSpell(me, RIPTIDE_1));
-+                _heals[RIPTIDE_1] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->Effects[0].CalcValue(me), HEAL, 0, {});
++                _heals[RIPTIDE_1] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->_effects[0].CalcValue(me), HEAL, spellInfo->GetEffect(EFFECT_0), {});
 +            }
 +            else
 +                _heals[RIPTIDE_1] = 0;
@@ -43429,7 +43436,7 @@ index 00000000..64b437cd
 +            if (InitSpell(me, CHAIN_HEAL_1))
 +            {
 +                spellInfo = sSpellMgr->GetSpellInfo(InitSpell(me, CHAIN_HEAL_1));
-+                _heals[CHAIN_HEAL_1] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->Effects[0].CalcValue(me), HEAL, 0, {});
++                _heals[CHAIN_HEAL_1] = me->SpellHealingBonusDone(me, spellInfo, spellInfo->_effects[0].CalcValue(me), HEAL, spellInfo->GetEffect(EFFECT_0), {});
 +            }
 +            else
 +                _heals[CHAIN_HEAL_1] = 0;
@@ -44147,7 +44154,7 @@ index 00000000..0b010e13
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_sphynx_ai.cpp b/src/server/game/AI/NpcBots/bot_sphynx_ai.cpp
 new file mode 100644
-index 00000000..bfe7135f
+index 00000000..31d59792
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_sphynx_ai.cpp
 @@ -0,0 +1,590 @@
@@ -44497,9 +44504,9 @@ index 00000000..bfe7135f
 +                return;
 +        }
 +
-+        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool crit) const override
++        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* /*spellInfo*/, WeaponAttackType /*attackType*/, bool crit) const override
 +        {
-+            uint32 baseId = spellInfo->GetFirstRankSpell()->Id;
++            //uint32 baseId = spellInfo->GetFirstRankSpell()->Id;
 +            //uint8 lvl = me->getLevel();
 +            float fdamage = float(damage);
 +
@@ -44743,7 +44750,7 @@ index 00000000..bfe7135f
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warlock_ai.cpp b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 new file mode 100644
-index 00000000..7be1e835
+index 00000000..74a661f2
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 @@ -0,0 +1,2077 @@
@@ -45403,7 +45410,7 @@ index 00000000..7be1e835
 +                //ASSERT(rank >= 1 && rank <= 8);
 +                spellInfo = sSpellMgr->GetSpellInfo(_healthStoneSpells[rank - 1]);
 +                ASSERT(spellInfo);
-+                int32 healing = spellInfo->Effects[0].BasePoints;
++                int32 healing = spellInfo->_effects[0].BasePoints;
 +                //Glyph of Healthstone
 +                if (me->GetLevel() >= 15)
 +                    healing = int32(float(healing) * 1.3f);
@@ -46234,7 +46241,7 @@ index 00000000..7be1e835
 +            if (baseId == LIFE_TAP_1)
 +            {
 +                //level * 3 based on in-game tooltip and spellwork (BasePoints = 2000 + Level * 4,00)
-+                int32 damage = spell->Effects[0].CalcValue(me);
++                int32 damage = spell->_effects[0].CalcValue(me);
 +                int32 manaGain = damage;
 +                damage += int32(me->GetLevel() * 3);
 +                manaGain += 0.5f * me->SpellBaseDamageBonusDone(SPELL_SCHOOL_MASK_MAGIC);
@@ -46826,7 +46833,7 @@ index 00000000..7be1e835
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warrior_ai.cpp b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 new file mode 100644
-index 00000000..c5a9ae11
+index 00000000..3598bfd0
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 @@ -0,0 +1,2252 @@
@@ -48231,7 +48238,7 @@ index 00000000..c5a9ae11
 +            //Improved Cleave: 120% increased '!bonus damage!' done by Cleave (flat mod)
 +            if ((_spec == BOT_SPEC_WARRIOR_FURY) && lvl >= 25 && baseId == CLEAVE_1)
 +            {
-+                float bp = spellInfo->Effects[EFFECT_0].BasePoints; //SPELL_EFFECT_WEAPON_DAMAGE (values: 15 - 222)
++                float bp = spellInfo->_effects[EFFECT_0].BasePoints; //SPELL_EFFECT_WEAPON_DAMAGE (values: 15 - 222)
 +                fdamage += bp * 1.2;
 +            }
 +
@@ -53872,7 +53879,7 @@ index 00000000..2a0f62b4
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 00000000..ba51d7a5
+index 00000000..516973e2
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
 @@ -0,0 +1,1480 @@
@@ -55183,30 +55190,30 @@ index 00000000..ba51d7a5
 +
 +            for (uint8 j = 0; j != MAX_SPELL_EFFECTS; ++j)
 +            {
-+                if (spellInfo->Effects[j].Effect != SPELL_EFFECT_HEAL)
++                if (spellInfo->_effects[j].Effect != SPELL_EFFECT_HEAL)
 +                    continue;
 +
 +                if (targetGuid != unit->GetGUID())
 +                {
-+                    if (spellInfo->Effects[j].TargetA.GetSelectionCategory() != TARGET_SELECT_CATEGORY_AREA)
++                    if (spellInfo->_effects[j].TargetA.GetSelectionCategory() != TARGET_SELECT_CATEGORY_AREA)
 +                        continue;
 +
-+                    //Targets t = spellInfo->Effects[j].TargetA.GetTarget();
++                    //Targets t = spellInfo->_effects[j].TargetA.GetTarget();
 +                    //non-existing case
 +                    //if (t == TARGET_UNIT_CASTER_AREA_PARTY && !gr->SameSubGroup(u->GetGUID(), unit->GetGUID()))
 +                    //    continue;
-+                    Targets t = spellInfo->Effects[j].TargetB.GetTarget();
++                    Targets t = spellInfo->_effects[j].TargetB.GetTarget();
 +                    if (t == TARGET_UNIT_LASTTARGET_AREA_PARTY &&
 +                        !(GetBot(unit->GetGUID()) && GetBot(targetGuid)) &&
 +                        !gr->SameSubGroup(unit->GetGUID(), targetGuid))
 +                        continue;
 +                }
 +
-+                int32 healing = u->SpellHealingBonusDone(const_cast<Unit*>(unit), spellInfo, spellInfo->Effects[0].CalcValue(u), HEAL, 0, {});
++                int32 healing = u->SpellHealingBonusDone(const_cast<Unit*>(unit), spellInfo, spellInfo->_effects[0].CalcValue(u), HEAL, spellInfo->GetEffect(EFFECT_0), {});
 +                healing = unit->SpellHealingBonusTaken(u, spellInfo, healing, HEAL);
 +
 +                if (i == CURRENT_CHANNELED_SPELL)
-+                    amount += healing / (spellInfo->Effects[j].Amplitude * 0.001f);
++                    amount += healing / (spellInfo->_effects[j].Amplitude * 0.001f);
 +                else
 +                    amount += healing / (std::max<int32>(spell->GetTimer(), 1000) * 0.001f);
 +
@@ -55565,7 +55572,7 @@ index 00000000..2c19fd4a
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bpet_ai.cpp b/src/server/game/AI/NpcBots/bpet_ai.cpp
 new file mode 100644
-index 00000000..5272f431
+index 00000000..f554f5ba
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_ai.cpp
 @@ -0,0 +1,2313 @@
@@ -55875,8 +55882,8 @@ index 00000000..5272f431
 +
 +    uint32 dispelMask = 0;
 +    for (uint8 i = 0; i != MAX_SPELL_EFFECTS; ++i)
-+        if (info->Effects[i].Effect == SPELL_EFFECT_DISPEL)
-+            dispelMask |= SpellInfo::GetDispelMask(DispelType(info->Effects[i].MiscValue));
++        if (info->_effects[i].Effect == SPELL_EFFECT_DISPEL)
++            dispelMask |= SpellInfo::GetDispelMask(DispelType(info->_effects[i].MiscValue));
 +
 +    if (dispelMask == 0)
 +        return false;
@@ -57454,7 +57461,7 @@ index 00000000..5272f431
 +
 +    for (uint8 i = 0; i != MAX_SPELL_EFFECTS; ++i)
 +    {
-+        uint32 const auraname = spell->Effects[i].ApplyAuraName;
++        uint32 const auraname = spell->_effects[i].ApplyAuraName;
 +
 +        //update stats
 +        if (auraname == SPELL_AURA_MOD_STAT || auraname == SPELL_AURA_MOD_PERCENT_STAT ||
@@ -60502,7 +60509,7 @@ index 00000000..42514d80
 +}
 diff --git a/src/server/game/AI/NpcBots/bpet_warlock.cpp b/src/server/game/AI/NpcBots/bpet_warlock.cpp
 new file mode 100644
-index 00000000..fc90c0df
+index 00000000..b180e1e7
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_warlock.cpp
 @@ -0,0 +1,409 @@
@@ -60599,7 +60606,7 @@ index 00000000..fc90c0df
 +            {
 +                //hacked - confilct with soul link due to ownerGuid mismatch
 +                if (IsSpellReady(BLOOD_PACT_1, diff, false) && (!me->HasAuraType(SPELL_AURA_230) ||
-+                    me->GetAuraEffectsByType(SPELL_AURA_230).front()->GetAmount() < sSpellMgr->GetSpellInfo(GetSpell(BLOOD_PACT_1))->Effects[0].CalcValue()))
++                    me->GetAuraEffectsByType(SPELL_AURA_230).front()->GetAmount() < sSpellMgr->GetSpellInfo(GetSpell(BLOOD_PACT_1))->_effects[0].CalcValue()))
 +                {
 +                    me->CastSpell(me, GetSpell(BLOOD_PACT_1), false);
 +                    //CastSpellExtraArgs args(true);
@@ -60992,7 +60999,7 @@ index a4081058..32838096 100644
  }
  
 diff --git a/src/server/game/Conditions/ConditionMgr.cpp b/src/server/game/Conditions/ConditionMgr.cpp
-index 5a5b66b9..815bfed1 100644
+index eb81bcba..5abe8d06 100644
 --- a/src/server/game/Conditions/ConditionMgr.cpp
 +++ b/src/server/game/Conditions/ConditionMgr.cpp
 @@ -33,6 +33,10 @@
@@ -61379,7 +61386,7 @@ index 75dd4abd..4cb80fff 100644
              sLFGMgr->LeaveLfg(group->GetGUID());
              group->Disband();
 diff --git a/src/server/game/Entities/Creature/Creature.cpp b/src/server/game/Entities/Creature/Creature.cpp
-index 502d214e..e3b5b38c 100644
+index 9a7ec7c8..275e63cb 100644
 --- a/src/server/game/Entities/Creature/Creature.cpp
 +++ b/src/server/game/Entities/Creature/Creature.cpp
 @@ -56,6 +56,11 @@
@@ -61960,7 +61967,7 @@ index 502d214e..e3b5b38c 100644
 +}
 +//END NPCBOT
 diff --git a/src/server/game/Entities/Creature/Creature.h b/src/server/game/Entities/Creature/Creature.h
-index b64e09ec..1b6b7be9 100644
+index de1df182..381b7e22 100644
 --- a/src/server/game/Entities/Creature/Creature.h
 +++ b/src/server/game/Entities/Creature/Creature.h
 @@ -28,6 +28,11 @@
@@ -62189,7 +62196,7 @@ index 13fcc0cb..e5cc13d6 100644
          case CREATURE_FLAG_EXTRA_IGNORE_PATHFINDING: return 29;
          case CREATURE_FLAG_EXTRA_IMMUNITY_KNOCKBACK: return 30;
 diff --git a/src/server/game/Entities/Object/Object.cpp b/src/server/game/Entities/Object/Object.cpp
-index 95f25061..f1c9bad7 100644
+index 0a43a53d..ec136625 100644
 --- a/src/server/game/Entities/Object/Object.cpp
 +++ b/src/server/game/Entities/Object/Object.cpp
 @@ -1001,6 +1001,11 @@ void WorldObject::setActive(bool on)
@@ -62401,7 +62408,7 @@ index 65b9fffc..37c8714c 100644
          player->GiveXP(xp, _victim, _groupRate);
          if (Pet* pet = player->GetPet())
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index 7d7f39ed..ff4ee6f1 100644
+index f8d90a45..736cf095 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -104,6 +104,11 @@
@@ -62465,8 +62472,8 @@ index 7d7f39ed..ff4ee6f1 100644
              // remove all dyn objects
              RemoveAllDynObjects();
  
-@@ -1988,6 +2014,25 @@ bool Player::IsImmunedToSpellEffect(SpellInfo const* spellInfo, uint32 index, Wo
-     return Unit::IsImmunedToSpellEffect(spellInfo, index, caster);
+@@ -1988,6 +2014,25 @@ bool Player::IsImmunedToSpellEffect(SpellInfo const* spellInfo, SpellEffectInfo
+     return Unit::IsImmunedToSpellEffect(spellInfo, spellEffectInfo, caster);
  }
  
 +//NPCBOT
@@ -62577,7 +62584,7 @@ index 7d7f39ed..ff4ee6f1 100644
  }
  
  bool Player::IsMaxLevel() const
-@@ -4416,6 +4519,12 @@ void Player::DeleteFromDB(ObjectGuid playerguid, uint32 accountId, bool updateRe
+@@ -4418,6 +4521,12 @@ void Player::DeleteFromDB(ObjectGuid playerguid, uint32 accountId, bool updateRe
              trans->Append(stmt);
  
              Corpse::DeleteFromDB(playerguid, trans);
@@ -62590,7 +62597,7 @@ index 7d7f39ed..ff4ee6f1 100644
              break;
          }
          // The character gets unlinked from the account, the name gets freed up and appears as deleted ingame
-@@ -6825,6 +6934,36 @@ bool Player::RewardHonor(Unit* victim, uint32 groupsize, int32 honor, bool pvpto
+@@ -6827,6 +6936,36 @@ bool Player::RewardHonor(Unit* victim, uint32 groupsize, int32 honor, bool pvpto
              UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL, 1, 0, victim);
              UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_SPECIAL_PVP_KILL, 1, 0, victim);
          }
@@ -62658,7 +62665,7 @@ index 7d7f39ed..ff4ee6f1 100644
  }
  
  void Player::UpdatePotionCooldown(Spell* spell)
-@@ -23851,6 +24007,11 @@ bool Player::isHonorOrXPTarget(Unit* victim) const
+@@ -23849,6 +24005,11 @@ bool Player::isHonorOrXPTarget(Unit* victim) const
  
      if (Creature const* creature = victim->ToCreature())
      {
@@ -62671,7 +62678,7 @@ index 7d7f39ed..ff4ee6f1 100644
              return false;
      }
 diff --git a/src/server/game/Entities/Player/Player.h b/src/server/game/Entities/Player/Player.h
-index 69fc386e..891e77fb 100644
+index b0ceb39e..a8fc9002 100644
 --- a/src/server/game/Entities/Player/Player.h
 +++ b/src/server/game/Entities/Player/Player.h
 @@ -81,6 +81,10 @@ enum ItemClass : uint8;
@@ -62721,7 +62728,7 @@ index 69fc386e..891e77fb 100644
          InventoryResult CanStoreItem_InSpecificSlot(uint8 bag, uint8 slot, ItemPosCountVec& dest, ItemTemplate const* pProto, uint32& count, bool swap, Item* pSrcItem) const;
          InventoryResult CanStoreItem_InBag(uint8 bag, ItemPosCountVec& dest, ItemTemplate const* pProto, uint32& count, bool merge, bool non_specialized, Item* pSrcItem, uint8 skip_bag, uint8 skip_slot) const;
 diff --git a/src/server/game/Entities/Totem/Totem.cpp b/src/server/game/Entities/Totem/Totem.cpp
-index 5c86d337..baa88b95 100644
+index 4cc7e6df..5888db04 100644
 --- a/src/server/game/Entities/Totem/Totem.cpp
 +++ b/src/server/game/Entities/Totem/Totem.cpp
 @@ -25,6 +25,10 @@
@@ -62771,7 +62778,7 @@ index 5c86d337..baa88b95 100644
  }
  
 diff --git a/src/server/game/Entities/Unit/StatSystem.cpp b/src/server/game/Entities/Unit/StatSystem.cpp
-index 0458f14b..15d78366 100644
+index c1939f60..a2e4242c 100644
 --- a/src/server/game/Entities/Unit/StatSystem.cpp
 +++ b/src/server/game/Entities/Unit/StatSystem.cpp
 @@ -1111,16 +1111,58 @@ void Creature::CalculateMinMaxDamage(WeaponAttackType attType, bool normalized,
@@ -62836,7 +62843,7 @@ index 0458f14b..15d78366 100644
      float totalPct         = addTotalPct ? GetPctModifierValue(unitMod, TOTAL_PCT) : 1.0f;
      float dmgMultiplier    = GetCreatureTemplate()->ModDamage; // = ModDamage * _GetDamageMod(rank);
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index bffe3258..274b17ca 100644
+index c7850872..351039a0 100644
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
 @@ -79,6 +79,10 @@
@@ -63110,7 +63117,7 @@ index bffe3258..274b17ca 100644
              chance += GetTotalAuraModifier(SPELL_AURA_MOD_WEAPON_CRIT_PERCENT);
              chance += GetTotalAuraModifier(SPELL_AURA_MOD_CRIT_PCT);
          }
-@@ -3831,6 +3969,11 @@ void Unit::RemoveAurasDueToSpellByDispel(uint32 spellId, uint32 dispellerSpellId
+@@ -3832,6 +3970,11 @@ void Unit::RemoveAurasDueToSpellByDispel(uint32 spellId, uint32 dispellerSpellId
              // Call AfterDispel hook on AuraScript
              aura->CallScriptAfterDispel(&dispelInfo);
  
@@ -63122,7 +63129,7 @@ index bffe3258..274b17ca 100644
              return;
          }
          else
-@@ -5599,6 +5742,9 @@ bool Unit::Attack(Unit* victim, bool meleeAttack)
+@@ -5600,6 +5743,9 @@ bool Unit::Attack(Unit* victim, bool meleeAttack)
      //    ToCreature()->SetCombatStartPosition(GetPositionX(), GetPositionY(), GetPositionZ());
  
      if (creature && !IsControlledByPlayer())
@@ -63132,7 +63139,7 @@ index bffe3258..274b17ca 100644
      {
          EngageWithTarget(victim); // ensure that anything we're attacking has threat
  
-@@ -5700,6 +5846,19 @@ void Unit::CombatStopWithPets(bool includingCast)
+@@ -5701,6 +5847,19 @@ void Unit::CombatStopWithPets(bool includingCast)
  
      for (Unit* minion : m_Controlled)
          minion->CombatStop(includingCast);
@@ -63152,7 +63159,7 @@ index bffe3258..274b17ca 100644
  }
  
  bool Unit::isAttackingPlayer() const
-@@ -6299,6 +6458,11 @@ Unit* Unit::GetNextRandomRaidMemberOrPet(float radius)
+@@ -6300,6 +6459,11 @@ Unit* Unit::GetNextRandomRaidMemberOrPet(float radius)
      else if (GetTypeId() == TYPEID_UNIT && IsPet())
          player = GetOwner()->ToPlayer();
  
@@ -63164,7 +63171,7 @@ index bffe3258..274b17ca 100644
      if (!player)
          return nullptr;
      Group* group = player->GetGroup();
-@@ -6327,6 +6491,25 @@ Unit* Unit::GetNextRandomRaidMemberOrPet(float radius)
+@@ -6328,6 +6492,25 @@ Unit* Unit::GetNextRandomRaidMemberOrPet(float radius)
              if (Target != this && IsWithinDistInMap(Target, radius) && Target->IsAlive() && !IsHostileTo(Target))
                  nearMembers.push_back(Target);
  
@@ -63190,7 +63197,7 @@ index bffe3258..274b17ca 100644
          // Push player's pet to vector
          if (Unit* pet = Target->GetGuardianPet())
              if (pet != this && IsWithinDistInMap(pet, radius) && pet->IsAlive() && !IsHostileTo(pet))
-@@ -6598,6 +6781,11 @@ float Unit::SpellDamagePctDone(Unit* victim, SpellInfo const* spellProto, Damage
+@@ -6599,6 +6782,11 @@ float Unit::SpellDamagePctDone(Unit* victim, SpellInfo const* spellProto, Damage
      // Done total percent damage auras
      float DoneTotalMod = 1.0f;
  
@@ -63202,7 +63209,7 @@ index bffe3258..274b17ca 100644
      // Pet damage?
      if (GetTypeId() == TYPEID_UNIT && !IsPet())
          DoneTotalMod *= ToCreature()->GetSpellDamageMod(ToCreature()->GetCreatureTemplate()->rank);
-@@ -6931,6 +7119,11 @@ uint32 Unit::SpellDamageBonusTaken(Unit* caster, SpellInfo const* spellProto, ui
+@@ -6932,6 +7120,11 @@ uint32 Unit::SpellDamageBonusTaken(Unit* caster, SpellInfo const* spellProto, ui
          // multiplicative bonus, for example Dispersion + Shadowform (0.10*0.85=0.085)
          TakenTotalMod *= GetTotalAuraMultiplierByMiscMask(SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN, spellProto->GetSchoolMask());
  
@@ -63214,7 +63221,7 @@ index bffe3258..274b17ca 100644
          // From caster spells
          if (caster)
          {
-@@ -6967,6 +7160,11 @@ int32 Unit::SpellBaseDamageBonusDone(SpellSchoolMask schoolMask) const
+@@ -6968,6 +7161,11 @@ int32 Unit::SpellBaseDamageBonusDone(SpellSchoolMask schoolMask) const
  {
      int32 DoneAdvertisedBenefit = GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_DAMAGE_DONE, schoolMask);
  
@@ -63226,7 +63233,7 @@ index bffe3258..274b17ca 100644
      if (GetTypeId() == TYPEID_PLAYER)
      {
          // Base value
-@@ -6995,6 +7193,9 @@ float Unit::SpellCritChanceDone(SpellInfo const* spellInfo, SpellSchoolMask scho
+@@ -6996,6 +7194,9 @@ float Unit::SpellCritChanceDone(SpellInfo const* spellInfo, SpellSchoolMask scho
  {
      //! Mobs can't crit with spells. (Except player controlled)
      if (GetTypeId() == TYPEID_UNIT && !GetSpellModOwner())
@@ -63236,7 +63243,7 @@ index bffe3258..274b17ca 100644
          return 0.0f;
  
      // not critting spell
-@@ -7223,6 +7424,11 @@ float Unit::SpellCritChanceTaken(Unit const* caster, SpellInfo const* spellInfo,
+@@ -7224,6 +7425,11 @@ float Unit::SpellCritChanceTaken(Unit const* caster, SpellInfo const* spellInfo,
          });
      }
  
@@ -63248,7 +63255,7 @@ index bffe3258..274b17ca 100644
      return std::max(crit_chance, 0.0f);
  }
  
-@@ -7442,6 +7648,11 @@ uint32 Unit::SpellHealingBonusDone(Unit* victim, SpellInfo const* spellProto, ui
+@@ -7445,6 +7651,11 @@ uint32 Unit::SpellHealingBonusDone(Unit* victim, SpellInfo const* spellProto, ui
      if (Player* modOwner = GetSpellModOwner())
          modOwner->ApplySpellMod(spellProto->Id, damagetype == DOT ? SPELLMOD_DOT : SPELLMOD_DAMAGE, heal);
  
@@ -63260,7 +63267,7 @@ index bffe3258..274b17ca 100644
      return uint32(std::max(heal, 0.0f));
  }
  
-@@ -7582,6 +7793,11 @@ int32 Unit::SpellBaseHealingBonusDone(SpellSchoolMask schoolMask) const
+@@ -7585,6 +7796,11 @@ int32 Unit::SpellBaseHealingBonusDone(SpellSchoolMask schoolMask) const
          return false;
      });
  
@@ -63272,7 +63279,7 @@ index bffe3258..274b17ca 100644
      // Healing bonus of spirit, intellect and strength
      if (GetTypeId() == TYPEID_PLAYER)
      {
-@@ -7984,6 +8200,11 @@ uint32 Unit::MeleeDamageBonusTaken(Unit* attacker, uint32 pdamage, WeaponAttackT
+@@ -7986,6 +8202,11 @@ uint32 Unit::MeleeDamageBonusTaken(Unit* attacker, uint32 pdamage, WeaponAttackT
      // ..taken
      TakenTotalMod *= GetTotalAuraMultiplierByMiscMask(SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN, attacker->GetMeleeDamageSchoolMask());
  
@@ -63284,7 +63291,7 @@ index bffe3258..274b17ca 100644
      // .. taken pct (special attacks)
      if (spellProto)
      {
-@@ -8118,6 +8339,25 @@ void Unit::Mount(uint32 mount, uint32 VehicleId, uint32 creatureEntry)
+@@ -8120,6 +8341,25 @@ void Unit::Mount(uint32 mount, uint32 VehicleId, uint32 creatureEntry)
  
      SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNT);
  
@@ -63310,7 +63317,7 @@ index bffe3258..274b17ca 100644
      if (Player* player = ToPlayer())
      {
          // mount as a vehicle
-@@ -8188,6 +8428,19 @@ void Unit::Dismount()
+@@ -8190,6 +8430,19 @@ void Unit::Dismount()
      SendMessageToSet(&data, true);
  
      // dismount as a vehicle
@@ -63330,7 +63337,7 @@ index bffe3258..274b17ca 100644
      if (GetTypeId() == TYPEID_PLAYER && GetVehicleKit())
      {
          // Send other players that we are no longer a vehicle
-@@ -8432,6 +8685,12 @@ bool Unit::IsAlwaysVisibleFor(WorldObject const* seer) const
+@@ -8434,6 +8687,12 @@ bool Unit::IsAlwaysVisibleFor(WorldObject const* seer) const
                  if (ownerPlayer->IsGroupVisibleFor(seerPlayer))
                      return true;
  
@@ -63343,7 +63350,7 @@ index bffe3258..274b17ca 100644
      return false;
  }
  
-@@ -8810,6 +9069,12 @@ bool Unit::ApplyDiminishingToDuration(SpellInfo const* auraSpellInfo, bool trigg
+@@ -8812,6 +9071,12 @@ bool Unit::ApplyDiminishingToDuration(SpellInfo const* auraSpellInfo, bool trigg
  
          if (target->IsAffectedByDiminishingReturns() && source->GetTypeId() == TYPEID_PLAYER)
              duration = limitDuration;
@@ -63356,7 +63363,7 @@ index bffe3258..274b17ca 100644
      }
  
      float mod = 1.0f;
-@@ -8886,6 +9151,17 @@ uint32 Unit::GetCreatureType() const
+@@ -8888,6 +9153,17 @@ uint32 Unit::GetCreatureType() const
              return raceEntry->CreatureType;
          }
      }
@@ -63374,7 +63381,7 @@ index bffe3258..274b17ca 100644
      else
          return ToCreature()->GetCreatureTemplate()->type;
  }
-@@ -10050,6 +10326,14 @@ void Unit::ProcSkillsAndReactives(bool isVictim, Unit* procTarget, uint32 typeMa
+@@ -10052,6 +10328,14 @@ void Unit::ProcSkillsAndReactives(bool isVictim, Unit* procTarget, uint32 typeMa
                      ModifyAuraState(AURA_STATE_DEFENSE, true);
                      StartReactiveTimer(REACTIVE_DEFENSE);
                  }
@@ -63389,7 +63396,7 @@ index bffe3258..274b17ca 100644
              }
              else // For attacker
              {
-@@ -10064,6 +10348,16 @@ void Unit::ProcSkillsAndReactives(bool isVictim, Unit* procTarget, uint32 typeMa
+@@ -10066,6 +10350,16 @@ void Unit::ProcSkillsAndReactives(bool isVictim, Unit* procTarget, uint32 typeMa
                      AddComboPoints(procTarget, 1);
                      StartReactiveTimer(REACTIVE_WOLVERINE_BITE);
                  }
@@ -63406,7 +63413,7 @@ index bffe3258..274b17ca 100644
              }
          }
      }
-@@ -10443,6 +10737,32 @@ void Unit::ClearComboPointHolders()
+@@ -10445,6 +10739,32 @@ void Unit::ClearComboPointHolders()
          (*m_ComboPointHolders.begin())->ClearComboPoints(); // this also removes it from m_comboPointHolders
  }
  
@@ -63439,7 +63446,7 @@ index bffe3258..274b17ca 100644
  void Unit::ClearAllReactives()
  {
      for (uint8 i = 0; i < MAX_REACTIVE; ++i)
-@@ -10572,6 +10892,9 @@ uint32 Unit::GetCastingTimeForBonus(SpellInfo const* spellProto, DamageEffectTyp
+@@ -10574,6 +10894,9 @@ uint32 Unit::GetCastingTimeForBonus(SpellInfo const* spellProto, DamageEffectTyp
  {
      // Not apply this to creature cast spells with casttime == 0
      if (CastingTime == 0 && GetTypeId() == TYPEID_UNIT && !IsPet())
@@ -63449,7 +63456,7 @@ index bffe3258..274b17ca 100644
          return 3500;
  
      if (CastingTime > 7000) CastingTime = 7000;
-@@ -10850,6 +11173,14 @@ bool Unit::InitTamedPet(Pet* pet, uint8 level, uint32 spell_id)
+@@ -10852,6 +11175,14 @@ bool Unit::InitTamedPet(Pet* pet, uint8 level, uint32 spell_id)
  
      // find player: owner of controlled `this` or `this` itself maybe
      Player* player = nullptr;
@@ -63464,7 +63471,7 @@ index bffe3258..274b17ca 100644
      if (attacker)
          player = attacker->GetCharmerOrOwnerPlayerOrPlayerItself();
  
-@@ -11031,6 +11362,12 @@ bool Unit::InitTamedPet(Pet* pet, uint8 level, uint32 spell_id)
+@@ -11033,6 +11364,12 @@ bool Unit::InitTamedPet(Pet* pet, uint8 level, uint32 spell_id)
          // at original death (not at SpiritOfRedemtionTalent timeout)
          plrVictim->SetPvPDeath(player != nullptr);
  
@@ -63477,7 +63484,7 @@ index bffe3258..274b17ca 100644
          // only if not player and not controlled by player pet. And not at BG
          if ((durabilityLoss && !player && !victim->ToPlayer()->InBattleground()) || (player && sWorld->getBoolConfig(CONFIG_DURABILITY_LOSS_IN_PVP)))
          {
-@@ -11826,6 +12163,16 @@ bool Unit::IsInPartyWith(Unit const* unit) const
+@@ -11828,6 +12165,16 @@ bool Unit::IsInPartyWith(Unit const* unit) const
      else if ((u2->GetTypeId() == TYPEID_PLAYER && u1->GetTypeId() == TYPEID_UNIT && u1->ToCreature()->GetCreatureTemplate()->type_flags & CREATURE_TYPE_FLAG_TREAT_AS_RAID_UNIT) ||
          (u1->GetTypeId() == TYPEID_PLAYER && u2->GetTypeId() == TYPEID_UNIT && u2->ToCreature()->GetCreatureTemplate()->type_flags & CREATURE_TYPE_FLAG_TREAT_AS_RAID_UNIT))
          return true;
@@ -63494,7 +63501,7 @@ index bffe3258..274b17ca 100644
  
      return u1->GetTypeId() == TYPEID_UNIT && u2->GetTypeId() == TYPEID_UNIT && u1->GetFaction() == u2->GetFaction();
  }
-@@ -11845,6 +12192,16 @@ bool Unit::IsInRaidWith(Unit const* unit) const
+@@ -11847,6 +12194,16 @@ bool Unit::IsInRaidWith(Unit const* unit) const
      else if ((u2->GetTypeId() == TYPEID_PLAYER && u1->GetTypeId() == TYPEID_UNIT && u1->ToCreature()->GetCreatureTemplate()->type_flags & CREATURE_TYPE_FLAG_TREAT_AS_RAID_UNIT) ||
              (u1->GetTypeId() == TYPEID_PLAYER && u2->GetTypeId() == TYPEID_UNIT && u2->ToCreature()->GetCreatureTemplate()->type_flags & CREATURE_TYPE_FLAG_TREAT_AS_RAID_UNIT))
          return true;
@@ -63511,7 +63518,7 @@ index bffe3258..274b17ca 100644
  
      return u1->GetTypeId() == TYPEID_UNIT && u2->GetTypeId() == TYPEID_UNIT && u1->GetFaction() == u2->GetFaction();
  }
-@@ -11873,6 +12230,19 @@ void Unit::GetPartyMembers(std::list<Unit*> &TagUnitMap)
+@@ -11875,6 +12232,19 @@ void Unit::GetPartyMembers(std::list<Unit*> &TagUnitMap)
                  if (Guardian* pet = Target->GetGuardianPet())
                      if (pet->IsAlive())
                          TagUnitMap.push_back(pet);
@@ -63531,7 +63538,7 @@ index bffe3258..274b17ca 100644
              }
          }
      }
-@@ -11883,6 +12253,18 @@ void Unit::GetPartyMembers(std::list<Unit*> &TagUnitMap)
+@@ -11885,6 +12255,18 @@ void Unit::GetPartyMembers(std::list<Unit*> &TagUnitMap)
          if (Guardian* pet = owner->GetGuardianPet())
              if ((pet == this || IsInMap(pet)) && pet->IsAlive())
                  TagUnitMap.push_back(pet);
@@ -63550,7 +63557,7 @@ index bffe3258..274b17ca 100644
      }
  }
  
-@@ -12057,6 +12439,16 @@ float Unit::MeleeSpellMissChance(Unit const* victim, WeaponAttackType attType, i
+@@ -12059,6 +12441,16 @@ float Unit::MeleeSpellMissChance(Unit const* victim, WeaponAttackType attType, i
      //calculate miss chance
      float missChance = victim->GetUnitMissChance();
  
@@ -63567,7 +63574,7 @@ index bffe3258..274b17ca 100644
      // melee attacks while dual wielding have +19% chance to miss
      if (!spellId && haveOffhandWeapon())
          missChance += 19.0f;
-@@ -12113,6 +12505,11 @@ void Unit::SetPhaseMask(uint32 newPhaseMask, bool update)
+@@ -12115,6 +12507,11 @@ void Unit::SetPhaseMask(uint32 newPhaseMask, bool update)
              if ((*itr)->GetTypeId() == TYPEID_UNIT)
                  (*itr)->SetPhaseMask(newPhaseMask, true);
  
@@ -63579,7 +63586,7 @@ index bffe3258..274b17ca 100644
          for (uint8 i = 0; i < MAX_SUMMON_SLOT; ++i)
              if (m_SummonSlot[i])
                  if (Creature* summon = GetMap()->GetCreature(m_SummonSlot[i]))
-@@ -12367,6 +12764,183 @@ uint32 Unit::GetModelForForm(ShapeshiftForm form, uint32 spellId) const
+@@ -12369,6 +12766,183 @@ uint32 Unit::GetModelForForm(ShapeshiftForm form, uint32 spellId) const
                  break;
          }
      }
@@ -63763,7 +63770,7 @@ index bffe3258..274b17ca 100644
  
      uint32 modelid = 0;
      SpellShapeshiftFormEntry const* formEntry = sSpellShapeshiftFormStore.LookupEntry(form);
-@@ -13059,6 +13633,19 @@ void Unit::StopAttackFaction(uint32 faction_id)
+@@ -13061,6 +13635,19 @@ void Unit::StopAttackFaction(uint32 faction_id)
  
      for (Unit* minion : m_Controlled)
          minion->StopAttackFaction(faction_id);
@@ -63784,10 +63791,10 @@ index bffe3258..274b17ca 100644
  
  void Unit::OutDebugInfo() const
 diff --git a/src/server/game/Entities/Unit/Unit.h b/src/server/game/Entities/Unit/Unit.h
-index 0d3e1f69..8611bd5f 100644
+index cffd683d..4cc1ed72 100644
 --- a/src/server/game/Entities/Unit/Unit.h
 +++ b/src/server/game/Entities/Unit/Unit.h
-@@ -1195,6 +1195,10 @@ class TC_GAME_API Unit : public WorldObject
+@@ -1196,6 +1196,10 @@ class TC_GAME_API Unit : public WorldObject
          ObjectGuid GetCharmedGUID() const { return GetGuidValue(UNIT_FIELD_CHARM); }
          Unit* GetCharmed() const { return m_charmed; }
  
@@ -63798,7 +63805,7 @@ index 0d3e1f69..8611bd5f 100644
          bool IsControlledByPlayer() const { return m_ControlledByPlayer; }
          Player* GetControllingPlayer() const;
          ObjectGuid GetCharmerOrOwnerGUID() const override { return IsCharmed() ? GetCharmerGUID() : GetOwnerGUID(); }
-@@ -1747,6 +1751,10 @@ class TC_GAME_API Unit : public WorldObject
+@@ -1748,6 +1752,10 @@ class TC_GAME_API Unit : public WorldObject
          void SetIsCombatDisallowed(bool apply) { _isCombatDisallowed = apply; }
  
          std::string GetDebugInfo() const override;
@@ -63810,7 +63817,7 @@ index 0d3e1f69..8611bd5f 100644
          explicit Unit (bool isWorldObject);
  
 diff --git a/src/server/game/Entities/Vehicle/Vehicle.cpp b/src/server/game/Entities/Vehicle/Vehicle.cpp
-index ba9b8ebf..5340d6d1 100755
+index b13dac13..e14dcab0 100755
 --- a/src/server/game/Entities/Vehicle/Vehicle.cpp
 +++ b/src/server/game/Entities/Vehicle/Vehicle.cpp
 @@ -33,6 +33,10 @@
@@ -63822,7 +63829,7 @@ index ba9b8ebf..5340d6d1 100755
 +//end npcbot
 +
  Vehicle::Vehicle(Unit* unit, VehicleEntry const* vehInfo, uint32 creatureEntry) :
- UsableSeatNum(0), _me(unit), _vehicleInfo(vehInfo), _creatureEntry(creatureEntry), _status(STATUS_NONE), _lastShootPos()
+ UsableSeatNum(0), _me(unit), _vehicleInfo(vehInfo), _creatureEntry(creatureEntry), _status(STATUS_NONE)
  {
 @@ -512,10 +516,21 @@ Vehicle* Vehicle::RemovePassenger(Unit* unit)
      if (seat->second.SeatInfo->Flags & VEHICLE_SEAT_FLAG_PASSENGER_NOT_SELECTABLE && !seat->second.Passenger.IsUnselectable)
@@ -63887,7 +63894,7 @@ index ba9b8ebf..5340d6d1 100755
  
      Passenger->SendClearTarget();                            // SMSG_BREAK_TARGET
 diff --git a/src/server/game/Globals/ObjectMgr.cpp b/src/server/game/Globals/ObjectMgr.cpp
-index e31a650b..e4e634d3 100644
+index 777fa67e..4419a285 100644
 --- a/src/server/game/Globals/ObjectMgr.cpp
 +++ b/src/server/game/Globals/ObjectMgr.cpp
 @@ -1191,6 +1191,11 @@ void ObjectMgr::CheckCreatureTemplate(CreatureTemplate const* cInfo)
@@ -63902,7 +63909,7 @@ index e31a650b..e4e634d3 100644
      if (uint32 badFlags = (cInfo->flags_extra & ~CREATURE_FLAG_EXTRA_DB_ALLOWED))
      {
          TC_LOG_ERROR("sql.sql", "Table `creature_template` lists creature (Entry: %u) with disallowed `flags_extra` %u, removing incorrect flag.", cInfo->Entry, badFlags);
-@@ -8938,6 +8943,82 @@ SkillRangeType GetSkillRangeType(SkillRaceClassInfoEntry const* rcEntry)
+@@ -8944,6 +8949,82 @@ SkillRangeType GetSkillRangeType(SkillRaceClassInfoEntry const* rcEntry)
      return SKILL_RANGE_LEVEL;
  }
  
@@ -64491,7 +64498,7 @@ index cc7e30c1..37341afb 100644
      float maxDiff = m_maxSpeed * diff;
  
 diff --git a/src/server/game/Scripting/ScriptMgr.cpp b/src/server/game/Scripting/ScriptMgr.cpp
-index 80197359..6003a5c3 100644
+index 2026df3f..79f911b5 100644
 --- a/src/server/game/Scripting/ScriptMgr.cpp
 +++ b/src/server/game/Scripting/ScriptMgr.cpp
 @@ -43,6 +43,10 @@
@@ -64573,7 +64580,7 @@ index a03fdb96..6fd5ef92 100644
          {
              maxPacketCounterAllowed = 100;
 diff --git a/src/server/game/Spells/Auras/SpellAuraEffects.cpp b/src/server/game/Spells/Auras/SpellAuraEffects.cpp
-index 914e2a5f..43b2812d 100644
+index 9e2275f4..665afcfe 100644
 --- a/src/server/game/Spells/Auras/SpellAuraEffects.cpp
 +++ b/src/server/game/Spells/Auras/SpellAuraEffects.cpp
 @@ -1830,6 +1830,10 @@ void AuraEffect::HandleAuraModShapeshift(AuraApplication const* aurApp, uint8 mo
@@ -64598,7 +64605,7 @@ index 914e2a5f..43b2812d 100644
      else
          target->UpdateDisplayPower();
  
-@@ -2747,6 +2755,17 @@ void AuraEffect::HandleAuraModTotalThreat(AuraApplication const* aurApp, uint8 m
+@@ -2746,6 +2754,17 @@ void AuraEffect::HandleAuraModTotalThreat(AuraApplication const* aurApp, uint8 m
  
      Unit* target = aurApp->GetTarget();
  
@@ -64616,7 +64623,7 @@ index 914e2a5f..43b2812d 100644
      if (!target->IsAlive() || target->GetTypeId() != TYPEID_PLAYER)
          return;
  
-@@ -5124,6 +5143,14 @@ void AuraEffect::HandlePeriodicDamageAurasTick(Unit* target, Unit* caster) const
+@@ -5123,6 +5142,14 @@ void AuraEffect::HandlePeriodicDamageAurasTick(Unit* target, Unit* caster) const
  
      if (GetAuraType() == SPELL_AURA_PERIODIC_DAMAGE)
      {
@@ -64630,8 +64637,8 @@ index 914e2a5f..43b2812d 100644
 +
          // leave only target depending bonuses, rest is handled in calculate amount
          if (GetBase()->GetType() == DYNOBJ_AURA_TYPE)
-             damage = caster->SpellDamageBonusDone(target, GetSpellInfo(), damage, DOT, GetEffIndex(), { }, GetBase()->GetStackAmount());
-@@ -5650,6 +5677,46 @@ void AuraEffect::HandleProcTriggerSpellAuraProc(AuraApplication* aurApp, ProcEve
+             damage = caster->SpellDamageBonusDone(target, GetSpellInfo(), damage, DOT, GetSpellEffectInfo(), { }, GetBase()->GetStackAmount());
+@@ -5649,6 +5676,46 @@ void AuraEffect::HandleProcTriggerSpellAuraProc(AuraApplication* aurApp, ProcEve
      if (SpellInfo const* triggeredSpellInfo = sSpellMgr->GetSpellInfo(triggerSpellId))
      {
          TC_LOG_DEBUG("spells.aura.effect", "AuraEffect::HandleProcTriggerSpellAuraProc: Triggering spell %u from aura %u proc", triggeredSpellInfo->Id, GetId());
@@ -64679,10 +64686,10 @@ index 914e2a5f..43b2812d 100644
      }
      else
 diff --git a/src/server/game/Spells/Auras/SpellAuras.cpp b/src/server/game/Spells/Auras/SpellAuras.cpp
-index 0e10c5fa..1e1f834f 100644
+index 9225876e..992c4ceb 100644
 --- a/src/server/game/Spells/Auras/SpellAuras.cpp
 +++ b/src/server/game/Spells/Auras/SpellAuras.cpp
-@@ -579,6 +579,10 @@ void Aura::_ApplyForTarget(Unit* target, Unit* caster, AuraApplication* auraApp)
+@@ -575,6 +575,10 @@ void Aura::_ApplyForTarget(Unit* target, Unit* caster, AuraApplication* auraApp)
              caster->GetSpellHistory()->StartCooldown(m_spellInfo, castItem ? castItem->GetEntry() : 0, nullptr, true);
          }
      }
@@ -64693,7 +64700,7 @@ index 0e10c5fa..1e1f834f 100644
  }
  
  void Aura::_UnapplyForTarget(Unit* target, Unit* caster, AuraApplication* auraApp)
-@@ -607,6 +611,11 @@ void Aura::_UnapplyForTarget(Unit* target, Unit* caster, AuraApplication* auraAp
+@@ -603,6 +607,11 @@ void Aura::_UnapplyForTarget(Unit* target, Unit* caster, AuraApplication* auraAp
      if (caster && GetSpellInfo()->IsCooldownStartedOnEvent())
          // note: item based cooldowns and cooldown spell mods with charges ignored (unknown existed cases)
          caster->GetSpellHistory()->SendCooldownEvent(GetSpellInfo());
@@ -64705,7 +64712,7 @@ index 0e10c5fa..1e1f834f 100644
  }
  
  // removes aura from all targets
-@@ -1697,6 +1706,20 @@ void Aura::HandleAuraSpecificMods(AuraApplication const* aurApp, Unit* caster, b
+@@ -1693,6 +1702,20 @@ void Aura::HandleAuraSpecificMods(AuraApplication const* aurApp, Unit* caster, b
                      case 47788: // Guardian Spirit
                          if (removeMode != AURA_REMOVE_BY_EXPIRE)
                              break;
@@ -64727,7 +64734,7 @@ index 0e10c5fa..1e1f834f 100644
                              break;
  
 diff --git a/src/server/game/Spells/Spell.cpp b/src/server/game/Spells/Spell.cpp
-index 1847ddaf..58f01090 100644
+index 2e7c93c9..ab942909 100644
 --- a/src/server/game/Spells/Spell.cpp
 +++ b/src/server/game/Spells/Spell.cpp
 @@ -62,6 +62,10 @@
@@ -64757,7 +64764,7 @@ index 1847ddaf..58f01090 100644
      if (originalCasterGUID)
          m_originalCasterGUID = originalCasterGUID;
      else
-@@ -1505,6 +1518,10 @@ void Spell::SelectImplicitCasterObjectTargets(SpellEffIndex effIndex, SpellImpli
+@@ -1506,6 +1519,10 @@ void Spell::SelectImplicitCasterObjectTargets(SpellEffectInfo const& spellEffect
          case TARGET_UNIT_PET:
              if (Unit* unitCaster = m_caster->ToUnit())
                  target = unitCaster->GetGuardianPet();
@@ -64768,7 +64775,7 @@ index 1847ddaf..58f01090 100644
              break;
          case TARGET_UNIT_SUMMONER:
              if (Unit* unitCaster = m_caster->ToUnit())
-@@ -1572,6 +1589,11 @@ void Spell::SelectImplicitChainTargets(SpellEffIndex effIndex, SpellImplicitTarg
+@@ -1573,6 +1590,11 @@ void Spell::SelectImplicitChainTargets(SpellEffectInfo const& spellEffectInfo, S
      if (Player* modOwner = m_caster->GetSpellModOwner())
          modOwner->ApplySpellMod(m_spellInfo->Id, SPELLMOD_JUMP_TARGETS, maxTargets, this);
  
@@ -64780,7 +64787,7 @@ index 1847ddaf..58f01090 100644
      if (maxTargets > 1)
      {
          // mark damage multipliers as used
-@@ -2572,6 +2594,13 @@ void Spell::TargetInfo::DoDamageAndTriggers(Spell* spell)
+@@ -2571,6 +2593,13 @@ void Spell::TargetInfo::DoDamageAndTriggers(Spell* spell)
                      if (!spell->m_spellInfo->HasAttribute(SPELL_ATTR0_STOP_ATTACK_TARGET) && !spell->m_spellInfo->HasAttribute(SPELL_ATTR4_CANT_TRIGGER_ITEM_SPELLS))
                          caster->ToPlayer()->CastItemCombatSpell(*spellDamageInfo);
              }
@@ -64794,7 +64801,7 @@ index 1847ddaf..58f01090 100644
          }
  
          // set hitmask for finish procs
-@@ -2608,6 +2637,15 @@ void Spell::TargetInfo::DoDamageAndTriggers(Spell* spell)
+@@ -2607,6 +2636,15 @@ void Spell::TargetInfo::DoDamageAndTriggers(Spell* spell)
          else if (spell->m_caster->GetTypeId() == TYPEID_GAMEOBJECT && spell->m_caster->ToGameObject()->AI())
              spell->m_caster->ToGameObject()->AI()->SpellHitTarget(_spellHitTarget, spell->m_spellInfo);
  
@@ -64810,7 +64817,7 @@ index 1847ddaf..58f01090 100644
          if (HitAura)
          {
              if (AuraApplication* aurApp = HitAura->GetApplicationOfTarget(_spellHitTarget->GetGUID()))
-@@ -2955,6 +2993,11 @@ bool Spell::UpdateChanneledTargetList()
+@@ -2954,6 +2992,11 @@ bool Spell::UpdateChanneledTargetList()
          if (Player* modOwner = m_caster->GetSpellModOwner())
              modOwner->ApplySpellMod(m_spellInfo->Id, SPELLMOD_RANGE, range, this);
  
@@ -64822,7 +64829,7 @@ index 1847ddaf..58f01090 100644
          // add little tolerance level
          range += std::min(MAX_SPELL_RANGE_TOLERANCE, range*0.1f); // 10% but no more than MAX_SPELL_RANGE_TOLERANCE
      }
-@@ -3303,6 +3346,11 @@ void Spell::_cast(bool skipCheck)
+@@ -3302,6 +3345,11 @@ void Spell::_cast(bool skipCheck)
              SendCastResult(res, p1, p2);
              SendInterrupted(0);
  
@@ -64834,7 +64841,7 @@ index 1847ddaf..58f01090 100644
              if (modOwner)
                  modOwner->SetSpellModTakingSpell(this, false);
  
-@@ -3458,6 +3506,17 @@ void Spell::_cast(bool skipCheck)
+@@ -3457,6 +3505,17 @@ void Spell::_cast(bool skipCheck)
          handle_immediate();
      }
  
@@ -64852,7 +64859,7 @@ index 1847ddaf..58f01090 100644
      CallScriptAfterCastHandlers();
  
      if (std::vector<int32> const* spell_triggered = sSpellMgr->GetSpellLinked(m_spellInfo->Id))
-@@ -3742,6 +3801,12 @@ void Spell::SendSpellCooldown()
+@@ -3741,6 +3800,12 @@ void Spell::SendSpellCooldown()
      if (m_caster->GetTypeId() == TYPEID_GAMEOBJECT)
          return;
  
@@ -64865,7 +64872,7 @@ index 1847ddaf..58f01090 100644
      m_caster->ToUnit()->GetSpellHistory()->HandleCooldowns(m_spellInfo, m_CastItem, this);
  }
  
-@@ -3919,6 +3984,9 @@ void Spell::finish(bool ok)
+@@ -3918,6 +3983,9 @@ void Spell::finish(bool ok)
  
      // Stop Attack for some spells
      if (m_spellInfo->HasAttribute(SPELL_ATTR0_STOP_ATTACK_TARGET))
@@ -64875,7 +64882,7 @@ index 1847ddaf..58f01090 100644
          unitCaster->AttackStop();
  }
  
-@@ -4764,9 +4832,39 @@ void Spell::TakePower()
+@@ -4768,9 +4836,39 @@ void Spell::TakePower()
          }
      }
  
@@ -64915,7 +64922,7 @@ index 1847ddaf..58f01090 100644
          return;
      }
  
-@@ -5126,6 +5224,16 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* param1 /*= nullptr*/, uint
+@@ -5127,6 +5225,16 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* param1 /*= nullptr*/, uint
              else
                  return SPELL_FAILED_NOT_READY;
          }
@@ -64932,9 +64939,9 @@ index 1847ddaf..58f01090 100644
      }
  
      if (m_spellInfo->HasAttribute(SPELL_ATTR7_IS_CHEAT_SPELL) && !m_caster->HasFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_ALLOW_CHEAT_SPELLS))
-@@ -5325,6 +5433,11 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* param1 /*= nullptr*/, uint
+@@ -5326,6 +5434,11 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* param1 /*= nullptr*/, uint
          {
-             if (m_spellInfo->Effects[j].TargetA.GetTarget() == TARGET_UNIT_PET)
+             if (spellEffectInfo.TargetA.GetTarget() == TARGET_UNIT_PET)
              {
 +                //npcbot: allow bot pet as target
 +                if (m_caster->GetTypeId() == TYPEID_UNIT && m_caster->ToCreature()->IsNPCBot() && m_caster->ToCreature()->GetBotsPet())
@@ -64944,7 +64951,7 @@ index 1847ddaf..58f01090 100644
                  if (!unitCaster->GetGuardianPet())
                  {
                      if (m_triggeredByAuraSpell)              // not report pet not existence for triggered spells
-@@ -5352,6 +5465,11 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* param1 /*= nullptr*/, uint
+@@ -5353,6 +5466,11 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* param1 /*= nullptr*/, uint
                  return SPELL_FAILED_NOT_IN_ARENA;
  
      // zone check
@@ -64956,7 +64963,7 @@ index 1847ddaf..58f01090 100644
      if (m_caster->GetTypeId() != TYPEID_PLAYER || !m_caster->ToPlayer()->IsGameMaster())
      {
          uint32 zone, area;
-@@ -6089,6 +6207,14 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* param1 /*= nullptr*/, uint
+@@ -6090,6 +6208,14 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* param1 /*= nullptr*/, uint
      {
          if (Unit* unitCaster = m_caster->ToUnit())
          {
@@ -64971,7 +64978,7 @@ index 1847ddaf..58f01090 100644
              if (m_spellInfo->NeedsExplicitUnitTarget())
              {
                  if (!unitCaster->GetComboPoints(m_targets.GetUnitTarget()))
-@@ -6428,6 +6554,11 @@ SpellCastResult Spell::CheckRange(bool strict) const
+@@ -6429,6 +6555,11 @@ SpellCastResult Spell::CheckRange(bool strict) const
      float minRange, maxRange;
      std::tie(minRange, maxRange) = GetMinMaxRange(strict);
  
@@ -64983,7 +64990,7 @@ index 1847ddaf..58f01090 100644
      // dont check max_range to strictly after cast
      if (m_spellInfo->RangeEntry && m_spellInfo->RangeEntry->Flags != SPELL_RANGE_MELEE && !strict)
          maxRange += std::min(MAX_SPELL_RANGE_TOLERANCE, maxRange*0.1f); // 10% but no more than MAX_SPELL_RANGE_TOLERANCE
-@@ -7720,6 +7851,13 @@ SpellCastResult Spell::CanOpenLock(uint32 effIndex, uint32 lockId, SkillType& sk
+@@ -7721,6 +7852,13 @@ SpellCastResult Spell::CanOpenLock(SpellEffectInfo const& spellEffectInfo, uint3
                      skillValue = m_CastItem || m_caster->GetTypeId() != TYPEID_PLAYER ?
                          0 : m_caster->ToPlayer()->GetSkillValue(skillId);
  
@@ -64996,12 +65003,12 @@ index 1847ddaf..58f01090 100644
 +
                      // skill bonus provided by casting spell (mostly item spells)
                      // add the effect base points modifier from the spell cast (cheat lock / skeleton key etc.)
-                     if (m_spellInfo->Effects[effIndex].TargetA.GetTarget() == TARGET_GAMEOBJECT_ITEM_TARGET || m_spellInfo->Effects[effIndex].TargetB.GetTarget() == TARGET_GAMEOBJECT_ITEM_TARGET)
+                     if (spellEffectInfo.TargetA.GetTarget() == TARGET_GAMEOBJECT_ITEM_TARGET || spellEffectInfo.TargetB.GetTarget() == TARGET_GAMEOBJECT_ITEM_TARGET)
 diff --git a/src/server/game/Spells/Spell.h b/src/server/game/Spells/Spell.h
-index e78bbcbf..591f0036 100644
+index 238007a0..cbfc937d 100644
 --- a/src/server/game/Spells/Spell.h
 +++ b/src/server/game/Spells/Spell.h
-@@ -526,6 +526,9 @@ class TC_GAME_API Spell
+@@ -527,6 +527,9 @@ class TC_GAME_API Spell
  
          UsedSpellMods m_appliedMods;
  
@@ -65012,10 +65019,10 @@ index e78bbcbf..591f0036 100644
          bool IsAutoRepeat() const { return m_autoRepeat; }
          void SetAutoRepeat(bool rep) { m_autoRepeat = rep; }
 diff --git a/src/server/game/Spells/SpellEffects.cpp b/src/server/game/Spells/SpellEffects.cpp
-index e3128e89..79408a95 100644
+index 5712f1f9..307b35dd 100644
 --- a/src/server/game/Spells/SpellEffects.cpp
 +++ b/src/server/game/Spells/SpellEffects.cpp
-@@ -500,6 +500,17 @@ void Spell::EffectSchoolDMG(SpellEffIndex effIndex)
+@@ -500,6 +500,17 @@ void Spell::EffectSchoolDMG()
                      damage += int32(energy * multiple);
                      damage += int32(CalculatePct(unitCaster->ToPlayer()->GetComboPoints() * ap, 7));
                  }
@@ -65024,7 +65031,7 @@ index e3128e89..79408a95 100644
 +                {
 +                    // converts each extra point of energy into ($f1+$AP/410) additional damage
 +                    float ap = unitCaster->GetTotalAttackPowerValue(BASE_ATTACK);
-+                    float multiple = ap / 410 + m_spellInfo->Effects[effIndex].DamageMultiplier;
++                    float multiple = ap / 410 + effectInfo->DamageMultiplier;
 +                    int32 energy = -(unitCaster->ModifyPower(POWER_ENERGY, -30));
 +                    damage += int32(energy * multiple);
 +                    damage += int32(CalculatePct(unitCaster->ToCreature()->GetCreatureComboPoints() * ap, 7));
@@ -65033,7 +65040,7 @@ index e3128e89..79408a95 100644
                  // Wrath
                  else if (m_spellInfo->SpellFamilyFlags[0] & 0x00000001)
                  {
-@@ -562,6 +573,52 @@ void Spell::EffectSchoolDMG(SpellEffIndex effIndex)
+@@ -562,6 +573,52 @@ void Spell::EffectSchoolDMG()
                                  damage += combo * 40;
                          }
                      }
@@ -65060,7 +65067,7 @@ index e3128e89..79408a95 100644
 +                                {
 +                                    if ((*iter)->GetSpellInfo()->SpellFamilyName == SPELLFAMILY_ROGUE && (*iter)->GetSpellInfo()->SpellIconID == 1960)
 +                                    {
-+                                        uint32 chance = (*iter)->GetSpellInfo()->Effects[EFFECT_2].CalcValue(unitCaster);
++                                        uint32 chance = (*iter)->GetSpellInfo()->GetEffect(EFFECT_2).CalcValue(unitCaster);
 +
 +                                        if (chance && roll_chance_i(chance))
 +                                            needConsume = false;
@@ -65086,7 +65093,7 @@ index e3128e89..79408a95 100644
                  }
                  // Eviscerate
                  else if (m_spellInfo->SpellFamilyFlags[0] & 0x00020000)
-@@ -578,6 +635,20 @@ void Spell::EffectSchoolDMG(SpellEffIndex effIndex)
+@@ -578,6 +635,20 @@ void Spell::EffectSchoolDMG()
                                  damage += combo*40;
                          }
                      }
@@ -65107,7 +65114,7 @@ index e3128e89..79408a95 100644
                  }
                  break;
              }
-@@ -628,6 +699,27 @@ void Spell::EffectSchoolDMG(SpellEffIndex effIndex)
+@@ -628,6 +699,27 @@ void Spell::EffectSchoolDMG()
                              damage += irand(int32(dmg_min), int32(dmg_max));
                          damage += int32(caster->GetAmmoDPS() * caster->GetAttackTime(RANGED_ATTACK) * 0.001f);
                      }
@@ -65135,7 +65142,7 @@ index e3128e89..79408a95 100644
                  }
                  break;
              }
-@@ -733,6 +825,60 @@ void Spell::EffectTriggerSpell(SpellEffIndex effIndex)
+@@ -733,6 +825,60 @@ void Spell::EffectTriggerSpell()
          // special cases
          switch (triggered_spell_id)
          {
@@ -65153,7 +65160,7 @@ index e3128e89..79408a95 100644
 +                            return;
 +
 +                        // % of max health
-+                        int32 basepoints0 = 0.01f * unitTarget->GetMaxHealth() * m_spellInfo->Effects[effIndex].BasePoints;
++                        int32 basepoints0 = 0.01f * unitTarget->GetMaxHealth() * effectInfo->BasePoints;
 +                        //TC_LOG_ERROR("entities.unit", "TriggerSpell(%u from %u): %s on %s base val %i,",
 +                        //    triggered_spell_id, m_spellInfo->Id, m_caster->GetName().c_str(), unitTarget->GetName().c_str(), int32(basepoints0));
 +                        CastSpellExtraArgs args(true);
@@ -65179,7 +65186,7 @@ index e3128e89..79408a95 100644
 +                            return;
 +
 +                        // % of max mana
-+                        int32 basepoints0 = m_spellInfo->Effects[effIndex].BasePoints;
++                        int32 basepoints0 = effectInfo->BasePoints;
 +                        //TC_LOG_ERROR("entities.unit", "TriggerSpell(%u from %u): %s on %s base val %i,",
 +                        //    triggered_spell_id, m_spellInfo->Id, m_caster->GetName().c_str(), unitTarget->GetName().c_str(), int32(basepoints0));
 +                        CastSpellExtraArgs args(true);
@@ -65196,7 +65203,7 @@ index e3128e89..79408a95 100644
              // Mirror Image
              case 58832:
              {
-@@ -1127,6 +1273,11 @@ void Spell::EffectPowerDrain(SpellEffIndex effIndex)
+@@ -1127,6 +1273,11 @@ void Spell::EffectPowerDrain()
      if (powerType == POWER_MANA)
          power -= unitTarget->GetSpellCritDamageReduction(power);
  
@@ -65208,7 +65215,7 @@ index e3128e89..79408a95 100644
      int32 newDamage = -(unitTarget->ModifyPower(powerType, -int32(power)));
  
      // Don't restore from self drain
-@@ -3065,6 +3216,14 @@ void Spell::EffectWeaponDmg(SpellEffIndex effIndex)
+@@ -3066,6 +3217,14 @@ void Spell::EffectWeaponDmg()
                      if (Item* item = unitCaster->ToPlayer()->GetWeaponForAttack(m_attackType, true))
                          if (item->GetTemplate()->SubClass == ITEM_SUBCLASS_WEAPON_DAGGER)
                              totalDamagePercentMod *= 1.5f;
@@ -65224,7 +65231,7 @@ index e3128e89..79408a95 100644
              // Mutilate (for each hand)
              else if (m_spellInfo->SpellFamilyFlags[1] & 0x6)
 diff --git a/src/server/game/Spells/SpellInfo.cpp b/src/server/game/Spells/SpellInfo.cpp
-index 492ced10..b64e1ddb 100644
+index f6cfbf63..94e24aa9 100644
 --- a/src/server/game/Spells/SpellInfo.cpp
 +++ b/src/server/game/Spells/SpellInfo.cpp
 @@ -31,6 +31,10 @@
@@ -65244,7 +65251,7 @@ index 492ced10..b64e1ddb 100644
      {
 +        //npcbot: Life Burst heal tempfix 2013
 +        float pointsPerComboPoint = PointsPerComboPoint;
-+        if (_spellInfo->Id == 57143 && _effIndex == 1)
++        if (_spellInfo->Id == 57143 && EffectIndex == EFFECT_1)
 +        {
 +            basePoints = 2500;
 +            value = float(basePoints);
@@ -65289,7 +65296,7 @@ index 492ced10..b64e1ddb 100644
      }
  
      return radius;
-@@ -1693,6 +1731,9 @@ SpellCastResult SpellInfo::CheckTarget(WorldObject const* caster, WorldObject co
+@@ -1695,6 +1733,9 @@ SpellCastResult SpellInfo::CheckTarget(WorldObject const* caster, WorldObject co
  
      // corpseOwner and unit specific target checks
      if (HasAttribute(SPELL_ATTR3_ONLY_TARGET_PLAYERS) && unitTarget->GetTypeId() != TYPEID_PLAYER)
@@ -65299,7 +65306,7 @@ index 492ced10..b64e1ddb 100644
         return SPELL_FAILED_TARGET_NOT_PLAYER;
  
      if (!IsAllowingDeadTarget() && !unitTarget->IsAlive())
-@@ -3238,6 +3279,11 @@ int32 SpellInfo::CalcPowerCost(WorldObject const* caster, SpellSchoolMask school
+@@ -3239,6 +3280,11 @@ int32 SpellInfo::CalcPowerCost(WorldObject const* caster, SpellSchoolMask school
          }
      }
  
@@ -65406,13 +65413,13 @@ index 1e8e38fc..3bcd1d02 100644
          else
          {
 diff --git a/src/server/scripts/Spells/spell_dk.cpp b/src/server/scripts/Spells/spell_dk.cpp
-index f396c45d..88c02875 100644
+index 5e134b45..4d6c2c73 100644
 --- a/src/server/scripts/Spells/spell_dk.cpp
 +++ b/src/server/scripts/Spells/spell_dk.cpp
 @@ -360,6 +360,13 @@ private:
              return;
  
-         amount = talentSpell->Effects[EFFECT_0].CalcValue(owner);
+         amount = talentSpell->GetEffect(EFFECT_0).CalcValue(owner);
 +        //npcbot: take bot attack power into account
 +        if (Creature const* bot = owner->ToCreature())
 +        {
@@ -65441,7 +65448,7 @@ index f396c45d..88c02875 100644
              absorbAmount = CalculatePct(dmgInfo.GetDamage(), absorbPct);
      }
 diff --git a/src/server/scripts/Spells/spell_druid.cpp b/src/server/scripts/Spells/spell_druid.cpp
-index e112f224..b41f056f 100644
+index 5f15fd45..8459f5b5 100644
 --- a/src/server/scripts/Spells/spell_druid.cpp
 +++ b/src/server/scripts/Spells/spell_druid.cpp
 @@ -31,6 +31,10 @@
@@ -65545,7 +65552,7 @@ index e112f224..b41f056f 100644
          if (!caster)
              return false;
 diff --git a/src/server/scripts/Spells/spell_generic.cpp b/src/server/scripts/Spells/spell_generic.cpp
-index 707b6e0d..e33dad2c 100644
+index c6e3232f..84be57d0 100644
 --- a/src/server/scripts/Spells/spell_generic.cpp
 +++ b/src/server/scripts/Spells/spell_generic.cpp
 @@ -266,6 +266,11 @@ class spell_gen_arena_drink : public AuraScript
@@ -65622,7 +65629,7 @@ index 707b6e0d..e33dad2c 100644
              return;                     /// @todo Research possibility of scaling down
  
 diff --git a/src/server/scripts/Spells/spell_hunter.cpp b/src/server/scripts/Spells/spell_hunter.cpp
-index 9273cf24..8f8220fb 100644
+index cc6c58aa..1e87cea6 100644
 --- a/src/server/scripts/Spells/spell_hunter.cpp
 +++ b/src/server/scripts/Spells/spell_hunter.cpp
 @@ -1122,6 +1122,22 @@ class spell_hun_sniper_training : public AuraScript
@@ -65639,7 +65646,7 @@ index 9273cf24..8f8220fb 100644
 +
 +            int32 baseAmount = aurEff->GetBaseAmount();
 +            int32 amount = bot->isMoving() ?
-+            bot->CalculateSpellDamage(GetSpellInfo(), aurEff->GetEffIndex(), &baseAmount) :
++            bot->CalculateSpellDamage(aurEff->GetSpellEffectInfo(), &baseAmount) :
 +            aurEff->GetAmount() - 1;
 +            aurEff->SetAmount(amount);
 +            return;
@@ -65649,7 +65656,7 @@ index 9273cf24..8f8220fb 100644
          {
              int32 baseAmount = aurEff->GetBaseAmount();
 diff --git a/src/server/scripts/Spells/spell_mage.cpp b/src/server/scripts/Spells/spell_mage.cpp
-index 1de22db2..47ff77f2 100644
+index 545dc8d0..96efbbf1 100644
 --- a/src/server/scripts/Spells/spell_mage.cpp
 +++ b/src/server/scripts/Spells/spell_mage.cpp
 @@ -1161,6 +1161,12 @@ class spell_mage_summon_water_elemental : public SpellScript
@@ -65666,13 +65673,13 @@ index 1de22db2..47ff77f2 100644
          if (caster->HasAura(SPELL_MAGE_GLYPH_OF_ETERNAL_WATER))
              caster->CastSpell(caster, SPELL_MAGE_SUMMON_WATER_ELEMENTAL_PERMANENT, true);
 diff --git a/src/server/scripts/Spells/spell_paladin.cpp b/src/server/scripts/Spells/spell_paladin.cpp
-index a33ac213..e0d46eaa 100644
+index 2f893681..6af77a16 100644
 --- a/src/server/scripts/Spells/spell_paladin.cpp
 +++ b/src/server/scripts/Spells/spell_paladin.cpp
 @@ -164,6 +164,12 @@ class spell_pal_ardent_defender : public AuraScript
      {
-         _absorbPct = GetSpellInfo()->Effects[EFFECT_0].CalcValue();
-         _healPct = GetSpellInfo()->Effects[EFFECT_1].CalcValue();
+         _absorbPct = GetEffectInfo(EFFECT_0).CalcValue();
+         _healPct = GetEffectInfo(EFFECT_1).CalcValue();
 +
 +        //npcbot - allow for npcbots
 +        if (GetUnitOwner()->GetTypeId() == TYPEID_UNIT && GetUnitOwner()->ToCreature()->IsNPCBot())
@@ -65739,8 +65746,8 @@ index a33ac213..e0d46eaa 100644
 +                else
 +                    groupSize = 1 + owner->GetNpcBotsCount();
 +
-+                remainingAmount = (caster->CountPctFromMaxHealth(GetSpellInfo()->Effects[EFFECT_2].CalcValue(caster)) * groupSize);
-+                minHpPct = GetSpellInfo()->Effects[EFFECT_1].CalcValue(caster);
++                remainingAmount = (caster->CountPctFromMaxHealth(GetEffectInfo(EFFECT_2).CalcValue(caster)) * groupSize);
++                minHpPct = GetEffectInfo(EFFECT_1).CalcValue(caster);
 +                return true;
 +            }
 +            //end npcbot
@@ -65758,7 +65765,7 @@ index a33ac213..e0d46eaa 100644
  
          if (Unit* target = GetExplTargetUnit())
 diff --git a/src/server/scripts/Spells/spell_priest.cpp b/src/server/scripts/Spells/spell_priest.cpp
-index 803ecee8..5cf53cc5 100644
+index e6e743c5..9817ce78 100644
 --- a/src/server/scripts/Spells/spell_priest.cpp
 +++ b/src/server/scripts/Spells/spell_priest.cpp
 @@ -784,6 +784,9 @@ class spell_pri_penance : public SpellScript
@@ -65793,13 +65800,13 @@ index 803ecee8..5cf53cc5 100644
      }
  
 diff --git a/src/server/scripts/Spells/spell_rogue.cpp b/src/server/scripts/Spells/spell_rogue.cpp
-index db839492..01c09fa6 100644
+index 1b31bfe2..2a00b6d3 100644
 --- a/src/server/scripts/Spells/spell_rogue.cpp
 +++ b/src/server/scripts/Spells/spell_rogue.cpp
 @@ -110,6 +110,10 @@ class spell_rog_cheat_death : public AuraScript
      bool Load() override
      {
-         absorbChance = GetSpellInfo()->Effects[EFFECT_0].CalcValue();
+         absorbChance = GetEffectInfo(EFFECT_0).CalcValue();
 +        //npcbot
 +        if (GetUnitOwner()->GetTypeId() == TYPEID_UNIT && GetUnitOwner()->ToCreature()->IsNPCBot())
 +            return true;
@@ -65891,7 +65898,7 @@ index db839492..01c09fa6 100644
              player->CastSpell(nullptr, SPELL_ROGUE_HONOR_AMONG_THIEVES_2, true);
      }
 diff --git a/src/server/scripts/Spells/spell_shaman.cpp b/src/server/scripts/Spells/spell_shaman.cpp
-index 160caa9c..513a4b3c 100644
+index a7b6fe71..506d88c4 100644
 --- a/src/server/scripts/Spells/spell_shaman.cpp
 +++ b/src/server/scripts/Spells/spell_shaman.cpp
 @@ -382,6 +382,16 @@ class spell_sha_earthbind_totem : public AuraScript
@@ -65952,7 +65959,7 @@ index 160caa9c..513a4b3c 100644
 +
 +            Item* item = ASSERT_NOTNULL(bot->GetBotEquipsByGuid(GetAura()->GetCastItemGUID()));
 +
-+            float basePoints = GetSpellInfo()->Effects[aurEff->GetEffIndex()].CalcValue();
++            float basePoints = aurEff->GetSpellEffectInfo().CalcValue();
 +
 +            float attackSpeed = bot->GetAttackTime(attType) / 1000.f;
 +            float fireDamage = basePoints / 100.0f;
@@ -66030,9 +66037,9 @@ index 160caa9c..513a4b3c 100644
 +            SpellInfo const* spellInfo = sSpellMgr->AssertSpellInfo(SPELL_SHAMAN_WINDFURY_WEAPON_R1);
 +            while (spellInfo)
 +            {
-+                if (spellInfo->Effects[EFFECT_0].MiscValue == enchantId)
++                if (spellInfo->GetEffect(EFFECT_0).MiscValue == enchantId)
 +                {
-+                    extraAttackPower = spellInfo->Effects[EFFECT_1].CalcValue(bot);
++                    extraAttackPower = spellInfo->GetEffect(EFFECT_1).CalcValue(bot);
 +                    break;
 +                }
 +                spellInfo = spellInfo->GetNextRankSpell();
@@ -66057,7 +66064,7 @@ index 160caa9c..513a4b3c 100644
  
          uint32 spellId = 0;
 diff --git a/src/server/scripts/Spells/spell_warrior.cpp b/src/server/scripts/Spells/spell_warrior.cpp
-index 09b594ff..9c237385 100644
+index 1ea3ca52..1f9a043c 100644
 --- a/src/server/scripts/Spells/spell_warrior.cpp
 +++ b/src/server/scripts/Spells/spell_warrior.cpp
 @@ -265,6 +265,12 @@ class spell_warr_deep_wounds_aura : public AuraScript
@@ -66121,7 +66128,7 @@ index 69d4e5f8..35c8ca00 100644
  char constexpr ItemExtendedCostEntryfmt[] = "niiiiiiiiiiiiiix";
  char constexpr ItemLimitCategoryEntryfmt[] = "nxxxxxxxxxxxxxxxxxii";
 diff --git a/src/server/shared/SharedDefines.h b/src/server/shared/SharedDefines.h
-index 43658b24..3e0c7b1f 100644
+index 9ece4c9f..617ce262 100644
 --- a/src/server/shared/SharedDefines.h
 +++ b/src/server/shared/SharedDefines.h
 @@ -193,7 +193,14 @@ enum UnitClass
