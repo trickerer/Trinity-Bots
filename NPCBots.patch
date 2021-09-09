@@ -36,7 +36,7 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1339 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 16447 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 16448 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   637 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   400 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   936 ++
@@ -62,9 +62,9 @@
  src/server/game/AI/NpcBots/botdpstracker.h         |    36 +
  src/server/game/AI/NpcBots/botdump.cpp             |   936 ++
  src/server/game/AI/NpcBots/botdump.h               |    47 +
- src/server/game/AI/NpcBots/botgiver.cpp            |   263 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  1480 ++
- src/server/game/AI/NpcBots/botmgr.h                |   201 +
+ src/server/game/AI/NpcBots/botgiver.cpp            |   266 +
+ src/server/game/AI/NpcBots/botmgr.cpp              |  1486 ++
+ src/server/game/AI/NpcBots/botmgr.h                |   202 +
  src/server/game/AI/NpcBots/bpet_ai.cpp             |  2313 +++
  src/server/game/AI/NpcBots/bpet_ai.h               |   167 +
  src/server/game/AI/NpcBots/bpet_archmage.cpp       |   139 +
@@ -134,8 +134,8 @@
  src/server/shared/DataStores/DBCStructure.h        |    11 +-
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
- src/server/worldserver/worldserver.conf.dist       |   265 +
- 137 files changed, 63523 insertions(+), 48 deletions(-)
+ src/server/worldserver/worldserver.conf.dist       |   272 +
+ 137 files changed, 63541 insertions(+), 48 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -4999,10 +4999,10 @@ index 00000000..4f0b1579
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 00000000..3df6b105
+index 00000000..73710c72
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,16447 @@
+@@ -0,0 +1,16448 @@
 +#include "bot_ai.h"
 +//#include "botcommon.h"
 +#include "bot_Events.h"
@@ -5419,7 +5419,7 @@ index 00000000..3df6b105
 +    QueryResult result = accId ? LoginDatabase.PQuery("SELECT UNIX_TIMESTAMP(last_login) FROM account WHERE id = %u", accId) : nullptr;
 +
 +    Field* fields = result ? result->Fetch() : nullptr;
-+    time_t lastLoginTime = result ? time_t(fields[0].GetUInt32()) : timeNow;
++    time_t lastLoginTime = fields ? time_t(fields[0].GetUInt32()) : timeNow;
 +
 +    //either expired or owner does not exist
 +    if (timeNow >= lastLoginTime + expireTime)
@@ -8271,7 +8271,7 @@ index 00000000..3df6b105
 +            Player const* p = ref->GetSource();
 +            if (p && (p->GetPetGUID() == guid || (p->GetVehicle() && p->GetCharmedGUID() == guid)))
 +                return true;
-+            if (p->HaveBot())
++            if (p && p->HaveBot())
 +            {
 +                if (Creature const* bot = p->GetBotMgr()->GetBot(guid))
 +                    if (bot->GetGUID() == guid || (bot->GetBotsPet() && bot->GetBotsPet()->GetGUID() == guid) ||
@@ -8493,7 +8493,7 @@ index 00000000..3df6b105
 +    float followdist = float (master->GetBotMgr()->GetBotFollowDist() * 2);
 +    if (float distOverride = GetVehicleAttackDistanceOverride())
 +        followdist = distOverride * 2.f;
-+    if (mytar && mytar && mytar->GetTypeId() == TYPEID_UNIT &&
++    if (mytar && mytar->GetTypeId() == TYPEID_UNIT &&
 +        mytar->ToCreature()->GetCreatureTemplate()->rank == CREATURE_ELITE_WORLDBOSS)
 +        followdist *= 1.5f;
 +    else if (mmover->isMoving() && veh->GetMapId() == 578) //oculus
@@ -9362,7 +9362,7 @@ index 00000000..3df6b105
 +    float moveX;
 +    float moveY;
 +    //bool move = false;
-+    for (uint8 i = 0; i != 6; ++i)
++    for (uint32 i = 0; i != 6; ++i)
 +    {
 +        if (i)
 +        {
@@ -18930,6 +18930,7 @@ index 00000000..3df6b105
 +                    default:
 +                        break;
 +                }
++                break;
 +            default:
 +                break;
 +        }
@@ -21452,7 +21453,7 @@ index 00000000..3df6b105
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 00000000..42e50e0f
+index 00000000..7758a40f
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
 @@ -0,0 +1,637 @@
@@ -22032,7 +22033,7 @@ index 00000000..42e50e0f
 +
 +        struct BotSpell
 +        {
-+            BotSpell() : cooldown(0), enabled(true) {}
++            BotSpell() : spellId(0), cooldown(0), enabled(true) {}
 +            BotSpell(BotSpell const&) = delete;
 +            BotSpell(BotSpell&&) = delete;
 +            BotSpell& operator=(BotSpell const&) = delete;
@@ -53610,10 +53611,10 @@ index 00000000..bdf6e0bb
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botgiver.cpp b/src/server/game/AI/NpcBots/botgiver.cpp
 new file mode 100644
-index 00000000..2a0f62b4
+index 00000000..15fee2cd
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botgiver.cpp
-@@ -0,0 +1,263 @@
+@@ -0,0 +1,266 @@
 +#include "bot_ai.h"
 +#include "botcommon.h"
 +#include "botdatamgr.h"
@@ -53782,6 +53783,9 @@ index 00000000..2a0f62b4
 +                        bot_ai const* ai = bot->GetBotAI();
 +                        if (bot->GetBotClass() != botclass || !bot->IsAlive() || ai->IsTempBot() || ai->GetBotOwnerGuid() || bot->HasAura(BERSERK))
 +                            continue;
++                        if (BotMgr::FilterRaces() && botclass < BOT_CLASS_EX_START && (bot->GetRaceMask() & RACEMASK_ALL_PLAYABLE) &&
++                            !(bot->GetRaceMask() & ((player->GetRaceMask() & RACEMASK_ALLIANCE) ? RACEMASK_ALLIANCE : RACEMASK_HORDE)))
++                            continue;
 +
 +                        std::ostringstream message1;
 +                        message1 << bot_ai::LocalizedNpcText(player, BOT_TEXT_BOTGIVER_WISH_TO_HIRE_) << bot->GetName() << '?';
@@ -53790,17 +53794,17 @@ index 00000000..2a0f62b4
 +                        uint32 raceTextId;
 +                        switch (bot->GetRace())
 +                        {
-+                            case RACE_HUMAN:        raceTextId = BOT_TEXT_RACE_HUMAN;  break;
-+                            case RACE_ORC:          raceTextId = BOT_TEXT_RACE_ORC;    break;
-+                            case RACE_DWARF:        raceTextId = BOT_TEXT_RACE_DWARF;  break;
-+                            case RACE_NIGHTELF:     raceTextId = BOT_TEXT_RACE_NELF;   break;
-+                            case RACE_UNDEAD_PLAYER:raceTextId = BOT_TEXT_RACE_UNDEAD; break;
-+                            case RACE_TAUREN:       raceTextId = BOT_TEXT_RACE_TAUREN; break;
-+                            case RACE_GNOME:        raceTextId = BOT_TEXT_RACE_GNOME;  break;
-+                            case RACE_TROLL:        raceTextId = BOT_TEXT_RACE_TROLL;  break;
-+                            case RACE_BLOODELF:     raceTextId = BOT_TEXT_RACE_BELF;   break;
-+                            case RACE_DRAENEI:      raceTextId = BOT_TEXT_RACE_DRAENEI;break;
-+                            default:                raceTextId = BOT_TEXT_RACE_UNKNOWN;break;
++                            case RACE_HUMAN:        raceTextId = BOT_TEXT_RACE_HUMAN;   break;
++                            case RACE_ORC:          raceTextId = BOT_TEXT_RACE_ORC;     break;
++                            case RACE_DWARF:        raceTextId = BOT_TEXT_RACE_DWARF;   break;
++                            case RACE_NIGHTELF:     raceTextId = BOT_TEXT_RACE_NELF;    break;
++                            case RACE_UNDEAD_PLAYER:raceTextId = BOT_TEXT_RACE_UNDEAD;  break;
++                            case RACE_TAUREN:       raceTextId = BOT_TEXT_RACE_TAUREN;  break;
++                            case RACE_GNOME:        raceTextId = BOT_TEXT_RACE_GNOME;   break;
++                            case RACE_TROLL:        raceTextId = BOT_TEXT_RACE_TROLL;   break;
++                            case RACE_BLOODELF:     raceTextId = BOT_TEXT_RACE_BELF;    break;
++                            case RACE_DRAENEI:      raceTextId = BOT_TEXT_RACE_DRAENEI; break;
++                            default:                raceTextId = BOT_TEXT_RACE_UNKNOWN; break;
 +                        }
 +                        info_ostr << bot->GetName() << " (" << (
 +                            bot->GetGender() == GENDER_MALE ? bot_ai::LocalizedNpcText(player, BOT_TEXT_GENDER_MALE) + ' ' :
@@ -53879,10 +53883,10 @@ index 00000000..2a0f62b4
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 00000000..516973e2
+index 00000000..00617fc6
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,1480 @@
+@@ -0,0 +1,1486 @@
 +#include "bot_ai.h"
 +#include "botdpstracker.h"
 +#include "bot_Events.h"
@@ -53935,6 +53939,7 @@ index 00000000..516973e2
 +bool _limitNpcBotsRaids;
 +bool _botPvP;
 +bool _botMovementFoodInterrupt;
++bool _filterRaces;
 +bool _displayEquipment;
 +bool _showCloak;
 +bool _showHelm;
@@ -54062,6 +54067,7 @@ index 00000000..516973e2
 +    _enableNpcBots                  = sConfigMgr->GetBoolDefault("NpcBot.Enable", true);
 +    _maxNpcBots                     = sConfigMgr->GetIntDefault("NpcBot.MaxBots", 1);
 +    _maxClassNpcBots                = sConfigMgr->GetIntDefault("NpcBot.MaxBotsPerClass", 1);
++    _filterRaces                    = sConfigMgr->GetBoolDefault("NpcBot.Botgiver.FilterRaces", false);
 +    _basefollowdist                 = sConfigMgr->GetIntDefault("NpcBot.BaseFollowDistance", 30);
 +    _xpReductionNpcBots             = sConfigMgr->GetIntDefault("NpcBot.XpReduction", 0);
 +    _healTargetIconFlags            = sConfigMgr->GetIntDefault("NpcBot.HealTargetIconsMask", 0);
@@ -54244,6 +54250,10 @@ index 00000000..516973e2
 +bool BotMgr::IsFoodInterruptedByMovement()
 +{
 +    return _botMovementFoodInterrupt;
++}
++bool BotMgr::FilterRaces()
++{
++    return _filterRaces;
 +}
 +uint8 BotMgr::GetMaxClassBots()
 +{
@@ -55365,10 +55375,10 @@ index 00000000..516973e2
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.h b/src/server/game/AI/NpcBots/botmgr.h
 new file mode 100644
-index 00000000..2c19fd4a
+index 00000000..47702ca2
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.h
-@@ -0,0 +1,201 @@
+@@ -0,0 +1,202 @@
 +#ifndef _BOTMGR_H
 +#define _BOTMGR_H
 +
@@ -55438,6 +55448,7 @@ index 00000000..2c19fd4a
 +        static bool IsBotStatsLimitsEnabled();
 +        static bool IsPvPEnabled();
 +        static bool IsFoodInterruptedByMovement();
++        static bool FilterRaces();
 +        static uint8 GetMaxClassBots();
 +        static uint8 GetHealTargetIconFlags();
 +        static uint8 GetOffTankTargetIconFlags();
@@ -57891,7 +57902,7 @@ index 00000000..f554f5ba
 +}
 diff --git a/src/server/game/AI/NpcBots/bpet_ai.h b/src/server/game/AI/NpcBots/bpet_ai.h
 new file mode 100644
-index 00000000..19963772
+index 00000000..581aa3fe
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_ai.h
 @@ -0,0 +1,167 @@
@@ -58048,7 +58059,7 @@ index 00000000..19963772
 +
 +        struct BotPetSpell
 +        {
-+            explicit BotPetSpell() : cooldown(0), enabled(true) {}
++            explicit BotPetSpell() : spellId(0), cooldown(0), enabled(true) {}
 +            uint32 spellId;
 +            uint32 cooldown;
 +            bool enabled;
@@ -66147,10 +66158,10 @@ index 9ece4c9f..617ce262 100644
  #define CLASSMASK_WAND_USERS ((1<<(CLASS_PRIEST-1))|(1<<(CLASS_MAGE-1))|(1<<(CLASS_WARLOCK-1)))
  
 diff --git a/src/server/worldserver/worldserver.conf.dist b/src/server/worldserver/worldserver.conf.dist
-index 022bca30..938f00f7 100644
+index 022bca30..f92be0a3 100644
 --- a/src/server/worldserver/worldserver.conf.dist
 +++ b/src/server/worldserver/worldserver.conf.dist
-@@ -4117,3 +4117,268 @@ Metric.OverallStatusInterval = 1
+@@ -4117,3 +4117,275 @@ Metric.OverallStatusInterval = 1
  
  #
  ###################################################################################################
@@ -66180,6 +66191,13 @@ index 022bca30..938f00f7 100644
 +#        Default:     0 - no limit
 +
 +NpcBot.MaxBotsPerClass = 0
++
++#
++#    NpcBot.Botgiver.FilterRaces
++#        Description: Make botgiver only offer bots of player faction (normal classes).
++#        Default:     0 - disable
++
++NpcBot.Botgiver.FilterRaces = 0
 +
 +#
 +#    NpcBot.BaseFollowDistance
