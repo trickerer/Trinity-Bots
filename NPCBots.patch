@@ -35,9 +35,9 @@
  .../Database/Implementation/CharacterDatabase.h    |    14 +
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
- src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1339 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 16448 +++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |   637 +
+ src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1337 ++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 16428 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |   639 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   400 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   936 ++
  src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp  |   622 +
@@ -45,7 +45,7 @@
  src/server/game/AI/NpcBots/bot_dreadlord_ai.cpp    |   533 +
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        |  2917 ++++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  2356 +++
- src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  1826 ++
+ src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  1826 +++
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  2764 ++++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  2099 +++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  2030 +++
@@ -135,7 +135,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   272 +
- 137 files changed, 63541 insertions(+), 48 deletions(-)
+ 137 files changed, 63521 insertions(+), 48 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -3654,10 +3654,10 @@ index 00000000..35a96959
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_GridNotifiers.h b/src/server/game/AI/NpcBots/bot_GridNotifiers.h
 new file mode 100644
-index 00000000..4f0b1579
+index 00000000..0fd5c496
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_GridNotifiers.h
-@@ -0,0 +1,1339 @@
+@@ -0,0 +1,1337 @@
 +#ifndef _BOT_GRIDNOTIFIERS_H
 +#define _BOT_GRIDNOTIFIERS_H
 +
@@ -4137,12 +4137,11 @@ index 00000000..4f0b1579
 +                !(u->GetCreatureType() == CREATURE_TYPE_UNDEAD && !u->HasAuraType(SPELL_AURA_PERIODIC_DAMAGE)))
 +                return false;
 +            if (me->ToCreature()->GetBotClass() == BOT_CLASS_PALADIN &&
-+                u->GetCreatureType() != CREATURE_TYPE_UNDEAD &&
-+                u->GetCreatureType() != CREATURE_TYPE_DEMON)
++                u->GetCreatureType() != CREATURE_TYPE_UNDEAD && u->GetCreatureType() != CREATURE_TYPE_DEMON)
 +                return false;
 +            if (me->ToCreature()->GetBotClass() == BOT_CLASS_WARLOCK &&
-+                u->GetCreatureType() != CREATURE_TYPE_DEMON &&
-+                u->GetCreatureType() != CREATURE_TYPE_ELEMENTAL)
++                ((u->GetCreatureType() != CREATURE_TYPE_DEMON && u->GetCreatureType() != CREATURE_TYPE_ELEMENTAL) ||
++                m_ai->IsPointedAnyAttackTarget(u)))
 +                return false;
 +            if (u->GetVictim() && !m_ai->IsInBotParty(u->GetVictim()))
 +                return false;
@@ -4150,8 +4149,7 @@ index 00000000..4f0b1579
 +                return false;
 +            if (u->IsImmunedToSpell(sSpellMgr->GetSpellInfo(m_spellId), me))
 +                return false;
-+            if (me->GetTypeId() == TYPEID_UNIT && me->ToCreature()->GetBotAI() && me->ToCreature()->GetBotAI()->IsPointedNoDPSTarget(u) &&
-+                bot_ai::IsDamagingSpell(sSpellMgr->GetSpellInfo(m_spellId)))
++            if (m_ai->IsPointedNoDPSTarget(u) && bot_ai::IsDamagingSpell(sSpellMgr->GetSpellInfo(m_spellId)))
 +                return false;
 +
 +            return true;
@@ -4999,10 +4997,10 @@ index 00000000..4f0b1579
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 00000000..73710c72
+index 00000000..74e67d5b
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,16448 @@
+@@ -0,0 +1,16428 @@
 +#include "bot_ai.h"
 +//#include "botcommon.h"
 +#include "bot_Events.h"
@@ -6080,63 +6078,43 @@ index 00000000..73710c72
 +    m_botCommandState &= ~st;
 +}
 +
-+bool bot_ai::IsPointedHealTarget(Unit const* target) const
++bool bot_ai::IsPointedTarget(Unit const* target, uint8 targetFlags) const
 +{
 +    if (Group const* gr = (IAmFree() ? nullptr : master->GetGroup()))
-+        if (uint8 healFlags = BotMgr::GetHealTargetIconFlags())
++        if (targetFlags)
 +            for (uint8 i = 0; i != TARGETICONCOUNT; ++i)
-+                if (healFlags & GroupIconsFlags[i])
++                if (targetFlags & GroupIconsFlags[i])
 +                    if (target->GetGUID() == gr->GetTargetIcons()[i])
 +                        return true;
 +
 +    return false;
++}
++bool bot_ai::IsPointedHealTarget(Unit const* target) const
++{
++    return IsPointedTarget(target, BotMgr::GetHealTargetIconFlags());
 +}
 +//unused
 +bool bot_ai::IsPointedTankingTarget(Unit const* target) const
 +{
-+    if (Group const* gr = (IAmFree() ? nullptr : master->GetGroup()))
-+        if (uint8 tankFlags = BotMgr::GetOffTankTargetIconFlags())
-+            for (uint8 i = 0; i != TARGETICONCOUNT; ++i)
-+                if (tankFlags & GroupIconsFlags[i])
-+                    if (target->GetGUID() == gr->GetTargetIcons()[i])
-+                        return true;
-+
-+    return false;
++    return IsPointedTarget(target, BotMgr::GetOffTankTargetIconFlags());
 +}
 +//unused
 +bool bot_ai::IsPointedDPSTarget(Unit const* target) const
 +{
-+    if (Group const* gr = (IAmFree() ? nullptr : master->GetGroup()))
-+        if (uint8 dpsFlags = BotMgr::GetDPSTargetIconFlags())
-+            for (uint8 i = 0; i != TARGETICONCOUNT; ++i)
-+                if (dpsFlags & GroupIconsFlags[i])
-+                    if (target->GetGUID() == gr->GetTargetIcons()[i])
-+                        return true;
-+
-+    return false;
++    return IsPointedTarget(target, BotMgr::GetDPSTargetIconFlags());
 +}
 +//unused
 +bool bot_ai::IsPointedRangedDPSTarget(Unit const* target) const
 +{
-+    if (Group const* gr = (IAmFree() ? nullptr : master->GetGroup()))
-+        if (uint8 dpsFlags = BotMgr::GetRangedDPSTargetIconFlags())
-+            for (uint8 i = 0; i != TARGETICONCOUNT; ++i)
-+                if (dpsFlags & GroupIconsFlags[i])
-+                    if (target->GetGUID() == gr->GetTargetIcons()[i])
-+                        return true;
-+
-+    return false;
++    return IsPointedTarget(target, BotMgr::GetRangedDPSTargetIconFlags());
 +}
 +bool bot_ai::IsPointedNoDPSTarget(Unit const* target) const
 +{
-+    if (Group const* gr = (IAmFree() ? nullptr : master->GetGroup()))
-+        if (uint8 dpsFlags = BotMgr::GetNoDPSTargetIconFlags())
-+            for (uint8 i = 0; i != TARGETICONCOUNT; ++i)
-+                if (dpsFlags & GroupIconsFlags[i])
-+                    if (target->GetGUID() == gr->GetTargetIcons()[i])
-+                        return true;
-+
-+    return false;
++    return IsPointedTarget(target, BotMgr::GetNoDPSTargetIconFlags());
++}
++bool bot_ai::IsPointedAnyAttackTarget(Unit const* target) const
++{
++    return IsPointedTarget(target, BotMgr::GetOffTankTargetIconFlags() | BotMgr::GetDPSTargetIconFlags() | BotMgr::GetRangedDPSTargetIconFlags());
 +}
 +// Buffs And Heal (really)
 +// Priority as follows: 1) heal players 2) buff players 3) heal bots 4) buff bots
@@ -21453,10 +21431,10 @@ index 00000000..73710c72
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 00000000..7758a40f
+index 00000000..339a7c32
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,637 @@
+@@ -0,0 +1,639 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -21690,11 +21668,13 @@ index 00000000..7758a40f
 +        Unit* HelpFindCastingTarget(float maxdist = 10, float mindist = 0, uint32 spellId = 0, uint8 minHpPct = 0) const { return FindCastingTarget(maxdist, mindist, spellId, minHpPct); }
 +        void HelpGetNearbyTargetsList(std::list<Unit*> &targets, float maxdist, uint8 CCoption, WorldObject const* source = nullptr) const { GetNearbyTargetsList(targets, maxdist, CCoption, source); }
 +
++        bool IsPointedTarget(Unit const* target, uint8 targetFlags) const;
 +        bool IsPointedHealTarget(Unit const* target) const;
 +        bool IsPointedTankingTarget(Unit const* target) const;
 +        bool IsPointedDPSTarget(Unit const* target) const;
 +        bool IsPointedRangedDPSTarget(Unit const* target) const;
 +        bool IsPointedNoDPSTarget(Unit const* target) const;
++        bool IsPointedAnyAttackTarget(Unit const* target) const;
 +
 +        static bool IsDamagingSpell(SpellInfo const* spellInfo);
 +
