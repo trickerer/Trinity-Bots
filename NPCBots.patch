@@ -36,7 +36,7 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1337 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 16428 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 16432 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   639 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   400 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   936 ++
@@ -63,7 +63,7 @@
  src/server/game/AI/NpcBots/botdump.cpp             |   936 ++
  src/server/game/AI/NpcBots/botdump.h               |    47 +
  src/server/game/AI/NpcBots/botgiver.cpp            |   266 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  1486 ++
+ src/server/game/AI/NpcBots/botmgr.cpp              |  1493 ++
  src/server/game/AI/NpcBots/botmgr.h                |   202 +
  src/server/game/AI/NpcBots/bpet_ai.cpp             |  2313 +++
  src/server/game/AI/NpcBots/bpet_ai.h               |   167 +
@@ -105,6 +105,8 @@
  src/server/game/Groups/Group.h                     |     4 +
  src/server/game/Handlers/ItemHandler.cpp           |    13 +
  src/server/game/Handlers/SpellHandler.cpp          |   109 +
+ src/server/game/Instances/InstanceScript.cpp       |    40 +
+ src/server/game/Instances/InstanceScript.h         |     7 +
  src/server/game/Maps/Map.cpp                       |    36 +
  src/server/game/Maps/MapManager.cpp                |     8 +
  src/server/game/Movement/MotionMaster.cpp          |    20 +
@@ -120,6 +122,7 @@
  src/server/game/Spells/SpellInfo.cpp               |    46 +
  src/server/scripts/Commands/cs_npc.cpp             |    31 +
  .../CavernsOfTime/BattleForMountHyjal/hyjalAI.cpp  |     5 +
+ .../IcecrownCitadel/instance_icecrown_citadel.cpp  |    21 +
  .../Northrend/Naxxramas/boss_four_horsemen.cpp     |     4 +-
  src/server/scripts/Spells/spell_dk.cpp             |    17 +
  src/server/scripts/Spells/spell_druid.cpp          |    65 +
@@ -135,7 +138,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   272 +
- 137 files changed, 63521 insertions(+), 48 deletions(-)
+ 140 files changed, 63600 insertions(+), 48 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -4997,10 +5000,10 @@ index 00000000..0fd5c496
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 00000000..74e67d5b
+index 00000000..3143e24b
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,16428 @@
+@@ -0,0 +1,16432 @@
 +#include "bot_ai.h"
 +//#include "botcommon.h"
 +#include "bot_Events.h"
@@ -19736,6 +19739,10 @@ index 00000000..74e67d5b
 +    if (Group* gr = master->GetGroup())
 +        if (gr->IsMember(me->GetGUID()))
 +            gr->SendUpdate();
++
++    //map hooks
++    if (InstanceScript* iscr = master->GetInstanceScript())
++        iscr->OnNPCBotEnter(me);
 +
 +    return true;
 +}
@@ -53863,10 +53870,10 @@ index 00000000..15fee2cd
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 00000000..00617fc6
+index 00000000..34aed792
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,1486 @@
+@@ -0,0 +1,1493 @@
 +#include "bot_ai.h"
 +#include "botdpstracker.h"
 +#include "bot_Events.h"
@@ -53879,6 +53886,7 @@ index 00000000..00617fc6
 +#include "GridNotifiers.h"
 +#include "GridNotifiersImpl.h"
 +#include "Group.h"
++#include "InstanceScript.h"
 +#include "Language.h"
 +#include "Map.h"
 +#include "MapManager.h"
@@ -54606,7 +54614,13 @@ index 00000000..00617fc6
 +        bot->InterruptNonMeleeSpells(true);
 +        //bot->IsAIEnabled = false;
 +        if (bot->IsInWorld())
++        {
++            if (!bot->IsFreeBot())
++                if (InstanceScript* iscr = bot->GetBotOwner()->GetInstanceScript())
++                    iscr->OnNPCBotLeave(bot);
++
 +            bot->RemoveFromWorld();
++        }
 +
 +        ASSERT(bot->GetGUID());
 +
@@ -64327,6 +64341,96 @@ index 775a57c4..990d528e 100644
      if (!unit->HasAuraType(SPELL_AURA_CLONE_CASTER))
          return;
  
+diff --git a/src/server/game/Instances/InstanceScript.cpp b/src/server/game/Instances/InstanceScript.cpp
+index 5d207925..32ef352c 100644
+--- a/src/server/game/Instances/InstanceScript.cpp
++++ b/src/server/game/Instances/InstanceScript.cpp
+@@ -39,6 +39,10 @@
+ #include <cstdarg>
+ #include <sstream>
+ 
++//npcbot
++#include "botmgr.h"
++//end npcbot
++
+ BossBoundaryData::~BossBoundaryData()
+ {
+     for (const_iterator it = begin(); it != end(); ++it)
+@@ -632,6 +636,15 @@ void InstanceScript::DoRemoveAurasDueToSpellOnPlayer(Player* player, uint32 spel
+ 
+     player->RemoveAurasDueToSpell(spell);
+ 
++    //npcbot: include bots
++    if (player->HaveBot())
++    {
++        for (auto const& bitr : *player->GetBotMgr()->GetBotMap())
++            if (bitr.second && bitr.second->IsInWorld())
++                DoRemoveAurasDueToSpellOnNPCBot(bitr.second, spell);
++    }
++    //end npcbot
++
+     if (!includePets)
+         return;
+ 
+@@ -667,6 +680,15 @@ void InstanceScript::DoCastSpellOnPlayer(Player* player, uint32 spell, bool incl
+ 
+     player->CastSpell(player, spell, true);
+ 
++    //npcbot: include bots
++    if (player->HaveBot())
++    {
++        for (auto const& bitr : *player->GetBotMgr()->GetBotMap())
++            if (bitr.second && bitr.second->IsInWorld())
++                DoCastSpellOnNPCBot(bitr.second, spell);
++    }
++    //end npcbot
++
+     if (!includePets)
+         return;
+ 
+@@ -688,6 +710,24 @@ void InstanceScript::DoCastSpellOnPlayer(Player* player, uint32 spell, bool incl
+     }
+ }
+ 
++//npcbot: hooks
++void InstanceScript::DoRemoveAurasDueToSpellOnNPCBot(Creature* bot, uint32 spell)
++{
++    ASSERT(bot && bot->IsNPCBot() && bot->IsInWorld() && !bot->IsFreeBot());
++    bot->RemoveAurasDueToSpell(spell);
++    if (Unit* botpet = bot->GetBotsPet())
++        botpet->RemoveAurasDueToSpell(spell);
++}
++
++void InstanceScript::DoCastSpellOnNPCBot(Creature* bot, uint32 spell)
++{
++    ASSERT(bot && bot->IsNPCBot() && bot->IsInWorld() && !bot->IsFreeBot());
++    bot->CastSpell(bot, spell, true);
++    if (Unit* botpet = bot->GetBotsPet())
++        botpet->CastSpell(botpet, spell, true);
++}
++//end npcbot
++
+ bool InstanceScript::ServerAllowsTwoSideGroups()
+ {
+     return sWorld->getBoolConfig(CONFIG_ALLOW_TWO_SIDE_INTERACTION_GROUP);
+diff --git a/src/server/game/Instances/InstanceScript.h b/src/server/game/Instances/InstanceScript.h
+index bd934988..4c3b5860 100644
+--- a/src/server/game/Instances/InstanceScript.h
++++ b/src/server/game/Instances/InstanceScript.h
+@@ -197,6 +197,13 @@ class TC_GAME_API InstanceScript : public ZoneScript
+         // Called when a player successfully leaves the instance.
+         virtual void OnPlayerLeave(Player* /*player*/) { }
+ 
++        //npcbot: map hooks
++        virtual void OnNPCBotEnter(Creature* /*bot*/) { }
++        virtual void OnNPCBotLeave(Creature* /*bot*/) { }
++        void DoRemoveAurasDueToSpellOnNPCBot(Creature* bot, uint32 spell);
++        void DoCastSpellOnNPCBot(Creature* bot, uint32 spell);
++        //end npcbot
++
+         // Handle open / close objects
+         // * use HandleGameObject(0, boolen, GO); in OnObjectCreate in instance scripts
+         // * use HandleGameObject(GUID, boolen, nullptr); in any other script
 diff --git a/src/server/game/Maps/Map.cpp b/src/server/game/Maps/Map.cpp
 index b18020b6..9afd8e4a 100644
 --- a/src/server/game/Maps/Map.cpp
@@ -65381,6 +65485,45 @@ index 15bc6025..00e4e89e 100644
                      if ((*itr) && (*itr)->IsAlive())
                      {
                          (*itr)->CastSpell(*itr, SPELL_TELEPORT_VISUAL, true);
+diff --git a/src/server/scripts/Northrend/IcecrownCitadel/instance_icecrown_citadel.cpp b/src/server/scripts/Northrend/IcecrownCitadel/instance_icecrown_citadel.cpp
+index a8185a25..eb080a4d 100644
+--- a/src/server/scripts/Northrend/IcecrownCitadel/instance_icecrown_citadel.cpp
++++ b/src/server/scripts/Northrend/IcecrownCitadel/instance_icecrown_citadel.cpp
+@@ -202,6 +202,19 @@ class instance_icecrown_citadel : public InstanceMapScript
+                 DoRemoveAurasDueToSpellOnPlayer(player, TeamInInstance == ALLIANCE ? SPELL_STRENGHT_OF_WRYNN : SPELL_HELLSCREAMS_WARSONG, true, true);
+             }
+ 
++            //npcbot: handle bot map transfer
++            void OnNPCBotEnter(Creature* bot) override
++            {
++                if (IsFactionBuffActive)
++                    DoCastSpellOnNPCBot(bot, TeamInInstance == ALLIANCE ? SPELL_STRENGHT_OF_WRYNN : SPELL_HELLSCREAMS_WARSONG);
++            }
++
++            void OnNPCBotLeave(Creature* bot) override
++            {
++                DoRemoveAurasDueToSpellOnNPCBot(bot, TeamInInstance == ALLIANCE ? SPELL_STRENGHT_OF_WRYNN : SPELL_HELLSCREAMS_WARSONG);
++            }
++            //end npcbot
++
+             void OnCreatureCreate(Creature* creature) override
+             {
+                 if (creature->IsGuardian() && creature->GetOwnerGUID().IsPlayer())
+@@ -210,6 +223,14 @@ class instance_icecrown_citadel : public InstanceMapScript
+                         creature->CastSpell(creature, TeamInInstance == ALLIANCE ? SPELL_STRENGHT_OF_WRYNN : SPELL_HELLSCREAMS_WARSONG, true);
+                 }
+ 
++                //npcbot: handle bot pets
++                if (creature->IsNPCBotPet())
++                {
++                    if (IsFactionBuffActive)
++                        creature->CastSpell(creature, TeamInInstance == ALLIANCE ? SPELL_STRENGHT_OF_WRYNN : SPELL_HELLSCREAMS_WARSONG, true);
++                }
++                //end npcbot
++
+                 switch (creature->GetEntry())
+                 {
+                     case NPC_NERUBAR_BROODKEEPER:
 diff --git a/src/server/scripts/Northrend/Naxxramas/boss_four_horsemen.cpp b/src/server/scripts/Northrend/Naxxramas/boss_four_horsemen.cpp
 index 1e8e38fc..3bcd1d02 100644
 --- a/src/server/scripts/Northrend/Naxxramas/boss_four_horsemen.cpp
