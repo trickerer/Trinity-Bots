@@ -36,8 +36,8 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1337 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 16432 +++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |   639 +
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 16499 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |   650 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   400 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   936 ++
  src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp  |   622 +
@@ -45,7 +45,7 @@
  src/server/game/AI/NpcBots/bot_dreadlord_ai.cpp    |   533 +
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        |  2917 ++++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  2356 +++
- src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  1826 +++
+ src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  1826 ++
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  2764 ++++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  2099 +++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  2030 +++
@@ -63,7 +63,7 @@
  src/server/game/AI/NpcBots/botdump.cpp             |   936 ++
  src/server/game/AI/NpcBots/botdump.h               |    47 +
  src/server/game/AI/NpcBots/botgiver.cpp            |   266 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  1493 ++
+ src/server/game/AI/NpcBots/botmgr.cpp              |  1461 ++
  src/server/game/AI/NpcBots/botmgr.h                |   202 +
  src/server/game/AI/NpcBots/bpet_ai.cpp             |  2313 +++
  src/server/game/AI/NpcBots/bpet_ai.h               |   167 +
@@ -138,7 +138,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   272 +
- 140 files changed, 63600 insertions(+), 48 deletions(-)
+ 140 files changed, 63646 insertions(+), 48 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -5000,10 +5000,10 @@ index 00000000..0fd5c496
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 00000000..3143e24b
+index 00000000..051538be
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,16432 @@
+@@ -0,0 +1,16499 @@
 +#include "bot_ai.h"
 +//#include "botcommon.h"
 +#include "bot_Events.h"
@@ -5221,6 +5221,9 @@ index 00000000..3143e24b
 +    teleHomeEvent = nullptr;
 +    teleFinishEvent = nullptr;
 +
++    _lastZoneId = 0;
++    _lastAreaId = 0;
++
 +    _ownerGuid = 0;
 +
 +    ResetBotAI(BOTAI_RESET_INIT);
@@ -5239,12 +5242,6 @@ index 00000000..3143e24b
 +    for (uint8 i = BOT_SLOT_MAINHAND; i != BOT_INVENTORY_SIZE; ++i)
 +        if (_equips[i])
 +            delete _equips[i];
-+
-+    while (!_orders.empty())
-+    {
-+        delete _orders.front();
-+        _orders.pop();
-+    }
 +
 +    delete _classinfo;
 +
@@ -5816,8 +5813,8 @@ index 00000000..3143e24b
 +    {
 +        //failed to cast
 +        if (HasBotCommandState(BOT_COMMAND_ISSUED_ORDER) &&
-+            !_orders.empty() && _orders.front()->_type == BOT_ORDER_SPELLCAST &&
-+            _orders.front()->params.spellCastParams.baseSpell == m_botSpellInfo->GetFirstRankSpell()->Id)
++            !_orders.empty() && _orders.front()._type == BOT_ORDER_SPELLCAST &&
++            _orders.front().params.spellCastParams.baseSpell == m_botSpellInfo->GetFirstRankSpell()->Id)
 +        {
 +            if (DEBUG_BOT_ORDERS)
 +                TC_LOG_ERROR("entities.player", "doCast(): ordered spell %u is not casted!", m_botSpellInfo->Id);
@@ -10568,6 +10565,69 @@ index 00000000..3143e24b
 +    me->SetStatFloatValue(UNIT_FIELD_POWER_REGEN_INTERRUPTED_FLAT_MODIFIER, power_regen_mp5 + CalculatePct(value, modManaRegenInterrupt));
 +    me->SetStatFloatValue(UNIT_FIELD_POWER_REGEN_FLAT_MODIFIER, power_regen_mp5 + value);
 +}
++
++void bot_ai::_OnZoneUpdate(uint32 zoneId, uint32 areaId)
++{
++    ASSERT(!IAmFree());
++    ASSERT(me->IsInWorld());
++
++    _lastZoneId = zoneId;
++
++    _OnAreaUpdate(areaId);
++
++    AreaTableEntry const* zone = sAreaTableStore.LookupEntry(zoneId);
++    if (!zone)
++        return;
++
++    SpellAreaForAreaMapBounds saBounds = sSpellMgr->GetSpellAreaForAreaMapBounds(zoneId);
++    for (SpellAreaForAreaMap::const_iterator itr = saBounds.first; itr != saBounds.second; ++itr)
++    {
++        if (itr->second->autocast && itr->second->IsFitToRequirements(master, zoneId, 0))
++        {
++            if (!me->HasAura(itr->second->spellId))
++                me->CastSpell(me, itr->second->spellId, true);
++            if (botPet && !botPet->HasAura(itr->second->spellId))
++                botPet->CastSpell(botPet, itr->second->spellId, true);
++        }
++    }
++}
++
++void bot_ai::_OnAreaUpdate(uint32 areaId)
++{
++    ASSERT(!IAmFree());
++    ASSERT(me->IsInWorld());
++
++    _lastAreaId = areaId;
++
++    Unit::AuraMap& ownerAuras = me->GetOwnedAuras();
++    for (Unit::AuraMap::iterator iter = ownerAuras.begin(); iter != ownerAuras.end();)
++    {
++        if (iter->second->GetSpellInfo()->CheckLocation(me->GetMapId(), _lastZoneId, areaId, master, false) != SPELL_CAST_OK)
++        {
++            //me->RemoveOwnedAura(iter);
++            //we assume 1 aura at a time at most for area (once per 1.5 sec)
++            me->RemoveAurasDueToSpell(iter->first);
++            if (botPet)
++                botPet->RemoveAurasDueToSpell(iter->first);
++            break;
++        }
++        else
++            ++iter;
++    }
++
++    SpellAreaForAreaMapBounds saBounds = sSpellMgr->GetSpellAreaForAreaMapBounds(areaId);
++    for (SpellAreaForAreaMap::const_iterator itr = saBounds.first; itr != saBounds.second; ++itr)
++    {
++        if (itr->second->autocast && itr->second->IsFitToRequirements(master, _lastZoneId, 0))
++        {
++            if (!me->HasAura(itr->second->spellId))
++                me->CastSpell(me, itr->second->spellId, true);
++            if (botPet && !botPet->HasAura(itr->second->spellId))
++                botPet->CastSpell(botPet, itr->second->spellId, true);
++        }
++    }
++}
++
 +//SpellHit()... OnSpellHit()
 +void bot_ai::OnSpellHit(Unit* caster, SpellInfo const* spell)
 +{
@@ -17684,8 +17744,8 @@ index 00000000..3143e24b
 +    }
 +
 +    if (HasBotCommandState(BOT_COMMAND_ISSUED_ORDER) &&
-+        !_orders.empty() && _orders.front()->_type == BOT_ORDER_SPELLCAST &&
-+        _orders.front()->params.spellCastParams.baseSpell == curInfo->GetFirstRankSpell()->Id)
++        !_orders.empty() && _orders.front()._type == BOT_ORDER_SPELLCAST &&
++        _orders.front().params.spellCastParams.baseSpell == curInfo->GetFirstRankSpell()->Id)
 +    {
 +        if (DEBUG_BOT_ORDERS)
 +            TC_LOG_ERROR("entities.player", "doCast(): ordered spell %u by %s was %s!",
@@ -17770,8 +17830,8 @@ index 00000000..3143e24b
 +        if (info->PreventionType != SPELL_PREVENTION_TYPE_SILENCE) continue;
 +
 +        if (HasBotCommandState(BOT_COMMAND_ISSUED_ORDER) &&
-+            !_orders.empty() && _orders.front()->_type == BOT_ORDER_SPELLCAST &&
-+            _orders.front()->params.spellCastParams.baseSpell == itr->first)
++            !_orders.empty() && _orders.front()._type == BOT_ORDER_SPELLCAST &&
++            _orders.front().params.spellCastParams.baseSpell == itr->first)
 +        {
 +            if (DEBUG_BOT_ORDERS)
 +                TC_LOG_ERROR("entities.player", "doCast(): ordered spell %u was interrupted!", info->Id);
@@ -17957,8 +18017,8 @@ index 00000000..3143e24b
 +        }
 +    }
 +}
-+//OREDERS
-+bool bot_ai::AddOrder(BotOrder const* order)
++//ORDERS
++bool bot_ai::AddOrder(BotOrder&& order)
 +{
 +    if (_orders.size() >= MAX_BOT_ORDERS_QUEUE_SIZE)
 +    {
@@ -17966,55 +18026,50 @@ index 00000000..3143e24b
 +        return false;
 +    }
 +
-+    _orders.push(order);
++    _orders.push(std::move(order));
 +    return true;
 +}
-+void bot_ai::CancelOrder(BotOrder const* order)
++void bot_ai::CancelOrder(BotOrder const& order)
 +{
 +    if (_orders.empty())
 +    {
 +        TC_LOG_ERROR("scripts", "bot_ai::CancelOrder: %s orders are empty while trying to remove order type %u!",
-+            me->GetName().c_str(), uint32(order->_type));
++            me->GetName().c_str(), uint32(order._type));
 +        return;
 +    }
-+    if (_orders.front()->_type != order->_type || _orders.front()->params.whole != order->params.whole)
++    if (_orders.front()._type != order._type || _orders.front().params.whole != order.params.whole)
 +    {
 +        TC_LOG_ERROR("scripts", "bot_ai::CancelOrder: %s front order (type %u) is different from cur order (type %u)!",
-+            me->GetName().c_str(), uint32(_orders.front()->_type), uint32(order->_type));
++            me->GetName().c_str(), uint32(_orders.front()._type), uint32(order._type));
 +        return;
 +    }
 +
 +    RemoveBotCommandState(BOT_COMMAND_ISSUED_ORDER);
-+    delete _orders.front();
 +    _orders.pop();
 +}
-+void bot_ai::CompleteOrder(BotOrder const* order)
++void bot_ai::CompleteOrder(BotOrder const& order)
 +{
 +    if (_orders.empty())
 +    {
 +        TC_LOG_ERROR("scripts", "bot_ai::CompleteOrder: %s orders are empty while trying to remove order type %u!",
-+            me->GetName().c_str(), uint32(order->_type));
++            me->GetName().c_str(), uint32(order._type));
 +        return;
 +    }
-+    if (_orders.front()->_type != order->_type || _orders.front()->params.whole != order->params.whole)
++    if (_orders.front()._type != order._type || _orders.front().params.whole != order.params.whole)
 +    {
 +        TC_LOG_ERROR("scripts", "bot_ai::CompleteOrder: %s front order (type %u) is different from cur order (type %u)!",
-+            me->GetName().c_str(), uint32(_orders.front()->_type), uint32(order->_type));
++            me->GetName().c_str(), uint32(_orders.front()._type), uint32(order._type));
 +        return;
 +    }
 +
 +    RemoveBotCommandState(BOT_COMMAND_ISSUED_ORDER);
-+    delete _orders.front();
 +    _orders.pop();
 +}
 +void bot_ai::CancelAllOrders()
 +{
 +    RemoveBotCommandState(BOT_COMMAND_ISSUED_ORDER);
 +    while (!_orders.empty())
-+    {
-+        delete _orders.front();
 +        _orders.pop();
-+    }
 +}
 +void bot_ai::_ProcessOrders()
 +{
@@ -18029,9 +18084,9 @@ index 00000000..3143e24b
 +
 +    ordersTimer = 500;
 +
-+    BotOrder const* &order = _orders.front();
++    BotOrder const& order = _orders.front();
 +    Unit* target = nullptr;
-+    switch (order->_type)
++    switch (order._type)
 +    {
 +        case BOT_ORDER_SPELLCAST:
 +        {
@@ -18040,7 +18095,7 @@ index 00000000..3143e24b
 +
 +            SetBotCommandState(BOT_COMMAND_ISSUED_ORDER);
 +
-+            ObjectGuid guid(order->params.spellCastParams.targetGuid);
++            ObjectGuid guid(order.params.spellCastParams.targetGuid);
 +            if (guid == me->GetGUID())
 +                target = me;
 +            else if (guid == master->GetGUID())
@@ -18054,14 +18109,14 @@ index 00000000..3143e24b
 +            }
 +            else
 +            {
-+                TC_LOG_ERROR("scripts", "bot_ai:_ProcessOrders: invalid spellCastParams.targetGuid " UI64FMTD "!", order->params.spellCastParams.targetGuid);
++                TC_LOG_ERROR("scripts", "bot_ai:_ProcessOrders: invalid spellCastParams.targetGuid " UI64FMTD "!", order.params.spellCastParams.targetGuid);
 +                CancelOrder(order);
 +                return;
 +            }
 +
 +            if (!target || !target->IsInWorld())
 +            {
-+                TC_LOG_ERROR("scripts", "bot_ai:_ProcessOrders: target " UI64FMTD " not found!", order->params.spellCastParams.targetGuid);
++                TC_LOG_ERROR("scripts", "bot_ai:_ProcessOrders: target " UI64FMTD " not found!", order.params.spellCastParams.targetGuid);
 +                CancelOrder(order);
 +                return;
 +            }
@@ -18069,11 +18124,11 @@ index 00000000..3143e24b
 +            if (IsCasting())
 +                me->InterruptNonMeleeSpells(false);
 +
-+            doCast(target, _spells[order->params.spellCastParams.baseSpell]->spellId);
++            doCast(target, _spells[order.params.spellCastParams.baseSpell]->spellId);
 +            break;
 +        }
 +        default:
-+            TC_LOG_ERROR("scripts", "bot_ai:_ProcessOrders: invalid order type %u!", uint32(order->_type));
++            TC_LOG_ERROR("scripts", "bot_ai:_ProcessOrders: invalid order type %u!", uint32(order._type));
 +            CancelOrder(order);
 +            return;
 +    }
@@ -19241,6 +19296,18 @@ index 00000000..3143e24b
 +        //        }
 +        //    }
 +        //}
++
++        //Zone / Area
++        if (!IAmFree() && me->IsInWorld())
++        {
++            uint32 newzone, newarea;
++            me->GetZoneAndAreaId(newzone, newarea);
++
++            if (_lastZoneId != newzone)
++                _OnZoneUpdate(newzone, newarea); // also updates area
++            else if (_lastAreaId != newarea)
++                _OnAreaUpdate(newarea);
++        }
 +
 +        //Gathering
 +        if (me->IsInWorld() && HasRole(BOT_ROLE_MASK_GATHERING) && !me->IsInCombat() && !master->IsInCombat() && !master->IsMounted() && !CCed(me) &&
@@ -21438,10 +21505,10 @@ index 00000000..3143e24b
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 00000000..339a7c32
+index 00000000..1a3ff67a
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,639 @@
+@@ -0,0 +1,650 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -21464,7 +21531,7 @@ index 00000000..339a7c32
 +        bool canUpdate;
 +
 +        void InitializeAI() override { Reset(); }
-+        void Reset() override { }
++        //void Reset() override { }
 +
 +        void JustDied(Unit*) override;
 +        void KilledUnit(Unit* u) override;
@@ -21472,9 +21539,10 @@ index 00000000..339a7c32
 +        void JustEnteredCombat(Unit* u) override;
 +        void MoveInLineOfSight(Unit* u) override;
 +        void DamageDealt(Unit* victim, uint32& damage, DamageEffectType damageType) override;
-+        void DamageTaken(Unit* /*attacker*/, uint32& /*damage*/, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo*/) override { }
++        //void DamageTaken(Unit* /*attacker*/, uint32& /*damage*/, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo*/) override { }
 +        void ReceiveEmote(Player* player, uint32 emote) override;
-+        void EnterEvadeMode(EvadeReason/* why*/ = EVADE_REASON_OTHER) override { }
++        //void EnterEvadeMode(EvadeReason/* why*/ = EVADE_REASON_OTHER) override { }
++        //void LeavingWorld() override { }
 +
 +        virtual void OnBotSummon(Creature* /*summon*/) {}
 +        virtual void OnBotDespawn(Creature* /*summon*/) {}
@@ -21889,6 +21957,9 @@ index 00000000..339a7c32
 +        void _OnManaUpdate() const;
 +        void _OnManaRegenUpdate() const;
 +
++        void _OnZoneUpdate(uint32 zoneId, uint32 areaId);
++        void _OnAreaUpdate(uint32 areaId);
++
 +        void RemoveItemBonuses(uint8 slot);
 +        void RemoveItemEnchantments(Item const* item);
 +        void RemoveItemEnchantment(Item const* item, EnchantmentSlot eslot);
@@ -21993,6 +22064,8 @@ index 00000000..339a7c32
 +        //save timers
 +        uint32 _saveDisabledSpellsTimer;
 +
++        uint32 _lastZoneId, _lastAreaId;
++
 +        uint8 _jumpCount, _evadeCount;
 +        uint32 _roleMask;
 +        ObjectGuid::LowType _ownerGuid;
@@ -22058,25 +22131,30 @@ index 00000000..339a7c32
 +                } spellCastParams;
 +            } params;
 +
-+            BotOrder(BotOrderTypes order_type) : _type(order_type)
++            explicit BotOrder(BotOrderTypes order_type) : _type(order_type)
 +            {
 +                memset(params.whole, 0, ORDERS_PARAMS_MAX_SIZE);
 +            }
++            BotOrder(BotOrder&&) noexcept = default;
++
++            BotOrder(BotOrder const&) = delete;
++            BotOrder& operator=(BotOrder const&) = delete;
++            BotOrder& operator=(BotOrder&&) = delete;
 +
 +        private:
 +            BotOrderTypes _type;
 +        };
 +
 +        bool HasOrders() const { return !_orders.empty(); }
-+        bool AddOrder(BotOrder const* order);
-+        void CancelOrder(BotOrder const* order);
-+        void CompleteOrder(BotOrder const* order);
++        bool AddOrder(BotOrder&& order);
++        void CancelOrder(BotOrder const& order);
++        void CompleteOrder(BotOrder const& order);
 +        void CancelAllOrders();
 +
 +    private:
 +        void _ProcessOrders();
 +
-+        typedef std::queue<BotOrder const*> OrdersQueue;
++        typedef std::queue<BotOrder> OrdersQueue;
 +        OrdersQueue _orders;
 +};
 +
@@ -49079,7 +49157,7 @@ index 00000000..3598bfd0
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 00000000..9878d1ba
+index 00000000..9b0a514a
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
 @@ -0,0 +1,1595 @@
@@ -49528,11 +49606,11 @@ index 00000000..9878d1ba
 +            return true;
 +        }
 +
-+        bot_ai::BotOrder* order = new bot_ai::BotOrder(BOT_ORDER_SPELLCAST);
-+        order->params.spellCastParams.baseSpell = basespell;
-+        order->params.spellCastParams.targetGuid = target_guid.GetRawValue();
++        bot_ai::BotOrder order(BOT_ORDER_SPELLCAST);
++        order.params.spellCastParams.baseSpell = basespell;
++        order.params.spellCastParams.targetGuid = target_guid.GetRawValue();
 +
-+        if (bot->GetBotAI()->AddOrder(order))
++        if (bot->GetBotAI()->AddOrder(std::move(order)))
 +        {
 +            if (DEBUG_BOT_ORDERS)
 +                handler->PSendSysMessage("Order given: %s: %s on %s", bot->GetName().c_str(),
@@ -53870,10 +53948,10 @@ index 00000000..15fee2cd
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 00000000..34aed792
+index 00000000..5a878808
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,1493 @@
+@@ -0,0 +1,1461 @@
 +#include "bot_ai.h"
 +#include "botdpstracker.h"
 +#include "bot_Events.h"
@@ -54600,19 +54678,14 @@ index 00000000..34aed792
 +        bot->ExitVehicle();
 +
 +    if (bot->IsInWorld())
-+    {
-+        //bot->MonsterWhisper("teleport...", bot->GetBotAI()->GetBotOwnerGuid());
 +        bot->CastSpell(bot, COSMETIC_TELEPORT_EFFECT, true);
-+    }
 +
 +    if (Map* mymap = bot->FindMap())
 +    {
 +        bot->BotStopMovement();
 +        bot->GetBotAI()->UnsummonAll();
 +
-+        ////start Unit::CleanupBeforeRemoveFromMap()
 +        bot->InterruptNonMeleeSpells(true);
-+        //bot->IsAIEnabled = false;
 +        if (bot->IsInWorld())
 +        {
 +            if (!bot->IsFreeBot())
@@ -54624,40 +54697,21 @@ index 00000000..34aed792
 +
 +        ASSERT(bot->GetGUID());
 +
-+        //RemoveAllAuras();
 +        bot->RemoveAllGameObjects();
 +
-+        bot->m_Events.KillAllEvents(false);                      // non-delatable (currently casted spells) will not deleted now but it will deleted at call in Map::RemoveAllObjectsInRemoveList
++        bot->m_Events.KillAllEvents(false);
 +        bot->CombatStop();
 +        bot->ClearComboPoints();
 +        bot->ClearComboPointHolders();
-+        //bot->DeleteThreatList();
-+        //bot->getHostileRefManager().setOnlineOfflineState(false);
-+
-+        //bot->CleanupBeforeRemoveFromMap(false);
 +
 +        mymap->RemoveFromMap(bot, false);
 +    }
 +
-+    if (bot->IsFreeBot()/* || bot->GetBotOwner()->GetSession()->isLogingOut()*/)
++    if (bot->IsFreeBot())
 +    {
-+        //bot->FarTeleportTo(newMap, x, y, z, ori);
-+
-+        //Creature::FarTeleportTo()
-+        //{
-+        //CleanupBeforeRemoveFromMap(false); //done above
-+        //GetMap()->RemoveFromMap(this, false); //done above
-+        //Relocate(X, Y, Z, O);
-+        //SetMap(map);
-+        //GetMap()->AddToMap(this);
-+        //}
 +        bot->Relocate(x, y, z, ori);
 +        bot->SetMap(newMap);
 +        bot->GetMap()->AddToMap(bot);
-+        //end Creature::FarTeleportTo()
-+
-+        //bot->SetAI(oldAI);
-+        //bot->IsAIEnabled = true;
 +        return;
 +    }
 +
@@ -54666,8 +54720,7 @@ index 00000000..34aed792
 +        if (gr->IsMember(bot->GetGUID()))
 +            gr->SendUpdate();
 +
-+    //bot->Relocate(x, y, z);
-+    TeleportFinishEvent* finishEvent = new TeleportFinishEvent(bot->GetBotAI()/*, newMap->GetId(), newMap->GetInstanceId(), x, y, z, ori*/);
++    TeleportFinishEvent* finishEvent = new TeleportFinishEvent(bot->GetBotAI());
 +    std::chrono::milliseconds delay(urand(5000, 8000));
 +    bot->GetBotAI()->GetEvents()->AddEvent(finishEvent, bot->GetBotAI()->GetEvents()->CalculateTime(delay));
 +    bot->GetBotAI()->SetTeleportFinishEvent(finishEvent);
@@ -54688,14 +54741,7 @@ index 00000000..34aed792
 +
 +    //don't allow removing bots while they are teleporting
 +    if (!bot->IsInWorld())
-+    {
 +        bot->GetBotAI()->AbortTeleport();
-+        //if (!bot->IsInWorld())
-+        //{
-+        //    TC_LOG_ERROR("entities.player", "BotMgr::CleanupsBeforeBotDelete(): Failed to abort %s's teleport! Still out of world!", bot->GetName().c_str());
-+        //    ASSERT(false);
-+        //}
-+    }
 +
 +    if (bot->GetVehicle())
 +        bot->ExitVehicle();
