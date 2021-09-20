@@ -56,7 +56,7 @@
  src/server/game/AI/NpcBots/bot_sphynx_ai.cpp       |   590 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  2077 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2252 +++
- src/server/game/AI/NpcBots/botcommands.cpp         |  1544 ++
+ src/server/game/AI/NpcBots/botcommands.cpp         |  1524 ++
  src/server/game/AI/NpcBots/botcommon.h             |  1089 ++
  src/server/game/AI/NpcBots/botdatamgr.cpp          |   509 +
  src/server/game/AI/NpcBots/botdatamgr.h            |   128 +
@@ -141,7 +141,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   272 +
- 143 files changed, 63706 insertions(+), 48 deletions(-)
+ 143 files changed, 63686 insertions(+), 48 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -49250,10 +49250,10 @@ index 00000000..3598bfd0
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 00000000..cc31e53f
+index 00000000..e510f4f0
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
-@@ -0,0 +1,1544 @@
+@@ -0,0 +1,1524 @@
 +#include "bot_ai.h"
 +#include "botdump.h"
 +#include "botmgr.h"
@@ -49590,7 +49590,7 @@ index 00000000..cc31e53f
 +            return true;
 +        }
 +
-+        for (auto i = 0; i < spell_name->size(); ++i)
++        for (std::decay_t<decltype(*spell_name)>::size_type i = 0u; i < spell_name->size(); ++i)
 +            if ((*spell_name)[i] == '_')
 +                (*spell_name)[i] = ' ';
 +
@@ -50027,13 +50027,11 @@ index 00000000..cc31e53f
 +        return true;
 +    }
 +
-+    static bool HandleNpcBotSetOwnerCommand(ChatHandler* handler, Variant<std::string, uint32> charVal)
++    static bool HandleNpcBotSetOwnerCommand(ChatHandler* handler, Optional<std::string> charVal)
 +    {
-+        using string_type = decltype(charVal)::first_type;
-+
 +        Player* chr = handler->GetSession()->GetPlayer();
 +        Unit* ubot = chr->GetSelectedUnit();
-+        if (!ubot)
++        if (!ubot || !charVal)
 +        {
 +            handler->SendSysMessage(".npcbot set owner #guid | #name");
 +            handler->SendSysMessage("Binds selected npcbot to new player owner using guid or name and updates owner in DB");
@@ -50056,14 +50054,12 @@ index 00000000..cc31e53f
 +            return false;
 +        }
 +
-+        string_type characterName;
-+        uint32 guidlow = 0;
-+        if (charVal.holds_alternative<string_type>())
-+            characterName = charVal.get<string_type>();
-+        else if (charVal.holds_alternative<uint32>())
-+            guidlow = charVal.get<uint32>();
-+        else
++        char* characterName_str = strtok((char*)charVal->c_str(), " ");
++        if (!characterName_str)
 +            return false;
++
++        std::string characterName = characterName_str;
++        uint32 guidlow = (uint32)atoi(characterName_str);
 +
 +        bool found = true;
 +        if (guidlow)
@@ -50282,16 +50278,12 @@ index 00000000..cc31e53f
 +        return true;
 +    }
 +
-+    static bool HandleNpcBotMoveCommand(ChatHandler* handler, Variant<std::string, uint32> creVal)
++    static bool HandleNpcBotMoveCommand(ChatHandler* handler, Optional<std::string> creVal)
 +    {
-+        using string_type = decltype(creVal)::first_type;
-+
 +        Player* player = handler->GetSession()->GetPlayer();
 +        Creature* creature = handler->getSelectedCreature();
-+        bool is_string = creVal.holds_alternative<string_type>();
-+        bool is_num = creVal.holds_alternative<uint32>();
 +
-+        if (!is_string && !is_num && !creature)
++        if (!creature && !creVal)
 +        {
 +            handler->SendSysMessage(".npcbot move");
 +            handler->SendSysMessage("Moves npcbot to your location");
@@ -50300,15 +50292,11 @@ index 00000000..cc31e53f
 +            return false;
 +        }
 +
-+        char* charID = nullptr;
-+        if (!is_num)
-+        {
-+            char* charID = is_string ? handler->extractKeyFromLink((char*)creVal.get<string_type>().c_str(), "Hcreature_entry") : nullptr;
-+            if (!charID && !creature)
-+                return false;
-+        }
++        char* charID = creVal ? handler->extractKeyFromLink((char*)creVal->c_str(), "Hcreature_entry") : nullptr;
++        if (!charID && !creature)
++            return false;
 +
-+        uint32 id = is_num ? creVal.get<uint32>() : charID ? atoi(charID) : creature->GetEntry();
++        uint32 id = charID ? atoi(charID) : creature->GetEntry();
 +
 +        CreatureTemplate const* creInfo = sObjectMgr->GetCreatureTemplate(id);
 +        if (!creInfo)
@@ -50361,13 +50349,9 @@ index 00000000..cc31e53f
 +        return true;
 +    }
 +
-+    static bool HandleNpcBotSpawnCommand(ChatHandler* handler, Variant<std::string, uint32> creVal)
++    static bool HandleNpcBotSpawnCommand(ChatHandler* handler, Optional<std::string> creVal)
 +    {
-+        using string_type = decltype(creVal)::first_type;
-+        bool is_string = creVal.holds_alternative<string_type>();
-+        bool is_num = creVal.holds_alternative<uint32>();
-+
-+        if (!is_string && !is_num)
++        if (!creVal)
 +        {
 +            handler->SendSysMessage(".npcbot spawn");
 +            handler->SendSysMessage("Adds new npcbot spawn of given entry in world. You can shift-link the npc");
@@ -50376,15 +50360,11 @@ index 00000000..cc31e53f
 +            return false;
 +        }
 +
-+        char* charID = nullptr;
-+        if (is_string)
-+        {
-+            char* charID = handler->extractKeyFromLink((char*)creVal.get<string_type>().c_str(), "Hcreature_entry");
-+            if (!charID)
-+                return false;
-+        }
++        char* charID = handler->extractKeyFromLink((char*)creVal->c_str(), "Hcreature_entry");
++        if (!charID)
++            return false;
 +
-+        uint32 id = charID ? atoi(charID) : creVal.get<uint32>();
++        uint32 id = uint32(atoi(charID));
 +
 +        CreatureTemplate const* creInfo = sObjectMgr->GetCreatureTemplate(id);
 +
