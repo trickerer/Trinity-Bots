@@ -42,7 +42,7 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1340 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 16678 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 16670 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   671 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   403 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   938 ++
@@ -69,8 +69,8 @@
  src/server/game/AI/NpcBots/botdump.cpp             |   938 ++
  src/server/game/AI/NpcBots/botdump.h               |    50 +
  src/server/game/AI/NpcBots/botgiver.cpp            |   267 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  1462 ++
- src/server/game/AI/NpcBots/botmgr.h                |   202 +
+ src/server/game/AI/NpcBots/botmgr.cpp              |  1487 ++
+ src/server/game/AI/NpcBots/botmgr.h                |   203 +
  src/server/game/AI/NpcBots/bpet_ai.cpp             |  2358 +++
  src/server/game/AI/NpcBots/bpet_ai.h               |   175 +
  src/server/game/AI/NpcBots/bpet_archmage.cpp       |   140 +
@@ -85,7 +85,7 @@
  src/server/game/AI/NpcBots/bpet_warlock.cpp        |   409 +
  src/server/game/AI/SmartScripts/SmartScript.cpp    |     3 +
  src/server/game/Accounts/RBAC.h                    |    35 +
- src/server/game/Combat/CombatManager.cpp           |    25 +
+ src/server/game/Combat/CombatManager.cpp           |    37 +
  src/server/game/Combat/ThreatManager.cpp           |     5 +
  src/server/game/Conditions/ConditionMgr.cpp        |    49 +
  src/server/game/DataStores/DBCStores.cpp           |     4 +-
@@ -145,7 +145,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   271 +
- 147 files changed, 64062 insertions(+), 75 deletions(-)
+ 147 files changed, 64092 insertions(+), 75 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -5180,10 +5180,10 @@ index 00000000..2a208626
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 00000000..e2f89b97
+index 00000000..87c48274
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,16678 @@
+@@ -0,0 +1,16670 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -17921,14 +17921,6 @@ index 00000000..e2f89b97
 +    //clear gossip during combat. See CheckAuras() for restore
 +    if (me->HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP))
 +        me->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
-+
-+    if (!IAmFree())
-+    {
-+        if (u->CanHaveThreatList())
-+            master->GetBotMgr()->PropagateEngageTimers();
-+
-+        return;
-+    }
 +
 +    _evadeMode = false;
 +    AbortTeleport();
@@ -54340,10 +54332,10 @@ index 00000000..bc46b5b5
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 00000000..9fe51796
+index 00000000..285efc7e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,1462 @@
+@@ -0,0 +1,1487 @@
 +#include "bot_ai.h"
 +#include "botdpstracker.h"
 +#include "bot_Events.h"
@@ -55535,13 +55527,12 @@ index 00000000..9fe51796
 +
 +void BotMgr::PropagateEngageTimers() const
 +{
-+    uint32 delay;
 +    for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
 +    {
 +        if (itr->second->GetBotAI()->IsTank())
 +            continue;
 +
-+        delay = itr->second->GetBotAI()->HasRole(BOT_ROLE_HEAL) ? GetEngageDelayHeal() :
++        uint32 delay = itr->second->GetBotAI()->HasRole(BOT_ROLE_HEAL) ? GetEngageDelayHeal() :
 +            itr->second->GetBotAI()->HasRole(BOT_ROLE_DPS) ? GetEngageDelayDPS() : 0;
 +
 +        itr->second->GetBotAI()->ResetEngageTimer(delay);
@@ -55784,6 +55775,32 @@ index 00000000..9fe51796
 +                bot->GetBotAI()->OnBotOwnerExitVehicle(vehicle);
 +}
 +
++void BotMgr::OnBotPartyEngage(Player const* owner)
++{
++    Group const* gr = owner->GetGroup();
++    if (gr)
++    {
++        std::vector<Player const*> affectedPlayers;
++        for (GroupReference const* itr = gr->GetFirstMember(); itr != nullptr; itr = itr->next())
++        {
++            Player const* player = itr->GetSource();
++            if (!player || owner->GetMap() != player->FindMap() ||
++                player->GetDistance(owner) > sWorld->GetMaxVisibleDistanceOnContinents() ||
++                !player->HaveBot())
++                continue;
++
++            if (player->GetBotMgr()->IsPartyInCombat())
++                return;
++
++            affectedPlayers.push_back(player);
++        }
++        for (Player const* p : affectedPlayers)
++            p->GetBotMgr()->PropagateEngageTimers();
++    }
++    else
++        owner->GetBotMgr()->PropagateEngageTimers();
++}
++
 +void BotMgr::ApplyBotEffectMods(Unit const* caster, Unit const* target, SpellInfo const* spellInfo, uint8 effIndex, float& value)
 +{
 +    caster->ToCreature()->GetBotAI()->ApplyBotEffectMods(target, spellInfo, effIndex, value);
@@ -55808,10 +55825,10 @@ index 00000000..9fe51796
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.h b/src/server/game/AI/NpcBots/botmgr.h
 new file mode 100644
-index 00000000..2aadc9e3
+index 00000000..f9318402
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.h
-@@ -0,0 +1,202 @@
+@@ -0,0 +1,203 @@
 +#ifndef _BOTMGR_H
 +#define _BOTMGR_H
 +
@@ -55910,6 +55927,7 @@ index 00000000..2aadc9e3
 +        static void OnBotExitVehicle(Creature const* passenger, Vehicle const* vehicle);
 +        static void OnBotOwnerEnterVehicle(Player const* passenger, Vehicle const* vehicle);
 +        static void OnBotOwnerExitVehicle(Player const* passenger, Vehicle const* vehicle);
++        static void OnBotPartyEngage(Player const* owner);
 +        //mod hooks
 +        static void ApplyBotEffectMods(Unit const* caster, Unit const* target, SpellInfo const* spellInfo, uint8 effIndex, float& value);
 +        static float GetBotDamageTakenMod(Creature const* bot, bool magic);
@@ -61483,7 +61501,7 @@ index cdca7255..2ab49ae2 100644
  };
  
 diff --git a/src/server/game/Combat/CombatManager.cpp b/src/server/game/Combat/CombatManager.cpp
-index ce6ca5e6..6f3868b0 100644
+index ce6ca5e6..b0dd7c8a 100644
 --- a/src/server/game/Combat/CombatManager.cpp
 +++ b/src/server/game/Combat/CombatManager.cpp
 @@ -21,6 +21,10 @@
@@ -61528,6 +61546,25 @@ index ce6ca5e6..6f3868b0 100644
      // ...and insert it into both managers
      PutReference(who->GetGUID(), ref);
      who->GetCombatManager().PutReference(_owner->GetGUID(), ref);
+@@ -339,6 +364,18 @@ bool CombatManager::UpdateOwnerCombatState() const
+ 
+     if (combatState)
+     {
++        //npcbot: party combat hook
++        Player* playerOwner = nullptr;
++        if (_owner->GetTypeId() == TYPEID_PLAYER && _owner->ToPlayer()->HaveBot())
++            playerOwner = _owner->ToPlayer();
++        else if (_owner->GetTypeId() == TYPEID_UNIT && _owner->ToCreature()->IsNPCBotOrPet() &&
++            !_owner->ToCreature()->IsFreeBot())
++            playerOwner = _owner->ToCreature()->GetBotOwner();
++
++        if (playerOwner)
++            BotMgr::OnBotPartyEngage(playerOwner);
++        //end npcbot
++
+         _owner->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IN_COMBAT);
+         _owner->AtEnterCombat();
+         if (_owner->GetTypeId() != TYPEID_UNIT)
 diff --git a/src/server/game/Combat/ThreatManager.cpp b/src/server/game/Combat/ThreatManager.cpp
 index a4081058..32838096 100644
 --- a/src/server/game/Combat/ThreatManager.cpp
@@ -61545,7 +61582,7 @@ index a4081058..32838096 100644
  }
  
 diff --git a/src/server/game/Conditions/ConditionMgr.cpp b/src/server/game/Conditions/ConditionMgr.cpp
-index 408cd009..98289bfd 100644
+index 6df877d8..54e9d1f5 100644
 --- a/src/server/game/Conditions/ConditionMgr.cpp
 +++ b/src/server/game/Conditions/ConditionMgr.cpp
 @@ -33,6 +33,10 @@
@@ -63391,7 +63428,7 @@ index c1939f60..a2e4242c 100644
      float totalPct         = addTotalPct ? GetPctModifierValue(unitMod, TOTAL_PCT) : 1.0f;
      float dmgMultiplier    = GetCreatureTemplate()->ModDamage; // = ModDamage * _GetDamageMod(rank);
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index 407d27a3..6394f9e0 100644
+index 3cae65b4..4c4dda8b 100644
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
 @@ -79,6 +79,10 @@
