@@ -42,8 +42,8 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1343 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 16820 +++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |   675 +
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 16848 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |   677 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   406 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   941 ++
  src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp  |   617 +
@@ -60,7 +60,7 @@
  src/server/game/AI/NpcBots/bot_sphynx_ai.cpp       |   594 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  2084 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2258 +++
- src/server/game/AI/NpcBots/botcommands.cpp         |  1532 ++
+ src/server/game/AI/NpcBots/botcommands.cpp         |  1587 ++
  src/server/game/AI/NpcBots/botcommon.h             |  1098 ++
  src/server/game/AI/NpcBots/botdatamgr.cpp          |   516 +
  src/server/game/AI/NpcBots/botdatamgr.h            |   130 +
@@ -69,8 +69,8 @@
  src/server/game/AI/NpcBots/botdump.cpp             |   938 ++
  src/server/game/AI/NpcBots/botdump.h               |    50 +
  src/server/game/AI/NpcBots/botgiver.cpp            |   267 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  1488 ++
- src/server/game/AI/NpcBots/botmgr.h                |   203 +
+ src/server/game/AI/NpcBots/botmgr.cpp              |  1539 ++
+ src/server/game/AI/NpcBots/botmgr.h                |   206 +
  src/server/game/AI/NpcBots/bpet_ai.cpp             |  2358 +++
  src/server/game/AI/NpcBots/bpet_ai.h               |   175 +
  src/server/game/AI/NpcBots/bpet_archmage.cpp       |   140 +
@@ -145,7 +145,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   271 +
- 147 files changed, 64313 insertions(+), 75 deletions(-)
+ 147 files changed, 64452 insertions(+), 75 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -5183,10 +5183,10 @@ index 00000000..39a22793
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 00000000..d880783d
+index 00000000..cd4b3e3b
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,16820 @@
+@@ -0,0 +1,16848 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -10502,6 +10502,34 @@ index 00000000..d880783d
 +{
 +    BotSpellMap::const_iterator itr = _spells.find(basespell);
 +    return itr != _spells.end() && (itr->second->spellId != 0);
++}
++//Using spell name as source, return first-rank spell if spell is inited
++uint32 bot_ai::GetBaseSpell(std::string_view spell_name, LocaleConstant locale) const
++{
++    uint32 basespell = 0;
++    std::wstring wname;
++    if (Utf8toWStr(spell_name, wname))
++    {
++        wstrToLower(wname);
++        for (BotSpellMap::const_iterator itr = _spells.begin(); itr != _spells.end(); ++itr)
++        {
++            //we ignore enabled state since this is exactly what we want
++            if (itr->second->spellId == 0) //not init'ed
++                continue;
++            spell_name = sSpellMgr->GetSpellInfo(itr->first)->SpellName[locale];
++            std::wstring wcname;
++            if (!Utf8toWStr(spell_name, wcname))
++                continue;
++            wstrToLower(wcname);
++            if (wcname == wname)
++            {
++                basespell = itr->first;
++                break;
++            }
++        }
++    }
++
++    return basespell;
 +}
 +//Using first-rank spell as source, return current spell id if inited and enabled
 +uint32 bot_ai::GetSpell(uint32 basespell) const
@@ -22009,10 +22037,10 @@ index 00000000..d880783d
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 00000000..5acdaf81
+index 00000000..8297c8a4
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,675 @@
+@@ -0,0 +1,677 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -22230,6 +22258,7 @@ index 00000000..5acdaf81
 +        void ResetEngageTimer(uint32 delay);
 +
 +        bool HasSpell(uint32 basespell) const;
++        uint32 GetBaseSpell(std::string_view spell_name, LocaleConstant locale) const;
 +        uint32 GetSpellCooldown(uint32 basespell) const;
 +        bool IsSpellReady(uint32 basespell, uint32 diff, bool checkGCD = true) const;
 +        void SetSpellCooldown(uint32 basespell, uint32 msCooldown);
@@ -22675,6 +22704,7 @@ index 00000000..5acdaf81
 +        };
 +
 +        bool HasOrders() const { return !_orders.empty(); }
++        std::size_t GetOrdersCount() const { return _orders.size(); }
 +        bool AddOrder(BotOrder&& order);
 +        void CancelOrder(BotOrder const& order);
 +        void CompleteOrder(BotOrder const& order);
@@ -49780,10 +49810,10 @@ index 00000000..955296c5
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 00000000..fc8edcc8
+index 00000000..c9f5e1e1
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
-@@ -0,0 +1,1532 @@
+@@ -0,0 +1,1587 @@
 +#include "bot_ai.h"
 +#include "botdump.h"
 +#include "botmgr.h"
@@ -50132,52 +50162,107 @@ index 00000000..fc8edcc8
 +            if ((*spell_name)[i] == '_')
 +                (*spell_name)[i] = ' ';
 +
-+        Creature* bot = owner->GetBotMgr()->GetBotByName(*bot_name);
-+        if (!bot || !bot->IsInWorld())
-+        {
-+            handler->PSendSysMessage("Bot %s is not found!", *bot_name);
-+            return true;
-+        }
-+        if (!bot->IsAlive())
-+        {
-+            handler->PSendSysMessage("%s is dead!", bot->GetName().c_str());
-+            return true;
-+        }
++        auto canBotUseSpell = [=](Creature const* tbot, uint32 bspell) {
++            //we ignore GCD for now
++            return bspell && (tbot->GetBotAI()->GetSpellCooldown(bspell) <= tbot->GetBotAI()->GetLastDiff());
++        };
 +
-+        uint32 basespell = 0;
-+        std::string sname = *spell_name;
-+        std::wstring wname;
-+        if (Utf8toWStr(sname, wname))
++        uint32 base_spell = 0;
++        Creature* bot = owner->GetBotMgr()->GetBotByName(*bot_name);
++        if (bot)
 +        {
-+            wstrToLower(wname);
-+            bot_ai::BotSpellMap const& spellmap = bot->GetBotAI()->GetSpellMap();
-+            for (bot_ai::BotSpellMap::const_iterator itr = spellmap.begin(); itr != spellmap.end(); ++itr)
++            if (!bot->IsInWorld())
 +            {
-+                //we ignore enabled state since this is exactly what we want
-+                if (itr->second->spellId == 0) //not init'ed
-+                    continue;
-+                sname = sSpellMgr->GetSpellInfo(itr->first)->SpellName[handler->GetSessionDbcLocale()];
-+                std::wstring wcname;
-+                if (!Utf8toWStr(sname, wcname))
-+                    continue;
-+                wstrToLower(wcname);
-+                if (wcname == wname)
-+                {
-+                    basespell = itr->first;
-+                    break;
-+                }
++                handler->PSendSysMessage("Bot %s is not found!", *bot_name);
++                return true;
++            }
++            if (!bot->IsAlive())
++            {
++                handler->PSendSysMessage("%s is dead!", bot->GetName().c_str());
++                return true;
++            }
++
++            base_spell = bot->GetBotAI()->GetBaseSpell(*spell_name, handler->GetSessionDbcLocale());
++            if (!base_spell)
++            {
++                handler->PSendSysMessage("%s doesn't have spell named '%s'!", bot->GetName().c_str(), spell_name->c_str());
++                return true;
++            }
++            if (!canBotUseSpell(bot, base_spell))
++            {
++                handler->PSendSysMessage("%s's %s is not ready yet!", bot->GetName().c_str(), sSpellMgr->GetSpellInfo(base_spell)->SpellName[handler->GetSessionDbcLocale()]);
++                return true;
 +            }
 +        }
-+        if (!basespell)
++        else
 +        {
-+            handler->PSendSysMessage("%s doesn't have spell named '%s'!", bot->GetName().c_str(), spell_name->c_str());
-+            return true;
-+        }
-+        //we ignore GCD for now
-+        if (bot->GetBotAI()->GetSpellCooldown(basespell) > bot->GetBotAI()->GetLastDiff())
-+        {
-+            handler->PSendSysMessage("%s's %s is not ready yet!", bot->GetName().c_str(), sSpellMgr->GetSpellInfo(basespell)->SpellName[handler->GetSessionDbcLocale()]);
-+            return true;
++            auto class_name = *bot_name;
++            for (auto const c : class_name)
++            {
++                if (!std::islower(c))
++                {
++                    handler->SendSysMessage("Bot class name must be in lower case!");
++                    return true;
++                }
++            }
++
++            uint8 bot_class = BotMgr::BotClassByClassName(std::string(class_name));
++            if (bot_class == BOT_CLASS_NONE)
++            {
++                handler->PSendSysMessage("Unknown bot class %s!", std::string(class_name).c_str());
++                return true;
++            }
++
++            std::list<Creature*> cBots = owner->GetBotMgr()->GetAllBotsByClass(bot_class);
++
++            if (cBots.empty())
++            {
++                handler->PSendSysMessage("No bots of class %u found!", bot_class);
++                return true;
++            }
++
++            for (Creature const* fbot : cBots)
++            {
++                base_spell = fbot->GetBotAI()->GetBaseSpell(*spell_name, handler->GetSessionDbcLocale());
++                if (base_spell)
++                    break;
++            }
++
++            if (!base_spell)
++            {
++                handler->PSendSysMessage("None of %u found bots have spell named '%s'!", cBots.size(), spell_name->c_str());
++                return true;
++            }
++
++            cBots.erase(std::remove_if(cBots.begin(), cBots.end(),
++                [=](Creature const* tbot) {
++                    if (tbot->GetBotAI()->GetOrdersCount() >= MAX_BOT_ORDERS_QUEUE_SIZE)
++                        return true;
++                    return !canBotUseSpell(tbot, base_spell);
++                }),
++                cBots.end());
++
++            decltype(cBots) ccBots;
++            for (decltype(cBots)::const_iterator it = cBots.begin(); it != cBots.end();)
++            {
++                if (!(*it)->GetCurrentSpell(CURRENT_CHANNELED_SPELL) && !(*it)->IsNonMeleeSpellCast(false, false, true, false, false))
++                {
++                    ccBots.push_back(*it);
++                    it = cBots.erase(it);
++                }
++                else
++                    ++it;
++            }
++
++            bot = ccBots.empty() ? nullptr : ccBots.size() == 1 ? ccBots.front() : Trinity::Containers::SelectRandomContainerElement(ccBots);
++            if (!bot)
++                bot = cBots.empty() ? nullptr : cBots.size() == 1 ? cBots.front() : Trinity::Containers::SelectRandomContainerElement(cBots);
++
++            if (!bot)
++            {
++                handler->PSendSysMessage("None of %u found bots can use %s yet!", cBots.size(), spell_name->c_str());
++                return true;
++            }
 +        }
 +
 +        ObjectGuid target_guid;
@@ -50204,20 +50289,20 @@ index 00000000..fc8edcc8
 +        }
 +
 +        bot_ai::BotOrder order(BOT_ORDER_SPELLCAST);
-+        order.params.spellCastParams.baseSpell = basespell;
++        order.params.spellCastParams.baseSpell = base_spell;
 +        order.params.spellCastParams.targetGuid = target_guid.GetRawValue();
 +
 +        if (bot->GetBotAI()->AddOrder(std::move(order)))
 +        {
 +            if (DEBUG_BOT_ORDERS)
 +                handler->PSendSysMessage("Order given: %s: %s on %s", bot->GetName().c_str(),
-+                    sSpellMgr->GetSpellInfo(basespell)->SpellName[handler->GetSessionDbcLocale()], target ? target->GetName().c_str() : "unknown");
++                    sSpellMgr->GetSpellInfo(base_spell)->SpellName[handler->GetSessionDbcLocale()], target ? target->GetName().c_str() : "unknown");
 +        }
 +        else
 +        {
 +            if (DEBUG_BOT_ORDERS)
 +                handler->PSendSysMessage("Order failed: %s: %s on %s", bot->GetName().c_str(),
-+                    sSpellMgr->GetSpellInfo(basespell)->SpellName[handler->GetSessionDbcLocale()], target ? target->GetName().c_str() : "unknown");
++                    sSpellMgr->GetSpellInfo(base_spell)->SpellName[handler->GetSessionDbcLocale()], target ? target->GetName().c_str() : "unknown");
 +        }
 +
 +        return true;
@@ -51318,7 +51403,7 @@ index 00000000..fc8edcc8
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommon.h b/src/server/game/AI/NpcBots/botcommon.h
 new file mode 100644
-index 00000000..693664db
+index 00000000..b4778a57
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommon.h
 @@ -0,0 +1,1098 @@
@@ -52046,7 +52131,7 @@ index 00000000..693664db
 +    //MAX_LOOT_ITEMS                      = 18 // Client limitation 3.3.5 code confirmed
 +};
 +
-+enum BotClasses
++enum BotClasses : uint8
 +{
 +    BOT_CLASS_NONE                      = CLASS_NONE,
 +    BOT_CLASS_WARRIOR                   = CLASS_WARRIOR,
@@ -54540,10 +54625,10 @@ index 00000000..bc46b5b5
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 00000000..db164fc7
+index 00000000..fc8ca450
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,1488 @@
+@@ -0,0 +1,1539 @@
 +#include "bot_ai.h"
 +#include "botdpstracker.h"
 +#include "bot_Events.h"
@@ -55213,6 +55298,21 @@ index 00000000..db164fc7
 +    return nullptr;
 +}
 +
++std::list<Creature*> BotMgr::GetAllBotsByClass(uint8 botclass) const
++{
++    std::list<Creature*> foundBots;
++    for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
++    {
++        if (!itr->second || !itr->second->IsInWorld() || !itr->second->IsAlive())
++            continue;
++
++        if (itr->second->GetBotClass() == botclass)
++            foundBots.push_back(itr->second);
++    }
++
++    return foundBots;
++}
++
 +void BotMgr::OnOwnerSetGameMaster(bool on)
 +{
 +    Creature* bot;
@@ -55663,6 +55763,42 @@ index 00000000..db164fc7
 +    return money.str();
 +}
 +
++uint8 BotMgr::BotClassByClassName(std::string const& className)
++{
++    static const std::map<std::string, uint8> BotClassNamesMap = {
++        { "warrior", BOT_CLASS_WARRIOR },
++        { "paladin", BOT_CLASS_PALADIN },
++        { "hunter", BOT_CLASS_HUNTER },
++        { "rogue", BOT_CLASS_ROGUE },
++        { "priest", BOT_CLASS_PRIEST },
++        { "deathknight", BOT_CLASS_DEATH_KNIGHT },
++        { "death_knight", BOT_CLASS_DEATH_KNIGHT },
++        { "shaman", BOT_CLASS_SHAMAN },
++        { "mage", BOT_CLASS_MAGE },
++        { "warlock", BOT_CLASS_WARLOCK },
++        { "druid", BOT_CLASS_DRUID },
++        { "blademaster", BOT_CLASS_BM },
++        { "blade_master", BOT_CLASS_BM },
++        { "sphynx", BOT_CLASS_SPHYNX },
++        { "obsidiandestroyer", BOT_CLASS_SPHYNX },
++        { "obsidian_destroyer", BOT_CLASS_SPHYNX },
++        { "destroyer", BOT_CLASS_SPHYNX },
++        { "archmage", BOT_CLASS_ARCHMAGE },
++        { "dreadlord", BOT_CLASS_DREADLORD },
++        { "spellbreaker", BOT_CLASS_SPELLBREAKER },
++        { "spell_breaker", BOT_CLASS_SPELLBREAKER },
++        { "darkranger", BOT_CLASS_DARK_RANGER },
++        { "dark_ranger", BOT_CLASS_DARK_RANGER }
++    };
++
++    //std::transform(className.begin(), className.end(), className.begin(), std::tolower);
++    auto iter = BotClassNamesMap.find(className);
++    if (iter != BotClassNamesMap.end())
++        return iter->second;
++
++    return BOT_CLASS_NONE;
++}
++
 +void BotMgr::ReviveAllBots()
 +{
 +    for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
@@ -56034,10 +56170,10 @@ index 00000000..db164fc7
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.h b/src/server/game/AI/NpcBots/botmgr.h
 new file mode 100644
-index 00000000..f9318402
+index 00000000..f54e5ebd
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.h
-@@ -0,0 +1,203 @@
+@@ -0,0 +1,206 @@
 +#ifndef _BOTMGR_H
 +#define _BOTMGR_H
 +
@@ -56148,6 +56284,8 @@ index 00000000..f9318402
 +
 +        Creature* GetBot(ObjectGuid guid) const;
 +        Creature* GetBotByName(std::string_view name) const;
++        std::list<Creature*> GetAllBotsByClass(uint8 botclass) const;
++
 +        bool HaveBot() const { return !_bots.empty(); }
 +        uint8 GetNpcBotsCount() const;
 +        uint8 GetNpcBotsCountByRole(uint32 roles) const;
@@ -56165,6 +56303,7 @@ index 00000000..f9318402
 +
 +        static uint32 GetNpcBotCost(uint8 level, uint8 botclass);
 +        static std::string GetNpcBotCostStr(uint8 level, uint8 botclass);
++        static uint8 BotClassByClassName(std::string const& className);
 +
 +        void OnTeleportFar(uint32 mapId, float x, float y, float z, float ori = 0.f);
 +        void OnOwnerSetGameMaster(bool on);

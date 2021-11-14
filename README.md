@@ -224,8 +224,8 @@ _TARGET_ indicates that command is used on a selected unit
         - `.npcbot kill`  
         - `.npcbot suicide`  
 - **`order`** -- (Player command) allows you to issue an order to your NPCBot. Orders take priority over any other action. Each bot can have up to 3 queued orders at a time (by itself will display list of subcommands)  
-    - **`cast <BOT_NAME> <SPELL_NAME> _TARGET_TOKEN_`** -- cast some spell  
-        - BOT_NAME = your bot name in client's locale. Case insensitive  
+    - **`cast <BOT_NAME OR CLASS_NAME> <SPELL_NAME> _TARGET_TOKEN_`** -- cast some spell  
+        - BOT_NAME OR CLASS_NAME = your bot name in client's locale, case insensitive OR bot class name in english, in lower case  
         - SPELL_NAME = spell name in client's locale. All_spaces_must_be_replaced_with_underscores. Case insensitive  
         - _TARGET_TOKEN_ = optional target identifier string. If left empty bot will target self. Case insensitive. Possible values:  
             - `bot`, `self` = selfcast  
