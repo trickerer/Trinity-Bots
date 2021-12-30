@@ -44,9 +44,9 @@
  .../Database/Implementation/CharacterDatabase.h    |    14 +
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
- src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1343 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 16848 +++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |   680 +
+ src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1354 ++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 16854 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |   681 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   406 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   941 ++
  src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp  |   617 +
@@ -149,7 +149,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   271 +
- 151 files changed, 64883 insertions(+), 75 deletions(-)
+ 151 files changed, 64901 insertions(+), 75 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -4216,10 +4216,10 @@ index 00000000..35a96959
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_GridNotifiers.h b/src/server/game/AI/NpcBots/bot_GridNotifiers.h
 new file mode 100644
-index 00000000..39a22793
+index 00000000..9db76eb3
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_GridNotifiers.h
-@@ -0,0 +1,1343 @@
+@@ -0,0 +1,1354 @@
 +#ifndef _BOT_GRIDNOTIFIERS_H
 +#define _BOT_GRIDNOTIFIERS_H
 +
@@ -4386,6 +4386,7 @@ index 00000000..39a22793
 +                u->IsWithinDistInMap(me, m_range) &&
 +                u->isTargetableForAttack() &&
 +                //!ai->InDuel(u) &&
++                (!ai->IsInBotParty(u) || ai->IsInHeroicOrRaid()) &&
 +                (ai->IsInBotParty(u->GetVictim()) || me->GetVictim() == u))
 +            {
 +                if (!checksteal && u->GetEntry() == 25744 && !u->GetOwnedAuras().empty()) // Sunwell - Dark Fiend
@@ -5205,10 +5206,12 @@ index 00000000..39a22793
 +class ManaDrainUnitCheck
 +{
 +    public:
-+        explicit ManaDrainUnitCheck(Unit const* unit, float maxdist) : me(unit), max_range(maxdist)
++        explicit ManaDrainUnitCheck(Unit const* unit, float maxdist, bot_ai const* ai) : me(unit), max_range(maxdist), ai(ai)
 +        { maxPool = me->GetMaxPower(POWER_MANA) * 3 / 2; }
 +        bool operator()(Unit const* u)
 +        {
++            if (!_botPvP && !ai->IAmFree() && u->IsControlledByPlayer())
++                return false;
 +            if (u == me)
 +                return false;
 +            if (!u->IsAlive())
@@ -5221,6 +5224,13 @@ index 00000000..39a22793
 +                return false;
 +            //if (u->IsControlledByPlayer())
 +            //    return false;
++            if (ai->IAmFree())
++            {
++                if (!me->IsValidAttackTarget(u) || !u->isTargetableForAttack())
++                    return false;
++                if (ai->IsInBotParty(u))
++                    return false;
++            }
 +            //if (ai->InDuel(u))
 +            //    return false;
 +            if (u->GetPowerType() != POWER_MANA)
@@ -5240,6 +5250,7 @@ index 00000000..39a22793
 +    private:
 +        Unit const* me;
 +        float max_range;
++        bot_ai const* ai;
 +        uint32 maxPool;
 +        ManaDrainUnitCheck(ManaDrainUnitCheck const&);
 +};
@@ -5565,10 +5576,10 @@ index 00000000..39a22793
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 00000000..cd4b3e3b
+index 00000000..202916f1
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,16848 @@
+@@ -0,0 +1,16854 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -7236,6 +7247,7 @@ index 00000000..cd4b3e3b
 +    if (me->GetLevel() < 10 || target->GetLevel() < 10) return false;
 +    if (target->HasUnitState(UNIT_STATE_ISOLATED)) return false;
 +    if (target->GetTypeId() == TYPEID_UNIT && target->ToCreature()->IsTempBot()) return false;
++    if (target->HasAuraType(SPELL_AURA_MOD_POSSESS) && !IsInBotParty(target)) return false;
 +
 +    SpellInfo const* info = sSpellMgr->GetSpellInfo(cureSpell);
 +    if (!info)
@@ -10774,7 +10786,7 @@ index 00000000..cd4b3e3b
 +{
 +    Unit* unit = nullptr;
 +
-+    ManaDrainUnitCheck check(me, maxdist);
++    ManaDrainUnitCheck check(me, maxdist, this);
 +    Trinity::UnitLastSearcher <ManaDrainUnitCheck> searcher(me, unit, check);
 +    Cell::VisitAllObjects(me, searcher, maxdist);
 +    //me->VisitNearbyObject(maxdist, searcher);
@@ -11366,6 +11378,11 @@ index 00000000..cd4b3e3b
 +                botPet->CastSpell(botPet, itr->second->spellId, true);
 +        }
 +    }
++}
++
++bool bot_ai::IsInHeroicOrRaid() const
++{
++    return me->FindMap() && (me->GetMap()->IsHeroic() || me->GetMap()->IsRaid());
 +}
 +
 +//SpellHit()... OnSpellHit()
@@ -22419,10 +22436,10 @@ index 00000000..cd4b3e3b
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 00000000..797d2c82
+index 00000000..421858df
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,680 @@
+@@ -0,0 +1,681 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -22558,6 +22575,7 @@ index 00000000..797d2c82
 +        bool IsOffTank(Unit const* unit = nullptr) const;
 +
 +        uint32 GetLastZoneId() const { return _lastZoneId; }
++        bool IsInHeroicOrRaid() const;
 +
 +        bool IAmFree() const;
 +
