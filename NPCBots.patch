@@ -45,8 +45,8 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1354 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 16854 +++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |   681 +
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 16928 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |   684 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   406 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   941 ++
  src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp  |   617 +
@@ -58,7 +58,7 @@
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  2778 +++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  2104 +++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  2037 +++
- src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  2821 ++++
+ src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  2821 +++
  src/server/game/AI/NpcBots/bot_spellbreaker_ai.cpp |   587 +
  src/server/game/AI/NpcBots/bot_sphynx_ai.cpp       |   594 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  2084 +++
@@ -69,7 +69,7 @@
  src/server/game/AI/NpcBots/botdatamgr.h            |   135 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   133 +
  src/server/game/AI/NpcBots/botdpstracker.h         |    42 +
- src/server/game/AI/NpcBots/botdump.cpp             |   938 ++
+ src/server/game/AI/NpcBots/botdump.cpp             |   938 +
  src/server/game/AI/NpcBots/botdump.h               |    50 +
  src/server/game/AI/NpcBots/botgiver.cpp            |   267 +
  src/server/game/AI/NpcBots/botmgr.cpp              |  1539 ++
@@ -135,6 +135,7 @@
  .../CavernsOfTime/BattleForMountHyjal/hyjalAI.cpp  |     5 +
  .../IcecrownCitadel/instance_icecrown_citadel.cpp  |    21 +
  .../Northrend/Naxxramas/boss_four_horsemen.cpp     |     4 +-
+ .../Outland/BlackTemple/boss_warlord_najentus.cpp  |    17 +
  src/server/scripts/Spells/spell_dk.cpp             |    17 +
  src/server/scripts/Spells/spell_druid.cpp          |    66 +
  src/server/scripts/Spells/spell_generic.cpp        |    37 +
@@ -149,7 +150,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   271 +
- 151 files changed, 64901 insertions(+), 75 deletions(-)
+ 152 files changed, 64995 insertions(+), 75 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -5576,10 +5577,10 @@ index 00000000..9db76eb3
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 00000000..202916f1
+index 00000000..3a81f5a6
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,16854 @@
+@@ -0,0 +1,16928 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -5872,7 +5873,7 @@ index 00000000..202916f1
 +    if (!target)
 +        return;
 +
-+    me->Say(text.c_str(), LANG_UNIVERSAL, target);
++    me->Say(text, LANG_UNIVERSAL, target);
 +}
 +void bot_ai::BotWhisper(const std::string &text, Player const* target) const
 +{
@@ -5883,7 +5884,7 @@ index 00000000..202916f1
 +
 +    Player* playerTarget = const_cast<Player*>(target);
 +
-+    me->Whisper(text.c_str(), LANG_UNIVERSAL, playerTarget);
++    me->Whisper(text, LANG_UNIVERSAL, playerTarget);
 +}
 +void bot_ai::BotYell(const std::string &text, Player const* /*target*/) const
 +{
@@ -5892,7 +5893,31 @@ index 00000000..202916f1
 +    //if (!target)
 +    //    return;
 +
-+    me->Yell(text.c_str(), LANG_UNIVERSAL);
++    me->Yell(text, LANG_UNIVERSAL);
++}
++void bot_ai::BotSay(std::string&& text, Player const* target) const
++{
++    if (!target && master->GetTypeId() == TYPEID_PLAYER)
++        target = master;
++    if (!target)
++        return;
++
++    me->Say(text, LANG_UNIVERSAL, target);
++}
++void bot_ai::BotWhisper(std::string&& text, Player const* target) const
++{
++    if (!target && master->GetTypeId() == TYPEID_PLAYER)
++        target = master;
++    if (!target)
++        return;
++
++    Player* playerTarget = const_cast<Player*>(target);
++
++    me->Whisper(text, LANG_UNIVERSAL, playerTarget);
++}
++void bot_ai::BotYell(std::string&& text, Player const* /*target*/) const
++{
++    me->Yell(text, LANG_UNIVERSAL);
 +}
 +
 +void bot_ai::ReportSpellCast(uint32 spellId, const std::string& followedByString, Player const* target) const
@@ -9572,26 +9597,76 @@ index 00000000..202916f1
 +    }
 +    if (me->GetMapId() == 564 && isInWMOArea(WMOAreaGroupNajentus) && Rand() < 10) // Black Temple - High Warlord Naj'entus
 +    {
-+        if (Group* const gr = master->GetGroup())
++        if (Group const* gr = master->GetGroup())
 +        {
-+            std::vector<Player*> spines;
++            if (Rand() < 4)
++            {
++                InstanceScript* iscript = me->GetMap()->ToInstanceMap()->GetInstanceScript();
++                Unit* najentus = iscript ? iscript->GetCreature(0) : nullptr; // boss_warlord_najentus.cpp::DATA_HIGH_WARLORD_NAJENTUS
++
++                if (najentus && najentus->HasAuraTypeWithMiscvalue(SPELL_AURA_SCHOOL_IMMUNITY, 127)) // Tidal Shield
++                {
++                    //Try to grab spines from corpses of dead players
++                    std::vector<Player*> spiners;
++                    for (GroupReference const* itr = gr->GetFirstMember(); itr != nullptr; itr = itr->next())
++                    {
++                        Player* pl = itr->GetSource();
++                        if (pl && pl->IsInWorld() && me->GetMap() == pl->FindMap() && !pl->IsAlive() &&
++                            me->GetDistance(pl) < 25.f && pl->HasItemCount(32408)) // Naj'entus Spine
++                            spiners.push_back(pl);
++                    }
++
++                    if (Player* pl = spiners.empty() ? nullptr : spiners.size() == 1u ? spiners.front() :
++                        Trinity::Containers::SelectRandomContainerElement(spiners))
++                    {
++                        BotWhisper("Taking 1 Naj'entus Spine from you");
++                        me->CastSpell(najentus, 39948, true); // Hurl Spine
++                        pl->DestroyItemCount(32408, 1, true); // Naj'entus Spine
++                    }
++                }
++            }
++
++            std::vector<Unit*> spines;
 +            //Find and free impaled player (player gets the spine)
 +            for (GroupReference const* itr = gr->GetFirstMember(); itr != nullptr; itr = itr->next())
 +            {
 +                Player* pl = itr->GetSource();
 +                //We don't make bots run to player to "click" the spine, so range is rather big
-+                if (pl && pl->IsInWorld() && pl->IsAlive() && me->GetMap() == pl->FindMap() && pl->HasUnitState(UNIT_STATE_STUNNED) &&
-+                    me->GetDistance(pl) < 25.f && pl->HasAura(39837)) // "Impaling Spine"
-+                    spines.push_back(pl);
++                if (pl && pl->IsInWorld() && me->GetMap() == pl->FindMap())
++                {
++                    auto is_impaled = [=](Unit const* unit) -> bool {
++                        return unit->IsAlive() && unit->HasUnitState(UNIT_STATE_STUNNED) &&
++                            me->GetDistance(unit) < 25.f && unit->HasAura(39837); // "Impaling Spine"
++                    };
++
++                    if (is_impaled(pl))
++                        spines.push_back(pl->ToUnit());
++                    if (pl->HaveBot())
++                    {
++                        BotMap const* bmap = pl->GetBotMgr()->GetBotMap();
++                        for (BotMap::const_iterator ci = bmap->begin(); ci != bmap->end(); ++ci)
++                        {
++                            Creature* bot = ci->second;
++                            if (bot && is_impaled(bot))
++                                spines.push_back(bot->ToUnit());
++                        }
++                    }
++                }
 +            }
 +
-+            if (Player* pl = spines.empty() ? nullptr : spines.size() == 1u ? spines.front() :
++            if (Unit* u = spines.empty() ? nullptr : spines.size() == 1u ? spines.front() :
 +                Trinity::Containers::SelectRandomContainerElement(spines))
 +            {
-+                if (GameObject const* spine = pl->GetFirstGameObjectById(185584)) // Naj'entus Spine
++                if (GameObject const* spine = u->GetFirstGameObjectById(185584)) // Naj'entus Spine
 +                {
-+                    if (spine->AI() && spine->AI()->OnGossipHello(pl))
++                    Player* receiver = u->GetTypeId() == TYPEID_PLAYER ? u->ToPlayer() : master;
++                    if (spine->AI() && spine->AI()->OnGossipHello(receiver))
++                    {
++                        // Item is created by spell 39956 Create Naj'entus Spine - cannot target dead, force add item
++                        if (!receiver->IsAlive())
++                            receiver->AddItem(32408, 1); // Naj'entus Spine
 +                        return true;
++                    }
 +                }
 +            }
 +        }
@@ -22436,10 +22511,10 @@ index 00000000..202916f1
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 00000000..421858df
+index 00000000..a46fb7d3
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,681 @@
+@@ -0,0 +1,684 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -22869,6 +22944,9 @@ index 00000000..421858df
 +        void BotSay(const std::string &text, Player const* target = nullptr) const;
 +        void BotWhisper(const std::string &text, Player const* target = nullptr) const;
 +        void BotYell(const std::string &text, Player const* target = nullptr) const;
++        void BotSay(std::string&& text, Player const* target = nullptr) const;
++        void BotWhisper(std::string&& text, Player const* target = nullptr) const;
++        void BotYell(std::string&& text, Player const* target = nullptr) const;
 +
 +        void ReportSpellCast(uint32 spellId, const std::string& followedByString, Player const* target) const;
 +
@@ -67003,6 +67081,34 @@ index 0367f0b5..4b77a9b9 100644
              DoCast(target, SPELL_HOLY_BOLT);
          else
          {
+diff --git a/src/server/scripts/Outland/BlackTemple/boss_warlord_najentus.cpp b/src/server/scripts/Outland/BlackTemple/boss_warlord_najentus.cpp
+index 0b59044f..4a99fbb6 100644
+--- a/src/server/scripts/Outland/BlackTemple/boss_warlord_najentus.cpp
++++ b/src/server/scripts/Outland/BlackTemple/boss_warlord_najentus.cpp
+@@ -158,6 +158,23 @@ struct boss_najentus : public BossAI
+                     target->SummonGameObject(GO_NAJENTUS_SPINE, *target, QuaternionData(), 30s);
+                     Talk(SAY_NEEDLE);
+                 }
++                //npcbot: try selecting npcbot
++                else if (Unit* bottarget = SelectTarget(SelectTargetMethod::Random, 1, [=](Unit const* target) -> bool {
++                    if (!target || target->GetTypeId() != TYPEID_UNIT || !target->ToCreature()->IsNPCBot() ||
++                        target->ToCreature()->IsFreeBot() ||
++                        !me->IsWithinCombatRange(target, 200.0f))
++                        return false;
++
++                    return true;
++                    }))
++                {
++                    DoCast(bottarget, SPELL_IMPALING_SPINE, true);
++                    _spineTargetGUID = bottarget->GetGUID();
++                    //must let target summon, otherwise you cannot click the spine
++                    bottarget->SummonGameObject(GO_NAJENTUS_SPINE, *bottarget, QuaternionData(), 30s);
++                    Talk(SAY_NEEDLE);
++                }
++                //end npcbot
+                 events.Repeat(Seconds(20), Seconds(25));
+                 break;
+             case EVENT_NEEDLE:
 diff --git a/src/server/scripts/Spells/spell_dk.cpp b/src/server/scripts/Spells/spell_dk.cpp
 index 70842d39..f6988f64 100644
 --- a/src/server/scripts/Spells/spell_dk.cpp
