@@ -1,12 +1,12 @@
 ### This mod was last updated:
-### 01 Jan 2021, [21417c1a13](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/21417c1a13)
+### 02 Jan 2021, [44f0f0899a](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/44f0f0899a)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 ### Make your support tangible: [Donate](https://paypal.me/trickerer)
 
 # [ THE NPCBOTS MANUAL ]
 >Compiled by: Trickerer (onlysuffering @ Gmail dot Com)  
->Version 0.15 - 29 Mar 2021  
+>Version 0.16 - 02 Jan 2022  
 >Original version by: Thesawolf (@ Gmail dot Com) Version 0.3 - 20 July 2016 [here](https://github.com/thesawolf/TrinityCore/blob/TrinityCoreLegacy/README_Bots.md)
 
 ---------------------------------------
@@ -288,6 +288,7 @@ BOT_CLASS_ARCHMAGE = 14
 BOT_CLASS_DREADLORD = 15
 BOT_CLASS_SPELLBREAKER = 16
 BOT_CLASS_DARK_RANGER = 17
+BOT_CLASS_NECROMANCER = 18
 ```
 
 After you have figured out which class you want to lookup type in:
@@ -321,9 +322,9 @@ You need something?
 - <Hire bot>
 - Nevermind
 ```
-Note: if you are have a GM mode enabled you will also see a '<Debug>' menu
+Note: if you are have a GM mode enabled you will also see a '\<Debug\>' menu
 
-Next, you'll most likely just select '<Hire bot>' which will popup a confirmation box asking:   
+Next, you'll most likely just select '\<Hire bot\>' which will popup a confirmation box asking:   
 "Do you wish to hire Lyria?", with a cost amount that you can _Accept_ or _Cancel_.
 Note: price scales with your level, but rare and elite bots cost more and may require you to be at least level X to hire them
 
@@ -348,7 +349,7 @@ Right-clicking on the NPCBot will open a new Gossip Menu with an assortment of o
 - [CLASS-SPECIFIC options may be displayed here]
 ```
 
-For now, select <Create Group> and your NPCBot will join your group and you can begin your adventures!  
+For now, select '\<Create Group\>' and your NPCBot will join your group and you can begin your adventures!  
 As mentioned previously, the other options will be discussed further down this document.
 
 #### NPCBot Hiring Alternatives
@@ -746,6 +747,26 @@ Abilities:
 
 **Additional info:** Dark Ranger has most use in solo combined with healer, or as a support in big group due to Silence low cooldown and no other mana sinks  
 
+#### Necromancer
+**Rank: Elite**  
+**Level Bonus: +2**  
+**Minimum player level: 20**  
+**Equipment affects visual: no**  
+**Number included: 5**  
+**Class specifics:** Spell damage taken reduced by 20%, no melee attack, spellpower bonus: 100% intellect  
+Equippable weapon: staves
+Equippable armor: cloth (no shield)  
+Abilities:
+
+- Raise Dead. Raises 2 Skeletons from a corpse (maximum 6 Skeletons, 65 seconds duration, only works on humanoids, beasts and dragonkin)
+- Unholy Frenzy. Increases target's melee attack speed by 75%, but constantly drains health and may kill the target. Lasts 45 seconds. Cannot be cancelled. Unlocked at level 30
+- Corpse Explosion. Causes a corpse to explode, dealing damage equal to 35% to 75% of dead unit's maximum health (depends on Necromancer's level) to all surrounding enemies. This damage generates no threat. Unlocked at level 40
+- Cripple. Reduces target's movement speed, melee attack speed and total strength by 50% for 60 seconds. Unlocked at level 50
+- Taunt (Skeleton). Taunts an enemy within melee range to attack Skeleton instead of Necromancer for 5 seconds. One-time use
+- Improved Blocking (Skeleton). Increases chance to block an attack by 60-100% (depends on caster's level) for 6 seconds. One-time use  
+
+**Additional info:** Necromancer has some Diablo II spirit to it. Curses may come in the future. Necromancer is mainly a support class, he doesn't have any damaging abilities besides CE, but Skeletons combined with Unholy Frenzy can help quite a lot  
+
 ### NPCBot Occupations
 #### Database
 NPCBot data is stored in the following locations:
@@ -775,6 +796,8 @@ Bots are being added to world at server loading (after Map System is started)
 ---------------------------------------
 ## Guide Changelog
 
+- **Version 0.16** (_02 Jan 2022_)
+    - Added info on necro
 - **Version 0.15** (_29 Mar 2021_)
     - Added info on new installation method
 - **Version 0.14** (_23 Jan 2021_)
