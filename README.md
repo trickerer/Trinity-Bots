@@ -1,5 +1,5 @@
 ### This mod was last updated:
-### 22 Jan 2022, [ca2c5d152a](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/ca2c5d152a)
+### 29 Jan 2022, [e730b39652](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/e730b39652)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 ### Make your support tangible: [Donate](https://paypal.me/trickerer)
