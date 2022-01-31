@@ -43,13 +43,14 @@
  .../2022_01_02_01_generate_equips_necromancer.sql  |    57 +
  .../world/2022_01_02_02_creature_template.sql      |    21 +
  sql/Bots/updates/world/2022_01_02_03_npc_text.sql  |    15 +
+ sql/Bots/updates/world/2022_01_31_npc_text.sql     |    10 +
  src/common/Utilities/EventProcessor.h              |     1 +
  .../Database/Implementation/CharacterDatabase.cpp  |    18 +
  .../Database/Implementation/CharacterDatabase.h    |    14 +
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1354 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 17124 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 17157 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   684 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   406 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   941 +
@@ -69,7 +70,7 @@
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  2084 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2258 +++
  src/server/game/AI/NpcBots/botcommands.cpp         |  1642 ++
- src/server/game/AI/NpcBots/botcommon.h             |  1120 ++
+ src/server/game/AI/NpcBots/botcommon.h             |  1125 ++
  src/server/game/AI/NpcBots/botdatamgr.cpp          |   522 +
  src/server/game/AI/NpcBots/botdatamgr.h            |   135 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   133 +
@@ -77,8 +78,8 @@
  src/server/game/AI/NpcBots/botdump.cpp             |   938 +
  src/server/game/AI/NpcBots/botdump.h               |    50 +
  src/server/game/AI/NpcBots/botgiver.cpp            |   268 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  1555 ++
- src/server/game/AI/NpcBots/botmgr.h                |   207 +
+ src/server/game/AI/NpcBots/botmgr.cpp              |  1556 ++
+ src/server/game/AI/NpcBots/botmgr.h                |   217 +
  src/server/game/AI/NpcBots/bpet_ai.cpp             |  2399 +++
  src/server/game/AI/NpcBots/bpet_ai.h               |   175 +
  src/server/game/AI/NpcBots/bpet_archmage.cpp       |   140 +
@@ -156,7 +157,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   273 +
- 158 files changed, 66334 insertions(+), 75 deletions(-)
+ 159 files changed, 66393 insertions(+), 75 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -200,6 +201,7 @@
  create mode 100644 sql/Bots/updates/world/2022_01_02_01_generate_equips_necromancer.sql
  create mode 100644 sql/Bots/updates/world/2022_01_02_02_creature_template.sql
  create mode 100644 sql/Bots/updates/world/2022_01_02_03_npc_text.sql
+ create mode 100644 sql/Bots/updates/world/2022_01_31_npc_text.sql
  create mode 100644 src/server/game/AI/NpcBots/bot_Events.h
  create mode 100644 src/server/game/AI/NpcBots/bot_GridNotifiers.h
  create mode 100644 src/server/game/AI/NpcBots/bot_ai.cpp
@@ -4217,6 +4219,22 @@ index 00000000..28fb9d0a
 +INSERT INTO `npc_text` (`ID`,`text0_0`,`VerifiedBuild`) VALUES
 +('70646','Necromancers','-1'),
 +('70647','Necromancer','-1');
+diff --git a/sql/Bots/updates/world/2022_01_31_npc_text.sql b/sql/Bots/updates/world/2022_01_31_npc_text.sql
+new file mode 100644
+index 00000000..c33bf5d7
+--- /dev/null
++++ b/sql/Bots/updates/world/2022_01_31_npc_text.sql
+@@ -0,0 +1,10 @@
++--
++
++SET @LOCALIZED_STRINGS_START = 70648;
++SET @LOCALIZED_STRINGS_END   = 70650;
++
++DELETE FROM `npc_text` WHERE ID BETWEEN @LOCALIZED_STRINGS_START and @LOCALIZED_STRINGS_END;
++INSERT INTO `npc_text` (`ID`,`text0_0`,`VerifiedBuild`) VALUES
++('70648','Attack angle','-1'),
++('70649','Normal','-1'),
++('70650','Avoid frontal AOE','-1');
 diff --git a/src/common/Utilities/EventProcessor.h b/src/common/Utilities/EventProcessor.h
 index 2bf68216..0b8261ec 100644
 --- a/src/common/Utilities/EventProcessor.h
@@ -5718,10 +5736,10 @@ index 00000000..9db76eb3
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 00000000..a54118f2
+index 00000000..5689d5cc
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,17124 @@
+@@ -0,0 +1,17157 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -5753,7 +5771,7 @@ index 00000000..a54118f2
 +#include "World.h"
 +/*
 +NpcBot System by Trickerer (https://github.com/trickerer/Trinity-Bots; onlysuffering@gmail.com)
-+Version 4.14.5a
++Version 4.15.5a
 +Original idea: https://bitbucket.org/lordpsyan/trinitycore-patches/src/3b8b9072280e/Individual/11185-BOTS-NPCBots.patch
 +TODO:
 +dk pets (garg, aod, rdw)
@@ -10008,6 +10026,7 @@ index 00000000..a54118f2
 +    uint8 followdist = IAmFree() ? BotMgr::GetBotFollowDistDefault() : master->GetBotMgr()->GetBotFollowDist();
 +    uint8 rangeMode = IAmFree() ? uint8(BOT_ATTACK_RANGE_LONG) : master->GetBotMgr()->GetBotAttackRangeMode();
 +    uint8 exactRange = rangeMode != BOT_ATTACK_RANGE_EXACT || IAmFree() ? 255 : master->GetBotMgr()->GetBotExactAttackRange();
++    uint8 angleMode = IAmFree() ? uint8(BOT_ATTACK_ANGLE_NORMAL) : master->GetBotMgr()->GetBotAttackAngleMode();
 +    Position ppos;
 +    float //x(0),y(0),z(0),
 +        dist = (rangeMode == BOT_ATTACK_RANGE_EXACT) ? exactRange :
@@ -10025,10 +10044,13 @@ index 00000000..a54118f2
 +        dist = std::min<float>(dist + 10, 30);
 +
 +    //if ranged try to acquire a position in the back (will be ignored if too far away from master)
-+    static const float rangedAngleDelta = float(M_PI) * 0.62f;
-+    if (HasRole(BOT_ROLE_RANGED) && !IAmFree() && !target->IsControlledByPlayer() && target->HasInArc(float(M_PI), me) &&
-+        (IsTank(master) || master->GetDistance(target) < 2.5f || !target->HasInArc(float(M_PI), master)))
-+        angle += (target->GetRelativeAngle(master) > 0.f) ? rangedAngleDelta : -rangedAngleDelta;
++    if (angleMode == BOT_ATTACK_ANGLE_AVOID_FRONTAL_AOE)
++    {
++        static const float rangedAngleDelta = float(M_PI) * 0.62f;
++        if (HasRole(BOT_ROLE_RANGED) && !IAmFree() && !target->IsControlledByPlayer() && target->HasInArc(float(M_PI), me) &&
++            (IsTank(master) || master->GetDistance(target) < 2.5f || !target->HasInArc(float(M_PI), master)))
++            angle += (target->GetRelativeAngle(master) > 0.f) ? rangedAngleDelta : -rangedAngleDelta;
++    }
 +
 +    float clockwise = (me->GetEntry() % 2) ? 1.f : -1.f;
 +    float angleDelta1 = ((IsTank(master) && !IsTank(me)) ? frand(float(M_PI)*0.40f, float(M_PI)*0.60f) : frand(0.0f, float(M_PI)*0.15f)) * clockwise;
@@ -14191,12 +14213,15 @@ index 00000000..a54118f2
 +                GOSSIP_SENDER_FORMATION_FOLLOW_DISTANCE_SET, GOSSIP_ACTION_INFO_DEF + 1, "", 0, true);
 +
 +            if (HasRole(BOT_ROLE_RANGED))
-+                AddGossipItemFor(player, GOSSIP_ICON_TALK, LocalizedNpcText(player, BOT_TEXT_ATTACK_DISTANCE) + "...", GOSSIP_SENDER_FORMATION_ATTACK, GOSSIP_ACTION_INFO_DEF + 2);
++            {
++                AddGossipItemFor(player, GOSSIP_ICON_TALK, LocalizedNpcText(player, BOT_TEXT_ATTACK_DISTANCE) + "...", GOSSIP_SENDER_FORMATION_ATTACK_DISTANCE, GOSSIP_ACTION_INFO_DEF + 2);
++                AddGossipItemFor(player, GOSSIP_ICON_TALK, LocalizedNpcText(player, BOT_TEXT_ATTACK_ANGLE) + "...", GOSSIP_SENDER_FORMATION_ATTACK_ANGLE, GOSSIP_ACTION_INFO_DEF + 3);
++            }
 +
 +            if (!HasRole(BOT_ROLE_TANK) && HasRole(BOT_ROLE_DPS | BOT_ROLE_HEAL))
-+                AddGossipItemFor(player, GOSSIP_ICON_TALK, LocalizedNpcText(player, BOT_TEXT_ENGAGE_BEHAVIOR) + "...", GOSSIP_SENDER_ENGAGE_BEHAVIOR, GOSSIP_ACTION_INFO_DEF + 3);
++                AddGossipItemFor(player, GOSSIP_ICON_TALK, LocalizedNpcText(player, BOT_TEXT_ENGAGE_BEHAVIOR) + "...", GOSSIP_SENDER_ENGAGE_BEHAVIOR, GOSSIP_ACTION_INFO_DEF + 4);
 +
-+            AddGossipItemFor(player, GOSSIP_ICON_CHAT, LocalizedNpcText(player, BOT_TEXT_BACK), 1, GOSSIP_ACTION_INFO_DEF + 4);
++            AddGossipItemFor(player, GOSSIP_ICON_CHAT, LocalizedNpcText(player, BOT_TEXT_BACK), 1, GOSSIP_ACTION_INFO_DEF + 5);
 +            break;
 +        }
 +        case GOSSIP_SENDER_FORMATION_ATTACK_DISTANCE_SET:
@@ -14214,7 +14239,7 @@ index 00000000..a54118f2
 +            //break; //return to menu
 +        }
 +        [[fallthrough]];
-+        case GOSSIP_SENDER_FORMATION_ATTACK:
++        case GOSSIP_SENDER_FORMATION_ATTACK_DISTANCE:
 +        {
 +            subMenu = true;
 +
@@ -14231,6 +14256,32 @@ index 00000000..a54118f2
 +                diststr.str(), GOSSIP_SENDER_FORMATION_ATTACK_DISTANCE_SET, GOSSIP_ACTION_INFO_DEF + 3, "", 0, true);
 +
 +            AddGossipItemFor(player, GOSSIP_ICON_CHAT, LocalizedNpcText(player, BOT_TEXT_BACK), 1, GOSSIP_ACTION_INFO_DEF + 4);
++            break;
++        }
++        case GOSSIP_SENDER_FORMATION_ATTACK_ANGLE_SET:
++        {
++            uint32 choice = action - GOSSIP_ACTION_INFO_DEF;
++            if (choice == 1) //normal
++            {
++                player->GetBotMgr()->SetBotAttackAngleMode(BOT_ATTACK_ANGLE_NORMAL);
++            }
++            if (choice == 2) //avoid frontal aoe
++            {
++                player->GetBotMgr()->SetBotAttackAngleMode(BOT_ATTACK_ANGLE_AVOID_FRONTAL_AOE);
++            }
++
++            //break; //return to menu
++        }
++        [[fallthrough]];
++        case GOSSIP_SENDER_FORMATION_ATTACK_ANGLE:
++        {
++            subMenu = true;
++
++            uint8 mode = master->GetBotMgr()->GetBotAttackAngleMode();
++            AddGossipItemFor(player, mode == BOT_ATTACK_ANGLE_NORMAL ? GOSSIP_ICON_BATTLE : GOSSIP_ICON_CHAT, LocalizedNpcText(player, BOT_TEXT_NORMAL), GOSSIP_SENDER_FORMATION_ATTACK_ANGLE_SET, GOSSIP_ACTION_INFO_DEF + 1);
++            AddGossipItemFor(player, mode == BOT_ATTACK_ANGLE_AVOID_FRONTAL_AOE ? GOSSIP_ICON_BATTLE : GOSSIP_ICON_CHAT, LocalizedNpcText(player, BOT_TEXT_AVOID_FRONTAL_AOE), GOSSIP_SENDER_FORMATION_ATTACK_ANGLE_SET, GOSSIP_ACTION_INFO_DEF + 2);
++
++            AddGossipItemFor(player, GOSSIP_ICON_CHAT, LocalizedNpcText(player, BOT_TEXT_BACK), 1, GOSSIP_ACTION_INFO_DEF + 3);
 +            break;
 +        }
 +        case GOSSIP_SENDER_ENGAGE_BEHAVIOR:
@@ -14645,7 +14696,7 @@ index 00000000..a54118f2
 +            }
 +
 +            player->PlayerTalkClass->SendCloseGossip();
-+            return OnGossipSelect(player, creature, GOSSIP_SENDER_FORMATION_ATTACK, action);
++            return OnGossipSelect(player, creature, GOSSIP_SENDER_FORMATION_ATTACK_DISTANCE, action);
 +        }
 +        case GOSSIP_SENDER_ENGAGE_DELAY_SET_ATTACK:
 +        {
@@ -53032,10 +53083,10 @@ index 00000000..66d4497f
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommon.h b/src/server/game/AI/NpcBots/botcommon.h
 new file mode 100644
-index 00000000..021c5d1e
+index 00000000..38a2a860
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommon.h
-@@ -0,0 +1,1120 @@
+@@ -0,0 +1,1125 @@
 +#ifndef _BOTCOMMON_H
 +#define _BOTCOMMON_H
 +
@@ -53225,8 +53276,10 @@ index 00000000..021c5d1e
 +    GOSSIP_SENDER_LEAVE_GROUP,
 +    GOSSIP_SENDER_FORMATION,
 +    GOSSIP_SENDER_FORMATION_FOLLOW_DISTANCE_SET,
-+    GOSSIP_SENDER_FORMATION_ATTACK,
++    GOSSIP_SENDER_FORMATION_ATTACK_DISTANCE,
 +    GOSSIP_SENDER_FORMATION_ATTACK_DISTANCE_SET,
++    GOSSIP_SENDER_FORMATION_ATTACK_ANGLE,
++    GOSSIP_SENDER_FORMATION_ATTACK_ANGLE_SET,
 +    GOSSIP_SENDER_MODEL_UPDATE,
 +    GOSSIP_SENDER_HOLDPOSITION,
 +    GOSSIP_SENDER_DONOTHING,
@@ -53591,7 +53644,10 @@ index 00000000..021c5d1e
 +    BOT_TEXT_TANK_OFF                   = 70645, //"Off-Tank"
 +    BOT_TEXT_CLASS_NECROMANCER_PLU      = 70646, //"Necromancers"
 +    BOT_TEXT_CLASS_NECROMANCER          = 70647, //"Necromancer"
-+    //70648-70799 reserved for custom localization strings
++    BOT_TEXT_ATTACK_ANGLE               = 70648, //"Attack angle"
++    BOT_TEXT_NORMAL                     = 70649, //"Normal"
++    BOT_TEXT_AVOID_FRONTAL_AOE          = 70650, //"Avoid frontal AOE"
++    //70651-70799 reserved for custom localization strings
 +//VEHICLE CREATURES
 +    CREATURE_NEXUS_SKYTALON_1           = 32535, // [Q] Aces High
 +    CREATURE_EOE_SKYTALON_N             = 30161, // Eye of Eternity
@@ -56288,10 +56344,10 @@ index 00000000..cba03cae
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 00000000..5c0c9b58
+index 00000000..937b5c9b
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,1555 @@
+@@ -0,0 +1,1556 @@
 +#include "bot_ai.h"
 +#include "botdpstracker.h"
 +#include "bot_Events.h"
@@ -56441,6 +56497,7 @@ index 00000000..5c0c9b58
 +    _followdist = _basefollowdist;
 +    _exactAttackRange = 0;
 +    _attackRangeMode = BOT_ATTACK_RANGE_SHORT;
++    _attackAngleMode = BOT_ATTACK_ANGLE_NORMAL;
 +    _npcBotEngageDelayDPS = _npcBotEngageDelayDPS_default;
 +    _npcBotEngageDelayHeal = _npcBotEngageDelayHeal_default;
 +
@@ -57849,10 +57906,10 @@ index 00000000..5c0c9b58
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.h b/src/server/game/AI/NpcBots/botmgr.h
 new file mode 100644
-index 00000000..cfc92687
+index 00000000..8da9ca43
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.h
-@@ -0,0 +1,207 @@
+@@ -0,0 +1,217 @@
 +#ifndef _BOTMGR_H
 +#define _BOTMGR_H
 +
@@ -57897,6 +57954,12 @@ index 00000000..cfc92687
 +    BOT_ATTACK_RANGE_SHORT              = 1,
 +    BOT_ATTACK_RANGE_LONG               = 2,
 +    BOT_ATTACK_RANGE_EXACT              = 3
++};
++
++enum BotAttackAngle
++{
++    BOT_ATTACK_ANGLE_NORMAL             = 1,
++    BOT_ATTACK_ANGLE_AVOID_FRONTAL_AOE  = 2
 +};
 +
 +typedef std::unordered_map<ObjectGuid /*guid*/, Creature* /*bot*/> BotMap;
@@ -58010,6 +58073,9 @@ index 00000000..cfc92687
 +        uint8 GetBotAttackRangeMode() const { return _attackRangeMode; }
 +        void SetBotAttackRangeMode(uint8 mode, uint8 exactRange = 0) { _attackRangeMode = mode; _setBotExactAttackRange(exactRange); }
 +
++        uint8 GetBotAttackAngleMode() const { return _attackAngleMode; }
++        void SetBotAttackAngleMode(uint8 mode) { _attackAngleMode = mode; }
++
 +        uint32 GetEngageDelayDPS() const { return _npcBotEngageDelayDPS; }
 +        uint32 GetEngageDelayHeal() const { return _npcBotEngageDelayHeal; }
 +        void SetEngageDelayDPS(uint32 delay) { _npcBotEngageDelayDPS = delay; }
@@ -58049,6 +58115,7 @@ index 00000000..cfc92687
 +        uint8 _followdist;
 +        uint8 _exactAttackRange;
 +        uint8 _attackRangeMode;
++        uint8 _attackAngleMode;
 +        uint32 _npcBotEngageDelayDPS;
 +        uint32 _npcBotEngageDelayHeal;
 +

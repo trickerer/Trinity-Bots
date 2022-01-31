@@ -492,6 +492,14 @@ Long range attacks are the opposit of short range ones. For most classes this ra
 Selecting "_Exact_" will open up a popup window that you can enter in an amount. This amount can be anywhere from **0** to **50**. Same rules as for follow distance.
 NOTE: setting exact attack distance to **0** will make NPCBots (and their pets) trying to position themselves on top of their target (ingoring model size)
 
+`_Attack angle..._` allows you to set ranged bots positioning mode. You will see:
+```
+- Normal
+- Avoid frontal AOE
+- BACK
+```
+If you tell your NPCBots to avoid frontal AOE they will try to position themselves in the way that they won't get hit, behing their target and to the either side, but only if you do the same or are already in melee range of the target
+
 #### NPCBot Abilities
 NPCBots use most of real class spells. Some spells/abilities such as buffs, heals, remove curse/poison, etc. are available through an NPCBot's Abilities menu. Level restrictions apply to NPCBots too, for example Warlock will not be able to use Fear until level 8  
 Selecting `_Manage abilities..._` from the Gossip menu will give you a listing of spells/abilities that they can cast on you or for you. The "Update" option will refresh the spell listing as some spell may be cooled at the moment  
