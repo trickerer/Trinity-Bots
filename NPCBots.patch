@@ -50,7 +50,7 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1354 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 17157 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 17156 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   684 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   406 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   941 +
@@ -157,7 +157,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   273 +
- 159 files changed, 66392 insertions(+), 75 deletions(-)
+ 159 files changed, 66391 insertions(+), 75 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -4376,7 +4376,7 @@ index 000000000..35a96959a
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_GridNotifiers.h b/src/server/game/AI/NpcBots/bot_GridNotifiers.h
 new file mode 100644
-index 000000000..f37aa78da
+index 000000000..16f7ee941
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_GridNotifiers.h
 @@ -0,0 +1,1354 @@
@@ -4624,7 +4624,7 @@ index 000000000..f37aa78da
 +        {
 +            if (!u->IsAlive())
 +                return false;
-+            if (caster && u->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_UNINTERACTIBLE))
++            if (caster && u->HasUnitFlag(UNIT_FLAG_UNINTERACTIBLE))
 +                return false;
 +            if (!checker->IsWithinDistInMap(u, m_range))
 +                return false;
@@ -4970,7 +4970,7 @@ index 000000000..f37aa78da
 +                return false;
 +            if (!u->isTargetableForAttack(false))
 +                return false;
-+            //if (!m_friend && u->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SILENCED))//prevent double silence
++            //if (!m_friend && u->HasUnitFlag(UNIT_FLAG_SILENCED))//prevent double silence
 +            //    return false;
 +            if (!u->IsNonMeleeSpellCast(false,false,true))
 +                return false;
@@ -5531,7 +5531,7 @@ index 000000000..f37aa78da
 +        }
 +        else if (Creature const* cre = ob->ToCreature())
 +        {
-+            if (cre->IsVisible() && cre->getDeathState() == CORPSE && cre->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE) && cre->loot.isLooted() &&
++            if (cre->IsVisible() && cre->getDeathState() == CORPSE && cre->HasUnitFlag(UNIT_FLAG_SKINNABLE) && cre->loot.isLooted() &&
 +                cre->isTappedBy(_checker->ToPlayer()) && CheckSkill(cre->GetCreatureTemplate()->GetRequiredLootSkill()))
 +            {
 +                if (int32(cre->GetLevel() < 20 ? (cre->GetLevel() - 10) * 10 : cre->GetLevel() * 5) <= int32(MaxSkillForLevel(_checker->ToUnit()->GetLevel())))
@@ -5588,7 +5588,7 @@ index 000000000..f37aa78da
 +        if (Creature const* cre = unit->ToCreature())
 +            if (_checker->IsWithinDistInMap(cre, _range))
 +                return cre->IsVisible() && cre->getDeathState() == CORPSE &&
-+                    cre->HasFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE) &&
++                    cre->HasDynamicFlag(UNIT_DYNFLAG_LOOTABLE) &&
 +                    _checker->ToPlayer()->isAllowedToLoot(cre);
 +        return false;
 +    }
@@ -5736,10 +5736,10 @@ index 000000000..f37aa78da
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..5521b1548
+index 000000000..435e13d21
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,17157 @@
+@@ -0,0 +1,17156 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -5933,9 +5933,9 @@ index 000000000..5521b1548
 +    doHealth = false;
 +    doMana = false;
 +    //shouldUpdateStats = true;
-+    pos.m_positionX = 0.f;
-+    pos.m_positionY = 0.f;
-+    pos.m_positionZ = 0.f;
++    movepos.m_positionX = 0.f;
++    movepos.m_positionY = 0.f;
++    movepos.m_positionZ = 0.f;
 +    aftercastTargetGuid = ObjectGuid::Empty;
 +
 +    shouldEnterVehicle = false;
@@ -6145,7 +6145,7 @@ index 000000000..5521b1548
 +    spawned = false;
 +
 +    (const_cast<CreatureTemplate*>(me->GetCreatureTemplate()))->unit_flags2 &= ~(UNIT_FLAG2_ALLOW_ENEMY_INTERACT);
-+    me->SetUInt32Value(UNIT_FIELD_FLAGS_2, me->GetCreatureTemplate()->unit_flags2);
++    me->ReplaceAllUnitFlags2(UnitFlags2(me->GetCreatureTemplate()->unit_flags2));
 +
 +    //recursive
 +    if (master->GetGUID() == newowner->GetGUID())
@@ -6253,7 +6253,7 @@ index 000000000..5521b1548
 +    if (BotMgr::DisplayEquipment() == true && (_botclass < BOT_CLASS_EX_START || _botclass == BOT_CLASS_ARCHMAGE))
 +    {
 +        (const_cast<CreatureTemplate*>(me->GetCreatureTemplate()))->unit_flags2 |= UNIT_FLAG2_MIRROR_IMAGE;
-+        me->SetFlag(UNIT_FIELD_FLAGS_2, me->GetCreatureTemplate()->unit_flags2);
++        me->ReplaceAllUnitFlags2(UnitFlags2(me->GetCreatureTemplate()->unit_flags2));
 +    }
 +}
 +
@@ -6272,7 +6272,7 @@ index 000000000..5521b1548
 +        _saveStats();
 +
 +    (const_cast<CreatureTemplate*>(me->GetCreatureTemplate()))->unit_flags2 |= (UNIT_FLAG2_ALLOW_ENEMY_INTERACT);
-+    me->SetUInt32Value(UNIT_FIELD_FLAGS_2, me->GetCreatureTemplate()->unit_flags2);
++    me->ReplaceAllUnitFlags2(UnitFlags2(me->GetCreatureTemplate()->unit_flags2));
 +
 +    if (resetType == BOTAI_RESET_DISMISS)
 +        EnableAllSpells();
@@ -6798,18 +6798,18 @@ index 000000000..5521b1548
 +            if (CCed(mover, true)/* || master->HasUnitState(UNIT_STATE_FLEEING)*/) return;
 +            if (mover->isMoving() && Rand() > 10) return;
 +            if (!newpos)
-+                _calculatePos(pos);
++                _calculatePos(movepos);
 +            else
 +            {
-+                pos.m_positionX = newpos->m_positionX;
-+                pos.m_positionY = newpos->m_positionY;
-+                pos.m_positionZ = newpos->m_positionZ;
++                movepos.m_positionX = newpos->m_positionX;
++                movepos.m_positionY = newpos->m_positionY;
++                movepos.m_positionZ = newpos->m_positionZ;
 +            }
 +            if (me->GetStandState() == UNIT_STAND_STATE_SIT && !Feasting())
 +                me->SetStandState(UNIT_STAND_STATE_STAND);
 +            if (IsShootingWand())
 +                me->InterruptSpell(CURRENT_AUTOREPEAT_SPELL);
-+            BotMovement(BOT_MOVE_POINT, &pos);
++            BotMovement(BOT_MOVE_POINT, &movepos);
 +            //me->GetMotionMaster()->MovePoint(master->GetMapId(), pos);
 +            //me->GetMotionMaster()->MoveFollow(master, mydist, angle);
 +            RemoveBotCommandState(BOT_COMMAND_STAY | BOT_COMMAND_FULLSTOP | BOT_COMMAND_ATTACK | BOT_COMMAND_COMBATRESET);
@@ -7051,28 +7051,28 @@ index 000000000..5521b1548
 +                if (tPlayer->HaveBot())
 +                {
 +                    map = tPlayer->GetBotMgr()->GetBotMap();
-+                    for (BotMap::const_iterator itr = map->begin(); itr != map->end(); ++itr)
++                    for (BotMap::const_iterator bitr = map->begin(); bitr != map->end(); ++bitr)
 +                    {
-+                        Unit* u = itr->second;
++                        Unit* u = bitr->second;
 +                        if (!(!u->IsInWorld() || me->GetMap() != u->FindMap() || !u->IsAlive() || u->HasUnitState(UNIT_STATE_ISOLATED) ||
 +                            u->ToCreature()->IsTempBot() || me->GetDistance(u) > 40 ||
 +                            (GetHealthPCT(u) > 95 && !IsTank(u))))
 +                            targets5.push_back(u);
 +
-+                        u = itr->second->GetBotsPet();
++                        u = bitr->second->GetBotsPet();
 +
 +                        if (!(!u || !u->IsAlive() || u->HasUnitState(UNIT_STATE_ISOLATED) || me->GetDistance(u) > 40 || GetHealthPCT(u) > 95))
 +                            targets5.push_back(u);
 +
-+                        u = itr->second->GetVehicleBase();
++                        u = bitr->second->GetVehicleBase();
 +                        if (u && !(u->GetTypeId() == TYPEID_UNIT && u->ToCreature()->GetCreatureTemplate()->type == CREATURE_TYPE_MECHANICAL) &&
 +                            !u->HasUnitState(UNIT_STATE_ISOLATED) && GetHealthPCT(u) < 95 && me->GetDistance(u) < 40)
 +                            targets5.push_back(u);
 +                    }
 +                }
-+                for (Unit::ControlList::const_iterator itr = master->m_Controlled.begin(); itr != master->m_Controlled.end(); ++itr)
++                for (Unit::ControlList::const_iterator bitr = master->m_Controlled.begin(); bitr != master->m_Controlled.end(); ++bitr)
 +                {
-+                    Unit* u = *itr;
++                    Unit* u = *bitr;
 +                    if (!u || !u->IsInWorld() || me->GetMap() != u->FindMap() || !u->IsAlive() || u->HasUnitState(UNIT_STATE_ISOLATED) ||
 +                        u->IsTotem() || u->GetEntry() == SHAMAN_EARTH_ELEMENTAL || me->GetDistance(u) > 40 ||
 +                        (GetHealthPCT(u) > 95 && !IsTank(u)))
@@ -7131,22 +7131,22 @@ index 000000000..5521b1548
 +            if (tPlayer->HaveBot())
 +            {
 +                map = tPlayer->GetBotMgr()->GetBotMap();
-+                for (BotMap::const_iterator itr = map->begin(); itr != map->end(); ++itr)
++                for (BotMap::const_iterator bitr = map->begin(); bitr != map->end(); ++bitr)
 +                {
-+                    Unit* u = itr->second;
++                    Unit* u = bitr->second;
 +                    if (!(!u->IsInWorld() || me->GetMap() != u->FindMap() || !u->IsAlive() || u->HasUnitState(UNIT_STATE_ISOLATED) ||
 +                        u->IsTotem() || me->GetDistance(u) > 30))
 +                        targets6.push_back(u);
 +
-+                    //u = itr->second->GetBotsPet();
++                    //u = bitr->second->GetBotsPet();
 +
 +                    //if (!(!u || !u->IsAlive() || u->HasUnitState(UNIT_STATE_ISOLATED) || me->GetDistance(u) > 30))
 +                    //    targets6.push_back(u);
 +                }
 +            }
-+            for (Unit::ControlList::const_iterator itr = master->m_Controlled.begin(); itr != master->m_Controlled.end(); ++itr)
++            for (Unit::ControlList::const_iterator bitr = master->m_Controlled.begin(); bitr != master->m_Controlled.end(); ++bitr)
 +            {
-+                Unit* u = *itr;
++                Unit* u = *bitr;
 +                if (!u || !u->IsPet() || me->GetMap() != u->FindMap() || !u->IsAlive() || u->HasUnitState(UNIT_STATE_ISOLATED) ||
 +                    u->IsTotem() || me->GetDistance(u) > 30) continue;
 +
@@ -7270,11 +7270,11 @@ index 000000000..5521b1548
 +        if (!player || player->FindMap() != me->GetMap() || !player->HaveBot()) continue;
 +
 +        map = player->GetBotMgr()->GetBotMap();
-+        for (BotMap::const_iterator itr = map->begin(); itr != map->end(); ++itr)
++        for (BotMap::const_iterator bitr = map->begin(); bitr != map->end(); ++bitr)
 +        {
-+            target = itr->second;
++            target = bitr->second;
 +            if (!target || !target->IsInWorld() || target->IsAlive()) continue;
-+            if (itr->second->GetBotAI()->GetReviveTimer() < 15000) continue;
++            if (bitr->second->GetBotAI()->GetReviveTimer() < 15000) continue;
 +            if (me->GetDistance(target) < 30 && target->IsWithinLOSInMap(me))
 +                targets.push_back(target);
 +        }
@@ -7367,7 +7367,7 @@ index 000000000..5521b1548
 +
 +        for (Unit::ControlList::const_iterator itr = master->m_Controlled.begin(); itr != master->m_Controlled.end(); ++itr)
 +        {
-+            Unit* u = *itr;
++            u = *itr;
 +            if (!u || !u->IsPet() || !u->IsAlive() || me->GetDistance(u) > 30) continue;
 +
 +            if (_canCureTarget(u, cureSpell))
@@ -7399,18 +7399,18 @@ index 000000000..5521b1548
 +            if (tPlayer->HaveBot())
 +            {
 +                map = tPlayer->GetBotMgr()->GetBotMap();
-+                for (BotMap::const_iterator itr = map->begin(); itr != map->end(); ++itr)
++                for (BotMap::const_iterator bitr = map->begin(); bitr != map->end(); ++bitr)
 +                {
-+                    u = itr->second;
++                    u = bitr->second;
 +                    if (!u || !u->IsInWorld() || me->GetMap() != u->FindMap() || !u->IsAlive()) continue;
 +                    if (_canCureTarget(u, cureSpell))
 +                        targets.push_back(u);
 +                }
 +            }
 +
-+            for (Unit::ControlList::const_iterator itr = tPlayer->m_Controlled.begin(); itr != tPlayer->m_Controlled.end(); ++itr)
++            for (Unit::ControlList::const_iterator bitr = tPlayer->m_Controlled.begin(); bitr != tPlayer->m_Controlled.end(); ++bitr)
 +            {
-+                Unit* u = *itr;
++                u = *bitr;
 +                if (!u || !u->IsPet() || !u->IsAlive() || me->GetDistance(u) > 30) continue;
 +
 +                if (_canCureTarget(u, cureSpell))
@@ -8619,7 +8619,7 @@ index 000000000..5521b1548
 +        if (mylevel >= 10)
 +        {
 +            //67 PR = 1% parry at 80
-+            float tempval = _getTotalBotStat(BOT_STAT_MOD_PARRY_RATING);
++            tempval = _getTotalBotStat(BOT_STAT_MOD_PARRY_RATING);
 +            tempval += me->GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_RATING, (1 << CR_PARRY));
 +
 +            //Forceful Deflection: 25% of strength goes to parry rating
@@ -8659,7 +8659,7 @@ index 000000000..5521b1548
 +        if (mylevel >= 10)
 +        {
 +            //53 DR = 1% dodge at 80
-+            float tempval = _getTotalBotStat(BOT_STAT_MOD_DODGE_RATING);
++            tempval = _getTotalBotStat(BOT_STAT_MOD_DODGE_RATING);
 +            tempval += me->GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_RATING, (1 << CR_DODGE));
 +            value += tempval * _getRatingMultiplier(CR_DODGE);
 +            //125 DR = 1% block/parry/dodge at 80
@@ -8702,7 +8702,7 @@ index 000000000..5521b1548
 +        value = 5.0f + (IAmFree() ? mylevel / 4 : 0); // +20%/+0% at 80
 +
 +        //16.5 BR = 1% block at 80
-+        float tempval = _getTotalBotStat(BOT_STAT_MOD_BLOCK_RATING);
++        tempval = _getTotalBotStat(BOT_STAT_MOD_BLOCK_RATING);
 +        tempval += me->GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_RATING, (1 << CR_BLOCK));
 +        value += tempval * _getRatingMultiplier(CR_BLOCK);
 +        //125 DR = 1% block/parry/dodge at 80
@@ -8912,23 +8912,23 @@ index 000000000..5521b1548
 +            if (master != player)
 +                break;
 +
-+            if ((me->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_STUNNED) || me->HasUnitState(UNIT_STATE_STUNNED)) &&
++            if ((me->HasUnitFlag(UNIT_FLAG_STUNNED) || me->HasUnitState(UNIT_STATE_STUNNED)) &&
 +                !me->HasAuraType(SPELL_AURA_MOD_STUN))
 +            {
 +                me->ClearUnitState(UNIT_STATE_STUNNED);
-+                me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_STUNNED);
++                me->RemoveUnitFlag(UNIT_FLAG_STUNNED);
 +            }
-+            if ((me->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_CONFUSED) || me->HasUnitState(UNIT_STATE_CONFUSED)) &&
++            if ((me->HasUnitFlag(UNIT_FLAG_CONFUSED) || me->HasUnitState(UNIT_STATE_CONFUSED)) &&
 +                !me->HasAuraType(SPELL_AURA_MOD_CONFUSE))
 +            {
 +                me->ClearUnitState(UNIT_STATE_CONFUSED);
-+                me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_CONFUSED);
++                me->RemoveUnitFlag(UNIT_FLAG_CONFUSED);
 +            }
-+            if ((me->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_FLEEING) || me->HasUnitState(UNIT_STATE_FLEEING)) &&
++            if ((me->HasUnitFlag(UNIT_FLAG_FLEEING) || me->HasUnitState(UNIT_STATE_FLEEING)) &&
 +                !me->HasAuraType(SPELL_AURA_MOD_FEAR))
 +            {
 +                me->ClearUnitState(UNIT_STATE_FLEEING);
-+                me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_FLEEING);
++                me->RemoveUnitFlag(UNIT_FLAG_FLEEING);
 +            }
 +            me->BotStopMovement();
 +
@@ -11879,15 +11879,15 @@ index 000000000..5521b1548
 +    //WHITE ATTACKS damage bonus
 +    ApplyClassDamageMultiplierMelee(damage, damageinfo);
 +}
-+void bot_ai::ApplyBotDamageMultiplierMelee(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool crit) const
++void bot_ai::ApplyBotDamageMultiplierMelee(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool iscrit) const
 +{
 +    //MELEE ABILITIES damage bonus (DMG_CLASS != DMG_CLASS_MAGIC)
-+    ApplyClassDamageMultiplierMeleeSpell(damage, damageinfo, spellInfo, attackType, crit);
++    ApplyClassDamageMultiplierMeleeSpell(damage, damageinfo, spellInfo, attackType, iscrit);
 +}
-+void bot_ai::ApplyBotDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool crit) const
++void bot_ai::ApplyBotDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool iscrit) const
 +{
 +    //DAMAGE SPELLS damage bonus (DMG_CLASS_MAGIC)
-+    ApplyClassDamageMultiplierSpell(damage, damageinfo, spellInfo, attackType, crit);
++    ApplyClassDamageMultiplierSpell(damage, damageinfo, spellInfo, attackType, iscrit);
 +}
 +void bot_ai::ApplyBotDamageMultiplierHeal(Unit const* victim, float& heal, SpellInfo const* spellInfo, DamageEffectType damagetype, uint32 stack) const
 +{
@@ -12460,10 +12460,10 @@ index 000000000..5521b1548
 +                                        if (!lockInfo)
 +                                            continue;
 +
-+                                        for (uint8 j = 0; j != MAX_LOCK_CASE; ++j)
++                                        for (uint8 k = 0; k != MAX_LOCK_CASE; ++k)
 +                                        {
-+                                            if (lockInfo->Type[j] == LOCK_KEY_SKILL && lockInfo->Index[j] == LOCKTYPE_PICKLOCK &&
-+                                                lockInfo->Skill[j] <= uint32(15 + creature->GetLevel() * 5))
++                                            if (lockInfo->Type[k] == LOCK_KEY_SKILL && lockInfo->Index[k] == LOCKTYPE_PICKLOCK &&
++                                                lockInfo->Skill[k] <= uint32(15 + creature->GetLevel() * 5))
 +                                            {
 +                                                std::ostringstream name;
 +                                                _AddItemLink(player, item, name, false);
@@ -13125,7 +13125,7 @@ index 000000000..5521b1548
 +            //s2.2: add gossips
 +
 +            //s2.2.0 add current item (with return)
-+            uint8 slot = action - GOSSIP_ACTION_INFO_DEF;
++            uint8 const slot = action - GOSSIP_ACTION_INFO_DEF;
 +            std::ostringstream str;
 +            str << LocalizedNpcText(player, BOT_TEXT_EQUIPPED) << ": ";
 +            if (Item const* item = _equips[slot])
@@ -13167,7 +13167,6 @@ index 000000000..5521b1548
 +            {
 +                uint32 counter = 0;
 +                uint32 maxcounter = BOT_GOSSIP_MAX_ITEMS - 4; //unequip, reset, current, back
-+                uint32 slot = action - GOSSIP_ACTION_INFO_DEF;
 +                Item const* item;
 +                //s2.2.3b: add items as gossip options
 +                for (std::set<uint32>::const_iterator itr = itemList.begin(); itr != itemList.end() && counter < maxcounter; ++itr)
@@ -14364,12 +14363,12 @@ index 000000000..5521b1548
 +                //    if (me->HasUnitState(UNIT_STATE_STUNNED) && !me->HasAuraType(SPELL_AURA_MOD_STUN))
 +                //    {
 +                //        me->ClearUnitState(UNIT_STATE_STUNNED);
-+                //        me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_STUNNED);
++                //        me->RemoveUnitFlag(UNIT_FLAG_STUNNED);
 +                //    }
 +                //    if (me->HasUnitState(UNIT_STATE_CONFUSED) && !me->HasAuraType(SPELL_AURA_MOD_CONFUSE))
 +                //    {
 +                //        me->ClearUnitState(UNIT_STATE_CONFUSED);
-+                //        me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_CONFUSED);
++                //        me->RemoveUnitFlag(UNIT_FLAG_CONFUSED);
 +                //    }
 +                //    break;
 +                //}
@@ -15246,7 +15245,7 @@ index 000000000..5521b1548
 +    {
 +        //TC_LOG_ERROR("scripts", "creature gold is looted, releasing");
 +        creature->AllLootRemovedFromCorpse();
-+        creature->RemoveFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
++        creature->RemoveDynamicFlag(UNIT_DYNFLAG_LOOTABLE);
 +        loot->clear();
 +    }
 +}
@@ -15313,7 +15312,7 @@ index 000000000..5521b1548
 +    {
 +        //TC_LOG_ERROR("scripts", "creature items is looted, releasing");
 +        creature->AllLootRemovedFromCorpse();
-+        creature->RemoveFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
++        creature->RemoveDynamicFlag(UNIT_DYNFLAG_LOOTABLE);
 +        creature->loot.clear();
 +    }
 +}
@@ -17725,7 +17724,7 @@ index 000000000..5521b1548
 +
 +    //bot needs to be either directly controlled by player of have pvp flag to be a valid assist target (buffs, heals, etc.)
 +    me->SetPvP(master->IsPvP());
-+    me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
++    me->SetUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED);
 +    if (sWorld->IsFFAPvPRealm())
 +        me->SetByteFlag(UNIT_FIELD_BYTES_2, 1, UNIT_BYTE2_FLAG_FFA_PVP);
 +    else if (IAmFree())
@@ -18802,8 +18801,8 @@ index 000000000..5521b1548
 +    _atHome = false;
 +
 +    //clear gossip during combat. See CheckAuras() for restore
-+    if (me->HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP))
-+        me->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
++    if (me->HasNpcFlag(UNIT_NPC_FLAG_GOSSIP))
++        me->RemoveNpcFlag(UNIT_NPC_FLAG_GOSSIP);
 +
 +    _evadeMode = false;
 +    AbortTeleport();
@@ -19407,11 +19406,11 @@ index 000000000..5521b1548
 +                                if (!p || me->GetMap() != p->FindMap() || !p->HaveBot()) continue;
 +
 +                                map = p->GetBotMgr()->GetBotMap();
-+                                for (BotMap::const_iterator itr = map->begin(); itr != map->end(); ++itr)
++                                for (BotMap::const_iterator bitr = map->begin(); bitr != map->end(); ++bitr)
 +                                {
-+                                    if (itr->second && itr->second->GetVehicle() &&
-+                                        GetHealthPCT(itr->second->GetVehicleBase()) < 90 &&
-+                                        itr->second->GetVehicleBase()->GetDistance(drake) < 60)
++                                    if (bitr->second && bitr->second->GetVehicle() &&
++                                        GetHealthPCT(bitr->second->GetVehicleBase()) < 90 &&
++                                        bitr->second->GetVehicleBase()->GetDistance(drake) < 60)
 +                                    {
 +                                        cast = true;
 +                                        break;
@@ -19468,11 +19467,11 @@ index 000000000..5521b1548
 +                        if (!p || me->GetMap() != p->FindMap() || !p->HaveBot()) continue;
 +
 +                        map = p->GetBotMgr()->GetBotMap();
-+                        for (BotMap::const_iterator itr = map->begin(); itr != map->end(); ++itr)
++                        for (BotMap::const_iterator bitr = map->begin(); bitr != map->end(); ++bitr)
 +                        {
-+                            Unit* u = itr->second ? itr->second->GetVehicleBase() : nullptr;
++                            Unit* u = bitr->second ? bitr->second->GetVehicleBase() : nullptr;
 +                            if (u && u->IsAlive() && !u->HasUnitState(UNIT_STATE_ISOLATED) && drake->GetDistance(u) < 60.f &&
-+                                !(GetHealthPCT(u) > 95 && !IsTank(itr->second)) &&
++                                !(GetHealthPCT(u) > 95 && !IsTank(bitr->second)) &&
 +                                (GetHealthPCT(u) < 95 || (u->IsInCombat() && !u->getAttackers().empty())))
 +                                targets1.push_back(u);
 +                        }
@@ -19675,11 +19674,11 @@ index 000000000..5521b1548
 +                    if (!p || me->GetMap() != p->FindMap() || !p->HaveBot()) continue;
 +
 +                    map = p->GetBotMgr()->GetBotMap();
-+                    for (BotMap::const_iterator itr = map->begin(); itr != map->end(); ++itr)
++                    for (BotMap::const_iterator bitr = map->begin(); bitr != map->end(); ++bitr)
 +                    {
-+                        Unit* u = itr->second ? itr->second->GetVehicleBase() : nullptr;
++                        Unit* u = bitr->second ? bitr->second->GetVehicleBase() : nullptr;
 +                        if (u && u != drake && u->IsAlive() && !u->HasUnitState(UNIT_STATE_ISOLATED) && drake->GetDistance(u) < 60.f &&
-+                            GetHealthPCT(u) <= (IsTank(itr->second) ? 50 : 35) + (rift ? 15 : 0))
++                            GetHealthPCT(u) <= (IsTank(bitr->second) ? 50 : 35) + (rift ? 15 : 0))
 +                            targets1.push_back(u);
 +                    }
 +                }
@@ -20517,12 +20516,12 @@ index 000000000..5521b1548
 +                    me->CastSpell(wo->GetTypeId() == TYPEID_UNIT ? wo->ToUnit() : me, SPELL_COMBAT_SPECIAL_2H_ATTACK, args);
 +
 +                    if (wo->GetTypeId() == TYPEID_UNIT)
-+                        wo->SetFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
++                        wo->ToUnit()->SetDynamicFlag(UNIT_DYNFLAG_LOOTABLE);
 +
 +                    master->SendLoot(wo->GetGUID(), LOOT_SKINNING);
 +
 +                    if (wo->GetTypeId() == TYPEID_UNIT)
-+                        wo->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE);
++                        wo->ToUnit()->RemoveUnitFlag(UNIT_FLAG_SKINNABLE);
 +
 +                    _updateTimerEx1 = urand(1500, 2100);
 +                }
@@ -20618,10 +20617,10 @@ index 000000000..5521b1548
 +    //update flags
 +    if (!me->IsInCombat() && !_evadeMode && _atHome)
 +    {
-+        if (!me->HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP))
-+            me->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
-+        if (me->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PET_IN_COMBAT))
-+            me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PET_IN_COMBAT);
++        if (!me->HasNpcFlag(UNIT_NPC_FLAG_GOSSIP))
++            me->SetNpcFlag(UNIT_NPC_FLAG_GOSSIP);
++        if (me->HasUnitFlag(UNIT_FLAG_PET_IN_COMBAT))
++            me->RemoveUnitFlag(UNIT_FLAG_PET_IN_COMBAT);
 +    }
 +
 +    if (!me->GetVictim())
@@ -20729,19 +20728,19 @@ index 000000000..5521b1548
 +        }
 +        else if (!IsCasting(mover) && (!IsShootingWand(mover) || Rand() < 10))
 +        {
-+            _calculatePos(pos);
++            _calculatePos(movepos);
 +            float maxdist = std::max<float>(master->GetBotMgr()->GetBotFollowDist() * (master->isMoving() ? 0.02f : 0.35f), 4.f);
 +            if (!me->isMoving())
 +            {
-+                if (me->GetExactDist(&pos) > maxdist)
-+                    SetBotCommandState(BOT_COMMAND_FOLLOW, true, &pos);
++                if (me->GetExactDist(&movepos) > maxdist)
++                    SetBotCommandState(BOT_COMMAND_FOLLOW, true, &movepos);
 +            }
 +            else
 +            {
 +                Position destPos;
 +                me->GetMotionMaster()->GetDestination(destPos.m_positionX, destPos.m_positionY, destPos.m_positionZ);
-+                if (destPos.GetExactDist(&pos) > maxdist)
-+                    SetBotCommandState(BOT_COMMAND_FOLLOW, true, &pos);
++                if (destPos.GetExactDist(&movepos) > maxdist)
++                    SetBotCommandState(BOT_COMMAND_FOLLOW, true, &movepos);
 +            }
 +        }
 +    }
@@ -21041,8 +21040,8 @@ index 000000000..5521b1548
 +            vehicle->GetBase()->SetFaction(master->GetFaction());
 +            vehicle->GetBase()->SetOwnerGUID(master->GetGUID());
 +            vehicle->GetBase()->SetCreatorGUID(master->GetGUID());
-+            vehicle->GetBase()->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_POSSESSED);
-+            vehicle->GetBase()->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
++            vehicle->GetBase()->SetUnitFlag(UNIT_FLAG_POSSESSED);
++            vehicle->GetBase()->SetUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED);
 +            vehicle->GetBase()->SetByteValue(UNIT_FIELD_BYTES_2, 1, master->GetByteValue(UNIT_FIELD_BYTES_2, 1));
 +            ASSERT(vehicle->GetBase()->SetCharmedBy(me, CHARM_TYPE_VEHICLE));
 +            vehicle->GetBase()->SetControlledByPlayer(true);
@@ -21108,9 +21107,9 @@ index 000000000..5521b1548
 +            vehicle->GetBase()->RestoreFaction();
 +            vehicle->GetBase()->SetOwnerGUID(ObjectGuid::Empty);
 +            vehicle->GetBase()->SetCreatorGUID(ObjectGuid::Empty);
-+            vehicle->GetBase()->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
++            vehicle->GetBase()->RemoveUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED);
 +            if (vehicle->GetBase()->GetTypeId() == TYPEID_UNIT)
-+                vehicle->GetBase()->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_POSSESSED);
++                vehicle->GetBase()->RemoveUnitFlag(UNIT_FLAG_POSSESSED);
 +            vehicle->GetBase()->SetByteValue(UNIT_FIELD_BYTES_2, 1, 0);
 +
 +            curVehStrat = BOT_VEH_STRAT_NONE;
@@ -22899,7 +22898,7 @@ index 000000000..5521b1548
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 000000000..d03027a87
+index 000000000..a0cf03bb0
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
 @@ -0,0 +1,684 @@
@@ -23012,8 +23011,8 @@ index 000000000..d03027a87
 +        bool CanBotAttack(Unit const* target, int8 byspell = 0) const;
 +        bool CanBotAttackOnVehicle() const;
 +        void ApplyBotDamageMultiplierMelee(uint32& damage, CalcDamageInfo& damageinfo) const;
-+        void ApplyBotDamageMultiplierMelee(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool crit) const;
-+        void ApplyBotDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool crit) const;
++        void ApplyBotDamageMultiplierMelee(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool iscrit) const;
++        void ApplyBotDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool iscrit) const;
 +        void ApplyBotDamageMultiplierHeal(Unit const* victim, float& heal, SpellInfo const* spellInfo, DamageEffectType damagetype, uint32 stack) const;
 +        void ApplyBotCritMultiplierAll(Unit const* victim, float& crit_chance, SpellInfo const* spellInfo, SpellSchoolMask schoolMask, WeaponAttackType attackType) const;
 +        void ApplyBotSpellCostMods(SpellInfo const* spellInfo, int32& cost) const;
@@ -23474,7 +23473,7 @@ index 000000000..d03027a87
 +
 +        PlayerClassLevelInfo* _classinfo;
 +        SpellInfo const* m_botSpellInfo;
-+        Position pos, attackpos;
++        Position movepos, attackpos;
 +
 +        uint8 m_botCommandState;
 +
@@ -23589,7 +23588,7 @@ index 000000000..d03027a87
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_archmage_ai.cpp b/src/server/game/AI/NpcBots/bot_archmage_ai.cpp
 new file mode 100644
-index 000000000..30af8dc44
+index 000000000..618315c75
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_archmage_ai.cpp
 @@ -0,0 +1,406 @@
@@ -23797,7 +23796,7 @@ index 000000000..30af8dc44
 +            }
 +        }
 +
-+        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool crit) const override
++        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool iscrit) const override
 +        {
 +            uint32 baseId = spellInfo->GetFirstRankSpell()->Id;
 +            //uint8 lvl = me->GetLevel();
@@ -23805,7 +23804,7 @@ index 000000000..30af8dc44
 +
 +            //apply bonus damage mods
 +            float pctbonus = 1.0f;
-+            if (crit)
++            if (iscrit)
 +                pctbonus *= 1.333f;
 +
 +            if (baseId == MAIN_ATTACK_1 || baseId == BLIZZARD_1)
@@ -23885,7 +23884,7 @@ index 000000000..30af8dc44
 +            myPet->SetFaction(master->GetFaction());
 +            myPet->SetControlledByPlayer(!IAmFree());
 +            myPet->SetPvP(me->IsPvP());
-+            myPet->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
++            myPet->SetUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED);
 +            myPet->SetByteValue(UNIT_FIELD_BYTES_2, 1, master->GetByteValue(UNIT_FIELD_BYTES_2, 1));
 +            myPet->SetUInt32Value(UNIT_CREATED_BY_SPELL, SUMMON_WATER_ELEMENTAL_1);
 +
@@ -24948,7 +24947,7 @@ index 000000000..ef4f2a1a4
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp b/src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp
 new file mode 100644
-index 000000000..c8e4635f2
+index 000000000..c77f5b129
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp
 @@ -0,0 +1,617 @@
@@ -25220,7 +25219,7 @@ index 000000000..c8e4635f2
 +        {
 +        }
 +
-+        void ApplyClassDamageMultiplierMeleeSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool /*crit*/) const override
++        void ApplyClassDamageMultiplierMeleeSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool /*iscrit*/) const override
 +        {
 +            uint32 baseId = spellInfo->GetFirstRankSpell()->Id;
 +            float flat_mod = 0.f;
@@ -25234,7 +25233,7 @@ index 000000000..c8e4635f2
 +            damage = int32(damage * pctbonus + flat_mod);
 +        }
 +
-+        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* /*spellInfo*/, WeaponAttackType /*attackType*/, bool /*crit*/) const override
++        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* /*spellInfo*/, WeaponAttackType /*attackType*/, bool /*iscrit*/) const override
 +        {
 +            //uint32 baseId = spellInfo->GetFirstRankSpell()->Id;
 +            //uint8 lvl = me->GetLevel();
@@ -25243,7 +25242,7 @@ index 000000000..c8e4635f2
 +
 +            //2) apply bonus damage mods
 +            float pctbonus = 1.0f;
-+            //if (crit)
++            //if (iscrit)
 +            //{
 +            //    //!!!spell damage is not yet critical and will be multiplied by 1.5
 +            //    //so we should put here bonus damage mult /1.5
@@ -25433,7 +25432,7 @@ index 000000000..c8e4635f2
 +            myPet->SetFaction(master->GetFaction());
 +            myPet->SetControlledByPlayer(!IAmFree());
 +            myPet->SetPvP(me->IsPvP());
-+            myPet->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
++            myPet->SetUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED);
 +            myPet->SetByteValue(UNIT_FIELD_BYTES_2, 1, master->GetByteValue(UNIT_FIELD_BYTES_2, 1));
 +            myPet->SetUInt32Value(UNIT_CREATED_BY_SPELL, BLACK_ARROW_1);
 +
@@ -25571,7 +25570,7 @@ index 000000000..c8e4635f2
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_death_knight_ai.cpp b/src/server/game/AI/NpcBots/bot_death_knight_ai.cpp
 new file mode 100644
-index 000000000..4bbefdfb5
+index 000000000..de69289d3
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_death_knight_ai.cpp
 @@ -0,0 +1,2110 @@
@@ -26565,7 +26564,7 @@ index 000000000..4bbefdfb5
 +                crit_chance += 8.f;
 +        }
 +
-+        void ApplyClassDamageMultiplierMeleeSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool crit) const override
++        void ApplyClassDamageMultiplierMeleeSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool iscrit) const override
 +        {
 +            uint32 baseId = spellInfo->GetFirstRankSpell()->Id;
 +            uint8 lvl = me->GetLevel();
@@ -26573,7 +26572,7 @@ index 000000000..4bbefdfb5
 +
 +            //apply bonus damage mods
 +            float pctbonus = 0.0f;
-+            if (crit)
++            if (iscrit)
 +            {
 +                //!!!Melee spell damage is not yet critical, all reduced by half
 +
@@ -26677,7 +26676,7 @@ index 000000000..4bbefdfb5
 +            damage = int32(fdamage * (1.0f + pctbonus));
 +        }
 +
-+        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool crit) const override
++        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool iscrit) const override
 +        {
 +            uint32 baseId = spellInfo->GetFirstRankSpell()->Id;
 +            uint8 lvl = me->GetLevel();
@@ -26685,7 +26684,7 @@ index 000000000..4bbefdfb5
 +
 +            //apply bonus damage mods
 +            float pctbonus = 0.0f;
-+            if (crit)
++            if (iscrit)
 +            {
 +                //!!!spell damage is not yet critical and will be multiplied by 1.5
 +                //so we should put here bonus damage mult /1.5
@@ -27255,7 +27254,7 @@ index 000000000..4bbefdfb5
 +            myPet->SetFaction(master->GetFaction());
 +            myPet->SetControlledByPlayer(!IAmFree());
 +            myPet->SetPvP(me->IsPvP());
-+            myPet->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
++            myPet->SetUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED);
 +            myPet->SetByteValue(UNIT_FIELD_BYTES_2, 1, master->GetByteValue(UNIT_FIELD_BYTES_2, 1));
 +
 +            botPet = myPet;
@@ -27668,10 +27667,10 @@ index 000000000..4bbefdfb5
 +            for (AuraType const* itr = botDiseaseAuraTypes; *itr != SPELL_AURA_NONE; ++itr)
 +            {
 +                Unit::AuraEffectList const& disAuras = unit->GetAuraEffectsByType(*itr);
-+                for (Unit::AuraEffectList::const_iterator itr = disAuras.begin(); itr != disAuras.end(); ++itr)
++                for (Unit::AuraEffectList::const_iterator ditr = disAuras.begin(); ditr != disAuras.end(); ++ditr)
 +                {
 +                    // Get auras with disease dispel type by caster
-+                    if ((*itr)->GetSpellInfo()->Dispel == DISPEL_DISEASE)
++                    if ((*ditr)->GetSpellInfo()->Dispel == DISPEL_DISEASE)
 +                        return true;
 +                }
 +            }
@@ -27687,7 +27686,7 @@ index 000000000..4bbefdfb5
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_dreadlord_ai.cpp b/src/server/game/AI/NpcBots/bot_dreadlord_ai.cpp
 new file mode 100644
-index 000000000..cbdd40edf
+index 000000000..51292a38c
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_dreadlord_ai.cpp
 @@ -0,0 +1,536 @@
@@ -27980,7 +27979,7 @@ index 000000000..cbdd40edf
 +            damageinfo.Damages[0].Damage = uint32(damageinfo.Damages[0].Damage * pctbonus);
 +        }
 +
-+        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool crit) const override
++        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool iscrit) const override
 +        {
 +            uint32 baseId = spellInfo->GetFirstRankSpell()->Id;
 +            //uint8 lvl = me->GetLevel();
@@ -27988,7 +27987,7 @@ index 000000000..cbdd40edf
 +
 +            //apply bonus damage mods
 +            float pctbonus = 1.0f;
-+            if (crit)
++            if (iscrit)
 +                pctbonus *= 1.333f;
 +
 +            //double damage on CCed units
@@ -28106,7 +28105,7 @@ index 000000000..cbdd40edf
 +            myPet->SetFaction(master->GetFaction());
 +            myPet->SetControlledByPlayer(!IAmFree());
 +            myPet->SetPvP(me->IsPvP());
-+            myPet->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
++            myPet->SetUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED);
 +            myPet->SetByteValue(UNIT_FIELD_BYTES_2, 1, master->GetByteValue(UNIT_FIELD_BYTES_2, 1));
 +
 +            //immune
@@ -28229,7 +28228,7 @@ index 000000000..cbdd40edf
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_druid_ai.cpp b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 new file mode 100644
-index 000000000..4bc6bb50e
+index 000000000..c9aecf2d9
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 @@ -0,0 +1,2929 @@
@@ -29958,7 +29957,7 @@ index 000000000..4bc6bb50e
 +            damageinfo.Damages[0].Damage = uint32(damageinfo.Damages[0].Damage * (1.0f + pctbonus));
 +        }
 +
-+        void ApplyClassDamageMultiplierMeleeSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool crit) const override
++        void ApplyClassDamageMultiplierMeleeSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool iscrit) const override
 +        {
 +            //uint32 spellId = spellInfo->Id;
 +            uint32 baseId = spellInfo->GetFirstRankSpell()->Id;
@@ -29967,7 +29966,7 @@ index 000000000..4bc6bb50e
 +
 +            //apply bonus damage mods
 +            float pctbonus = 0.0f;
-+            if (crit)
++            if (iscrit)
 +            {
 +                //!!!Melee spell damage is not yet critical, all reduced by half
 +                ////Elemental Fury (part 2): 50% additional crit damage bonus for Nature, Fire and Frost (all) spells
@@ -30000,12 +29999,12 @@ index 000000000..4bc6bb50e
 +
 +            //Primal Fury (yellow attacks): 100% to gain 5 rage at crit in (Dire) Bear Form
 +            //Primal Fury (yellow attacks): 100% to gain 1 combo point at crit in Cat Form
-+            if (_form == DRUID_BEAR_FORM && crit && lvl >= 25)
++            if (_form == DRUID_BEAR_FORM && iscrit && lvl >= 25)
 +                me->CastSpell(me, PRIMAL_FURY_EFFECT_ENERGIZE, true);
 +            if (_form == DRUID_CAT_FORM &&
 +                (baseId == CLAW_1 || baseId == MANGLE_CAT_1 || baseId == POUNCE_1 ||
 +                baseId == RAKE_1 || baseId == RAVAGE_1 || baseId == SHRED_1))
-+                primalFuryProc = crit && lvl >= 25;
++                primalFuryProc = iscrit && lvl >= 25;
 +
 +            damage = int32(fdamage * (1.0f + pctbonus));
 +        }
@@ -30036,7 +30035,7 @@ index 000000000..4bc6bb50e
 +                crit_chance += 3.f;
 +        }
 +
-+        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool crit) const override
++        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool iscrit) const override
 +        {
 +            //uint32 spellId = spellInfo->Id;
 +            uint32 baseId = spellInfo->GetFirstRankSpell()->Id;
@@ -30045,7 +30044,7 @@ index 000000000..4bc6bb50e
 +
 +            //apply bonus damage mods
 +            float pctbonus = 0.0f;
-+            if (crit)
++            if (iscrit)
 +            {
 +                //!!!spell damage is not yet critical and will be multiplied by 1.5
 +                //so we should put here bonus damage mult /1.5
@@ -30773,7 +30772,7 @@ index 000000000..4bc6bb50e
 +                myPet->SetFaction(master->GetFaction());
 +                myPet->SetControlledByPlayer(!IAmFree());
 +                myPet->SetPvP(me->IsPvP());
-+                myPet->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
++                myPet->SetUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED);
 +                myPet->SetByteValue(UNIT_FIELD_BYTES_2, 1, master->GetByteValue(UNIT_FIELD_BYTES_2, 1));
 +                myPet->SetUInt32Value(UNIT_CREATED_BY_SPELL, FORCE_OF_NATURE_1);
 +                //botPet = myPet;
@@ -31164,7 +31163,7 @@ index 000000000..4bc6bb50e
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_hunter_ai.cpp b/src/server/game/AI/NpcBots/bot_hunter_ai.cpp
 new file mode 100644
-index 000000000..d6bbc1e05
+index 000000000..09496344e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_hunter_ai.cpp
 @@ -0,0 +1,2363 @@
@@ -31813,14 +31812,14 @@ index 000000000..d6bbc1e05
 +                    continue;
 +
 +                BotMap const* map = player->GetBotMgr()->GetBotMap();
-+                for (BotMap::const_iterator itr = map->begin(); itr != map->end(); ++itr)
++                for (BotMap::const_iterator bitr = map->begin(); bitr != map->end(); ++bitr)
 +                {
-+                    if (itr->second == me)
++                    if (bitr->second == me)
 +                        continue;
-+                    if (!gr->IsMember(itr->second->GetGUID()))
++                    if (!gr->IsMember(bitr->second->GetGUID()))
 +                        continue;
 +
-+                    Unit* u = itr->second;
++                    Unit* u = bitr->second;
 +                    if (u->IsInWorld() && u->IsAlive() && u->IsInCombat() && IsTank(u) &&
 +                        (u->GetVictim() || !u->getAttackers().empty()))
 +                        tanks.push_back(u);
@@ -31888,7 +31887,7 @@ index 000000000..d6bbc1e05
 +                CheckScare(diff);
 +
 +            //Deterrence check
-+            if (me->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PACIFIED) && !IsCasting())
++            if (me->HasUnitFlag(UNIT_FLAG_PACIFIED) && !IsCasting())
 +            {
 +                if (!me->isMoving())
 +                    GetInPosition(true, nullptr);
@@ -32290,9 +32289,9 @@ index 000000000..d6bbc1e05
 +                if (p_attackers.empty())
 +                    continue;
 +
-+                for (Unit::AttackerSet::const_iterator itr = p_attackers.begin(); itr != p_attackers.end(); ++itr)
++                for (Unit::AttackerSet::const_iterator bitr = p_attackers.begin(); bitr != p_attackers.end(); ++bitr)
 +                {
-+                    attacker = *itr;
++                    attacker = *bitr;
 +                    if (tPlayer->GetDistance(attacker) > 15 || me->GetDistance(attacker) > 30)
 +                        continue;
 +
@@ -32316,9 +32315,9 @@ index 000000000..d6bbc1e05
 +                    continue;
 +
 +                BotMap const* map = gPlayer->GetBotMgr()->GetBotMap();
-+                for (BotMap::const_iterator itr = map->begin(); itr != map->end(); ++itr)
++                for (BotMap::const_iterator bitr = map->begin(); bitr != map->end(); ++bitr)
 +                {
-+                    Unit* u = itr->second;
++                    Unit* u = bitr->second;
 +                    if (!u || !u->IsInWorld() || me->GetMap() != u->FindMap() || !u->IsAlive() ||
 +                        u->IsTotem() || me->GetDistance(u) > 30)
 +                        continue;
@@ -32338,9 +32337,9 @@ index 000000000..d6bbc1e05
 +                    if (u_attackers.empty())
 +                        continue;
 +
-+                    for (Unit::AttackerSet::const_iterator itr = u_attackers.begin(); itr != u_attackers.end(); ++itr)
++                    for (Unit::AttackerSet::const_iterator aitr = u_attackers.begin(); aitr != u_attackers.end(); ++aitr)
 +                    {
-+                        attacker = *itr;
++                        attacker = *aitr;
 +                        if (u->GetDistance(attacker) > 15 || me->GetDistance(attacker) > 30)
 +                            continue;
 +
@@ -32405,7 +32404,7 @@ index 000000000..d6bbc1e05
 +                crit_chance += 20.f;
 +        }
 +
-+        void ApplyClassDamageMultiplierMeleeSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool crit) const override
++        void ApplyClassDamageMultiplierMeleeSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool iscrit) const override
 +        {
 +            uint32 baseId = spellInfo->GetFirstRankSpell()->Id;
 +
@@ -32418,7 +32417,7 @@ index 000000000..d6bbc1e05
 +
 +            //apply bonus damage mods
 +            float pctbonus = 0.0f;
-+            if (crit)
++            if (iscrit)
 +            {
 +                //!!!Melee spell damage is not yet critical, all reduced by half
 +                //Mortal Shots: 30% crit damage bonus for all ranged abilities
@@ -32500,7 +32499,7 @@ index 000000000..d6bbc1e05
 +            damage = int32(fdamage * (1.0f + pctbonus));
 +        }
 +
-+        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool /*crit*/) const override
++        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool /*iscrit*/) const override
 +        {
 +            uint32 baseId = spellInfo->GetFirstRankSpell()->Id;
 +            uint8 lvl = me->GetLevel();
@@ -32509,7 +32508,7 @@ index 000000000..d6bbc1e05
 +
 +            //2) apply bonus damage mods
 +            float pctbonus = 0.0f;
-+            //if (crit)
++            //if (iscrit)
 +            //{
 +            //    //!!!spell damage is not yet critical and will be multiplied by 1.5
 +            //    //so we should put here bonus damage mult /1.5
@@ -33156,7 +33155,7 @@ index 000000000..d6bbc1e05
 +            myPet->SetFaction(master->GetFaction());
 +            myPet->SetControlledByPlayer(!IAmFree());
 +            myPet->SetPvP(me->IsPvP());
-+            myPet->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
++            myPet->SetUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED);
 +            myPet->SetByteValue(UNIT_FIELD_BYTES_2, 1, master->GetByteValue(UNIT_FIELD_BYTES_2, 1));
 +
 +            //fix scale
@@ -33533,7 +33532,7 @@ index 000000000..d6bbc1e05
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_mage_ai.cpp b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 new file mode 100644
-index 000000000..532f6b1e0
+index 000000000..78f48671d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 @@ -0,0 +1,1833 @@
@@ -34497,7 +34496,7 @@ index 000000000..532f6b1e0
 +                crit_chance += 2.f;
 +        }
 +
-+        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool crit) const override
++        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool iscrit) const override
 +        {
 +            uint32 baseId = spellInfo->GetFirstRankSpell()->Id;
 +            uint8 lvl = me->GetLevel();
@@ -34505,7 +34504,7 @@ index 000000000..532f6b1e0
 +
 +            //apply bonus damage mods
 +            float pctbonus = 0.0f;
-+            if (crit)
++            if (iscrit)
 +            {
 +                //!!!spell damage is not yet critical and will be multiplied by 1.5
 +                //so we should put here bonus damage mult /1.5
@@ -35107,7 +35106,7 @@ index 000000000..532f6b1e0
 +            myPet->SetFaction(master->GetFaction());
 +            myPet->SetControlledByPlayer(!IAmFree());
 +            myPet->SetPvP(me->IsPvP());
-+            myPet->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
++            myPet->SetUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED);
 +            myPet->SetByteValue(UNIT_FIELD_BYTES_2, 1, master->GetByteValue(UNIT_FIELD_BYTES_2, 1));
 +            myPet->SetUInt32Value(UNIT_CREATED_BY_SPELL, SUMMON_WATER_ELEMENTAL_1);
 +
@@ -35372,7 +35371,7 @@ index 000000000..532f6b1e0
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_necromancer_ai.cpp b/src/server/game/AI/NpcBots/bot_necromancer_ai.cpp
 new file mode 100644
-index 000000000..76f6425fe
+index 000000000..794cdb67a
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_necromancer_ai.cpp
 @@ -0,0 +1,745 @@
@@ -35758,7 +35757,7 @@ index 000000000..76f6425fe
 +            }
 +        }
 +
-+        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool crit) const override
++        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool iscrit) const override
 +        {
 +            uint32 baseId = spellInfo->GetFirstRankSpell()->Id;
 +            //uint8 lvl = me->GetLevel();
@@ -35766,7 +35765,7 @@ index 000000000..76f6425fe
 +
 +            //apply bonus damage mods
 +            float pctbonus = 1.0f;
-+            if (crit)
++            if (iscrit)
 +                pctbonus *= 1.333f;
 +
 +            if (baseId == MAIN_ATTACK_1)
@@ -35969,7 +35968,7 @@ index 000000000..76f6425fe
 +            myPet->SetFaction(master->GetFaction());
 +            myPet->SetControlledByPlayer(!IAmFree());
 +            myPet->SetPvP(me->IsPvP());
-+            myPet->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
++            myPet->SetUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED);
 +            myPet->SetByteValue(UNIT_FIELD_BYTES_2, 1, master->GetByteValue(UNIT_FIELD_BYTES_2, 1));
 +            myPet->SetUInt32Value(UNIT_CREATED_BY_SPELL, RAISE_DEAD_1);
 +
@@ -36123,7 +36122,7 @@ index 000000000..76f6425fe
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 new file mode 100644
-index 000000000..b770a203b
+index 000000000..ee2739aa5
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 @@ -0,0 +1,2779 @@
@@ -36430,14 +36429,14 @@ index 000000000..b770a203b
 +                    continue;
 +
 +                BotMap const* map = player->GetBotMgr()->GetBotMap();
-+                for (BotMap::const_iterator itr = map->begin(); itr != map->end(); ++itr)
++                for (BotMap::const_iterator bitr = map->begin(); bitr != map->end(); ++bitr)
 +                {
-+                    if (itr->second == me)
++                    if (bitr->second == me)
 +                        continue;
-+                    if (!gr->IsMember(itr->second->GetGUID()))
++                    if (!gr->IsMember(bitr->second->GetGUID()))
 +                        continue;
 +
-+                    Unit* u = itr->second;
++                    Unit* u = bitr->second;
 +                    if (u->IsInWorld() && u->IsAlive() && u->IsInCombat() && IsTank(u) &&
 +                        (!u->getAttackers().empty() || GetHealthPCT(u) < 90) &&
 +                        !u->GetAuraEffect(SPELL_AURA_PERIODIC_TRIGGER_SPELL, SPELLFAMILY_PALADIN, 0x0, 0x1000000, 0x0, me->GetGUID()))
@@ -36575,7 +36574,7 @@ index 000000000..b770a203b
 +
 +            checkShieldTimer = 1500;
 +
-+            Unit* u;
++            Unit* u = nullptr;
 +            if (IAmFree())
 +            {
 +                u = me;
@@ -36676,13 +36675,13 @@ index 000000000..b770a203b
 +                    if (pl->HaveBot())
 +                    {
 +                        BotMap const* map = pl->GetBotMgr()->GetBotMap();
-+                        for (BotMap::const_iterator it = map->begin(); it != map->end(); ++it)
++                        for (BotMap::const_iterator bitr = map->begin(); bitr != map->end(); ++bitr)
 +                        {
-+                            u = it->second;
++                            u = bitr->second;
 +                            if (u != me && IsTank())
 +                                continue;
 +                            if (!u || !u->IsInWorld() || me->GetMap() != u->FindMap() || !u->IsAlive() || !u->IsInCombat() ||
-+                                it->second->IsTempBot() || !IsTank(u) || me->GetDistance(u) > 30 ||
++                                bitr->second->IsTempBot() || !IsTank(u) || me->GetDistance(u) > 30 ||
 +                                u->GetAuraEffect(SPELL_AURA_DUMMY, SPELLFAMILY_PALADIN, 0x0, 0x80000, 0x0))
 +                                continue;
 +
@@ -36692,9 +36691,9 @@ index 000000000..b770a203b
 +                    }
 +                    if (!foundTank)
 +                    {
-+                        for (Unit::ControlList::const_iterator itr = master->m_Controlled.begin(); itr != master->m_Controlled.end(); ++itr)
++                        for (Unit::ControlList::const_iterator citr = master->m_Controlled.begin(); citr != master->m_Controlled.end(); ++citr)
 +                        {
-+                            u = *itr;
++                            u = *citr;
 +                            if (!u || !u->IsPet() || me->GetMap() != u->FindMap() || !u->IsAlive() || !u->IsInCombat() ||
 +                                !IsTank(u) || me->GetDistance(u) > 30 ||
 +                                u->GetAuraEffect(SPELL_AURA_DUMMY, SPELLFAMILY_PALADIN, 0x0, 0x80000, 0x0))
@@ -36745,7 +36744,7 @@ index 000000000..b770a203b
 +                }
 +            }
 +
-+            if (foundTank && doCast(u, GetSpell(SACRED_SHIELD_1)))
++            if (foundTank && u && doCast(u, GetSpell(SACRED_SHIELD_1)))
 +                return;
 +        }
 +
@@ -37840,7 +37839,7 @@ index 000000000..b770a203b
 +            }
 +        }
 +
-+        void ApplyClassDamageMultiplierMeleeSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool /*crit*/) const override
++        void ApplyClassDamageMultiplierMeleeSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool /*iscrit*/) const override
 +        {
 +            uint32 baseId = spellInfo->GetFirstRankSpell()->Id;
 +            uint8 lvl = me->GetLevel();
@@ -37848,7 +37847,7 @@ index 000000000..b770a203b
 +
 +            //apply bonus damage mods
 +            float pctbonus = 0.0f;
-+            //if (crit)
++            //if (iscrit)
 +            //{
 +            //}
 +            //Sanctity of Battle: 15% bonus damage for Exorcism and Crusader Strike
@@ -37871,7 +37870,7 @@ index 000000000..b770a203b
 +            damage = int32(fdamage * (1.0f + pctbonus));
 +        }
 +
-+        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool /*crit*/) const override
++        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool /*iscrit*/) const override
 +        {
 +            uint32 spellId = spellInfo->Id;
 +            uint8 lvl = me->GetLevel();
@@ -37879,7 +37878,7 @@ index 000000000..b770a203b
 +
 +            //apply bonus damage mods
 +            float pctbonus = 0.0f;
-+            //if (crit)
++            //if (iscrit)
 +            //{
 +            //}
 +
@@ -38908,7 +38907,7 @@ index 000000000..b770a203b
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_priest_ai.cpp b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 new file mode 100644
-index 000000000..bf730a10f
+index 000000000..5a3bbe0c5
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 @@ -0,0 +1,2104 @@
@@ -39303,9 +39302,9 @@ index 000000000..bf730a10f
 +                return false;
 +            }
 +
-+            for (GroupReference const* itr = gr->GetFirstMember(); itr != nullptr; itr = itr->next())
++            for (GroupReference const* gitr = gr->GetFirstMember(); gitr != nullptr; gitr = gitr->next())
 +            {
-+                Player* tPlayer = itr->GetSource();
++                Player* tPlayer = gitr->GetSource();
 +                if (!tPlayer || me->GetMap() != tPlayer->FindMap() || tPlayer->isPossessed() || tPlayer->IsCharmed())
 +                    continue;
 +                u = tPlayer;
@@ -39815,9 +39814,9 @@ index 000000000..bf730a10f
 +                return;
 +
 +            Group const* gr = master->GetGroup();
-+            for (GroupReference const* itr = gr->GetFirstMember(); itr != nullptr; itr = itr->next())
++            for (GroupReference const* gitr = gr->GetFirstMember(); gitr != nullptr; gitr = gitr->next())
 +            {
-+                Player* player = itr->GetSource();
++                Player* player = gitr->GetSource();
 +                if (player && player->IsAlive() && !player->getAttackers().empty() &&
 +                    IsTank(player) && GetHealthPCT(player) < 85 && me->IsWithinDistInMap(player, 40) &&
 +                    !player->HasAuraType(SPELL_AURA_RAID_PROC_FROM_CHARGE_WITH_VALUE))
@@ -39942,9 +39941,9 @@ index 000000000..bf730a10f
 +                if (!player || !player->IsInWorld() || me->GetMap() != player->FindMap() || !player->HaveBot())
 +                    continue;
 +                map = master->GetBotMgr()->GetBotMap();
-+                for (BotMap::const_iterator itr = map->begin(); itr != map->end(); ++itr)
++                for (BotMap::const_iterator bitr = map->begin(); bitr != map->end(); ++bitr)
 +                {
-+                    u = itr->second;
++                    u = bitr->second;
 +                    if (u->IsAlive() && u->IsInWorld() && u->ToCreature()->GetBotAI()->HasRole(BOT_ROLE_HEAL) &&
 +                        !IsHeroExClass(u->ToCreature()->GetBotClass()) &&
 +                        GetManaPCT(u) < 70 && me->IsWithinDistInMap(u, 30) &&
@@ -39959,9 +39958,9 @@ index 000000000..bf730a10f
 +                if (!player || !player->IsInWorld() || me->GetMap() != player->FindMap() || !player->HaveBot())
 +                    continue;
 +                map = master->GetBotMgr()->GetBotMap();
-+                for (BotMap::const_iterator itr = map->begin(); itr != map->end(); ++itr)
++                for (BotMap::const_iterator bitr = map->begin(); bitr != map->end(); ++bitr)
 +                {
-+                    u = itr->second;
++                    u = bitr->second;
 +                    if (u->IsAlive() && u->IsInWorld() && u->GetPowerType() == POWER_MANA && u->GetVictim() && !IsTank(u) &&
 +                        !IsHeroExClass(u->ToCreature()->GetBotClass()) &&
 +                        GetManaPCT(u) < 70 && me->IsWithinDistInMap(u, 30) &&
@@ -40120,7 +40119,7 @@ index 000000000..bf730a10f
 +                crit_chance += 4.f;
 +        }
 +
-+        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool crit) const override
++        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool iscrit) const override
 +        {
 +            uint32 baseId = spellInfo->GetFirstRankSpell()->Id;
 +            uint8 lvl = me->GetLevel();
@@ -40128,7 +40127,7 @@ index 000000000..bf730a10f
 +
 +            //apply bonus damage mods
 +            float pctbonus = 0.0f;
-+            if (crit)
++            if (iscrit)
 +            {
 +                //!!!spell damage is not yet critical and will be multiplied by 1.5
 +                //so we should put here bonus damage mult /1.5
@@ -40733,7 +40732,7 @@ index 000000000..bf730a10f
 +            myPet->SetFaction(master->GetFaction());
 +            myPet->SetControlledByPlayer(!IAmFree());
 +            myPet->SetPvP(me->IsPvP());
-+            myPet->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
++            myPet->SetUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED);
 +            myPet->SetByteValue(UNIT_FIELD_BYTES_2, 1, master->GetByteValue(UNIT_FIELD_BYTES_2, 1));
 +            myPet->SetUInt32Value(UNIT_CREATED_BY_SPELL, SHADOWFIEND_1);
 +
@@ -41018,7 +41017,7 @@ index 000000000..bf730a10f
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_rogue_ai.cpp b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 new file mode 100644
-index 000000000..54de5004b
+index 000000000..c762f6143
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 @@ -0,0 +1,2037 @@
@@ -42048,7 +42047,7 @@ index 000000000..54de5004b
 +                    crit_chance += 40.f;
 +        }
 +
-+        void ApplyClassDamageMultiplierMeleeSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool crit) const override
++        void ApplyClassDamageMultiplierMeleeSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool iscrit) const override
 +        {
 +            //uint32 spellId = spellInfo->Id;
 +            uint32 baseId = spellInfo->GetFirstRankSpell()->Id;
@@ -42057,7 +42056,7 @@ index 000000000..54de5004b
 +
 +            //apply bonus damage mods
 +            float pctbonus = 0.0f;
-+            if (crit)
++            if (iscrit)
 +            {
 +                //!!!Melee spell damage is not yet critical, all reduced by half
 +                //Lethality: 30% crit damage bonus for non-stealth combo-generating abilities (on 25 lvl)
@@ -42113,7 +42112,7 @@ index 000000000..54de5004b
 +
 +            //Glyph of Sinister Strike: 50% chance to add 1 cp on crit
 +            if (baseId == SINISTER_STRIKE_1)
-+                glyphSSProc = crit && lvl >= 15 && urand(1,100) <= 50;
++                glyphSSProc = iscrit && lvl >= 15 && urand(1,100) <= 50;
 +
 +            damage = int32(fdamage * (1.0f + pctbonus));
 +        }
@@ -43061,7 +43060,7 @@ index 000000000..54de5004b
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_shaman_ai.cpp b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 new file mode 100644
-index 000000000..427f072ca
+index 000000000..86dd797e7
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 @@ -0,0 +1,2821 @@
@@ -44491,7 +44490,7 @@ index 000000000..427f072ca
 +                        crit_chance += 20.f * eff->GetBase()->GetStackAmount();
 +        }
 +
-+        void ApplyClassDamageMultiplierMeleeSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool crit) const override
++        void ApplyClassDamageMultiplierMeleeSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool iscrit) const override
 +        {
 +            uint32 spellId = spellInfo->Id;
 +            uint8 lvl = me->GetLevel();
@@ -44499,7 +44498,7 @@ index 000000000..427f072ca
 +
 +            //apply bonus damage mods
 +            float pctbonus = 0.0f;
-+            if (crit)
++            if (iscrit)
 +            {
 +                //!!!Melee spell damage is not yet critical, all reduced by half
 +                //Elemental Fury (part 2): 50% additional crit damage bonus for Nature, Fire and Frost (all) spells
@@ -44519,7 +44518,7 @@ index 000000000..427f072ca
 +            damage = int32(fdamage * (1.0f + pctbonus));
 +        }
 +
-+        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool crit) const override
++        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool iscrit) const override
 +        {
 +            uint32 spellId = spellInfo->Id;
 +            uint8 lvl = me->GetLevel();
@@ -44528,7 +44527,7 @@ index 000000000..427f072ca
 +
 +            //2) apply bonus damage mods
 +            float pctbonus = 0.0f;
-+            if (crit)
++            if (iscrit)
 +            {
 +                //!!!spell damage is not yet critical and will be multiplied by 1.5
 +                //so we should put here bonus damage mult /1.5
@@ -45141,7 +45140,7 @@ index 000000000..427f072ca
 +                myPet->SetFaction(master->GetFaction());
 +                myPet->SetControlledByPlayer(!IAmFree());
 +                myPet->SetPvP(me->IsPvP());
-+                myPet->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
++                myPet->SetUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED);
 +                myPet->SetByteValue(UNIT_FIELD_BYTES_2, 1, master->GetByteValue(UNIT_FIELD_BYTES_2, 1));
 +                myPet->SetUInt32Value(UNIT_CREATED_BY_SPELL, FERAL_SPIRIT_1);
 +
@@ -45365,7 +45364,7 @@ index 000000000..427f072ca
 +            summon->SetPvP(me->IsPvP());
 +            summon->SetOwnerGUID(master->GetGUID());
 +            summon->SetControlledByPlayer(!IAmFree());
-+            summon->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
++            summon->SetUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED);
 +            // totem will claim master's summon slot
 +            // free it to avoid conflicts with other shaman bots and master
 +            // if master is a shaman his totem will despawn
@@ -45803,7 +45802,7 @@ index 000000000..427f072ca
 +            uint32 sumonSpell;
 +            uint32 baseId;
 +            bool isTotem;
-+            int8 mytype;
++            int8 mytype = -1;
 +            Unit::AuraApplicationMap const& aurapps = me->GetAppliedAuras();
 +            for (Unit::AuraApplicationMap::const_iterator itr = aurapps.begin(); itr != aurapps.end(); ++itr)
 +            {
@@ -46481,7 +46480,7 @@ index 000000000..a1ea175bd
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_sphynx_ai.cpp b/src/server/game/AI/NpcBots/bot_sphynx_ai.cpp
 new file mode 100644
-index 000000000..99f11ed88
+index 000000000..2da73ee0d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_sphynx_ai.cpp
 @@ -0,0 +1,594 @@
@@ -46835,7 +46834,7 @@ index 000000000..99f11ed88
 +                return;
 +        }
 +
-+        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* /*spellInfo*/, WeaponAttackType /*attackType*/, bool crit) const override
++        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* /*spellInfo*/, WeaponAttackType /*attackType*/, bool iscrit) const override
 +        {
 +            //uint32 baseId = spellInfo->GetFirstRankSpell()->Id;
 +            //uint8 lvl = me->getLevel();
@@ -46843,7 +46842,7 @@ index 000000000..99f11ed88
 +
 +            //apply bonus damage mods
 +            float pctbonus = 1.0f;
-+            if (crit)
++            if (iscrit)
 +                pctbonus *= 1.333f;
 +
 +            damage = int32(fdamage * pctbonus);
@@ -47081,7 +47080,7 @@ index 000000000..99f11ed88
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warlock_ai.cpp b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 new file mode 100644
-index 000000000..6a65447dc
+index 000000000..86ecda544
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 @@ -0,0 +1,2084 @@
@@ -48135,7 +48134,7 @@ index 000000000..6a65447dc
 +                crit_chance += 5.f;
 +        }
 +
-+        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool crit) const override
++        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool iscrit) const override
 +        {
 +            uint32 baseId = spellInfo->GetFirstRankSpell()->Id;
 +            uint8 lvl = me->GetLevel();
@@ -48143,7 +48142,7 @@ index 000000000..6a65447dc
 +
 +            //2) apply bonus damage mods
 +            float pctbonus = 1.0f; //Special condition
-+            if (crit)
++            if (iscrit)
 +            {
 +                //!!!spell damage is not yet critical and will be multiplied by 1.5
 +                //so we should put here bonus damage mult /1.5
@@ -48838,7 +48837,7 @@ index 000000000..6a65447dc
 +            myPet->SetFaction(master->GetFaction());
 +            myPet->SetControlledByPlayer(!IAmFree());
 +            myPet->SetPvP(me->IsPvP());
-+            myPet->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
++            myPet->SetUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED);
 +            myPet->SetByteValue(UNIT_FIELD_BYTES_2, 1, master->GetByteValue(UNIT_FIELD_BYTES_2, 1));
 +
 +            //fix scale and equips
@@ -49171,7 +49170,7 @@ index 000000000..6a65447dc
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warrior_ai.cpp b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 new file mode 100644
-index 000000000..954d69a81
+index 000000000..0112755c1
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 @@ -0,0 +1,2258 @@
@@ -49608,7 +49607,7 @@ index 000000000..954d69a81
 +
 +            //SelfHeal
 +            if (IsSpellReady(ENRAGED_REGENERATION_1, diff) && Rand() < 80 && GetHealthPCT(me) < 40 &&
-+                rage >= rcost(ENRAGED_REGENERATION_1) && me->HasAuraWithMechanic(1<<MECHANIC_ENRAGED))
++                rage >= rcost(ENRAGED_REGENERATION_1) && me->HasAuraWithMechanic(1u<<MECHANIC_ENRAGED))
 +            {
 +                if (doCast(me, GetSpell(ENRAGED_REGENERATION_1)))
 +                    return;
@@ -50508,7 +50507,7 @@ index 000000000..954d69a81
 +                crit_chance += 10.f;
 +        }
 +
-+        void ApplyClassDamageMultiplierMeleeSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType attackType, bool crit) const override
++        void ApplyClassDamageMultiplierMeleeSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType attackType, bool iscrit) const override
 +        {
 +            uint32 baseId = spellInfo->GetFirstRankSpell()->Id;
 +            uint8 lvl = me->GetLevel();
@@ -50516,7 +50515,7 @@ index 000000000..954d69a81
 +
 +            // apply bonus damage mods
 +            float pctbonus = 1.0f;
-+            if (crit)
++            if (iscrit)
 +            {
 +                //!!!Melee spell damage is not yet critical, all reduced by half
 +                //Impale: 20% crit damage bonus for all abilities
@@ -51330,7 +51329,7 @@ index 000000000..954d69a81
 +                case DEATH_WISH_1:
 +                    return true;
 +                case ENRAGED_REGENERATION_1:
-+                    return me->HasAuraWithMechanic(1<<MECHANIC_ENRAGED);
++                    return me->HasAuraWithMechanic(1u<<MECHANIC_ENRAGED);
 +                case BATTLE_STANCE_1:
 +                    return !_inStance(1);
 +                case DEFENSIVE_STANCE_1:
@@ -51435,7 +51434,7 @@ index 000000000..954d69a81
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 000000000..66d4497ff
+index 000000000..176407c9f
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
 @@ -0,0 +1,1642 @@
@@ -51941,7 +51940,7 @@ index 000000000..66d4497ff
 +
 +        bool hasBotsInVehicles = false;
 +        bool botsInSelVehicle = 0;
-+        BotMap const* bmap;
++        BotMap const* bmap = nullptr;
 +        if (owner->HaveBot())
 +        {
 +            bmap = owner->GetBotMgr()->GetBotMap();
@@ -51959,7 +51958,7 @@ index 000000000..66d4497ff
 +            }
 +        }
 +
-+        if (hasBotsInVehicles)
++        if (bmap && hasBotsInVehicles)
 +        {
 +            for (BotMap::const_iterator ci = bmap->begin(); ci != bmap->end(); ++ci)
 +            {
@@ -54214,7 +54213,7 @@ index 000000000..38a2a8604
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.cpp b/src/server/game/AI/NpcBots/botdatamgr.cpp
 new file mode 100644
-index 000000000..cb2685084
+index 000000000..55640e714
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.cpp
 @@ -0,0 +1,522 @@
@@ -54607,10 +54606,10 @@ index 000000000..cb2685084
 +        }
 +        case NPCBOT_UPDATE_ERASE:
 +        {
-+            NpcBotDataMap::iterator itr = _botsData.find(entry);
-+            ASSERT(itr != _botsData.end());
-+            delete itr->second;
-+            _botsData.erase(itr);
++            NpcBotDataMap::iterator bitr = _botsData.find(entry);
++            ASSERT(bitr != _botsData.end());
++            delete bitr->second;
++            _botsData.erase(bitr);
 +            bstmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_NPCBOT);
 +            //"DELETE FROM characters_npcbot WHERE entry = ?", CONNECTION_ASYNC
 +            bstmt->setUInt32(0, entry);
@@ -55070,7 +55069,7 @@ index 000000000..a528a8ffb
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botdump.cpp b/src/server/game/AI/NpcBots/botdump.cpp
 new file mode 100644
-index 000000000..1daeb25d3
+index 000000000..3bde27b0d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdump.cpp
 @@ -0,0 +1,938 @@
@@ -55610,13 +55609,13 @@ index 000000000..1daeb25d3
 +            }
 +
 +            //check values conflicts, abort on existing values
-+            size_t checkOffset;
++            size_t checkOffset = 0;
 +            bool needCheckVal = false;
 +            switch (curImportDataTableType)
 +            {
 +                case TABLE_TYPE_CHARACTERS_NPCBOT:
 +                    //entry
-+                    checkOffset = 0;
++                    //checkOffset = 0;
 +                    needCheckVal = true;
 +                    break;
 +                default:
@@ -56344,7 +56343,7 @@ index 000000000..cba03caec
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 000000000..937b5c9b2
+index 000000000..6ba6d6b4d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
 @@ -0,0 +1,1556 @@
@@ -56855,7 +56854,7 @@ index 000000000..937b5c9b2
 +        {
 +            if (bot->IsInWorld() && !bot->IsAlive() && _owner->IsAlive() && !_owner->IsInCombat() &&
 +                !_owner->IsBeingTeleported() && !_owner->InArena() && !_owner->IsInFlight() &&
-+                !_owner->HasFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_FEIGN_DEATH) &&
++                !_owner->HasUnitFlag2(UNIT_FLAG2_FEIGN_DEATH) &&
 +                !_owner->HasInvisibilityAura() && !_owner->HasStealthAura())
 +            {
 +                _reviveBot(bot);
@@ -56971,11 +56970,11 @@ index 000000000..937b5c9b2
 +    }
 +
 +    bot->SetDisplayId(bot->GetNativeDisplayId());
-+    bot->SetUInt32Value(UNIT_NPC_FLAGS, bot->GetCreatureTemplate()->npcflag);
++    bot->ReplaceAllNpcFlags(NPCFlags(bot->GetCreatureTemplate()->npcflag));
 +    bot->ClearUnitState(uint32(UNIT_STATE_ALL_STATE));
-+    bot->RemoveFlag(UNIT_FIELD_FLAGS, uint32(-1));
++    bot->ReplaceAllUnitFlags(UnitFlags(0));
 +    bot->SetPvP(bot->GetBotOwner()->IsPvP());
-+    bot->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
++    bot->SetUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED);
 +    bot->setDeathState(ALIVE);
 +    //bot->GetBotAI()->Reset();
 +    bot->GetBotAI()->SetShouldUpdateStats();
@@ -57177,7 +57176,7 @@ index 000000000..937b5c9b2
 +    bot->SetOwnerGUID(ObjectGuid::Empty);
 +    //_owner->m_Controlled.erase(bot);
 +    bot->SetControlledByPlayer(false);
-+    //bot->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP_ATTACKABLE);
++    //bot->RemoveUnitFlag(UNIT_FLAG_PVP_ATTACKABLE);
 +    bot->SetByteValue(UNIT_FIELD_BYTES_2, 1, 0);
 +    bot->SetCreatorGUID(ObjectGuid::Empty);
 +
@@ -57336,7 +57335,7 @@ index 000000000..937b5c9b2
 +    bot->SetCreatorGUID(_owner->GetGUID()); //needed in case of FFAPVP
 +    //_owner->m_Controlled.insert(bot);
 +    bot->SetControlledByPlayer(true);
-+    bot->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
++    bot->SetUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED);
 +    bot->SetByteValue(UNIT_FIELD_BYTES_2, 1, _owner->GetByteValue(UNIT_FIELD_BYTES_2, 1));
 +    bot->SetFaction(_owner->GetFaction());
 +    bot->SetPhaseMask(_owner->GetPhaseMask(), true);
@@ -57655,14 +57654,14 @@ index 000000000..937b5c9b2
 +        }
 +        if (Bots)
 +        {
-+            for (GroupReference const* itr = gr->GetFirstMember(); itr != nullptr; itr = itr->next())
++            for (GroupReference const* gitr = gr->GetFirstMember(); gitr != nullptr; gitr = gitr->next())
 +            {
-+                if (itr->GetSource() == nullptr) continue;
-+                if (_owner->GetMap() != itr->GetSource()->FindMap()) continue;
++                if (gitr->GetSource() == nullptr) continue;
++                if (_owner->GetMap() != gitr->GetSource()->FindMap()) continue;
 +
-+                if (itr->GetSource()->HaveBot())
++                if (gitr->GetSource()->HaveBot())
 +                {
-+                    BotMap const* map = itr->GetSource()->GetBotMgr()->GetBotMap();
++                    BotMap const* map = gitr->GetSource()->GetBotMgr()->GetBotMap();
 +                    for (BotMap::const_iterator itr = map->begin(); itr != map->end(); ++itr)
 +                        if (itr->second->GetTarget() == unit->GetGUID() && itr->second->HasUnitState(UNIT_STATE_CASTING))
 +                            unitList.push_back(itr->second);
@@ -58129,7 +58128,7 @@ index 000000000..8da9ca43f
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bpet_ai.cpp b/src/server/game/AI/NpcBots/bpet_ai.cpp
 new file mode 100644
-index 000000000..145866e9e
+index 000000000..69cc60803
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_ai.cpp
 @@ -0,0 +1,2399 @@
@@ -58296,14 +58295,14 @@ index 000000000..145866e9e
 +        else
 +        {
 +            if (!newpos)
-+                _calculatePos(pos);
++                _calculatePos(movepos);
 +            else
 +            {
-+                pos.m_positionX = newpos->m_positionX;
-+                pos.m_positionY = newpos->m_positionY;
-+                pos.m_positionZ = newpos->m_positionZ;
++                movepos.m_positionX = newpos->m_positionX;
++                movepos.m_positionY = newpos->m_positionY;
++                movepos.m_positionZ = newpos->m_positionZ;
 +            }
-+            me->GetMotionMaster()->MovePoint(petOwner->GetMapId(), pos);
++            me->GetMotionMaster()->MovePoint(petOwner->GetMapId(), movepos);
 +        }
 +        RemoveBotCommandState(BOT_COMMAND_STAY | BOT_COMMAND_FULLSTOP | BOT_COMMAND_ATTACK | BOT_COMMAND_COMBATRESET);
 +    }
@@ -58382,7 +58381,7 @@ index 000000000..145866e9e
 +
 +        for (Unit::ControlList::const_iterator itr = petOwner->GetBotOwner()->m_Controlled.begin(); itr != petOwner->GetBotOwner()->m_Controlled.end(); ++itr)
 +        {
-+            Unit* u = *itr;
++            u = *itr;
 +            if (!u || !u->IsPet() || !u->IsAlive() || me->GetDistance(u) > 30) continue;
 +
 +            if (_canCureTarget(u, cureSpell))
@@ -58414,18 +58413,18 @@ index 000000000..145866e9e
 +            if (tPlayer->HaveBot())
 +            {
 +                map = tPlayer->GetBotMgr()->GetBotMap();
-+                for (BotMap::const_iterator itr = map->begin(); itr != map->end(); ++itr)
++                for (BotMap::const_iterator bitr = map->begin(); bitr != map->end(); ++bitr)
 +                {
-+                    u = itr->second;
++                    u = bitr->second;
 +                    if (!u || !u->IsInWorld() || me->GetMap() != u->FindMap() || !u->IsAlive()) continue;
 +                    if (_canCureTarget(u, cureSpell))
 +                        targets.push_back(u);
 +                }
 +            }
 +
-+            for (Unit::ControlList::const_iterator itr = tPlayer->m_Controlled.begin(); itr != tPlayer->m_Controlled.end(); ++itr)
++            for (Unit::ControlList::const_iterator citr = tPlayer->m_Controlled.begin(); citr != tPlayer->m_Controlled.end(); ++citr)
 +            {
-+                Unit* u = *itr;
++                u = *citr;
 +                if (!u || !u->IsPet() || !u->IsAlive() || me->GetDistance(u) > 30) continue;
 +
 +                if (_canCureTarget(u, cureSpell))
@@ -59314,7 +59313,7 @@ index 000000000..145866e9e
 +        float m_totalmana = intValue * intMult/* + me->GetCreatePowerValue(POWER_MANA)*/ + (IAmFree() ? level * 25.f : 0); //+2000/+0 mana at 80
 +        //TC_LOG_ERROR("entities.player", "SetPetStat(): mana intValue %.1f, intMult %.1f, base %u, total %.2f", intValue, intMult, botPet->GetCreatePowerValue(POWER_MANA), m_totalmana);
 +        bool fullmana = me->GetPower(POWER_MANA) == me->GetMaxPower(POWER_MANA);
-+        float pct = fullmana ? 100.f : (float(me->GetPower(POWER_MANA)) * 100.f) / float(me->GetMaxPower(POWER_MANA));
++        pct = fullmana ? 100.f : (float(me->GetPower(POWER_MANA)) * 100.f) / float(me->GetMaxPower(POWER_MANA));
 +        me->SetStatFlatModifier(UNIT_MOD_MANA, BASE_VALUE, m_totalmana);
 +        me->UpdateMaxPower(POWER_MANA);
 +        me->SetPower(POWER_MANA, fullmana ? me->GetMaxPower(POWER_MANA) :
@@ -60016,8 +60015,8 @@ index 000000000..145866e9e
 +    float z = me->GetPositionZ();
 +    float ori = me->GetOrientation();
 +    float const moveDist = -1.f * std::max<float>(opponent->GetCombatReach() * 0.6f, 3.f);
-+    float moveX;
-+    float moveY;
++    float moveX = 0.f;
++    float moveY = 0.f;
 +    for (uint8 i = 0; i != 3; ++i)
 +    {
 +        if (i)
@@ -60039,8 +60038,8 @@ index 000000000..145866e9e
 +        }
 +    }
 +
-+    x+= moveX;
-+    y+= moveY;
++    x += moveX;
++    y += moveY;
 +
 +    me->UpdateAllowedPositionZ(x, y, z);
 +    if (me->GetPositionZ() < z)
@@ -60392,19 +60391,19 @@ index 000000000..145866e9e
 +    //update flags
 +    if (!me->IsInCombat())
 +    {
-+        if (me->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PET_IN_COMBAT))
-+            me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PET_IN_COMBAT);
++        if (me->HasUnitFlag(UNIT_FLAG_PET_IN_COMBAT))
++            me->RemoveUnitFlag(UNIT_FLAG_PET_IN_COMBAT);
 +    }
 +
 +    //update movement orders if near owner, otherwise get close
 +    bool closeToOwner = false;
 +    if (!opponent && !HasBotCommandState(BOT_COMMAND_STAY) && !IsCasting())
 +    {
-+        _calculatePos(pos);
++        _calculatePos(movepos);
 +        if (!petOwner->isMoving())
 +        {
-+            if (me->GetExactDist(&pos) > 5.f)
-+                SetBotCommandState(BOT_COMMAND_FOLLOW, true, &pos);
++            if (me->GetExactDist(&movepos) > 5.f)
++                SetBotCommandState(BOT_COMMAND_FOLLOW, true, &movepos);
 +            else
 +                closeToOwner = true;
 +        }
@@ -60412,8 +60411,8 @@ index 000000000..145866e9e
 +        {
 +            Position destPos;
 +            me->GetMotionMaster()->GetDestination(destPos.m_positionX, destPos.m_positionY, destPos.m_positionZ);
-+            if (destPos.GetExactDist(&pos) > 5.f)
-+                SetBotCommandState(BOT_COMMAND_FOLLOW, true, &pos);
++            if (destPos.GetExactDist(&movepos) > 5.f)
++                SetBotCommandState(BOT_COMMAND_FOLLOW, true, &movepos);
 +            else
 +                closeToOwner = true;
 +        }
@@ -60534,7 +60533,7 @@ index 000000000..145866e9e
 +}
 diff --git a/src/server/game/AI/NpcBots/bpet_ai.h b/src/server/game/AI/NpcBots/bpet_ai.h
 new file mode 100644
-index 000000000..c40015a1f
+index 000000000..01a4a97e9
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_ai.h
 @@ -0,0 +1,175 @@
@@ -60686,7 +60685,7 @@ index 000000000..c40015a1f
 +        bool _checkImmunities(Unit const* target, SpellInfo const* spellInfo) const;
 +        static inline float _getAttackDistance(float distance) { return distance*0.72f; }
 +
-+        Position pos, attackpos;
++        Position movepos, attackpos;
 +        uint8 m_botCommandState;
 +
 +        //timers
@@ -61277,7 +61276,7 @@ index 000000000..5a58713e9
 +}
 diff --git a/src/server/game/AI/NpcBots/bpet_dreadlord.cpp b/src/server/game/AI/NpcBots/bpet_dreadlord.cpp
 new file mode 100644
-index 000000000..9348a473f
+index 000000000..be5de137a
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_dreadlord.cpp
 @@ -0,0 +1,164 @@
@@ -61371,7 +61370,7 @@ index 000000000..9348a473f
 +            StartAttack(opponent, IsPetMelee());
 +        }
 +
-+        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool /*crit*/) const override
++        void ApplyClassDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& /*damageinfo*/, SpellInfo const* spellInfo, WeaponAttackType /*attackType*/, bool /*iscrit*/) const override
 +        {
 +            uint32 baseId = spellInfo->GetFirstRankSpell()->Id;
 +            float fdamage = float(damage);
@@ -64339,7 +64338,7 @@ index 75dd4abd0..4cb80fff7 100644
              sLFGMgr->LeaveLfg(group->GetGUID());
              group->Disband();
 diff --git a/src/server/game/Entities/Creature/Creature.cpp b/src/server/game/Entities/Creature/Creature.cpp
-index 92e218bf2..18fb76e7f 100644
+index 92e218bf2..68a636ab8 100644
 --- a/src/server/game/Entities/Creature/Creature.cpp
 +++ b/src/server/game/Entities/Creature/Creature.cpp
 @@ -56,6 +56,11 @@
@@ -64593,7 +64592,7 @@ index 92e218bf2..18fb76e7f 100644
 +    //npcbot: bots and botpets do not use delay
 +    else if (IsNPCBot() || IsNPCBotPet())
 +    {
-+        if (!HasFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_CANNOT_TURN))
++        if (!HasUnitFlag2(UNIT_FLAG2_CANNOT_TURN))
 +            ReacquireSpellFocusTarget();
 +    }
 +    //end npcbot
@@ -65149,7 +65148,7 @@ index 13fcc0cb5..e5cc13d60 100644
          case CREATURE_FLAG_EXTRA_IGNORE_PATHFINDING: return 29;
          case CREATURE_FLAG_EXTRA_IMMUNITY_KNOCKBACK: return 30;
 diff --git a/src/server/game/Entities/Object/Object.cpp b/src/server/game/Entities/Object/Object.cpp
-index 96749c87b..ee5d6875f 100644
+index 96749c87b..187fe0cd6 100644
 --- a/src/server/game/Entities/Object/Object.cpp
 +++ b/src/server/game/Entities/Object/Object.cpp
 @@ -1001,6 +1001,11 @@ void WorldObject::setActive(bool on)
@@ -65317,8 +65316,8 @@ index 96749c87b..ee5d6875f 100644
      }
  
 +    //npcbot: CvC case fix for bots, still a TODO
-+    if (unit && unitTarget && !HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED) &&
-+        !target->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED) &&
++    if (unit && unitTarget && !unit->HasUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED) &&
++        !unitTarget->HasUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED) &&
 +        ((GetTypeId() == TYPEID_UNIT && (ToCreature()->IsNPCBot() || ToCreature()->IsNPCBotPet())) ||
 +        (target->GetTypeId() == TYPEID_UNIT && (target->ToCreature()->IsNPCBot() || target->ToCreature()->IsNPCBotPet()))))
 +        return GetReactionTo(target) <= REP_NEUTRAL || target->GetReactionTo(this) <= REP_NEUTRAL;
