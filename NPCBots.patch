@@ -50,8 +50,8 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1354 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 17170 +++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |   684 +
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 17174 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |   685 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   406 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   941 +
  src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp  |   617 +
@@ -70,7 +70,7 @@
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  2084 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2258 +++
  src/server/game/AI/NpcBots/botcommands.cpp         |  1642 ++
- src/server/game/AI/NpcBots/botcommon.h             |  1125 ++
+ src/server/game/AI/NpcBots/botcommon.h             |  1123 ++
  src/server/game/AI/NpcBots/botdatamgr.cpp          |   522 +
  src/server/game/AI/NpcBots/botdatamgr.h            |   135 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   133 +
@@ -157,7 +157,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   273 +
- 159 files changed, 66405 insertions(+), 75 deletions(-)
+ 159 files changed, 66408 insertions(+), 75 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -5736,10 +5736,10 @@ index 000000000..16f7ee941
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..9e42a7e75
+index 000000000..9019fca46
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,17170 @@
+@@ -0,0 +1,17174 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -5782,6 +5782,10 @@ index 000000000..9e42a7e75
 +DamageTaken(Unit*, ), JustDied(Unit*, ), OwnerAttackedBy(Unit*, ), HealReceived(Unit*, )
 +Possibly others
 +*/
++
++static constexpr GossipOptionIcon BOT_ICON_ON = GOSSIP_ICON_BATTLE;
++static constexpr GossipOptionIcon BOT_ICON_OFF = GOSSIP_ICON_CHAT;
++
 +#define MAX_AMMO_LEVEL 13
 +uint8 const AmmoDPSForLevel[MAX_AMMO_LEVEL][2] =
 +{
@@ -7696,7 +7700,7 @@ index 000000000..9e42a7e75
 +            << " (" << float(((unit->GetFloatValue(UNIT_FIELD_MINOFFHANDDAMAGE) + unit->GetFloatValue(UNIT_FIELD_MAXOFFHANDDAMAGE)) / 2) / attSpeed) << " " << LocalizedNpcText(player, BOT_TEXT_DPS) << ")";
 +    }
 +    if (unit != me ||
-+        (me->GetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + 2) &&
++        (me->GetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + BOT_SLOT_RANGED) &&
 +        _botclass != BOT_CLASS_PALADIN &&
 +        _botclass != BOT_CLASS_DEATH_KNIGHT &&
 +        _botclass != BOT_CLASS_DRUID &&
@@ -12953,7 +12957,7 @@ index 000000000..9e42a7e75
 +        {
 +            if (Aura* trans = me->AddAura(MODEL_TRANSITION, me))
 +            {
-+                me->SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + 1, 0); //debug: remove offhand visuals
++                me->SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + BOT_SLOT_OFFHAND, 0); //debug: remove offhand visuals
 +                trans->SetDuration(500);
 +                trans->SetMaxDuration(500);
 +            }
@@ -13783,7 +13787,7 @@ index 000000000..9e42a7e75
 +                std::ostringstream name;
 +                _AddSpellLink(player, spellInfo, name);
 +
-+                uint8 icon = (GetSpell(*itr) != 0) ? BOT_ICON_ON : BOT_ICON_OFF;
++                GossipOptionIcon icon = (GetSpell(*itr) != 0) ? BOT_ICON_ON : BOT_ICON_OFF;
 +                AddGossipItemFor(player, icon, name.str().c_str(), toggleSender, GOSSIP_ACTION_INFO_DEF + *itr);
 +                if (++counter >= BOT_GOSSIP_MAX_ITEMS - 1) //back
 +                {
@@ -13849,7 +13853,7 @@ index 000000000..9e42a7e75
 +
 +            for (uint8 i = specIndex; i < specIndex + 3; ++i)
 +            {
-+                uint8 icon = (_spec == i) ? BOT_ICON_ON : BOT_ICON_OFF;
++                GossipOptionIcon icon = (_spec == i) ? BOT_ICON_ON : BOT_ICON_OFF;
 +                AddGossipItemFor(player, icon, LocalizedNpcText(player, TextForSpec(i)), GOSSIP_SENDER_SPEC_SET, GOSSIP_ACTION_INFO_DEF + i);
 +            }
 +
@@ -17582,7 +17586,7 @@ index 000000000..9e42a7e75
 +/////////
 +//ROLES//
 +/////////
-+uint8 bot_ai::GetRoleIcon(uint32 role) const
++GossipOptionIcon bot_ai::GetRoleIcon(uint32 role) const
 +{
 +    return HasRole(role) ? BOT_ICON_ON : BOT_ICON_OFF;
 +}
@@ -20458,15 +20462,15 @@ index 000000000..9e42a7e75
 +            me->SetFloatValue(UNIT_FIELD_COMBATREACH,  DEFAULT_PLAYER_COMBAT_REACH * me->GetObjectScale());
 +
 +            //debug: restore offhand visual if needed
-+            if (me->GetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + 1) == 0)
++            if (me->GetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + BOT_SLOT_OFFHAND) == 0 && _canUseOffHand())
 +            {
 +                if (CanChangeEquip(BOT_SLOT_OFFHAND) && _equips[BOT_SLOT_OFFHAND])
-+                    me->SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + 1, _equips[BOT_SLOT_OFFHAND]->GetEntry());
++                    me->SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + BOT_SLOT_OFFHAND, _equips[BOT_SLOT_OFFHAND]->GetEntry());
 +                else
 +                {
 +                    int8 id = 1;
 +                    EquipmentInfo const* einfo = sObjectMgr->GetEquipmentInfo(me->GetEntry(), id);
-+                    me->SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + 1, einfo->ItemEntry[BOT_SLOT_OFFHAND]);
++                    me->SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + BOT_SLOT_OFFHAND, einfo->ItemEntry[BOT_SLOT_OFFHAND]);
 +                }
 +            }
 +        }
@@ -22912,10 +22916,10 @@ index 000000000..9e42a7e75
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 000000000..a0cf03bb0
+index 000000000..1fc4bddc6
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,684 @@
+@@ -0,0 +1,685 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -22923,6 +22927,7 @@ index 000000000..a0cf03bb0
 +
 +#include "CreatureAI.h"
 +#include "EventProcessor.h"
++#include "GossipDef.h"
 +#include "ItemDefines.h"
 +#include "Position.h"
 +
@@ -23043,7 +23048,7 @@ index 000000000..a0cf03bb0
 +        virtual uint8 GetBotStance() const;
 +        uint32 GetBotRoles() const { return _roleMask; }
 +        bool HasRole(uint32 role) const { return _roleMask & role; }
-+        uint8 GetRoleIcon(uint32 role) const;
++        GossipOptionIcon GetRoleIcon(uint32 role) const;
 +        static uint32 GetRoleString(uint32 role);
 +        void ToggleRole(uint32 role, bool force);
 +        static uint32 DefaultRolesForClass(uint8 m_class);
@@ -53096,10 +53101,10 @@ index 000000000..176407c9f
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommon.h b/src/server/game/AI/NpcBots/botcommon.h
 new file mode 100644
-index 000000000..38a2a8604
+index 000000000..3d4c6fae2
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommon.h
-@@ -0,0 +1,1125 @@
+@@ -0,0 +1,1123 @@
 +#ifndef _BOTCOMMON_H
 +#define _BOTCOMMON_H
 +
@@ -53128,8 +53133,6 @@ index 000000000..38a2a8604
 +    BOT_PET_ENTRY_BEGIN                 = 70501,
 +    BOT_PET_ENTRY_END                   = 70550,
 +    BOT_ENTRY_MIRROR_IMAGE_BM           = 70552,
-+    BOT_ICON_ON                         = 9,    //GOSSIP_ICON_BATTLE,
-+    BOT_ICON_OFF                        = 0,    //GOSSIP_ICON_CHAT,
 +    BOT_MAX_CHASE_RANGE                 = 120,  //yds
 +    //BOT_EVADE_TIME                      = 3000, //ms
 +//COMMON SPELLS
@@ -65374,7 +65377,7 @@ index 65b9fffc0..37c8714c5 100644
          player->GiveXP(xp, _victim, _groupRate);
          if (Pet* pet = player->GetPet())
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index 8eb223285..66fe567e2 100644
+index b38878f26..f981f3f02 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -104,6 +104,11 @@
@@ -65389,7 +65392,7 @@ index 8eb223285..66fe567e2 100644
  #define ZONE_UPDATE_INTERVAL (1*IN_MILLISECONDS)
  
  #define PLAYER_SKILL_INDEX(x)       (PLAYER_SKILL_INFO_1_1 + ((x)*3))
-@@ -402,6 +407,10 @@ Player::Player(WorldSession* session): Unit(true)
+@@ -399,6 +404,10 @@ Player::Player(WorldSession* session): Unit(true)
      m_reputationMgr = new ReputationMgr(this);
  
      m_groupUpdateTimer.Reset(5000);
@@ -65400,7 +65403,7 @@ index 8eb223285..66fe567e2 100644
  }
  
  Player::~Player()
-@@ -438,6 +447,14 @@ Player::~Player()
+@@ -435,6 +444,14 @@ Player::~Player()
      delete m_reputationMgr;
      delete _cinematicMgr;
  
@@ -65415,7 +65418,7 @@ index 8eb223285..66fe567e2 100644
      sWorld->DecreasePlayerCount();
  }
  
-@@ -1346,6 +1363,10 @@ void Player::Update(uint32 p_time)
+@@ -1343,6 +1360,10 @@ void Player::Update(uint32 p_time)
      //because we don't want player's ghost teleported from graveyard
      if (IsHasDelayedTeleport() && IsAlive())
          TeleportTo(m_teleport_dest, m_teleport_options);
@@ -65426,7 +65429,7 @@ index 8eb223285..66fe567e2 100644
  }
  
  void Player::setDeathState(DeathState s)
-@@ -1793,6 +1814,11 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
+@@ -1790,6 +1811,11 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
              if (pet)
                  UnsummonPetTemporaryIfAny();
  
@@ -65438,7 +65441,7 @@ index 8eb223285..66fe567e2 100644
              // remove all dyn objects
              RemoveAllDynObjects();
  
-@@ -1987,6 +2013,25 @@ bool Player::IsImmunedToSpellEffect(SpellInfo const* spellInfo, SpellEffectInfo
+@@ -1984,6 +2010,25 @@ bool Player::IsImmunedToSpellEffect(SpellInfo const* spellInfo, SpellEffectInfo
      return Unit::IsImmunedToSpellEffect(spellInfo, spellEffectInfo, caster);
  }
  
@@ -65464,7 +65467,7 @@ index 8eb223285..66fe567e2 100644
  void Player::RegenerateAll()
  {
      //if (m_regenTimer <= 500)
-@@ -2289,6 +2334,11 @@ Creature* Player::GetNPCIfCanInteractWith(ObjectGuid const& guid, NPCFlags npcFl
+@@ -2286,6 +2331,11 @@ Creature* Player::GetNPCIfCanInteractWith(ObjectGuid const& guid, NPCFlags npcFl
      if (creature->GetCharmerGUID())
          return nullptr;
  
@@ -65476,7 +65479,7 @@ index 8eb223285..66fe567e2 100644
      // not unfriendly/hostile
      if (creature->GetReactionTo(this) <= REP_UNFRIENDLY)
          return nullptr;
-@@ -2412,6 +2462,11 @@ void Player::SetGameMaster(bool on)
+@@ -2409,6 +2459,11 @@ void Player::SetGameMaster(bool on)
          m_serverSideVisibilityDetect.SetValue(SERVERSIDE_VISIBILITY_GM, SEC_PLAYER);
      }
  
@@ -65488,7 +65491,7 @@ index 8eb223285..66fe567e2 100644
      UpdateObjectVisibility();
  }
  
-@@ -2493,6 +2548,49 @@ void Player::RemoveFromGroup(Group* group, ObjectGuid guid, RemoveMethod method
+@@ -2490,6 +2545,49 @@ void Player::RemoveFromGroup(Group* group, ObjectGuid guid, RemoveMethod method
      if (!group)
          return;
  
@@ -65538,7 +65541,7 @@ index 8eb223285..66fe567e2 100644
      group->RemoveMember(guid, method, kicker, reason);
  }
  
-@@ -2661,6 +2759,11 @@ void Player::GiveLevel(uint8 level)
+@@ -2658,6 +2756,11 @@ void Player::GiveLevel(uint8 level)
      SendQuestGiverStatusMultiple();
  
      sScriptMgr->OnPlayerLevelChanged(this, oldLevel);
@@ -65550,7 +65553,7 @@ index 8eb223285..66fe567e2 100644
  }
  
  bool Player::IsMaxLevel() const
-@@ -4401,6 +4504,12 @@ void Player::DeleteFromDB(ObjectGuid playerguid, uint32 accountId, bool updateRe
+@@ -4398,6 +4501,12 @@ void Player::DeleteFromDB(ObjectGuid playerguid, uint32 accountId, bool updateRe
              trans->Append(stmt);
  
              Corpse::DeleteFromDB(playerguid, trans);
@@ -65563,7 +65566,7 @@ index 8eb223285..66fe567e2 100644
              break;
          }
          // The character gets unlinked from the account, the name gets freed up and appears as deleted ingame
-@@ -6810,6 +6919,36 @@ bool Player::RewardHonor(Unit* victim, uint32 groupsize, int32 honor, bool pvpto
+@@ -6807,6 +6916,36 @@ bool Player::RewardHonor(Unit* victim, uint32 groupsize, int32 honor, bool pvpto
              UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL, 1, 0, victim);
              UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_SPECIAL_PVP_KILL, 1, 0, victim);
          }
@@ -65600,7 +65603,7 @@ index 8eb223285..66fe567e2 100644
          else
          {
              if (!victim->ToCreature()->IsRacialLeader())
-@@ -21705,6 +21844,18 @@ bool Player::BuyItemFromVendorSlot(ObjectGuid vendorguid, uint32 vendorslot, uin
+@@ -21717,6 +21856,18 @@ bool Player::BuyItemFromVendorSlot(ObjectGuid vendorguid, uint32 vendorslot, uin
          return false;
      }
  
@@ -65619,7 +65622,7 @@ index 8eb223285..66fe567e2 100644
      if (!(pProto->AllowableClass & GetClassMask()) && pProto->Bonding == BIND_WHEN_PICKED_UP && !IsGameMaster())
      {
          SendBuyError(BUY_ERR_CANT_FIND_ITEM, nullptr, item, 0);
-@@ -21978,6 +22129,11 @@ void Player::UpdatePvP(bool state, bool _override)
+@@ -21990,6 +22141,11 @@ void Player::UpdatePvP(bool state, bool _override)
          pvpInfo.EndTimer = GameTime::GetGameTime();
          SetPvP(state);
      }
@@ -65631,7 +65634,7 @@ index 8eb223285..66fe567e2 100644
  }
  
  void Player::UpdatePotionCooldown(Spell* spell)
-@@ -23838,6 +23994,11 @@ bool Player::isHonorOrXPTarget(Unit* victim) const
+@@ -23850,6 +24006,11 @@ bool Player::isHonorOrXPTarget(Unit* victim) const
  
      if (Creature const* creature = victim->ToCreature())
      {
@@ -65644,7 +65647,7 @@ index 8eb223285..66fe567e2 100644
              return false;
      }
 diff --git a/src/server/game/Entities/Player/Player.h b/src/server/game/Entities/Player/Player.h
-index b08fd00b7..f9c641986 100644
+index 646d98925..70029cfbb 100644
 --- a/src/server/game/Entities/Player/Player.h
 +++ b/src/server/game/Entities/Player/Player.h
 @@ -81,6 +81,10 @@ enum ItemClass : uint8;
@@ -65658,7 +65661,7 @@ index b08fd00b7..f9c641986 100644
  typedef std::deque<Mail*> PlayerMails;
  
  #define PLAYER_MAX_SKILLS           127
-@@ -2182,6 +2186,19 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
+@@ -2195,6 +2199,19 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
  
          std::string GetDebugInfo() const override;
  
@@ -65678,7 +65681,7 @@ index b08fd00b7..f9c641986 100644
      protected:
          // Gamemaster whisper whitelist
          GuidList WhisperList;
-@@ -2438,6 +2455,14 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
+@@ -2450,6 +2467,14 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
          TimeTracker m_groupUpdateTimer;
  
      private:
@@ -66888,7 +66891,7 @@ index 9277b8d49..3fbb540b9 100755
  
      Passenger->SendClearTarget();                            // SMSG_BREAK_TARGET
 diff --git a/src/server/game/Globals/ObjectMgr.cpp b/src/server/game/Globals/ObjectMgr.cpp
-index 1256428f6..ccd62fd62 100644
+index ec69ece5b..6255868d1 100644
 --- a/src/server/game/Globals/ObjectMgr.cpp
 +++ b/src/server/game/Globals/ObjectMgr.cpp
 @@ -1191,6 +1191,11 @@ void ObjectMgr::CheckCreatureTemplate(CreatureTemplate const* cInfo)
@@ -66987,10 +66990,10 @@ index 1256428f6..ccd62fd62 100644
  {
      uint32 oldMSTime = getMSTime();
 diff --git a/src/server/game/Globals/ObjectMgr.h b/src/server/game/Globals/ObjectMgr.h
-index 9eb3cd3aa..80e932d33 100644
+index 875949faf..69b17b7be 100644
 --- a/src/server/game/Globals/ObjectMgr.h
 +++ b/src/server/game/Globals/ObjectMgr.h
-@@ -172,6 +172,21 @@ struct GameTele
+@@ -173,6 +173,21 @@ struct GameTele
  
  typedef std::unordered_map<uint32, GameTele> GameTeleContainer;
  
@@ -67012,7 +67015,7 @@ index 9eb3cd3aa..80e932d33 100644
  enum ScriptsType
  {
      SCRIPTS_FIRST = 1,
-@@ -1225,6 +1240,8 @@ class TC_GAME_API ObjectMgr
+@@ -1226,6 +1241,8 @@ class TC_GAME_API ObjectMgr
  
          void LoadNPCSpellClickSpells();
  
@@ -67021,7 +67024,7 @@ index 9eb3cd3aa..80e932d33 100644
          void LoadGameTele();
  
          void LoadGossipMenu();
-@@ -1486,6 +1503,8 @@ class TC_GAME_API ObjectMgr
+@@ -1487,6 +1504,8 @@ class TC_GAME_API ObjectMgr
          bool AddGameTele(GameTele& data);
          bool DeleteGameTele(std::string_view name);
  
@@ -67030,7 +67033,7 @@ index 9eb3cd3aa..80e932d33 100644
          Trainer::Trainer const* GetTrainer(uint32 creatureId) const;
          std::vector<Trainer::Trainer const*> const& GetClassTrainers(uint8 classId) const { return _classTrainers.at(classId); }
  
-@@ -1649,6 +1668,8 @@ class TC_GAME_API ObjectMgr
+@@ -1650,6 +1669,8 @@ class TC_GAME_API ObjectMgr
          PageTextContainer _pageTextStore;
          InstanceTemplateContainer _instanceTemplateStore;
  
@@ -67645,7 +67648,7 @@ index b0f641b80..6d85a6d51 100644
      @todo Add more script type classes.
  
 diff --git a/src/server/game/Server/WorldSession.cpp b/src/server/game/Server/WorldSession.cpp
-index a03fdb967..6fd5ef92e 100644
+index 363d404be..3d320dc92 100644
 --- a/src/server/game/Server/WorldSession.cpp
 +++ b/src/server/game/Server/WorldSession.cpp
 @@ -56,6 +56,10 @@
@@ -67659,7 +67662,7 @@ index a03fdb967..6fd5ef92e 100644
  namespace {
  
  std::string const DefaultPlayerName = "<none>";
-@@ -479,6 +483,10 @@ void WorldSession::LogoutPlayer(bool save)
+@@ -491,6 +495,10 @@ void WorldSession::LogoutPlayer(bool save)
      m_playerLogout = true;
      m_playerSave = save;
  
@@ -67670,7 +67673,7 @@ index a03fdb967..6fd5ef92e 100644
      if (_player)
      {
          if (ObjectGuid lguid = _player->GetLootGUID())
-@@ -1644,6 +1652,16 @@ uint32 WorldSession::DosProtection::GetMaxPacketCounterAllowed(uint16 opcode) co
+@@ -1656,6 +1664,16 @@ uint32 WorldSession::DosProtection::GetMaxPacketCounterAllowed(uint16 opcode) co
              maxPacketCounterAllowed = PLAYER_SLOTS_COUNT;
              break;
          }
@@ -67688,7 +67691,7 @@ index a03fdb967..6fd5ef92e 100644
          {
              maxPacketCounterAllowed = 100;
 diff --git a/src/server/game/Spells/Auras/SpellAuraEffects.cpp b/src/server/game/Spells/Auras/SpellAuraEffects.cpp
-index 6e4ed6022..1a7783df4 100644
+index 0d7f35138..0a709fcb1 100644
 --- a/src/server/game/Spells/Auras/SpellAuraEffects.cpp
 +++ b/src/server/game/Spells/Auras/SpellAuraEffects.cpp
 @@ -1843,6 +1843,10 @@ void AuraEffect::HandleAuraModShapeshift(AuraApplication const* aurApp, uint8 mo
@@ -69354,10 +69357,10 @@ index b19c205d9..e92bd4c39 100644
  #define CLASSMASK_WAND_USERS ((1<<(CLASS_PRIEST-1))|(1<<(CLASS_MAGE-1))|(1<<(CLASS_WARLOCK-1)))
  
 diff --git a/src/server/worldserver/worldserver.conf.dist b/src/server/worldserver/worldserver.conf.dist
-index 32648572c..0072f0e48 100644
+index 442681e64..d9ff0e19f 100644
 --- a/src/server/worldserver/worldserver.conf.dist
 +++ b/src/server/worldserver/worldserver.conf.dist
-@@ -4125,3 +4125,276 @@ Metric.OverallStatusInterval = 1
+@@ -4147,3 +4147,276 @@ Metric.OverallStatusInterval = 1
  
  #
  ###################################################################################################
