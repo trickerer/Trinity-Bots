@@ -50,7 +50,7 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1354 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 17174 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 17175 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   685 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   406 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   941 +
@@ -157,7 +157,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   273 +
- 159 files changed, 66408 insertions(+), 75 deletions(-)
+ 159 files changed, 66409 insertions(+), 75 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -5736,10 +5736,10 @@ index 000000000..16f7ee941
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..9019fca46
+index 000000000..7eb505bba
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,17174 @@
+@@ -0,0 +1,17175 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -5755,6 +5755,7 @@ index 000000000..9019fca46
 +#include "DBCStores.h"
 +#include "GameEventMgr.h"
 +#include "GameObjectAI.h"
++#include "GossipDef.h"
 +#include "GridNotifiersImpl.h"
 +#include "InstanceScript.h"
 +#include "Item.h"
@@ -22916,7 +22917,7 @@ index 000000000..9019fca46
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 000000000..1fc4bddc6
+index 000000000..85824120a
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
 @@ -0,0 +1,685 @@
@@ -22927,7 +22928,6 @@ index 000000000..1fc4bddc6
 +
 +#include "CreatureAI.h"
 +#include "EventProcessor.h"
-+#include "GossipDef.h"
 +#include "ItemDefines.h"
 +#include "Position.h"
 +
@@ -22939,6 +22939,7 @@ index 000000000..1fc4bddc6
 +class TeleportFinishEvent;
 +
 +enum CombatRating : uint8;
++enum GossipOptionIcon : uint8;
 +enum MeleeHitOutcome : uint8;
 +
 +struct CleanDamage;
@@ -67191,7 +67192,7 @@ index d316bfead..d4faf8cd1 100644
          bool _setMembersGroup(ObjectGuid guid, uint8 group);
          void _homebindIfInstance(Player* player);
 diff --git a/src/server/game/Handlers/ItemHandler.cpp b/src/server/game/Handlers/ItemHandler.cpp
-index be942a063..c8bc49519 100644
+index 407f50143..eb3fb6ae6 100644
 --- a/src/server/game/Handlers/ItemHandler.cpp
 +++ b/src/server/game/Handlers/ItemHandler.cpp
 @@ -30,6 +30,10 @@
@@ -67205,7 +67206,7 @@ index be942a063..c8bc49519 100644
  void WorldSession::HandleSplitItemOpcode(WorldPacket& recvData)
  {
      //TC_LOG_DEBUG("network", "WORLD: CMSG_SPLIT_ITEM");
-@@ -651,6 +655,15 @@ void WorldSession::SendListInventory(ObjectGuid vendorGuid)
+@@ -658,6 +662,15 @@ void WorldSession::SendListInventory(ObjectGuid vendorGuid)
          {
              if (ItemTemplate const* itemTemplate = sObjectMgr->GetItemTemplate(item->item))
              {
