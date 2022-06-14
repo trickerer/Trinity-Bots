@@ -50,7 +50,7 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1354 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 17175 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 17198 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   685 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   406 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   941 +
@@ -69,7 +69,7 @@
  src/server/game/AI/NpcBots/bot_sphynx_ai.cpp       |   594 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  2084 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2258 +++
- src/server/game/AI/NpcBots/botcommands.cpp         |  1642 ++
+ src/server/game/AI/NpcBots/botcommands.cpp         |  1643 ++
  src/server/game/AI/NpcBots/botcommon.h             |  1123 ++
  src/server/game/AI/NpcBots/botdatamgr.cpp          |   522 +
  src/server/game/AI/NpcBots/botdatamgr.h            |   135 +
@@ -78,7 +78,7 @@
  src/server/game/AI/NpcBots/botdump.cpp             |   938 +
  src/server/game/AI/NpcBots/botdump.h               |    50 +
  src/server/game/AI/NpcBots/botgiver.cpp            |   268 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  1556 ++
+ src/server/game/AI/NpcBots/botmgr.cpp              |  1563 ++
  src/server/game/AI/NpcBots/botmgr.h                |   217 +
  src/server/game/AI/NpcBots/bpet_ai.cpp             |  2399 +++
  src/server/game/AI/NpcBots/bpet_ai.h               |   175 +
@@ -157,7 +157,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   273 +
- 159 files changed, 66409 insertions(+), 75 deletions(-)
+ 159 files changed, 66440 insertions(+), 75 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -5736,10 +5736,10 @@ index 000000000..16f7ee941
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..7eb505bba
+index 000000000..70635d8b9
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,17175 @@
+@@ -0,0 +1,17198 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -5769,10 +5769,11 @@ index 000000000..7eb505bba
 +#include "ScriptedGossip.h"
 +#include "SpellAuraEffects.h"
 +#include "TemporarySummon.h"
++#include "Transport.h"
 +#include "World.h"
 +/*
 +NpcBot System by Trickerer (https://github.com/trickerer/Trinity-Bots; onlysuffering@gmail.com)
-+Version 4.15.5a
++Version 4.15.22a
 +Original idea: https://bitbucket.org/lordpsyan/trinitycore-patches/src/3b8b9072280e/Individual/11185-BOTS-NPCBots.patch
 +TODO:
 +dk pets (garg, aod, rdw)
@@ -5787,8 +5788,8 @@ index 000000000..7eb505bba
 +static constexpr GossipOptionIcon BOT_ICON_ON = GOSSIP_ICON_BATTLE;
 +static constexpr GossipOptionIcon BOT_ICON_OFF = GOSSIP_ICON_CHAT;
 +
-+#define MAX_AMMO_LEVEL 13
-+uint8 const AmmoDPSForLevel[MAX_AMMO_LEVEL][2] =
++static constexpr uint32 MAX_AMMO_LEVEL = 13;
++uint8 constexpr AmmoDPSForLevel[MAX_AMMO_LEVEL][2] =
 +{
 +    {  1,  1 },
 +    {  5,  2 },
@@ -5804,9 +5805,9 @@ index 000000000..7eb505bba
 +    { 72, 67 },
 +    { 80, 91 }
 +};
-+#define MAX_POTION_SPELLS 8
-+#define MAX_FEAST_SPELLS 11
-+uint32 const ManaPotionSpells[MAX_POTION_SPELLS][2] =
++static constexpr uint32 MAX_POTION_SPELLS = 8;
++static constexpr uint32 MAX_FEAST_SPELLS = 11;
++uint32 constexpr ManaPotionSpells[MAX_POTION_SPELLS][2] =
 +{
 +    {  5,   437 },
 +    { 14,   438 },
@@ -5817,7 +5818,7 @@ index 000000000..7eb505bba
 +    { 55, 28499 },
 +    { 70, 43186 }
 +};
-+uint32 const HealingPotionSpells[MAX_POTION_SPELLS][2] =
++uint32 constexpr HealingPotionSpells[MAX_POTION_SPELLS][2] =
 +{
 +    {  1,   439 },
 +    {  3,   440 },
@@ -5828,7 +5829,7 @@ index 000000000..7eb505bba
 +    { 55, 28495 },
 +    { 70, 43185 }
 +};
-+uint32 const DrinkSpells[MAX_FEAST_SPELLS][2] =
++uint32 constexpr DrinkSpells[MAX_FEAST_SPELLS][2] =
 +{
 +    {  1,   430 },
 +    {  5,   431 },
@@ -5842,7 +5843,7 @@ index 000000000..7eb505bba
 +    { 75, 43183 },
 +    { 80, 57073 }
 +};
-+uint32 const EatSpells[MAX_FEAST_SPELLS][2] =
++uint32 constexpr EatSpells[MAX_FEAST_SPELLS][2] =
 +{
 +    {  1,   433 },
 +    {  5,   434 },
@@ -6093,8 +6094,8 @@ index 000000000..7eb505bba
 +
 +bool bot_ai::SetBotOwner(Player* newowner)
 +{
-+    ASSERT(newowner && "Trying to set NULL owner!!!");
-+    ASSERT(newowner->GetGUID().IsPlayer() && "Trying to set a non-player as owner!!!");
++    ASSERT(newowner, "Trying to set NULL owner!!!");
++    ASSERT(newowner->GetGUID().IsPlayer(), "Trying to set a non-player as owner!!!");
 +    //ASSERT(master->GetGUID() == me->GetGUID());
 +    //ASSERT(IAmFree());
 +
@@ -6170,10 +6171,10 @@ index 000000000..7eb505bba
 +        return; //disabled
 +
 +    NpcBotData const* npcBotData = BotDataMgr::SelectNpcBotData(me->GetEntry());
-+    ASSERT(npcBotData && "bot_ai::CheckOwnerExpiry(): data not found!");
++    ASSERT(npcBotData, "bot_ai::CheckOwnerExpiry(): data not found!");
 +
 +    NpcBotExtras const* npcBotExtra = BotDataMgr::SelectNpcBotExtras(me->GetEntry());
-+    ASSERT(npcBotExtra && "bot_ai::CheckOwnerExpiry(): extra data not found!");
++    ASSERT(npcBotExtra, "bot_ai::CheckOwnerExpiry(): extra data not found!");
 +
 +    if (npcBotData->owner == 0)
 +        return;
@@ -13018,7 +13019,7 @@ index 000000000..7eb505bba
 +
 +            int8 id = 1;
 +            EquipmentInfo const* einfo = sObjectMgr->GetEquipmentInfo(me->GetEntry(), id);
-+            ASSERT(einfo && "Trying to send equipment list for bot with no equip info!");
++            ASSERT(einfo, "Trying to send equipment list for bot with no equip info!");
 +
 +            for (uint8 i = BOT_SLOT_MAINHAND; i != BOT_INVENTORY_SIZE; ++i)
 +            {
@@ -13042,7 +13043,7 @@ index 000000000..7eb505bba
 +
 +            int8 id = 1;
 +            EquipmentInfo const* einfo = sObjectMgr->GetEquipmentInfo(me->GetEntry(), id);
-+            ASSERT(einfo && "Trying to send equipment info for bot with no equip info!");
++            ASSERT(einfo, "Trying to send equipment info for bot with no equip info!");
 +
 +            uint8 slot = action - GOSSIP_ACTION_INFO_DEF;
 +            Item const* item = _equips[slot];
@@ -13065,7 +13066,7 @@ index 000000000..7eb505bba
 +
 +            int8 id = 1;
 +            EquipmentInfo const* einfo = sObjectMgr->GetEquipmentInfo(me->GetEntry(), id);
-+            ASSERT(einfo && "Trying to send equipment show for bot with no equip info!");
++            ASSERT(einfo, "Trying to send equipment show for bot with no equip info!");
 +
 +            std::set<uint32> itemList, idsList;
 +
@@ -13327,7 +13328,7 @@ index 000000000..7eb505bba
 +
 +            int8 id = 1;
 +            EquipmentInfo const* einfo = sObjectMgr->GetEquipmentInfo(me->GetEntry(), id);
-+            ASSERT(einfo && "Trying to send auto-equip for bot with no equip info!");
++            ASSERT(einfo, "Trying to send auto-equip for bot with no equip info!");
 +
 +            std::set<uint32> itemList, idsList;
 +
@@ -16066,7 +16067,7 @@ index 000000000..7eb505bba
 +{
 +    int8 id = 1;
 +    EquipmentInfo const* einfo = sObjectMgr->GetEquipmentInfo(me->GetEntry(), id);
-+    ASSERT(einfo && "Trying to unequip item for bot with no equip info!");
++    ASSERT(einfo, "Trying to unequip item for bot with no equip info!");
 +
 +    Item* item = _equips[slot];
 +    if (!item)
@@ -16156,7 +16157,7 @@ index 000000000..7eb505bba
 +
 +    int8 id = 1;
 +    EquipmentInfo const* einfo = sObjectMgr->GetEquipmentInfo(me->GetEntry(), id);
-+    ASSERT(einfo && "Trying to equip item for bot with no equip info!");
++    ASSERT(einfo, "Trying to equip item for bot with no equip info!");
 +
 +    ItemTemplate const* proto = newItem->GetTemplate();
 +
@@ -16282,7 +16283,7 @@ index 000000000..7eb505bba
 +
 +    int8 id = 1;
 +    EquipmentInfo const* einfo = sObjectMgr->GetEquipmentInfo(me->GetEntry(), id);
-+    ASSERT(einfo && "Trying to reset equipment for bot with no equip info!");
++    ASSERT(einfo, "Trying to reset equipment for bot with no equip info!");
 +
 +    uint32 itemId = einfo->ItemEntry[slot];
 +    if (!itemId)
@@ -16308,7 +16309,7 @@ index 000000000..7eb505bba
 +
 +    //we have our standard weapon itemId which we should use to create new item
 +    Item* stItem = Item::CreateItem(itemId, 1, nullptr);
-+    ASSERT(stItem && "Failed to create standard Item for bot!");
++    ASSERT(stItem, "Failed to create standard Item for bot!");
 +
 +    if (!_equip(slot, stItem, receiver))
 +    {
@@ -17841,7 +17842,7 @@ index 000000000..7eb505bba
 +void bot_ai::InitFaction()
 +{
 +    NpcBotData const* npcBotData = BotDataMgr::SelectNpcBotData(me->GetEntry());
-+    ASSERT(npcBotData && "bot_ai::InitFaction(): data not found!");
++    ASSERT(npcBotData, "bot_ai::InitFaction(): data not found!");
 +
 +    uint32 faction = npcBotData->faction;
 +
@@ -17857,7 +17858,7 @@ index 000000000..7eb505bba
 +void bot_ai::InitRace()
 +{
 +    NpcBotExtras const* npcBotExtras = BotDataMgr::SelectNpcBotExtras(me->GetEntry());
-+    ASSERT(npcBotExtras && "bot_ai::InitRace: extra data not found!");
++    ASSERT(npcBotExtras, "bot_ai::InitRace: extra data not found!");
 +
 +    me->SetByteValue(UNIT_FIELD_BYTES_0, 0, npcBotExtras->race); //set race
 +}
@@ -17865,7 +17866,7 @@ index 000000000..7eb505bba
 +void bot_ai::InitOwner()
 +{
 +    NpcBotData const* npcBotData = BotDataMgr::SelectNpcBotData(me->GetEntry());
-+    ASSERT(npcBotData && "bot_ai::InitOwner(): data not found!");
++    ASSERT(npcBotData, "bot_ai::InitOwner(): data not found!");
 +
 +    _ownerGuid = npcBotData->owner;
 +}
@@ -17893,7 +17894,7 @@ index 000000000..7eb505bba
 +    }
 +
 +    NpcBotData const* npcBotData = BotDataMgr::SelectNpcBotData(me->GetEntry());
-+    ASSERT(npcBotData && "bot_ai::InitRoles(): data not found!");
++    ASSERT(npcBotData, "bot_ai::InitRoles(): data not found!");
 +
 +    _roleMask = npcBotData->roles;
 +}
@@ -17964,12 +17965,12 @@ index 000000000..7eb505bba
 +                spec = rand <= 33 ? specs[0] : rand <= 67 ? specs[1] : specs[2];
 +        }
 +        else
-+            ASSERT(false && "bot_ai::InitSpec(): FIXME more than 3 specs to choose from!");
++            ASSERT(false, "bot_ai::InitSpec(): FIXME more than 3 specs to choose from!");
 +    }
 +    else
 +    {
 +        NpcBotData const* npcBotData = BotDataMgr::SelectNpcBotData(me->GetEntry());
-+        ASSERT(npcBotData && "bot_ai::InitSpec(): data not found!");
++        ASSERT(npcBotData, "bot_ai::InitSpec(): data not found!");
 +
 +        spec = npcBotData->spec;
 +    }
@@ -18213,10 +18214,10 @@ index 000000000..7eb505bba
 +{
 +    int8 id = 1;
 +    EquipmentInfo const* einfo = sObjectMgr->GetEquipmentInfo(me->GetEntry(), id);
-+    ASSERT(einfo && "Trying to spawn bot with no equip info!");
++    ASSERT(einfo, "Trying to spawn bot with no equip info!");
 +
 +    NpcBotData const* npcBotData = BotDataMgr::SelectNpcBotData(me->GetEntry());
-+    ASSERT(npcBotData && "bot_ai::InitEquips(): data not found!");
++    ASSERT(npcBotData, "bot_ai::InitEquips(): data not found!");
 +
 +    CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_NPCBOT_EQUIP_BY_ITEM_INSTANCE);
 +    //        0            1                2      3         4        5      6             7                 8           9           10    11    12         13
@@ -18242,7 +18243,7 @@ index 000000000..7eb505bba
 +                continue;
 +
 +            item = Item::CreateItem(itemId, 1, nullptr);
-+            ASSERT(item && "Failed to init standard Item for bot!");
++            ASSERT(item, "Failed to init standard Item for bot!");
 +            _equips[i] = item;
 +        }
 +    }
@@ -18348,7 +18349,7 @@ index 000000000..7eb505bba
 +
 +            //if bot has no equips but equip template then use those
 +            item = Item::CreateItem(einfo->ItemEntry[i], 1, nullptr);
-+            ASSERT(item && "Failed to init standard Item for bot point 2!");
++            ASSERT(item, "Failed to init standard Item for bot point 2!");
 +            _equips[i] = item;
 +
 +            me->SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + i, einfo->ItemEntry[i]);
@@ -20456,6 +20457,23 @@ index 000000000..7eb505bba
 +        //    me->GetVehicleBase()->SetSpeed(MOVE_FLIGHT, master->GetVehicleBase()->GetSpeedRate(MOVE_FLIGHT) * 1.37f);
 +        //    me->GetVehicleBase()->SetSpeed(MOVE_RUN, master->GetVehicleBase()->GetSpeedRate(MOVE_FLIGHT) * 1.37f);
 +        //}
++        //Transport state
++        if (me->GetTransport() != master->GetTransport())
++        {
++            if (master->GetTransport())
++            {
++                if (me->GetDistance2d(master) < 20.f)
++                {
++                    master->GetTransport()->AddPassenger(me);
++                    me->AddUnitState(UNIT_STATE_IGNORE_PATHFINDING);
++                }
++            }
++            else
++            {
++                me->ClearUnitState(UNIT_STATE_IGNORE_PATHFINDING);
++                me->GetTransport()->RemovePassenger(me);
++            }
++        }
 +        //Model size / Combat reach
 +        if (me->GetDisplayId() == me->GetNativeDisplayId())
 +        {
@@ -20993,6 +21011,11 @@ index 000000000..7eb505bba
 +    }
 +
 +    me->SetMap(map);
++    if (master->GetTransport())
++    {
++        master->GetTransport()->AddPassenger(me);
++        me->AddUnitState(UNIT_STATE_IGNORE_PATHFINDING);
++    }
 +    me->Relocate(master);
 +    map->AddToMap(me);
 +    me->BotStopMovement();
@@ -41037,7 +41060,7 @@ index 000000000..5a3bbe0c5
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_rogue_ai.cpp b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 new file mode 100644
-index 000000000..c762f6143
+index 000000000..adcbd50bc
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 @@ -0,0 +1,2037 @@
@@ -42406,7 +42429,7 @@ index 000000000..c762f6143
 +                    itemSlot = BOT_SLOT_OFFHAND;
 +                }
 +                else
-+                    ASSERT(false && "rogue bot attempted to enchant his weapons but cannot find a weapon to apply it!");
++                    ASSERT(false, "rogue bot attempted to enchant his weapons but cannot find a weapon to apply it!");
 +
 +                if (!IAmFree())
 +                    master->GetSession()->SendEnchantmentLog(me->GetGUID(), me->GetGUID(), item->GetEntry(), enchant_id);
@@ -43080,7 +43103,7 @@ index 000000000..c762f6143
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_shaman_ai.cpp b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 new file mode 100644
-index 000000000..86dd797e7
+index 000000000..34f626a9f
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 @@ -0,0 +1,2821 @@
@@ -44988,7 +45011,7 @@ index 000000000..86dd797e7
 +                    itemSlot = BOT_SLOT_OFFHAND;
 +                }
 +                else
-+                    ASSERT(false && "shaman bot attempted to enchant his weapons but cannot find a weapon to apply it!");
++                    ASSERT(false, "shaman bot attempted to enchant his weapons but cannot find a weapon to apply it!");
 +
 +                if (!IAmFree())
 +                    master->GetSession()->SendEnchantmentLog(me->GetGUID(), me->GetGUID(), item->GetEntry(), enchant_id);
@@ -51454,10 +51477,10 @@ index 000000000..0112755c1
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 000000000..176407c9f
+index 000000000..993a2272f
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
-@@ -0,0 +1,1642 @@
+@@ -0,0 +1,1643 @@
 +#include "bot_ai.h"
 +#include "botdump.h"
 +#include "botmgr.h"
@@ -52770,7 +52793,8 @@ index 000000000..176407c9f
 +                AreaTableEntry const* zone = sAreaTableStore.LookupEntry(bot->GetBotAI()->GetLastZoneId() ? bot->GetBotAI()->GetLastZoneId() : bot->GetZoneId());
 +                std::string zone_name = zone ? zone->AreaName[handler->GetSession() ? handler->GetSessionDbLocaleIndex() : 0] : "Unknown";
 +
-+                ss << "\n" << counter << ") " << bot->GetName() << " - |c" << bot_color_str << bot_class_str << "|r - "
++                ss << "\n" << counter << ") " << bot->GetEntry() << ": "
++                    << bot->GetName() << " - |c" << bot_color_str << bot_class_str << "|r - "
 +                    << "level " << uint32(bot->GetLevel()) << " - \"" << zone_name << "\" - "
 +                    << (bot->IsFreeBot() ? (bot->GetBotAI()->GetBotOwnerGuid() ? "inactive (owned)" : "free") : "active");
 +            }
@@ -54231,7 +54255,7 @@ index 000000000..3d4c6fae2
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.cpp b/src/server/game/AI/NpcBots/botdatamgr.cpp
 new file mode 100644
-index 000000000..55640e714
+index 000000000..529d890e4
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.cpp
 @@ -0,0 +1,522 @@
@@ -54418,8 +54442,8 @@ index 000000000..55640e714
 +
 +        CellCoord c = Trinity::ComputeCellCoord(pos_x, pos_y);
 +        GridCoord g = Trinity::ComputeGridCoord(pos_x, pos_y);
-+        ASSERT(c.IsCoordValid() && "Invalid Cell coord!");
-+        ASSERT(g.IsCoordValid() && "Invalid Grid coord!");
++        ASSERT(c.IsCoordValid(), "Invalid Cell coord!");
++        ASSERT(g.IsCoordValid(), "Invalid Grid coord!");
 +        Map* map = sMapMgr->CreateBaseMap(mapId);
 +        map->LoadGrid(pos_x, pos_y);
 +
@@ -56361,10 +56385,10 @@ index 000000000..cba03caec
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 000000000..6ba6d6b4d
+index 000000000..64096e0c8
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,1556 @@
+@@ -0,0 +1,1563 @@
 +#include "bot_ai.h"
 +#include "botdpstracker.h"
 +#include "bot_Events.h"
@@ -56387,6 +56411,7 @@ index 000000000..6ba6d6b4d
 +#include "Player.h"
 +#include "ScriptMgr.h"
 +#include "SpellAuraEffects.h"
++#include "Transport.h"
 +#include "World.h"
 +/*
 +Npc Bot Manager by Trickerer (onlysuffering@gmail.com)
@@ -57096,7 +57121,7 @@ index 000000000..6ba6d6b4d
 +    for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
 +    {
 +        bot = itr->second;
-+        ASSERT(bot && "BotMgr::OnTeleportFar(): bot does not exist!!!");
++        ASSERT(bot, "BotMgr::OnTeleportFar(): bot does not exist!!!");
 +
 +        if (bot->IsTempBot())
 +            continue;
@@ -57115,6 +57140,12 @@ index 000000000..6ba6d6b4d
 +
 +    if (bot->GetVehicle())
 +        bot->ExitVehicle();
++
++    if (bot->GetTransport())
++    {
++        bot->ClearUnitState(UNIT_STATE_IGNORE_PATHFINDING);
++        bot->GetTransport()->RemovePassenger(bot);
++    }
 +
 +    if (bot->IsInWorld())
 +        bot->CastSpell(bot, COSMETIC_TELEPORT_EFFECT, true);
@@ -57173,8 +57204,8 @@ index 000000000..6ba6d6b4d
 +void BotMgr::CleanupsBeforeBotDelete(ObjectGuid guid, uint8 /*removetype*/)
 +{
 +    BotMap::const_iterator itr = _bots.find(guid);
-+    ASSERT(itr != _bots.end() && "Trying to remove bot which does not belong to this botmgr(b)!!");
-+    ASSERT(_owner->IsInWorld() && "Trying to remove bot while not in world(b)!!");
++    ASSERT(itr != _bots.end(), "Trying to remove bot which does not belong to this botmgr(b)!!");
++    ASSERT(_owner->IsInWorld(), "Trying to remove bot while not in world(b)!!");
 +
 +    Creature* bot = itr->second;
 +
@@ -57217,8 +57248,8 @@ index 000000000..6ba6d6b4d
 +void BotMgr::RemoveBot(ObjectGuid guid, uint8 removetype)
 +{
 +    BotMap::const_iterator itr = _bots.find(guid);
-+    ASSERT(itr != _bots.end() && "Trying to remove bot which does not belong to this botmgr(a)!!");
-+    ASSERT(_owner->IsInWorld() && "Trying to remove bot while not in world(a)!!");
++    ASSERT(itr != _bots.end(), "Trying to remove bot which does not belong to this botmgr(a)!!");
++    ASSERT(_owner->IsInWorld(), "Trying to remove bot while not in world(a)!!");
 +
 +    //trying to remove temp bot second time means removing all bots
 +    //just erase from bots because already cleaned up
@@ -58146,7 +58177,7 @@ index 000000000..8da9ca43f
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bpet_ai.cpp b/src/server/game/AI/NpcBots/bpet_ai.cpp
 new file mode 100644
-index 000000000..69cc60803
+index 000000000..b437b7f32
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_ai.cpp
 @@ -0,0 +1,2399 @@
@@ -58163,23 +58194,23 @@ index 000000000..69cc60803
 +NpcBot Pet System by Trickerer (https://github.com/trickerer/Trinity-Bots; onlysuffering@gmail.com)
 +*/
 +
-+#define SHAMAN_MAX_PET_POSITIONS 2
-+#define DRUID_MAX_PET_POSITIONS 3
-+#define DK_MAX_PET_POSITIONS 10
-+#define DARK_RANGER_MAX_PET_POSITIONS 5
-+#define NECROMANCER_MAX_PET_POSITIONS 6
-+float const ShamanPetPositionAnglesByPosNumber[SHAMAN_MAX_PET_POSITIONS] =
++static constexpr uint32 SHAMAN_MAX_PET_POSITIONS = 2;
++static constexpr uint32 DRUID_MAX_PET_POSITIONS = 3;
++static constexpr uint32 DK_MAX_PET_POSITIONS = 10;
++static constexpr uint32 DARK_RANGER_MAX_PET_POSITIONS = 5;
++static constexpr uint32 NECROMANCER_MAX_PET_POSITIONS = 6;
++float constexpr ShamanPetPositionAnglesByPosNumber[SHAMAN_MAX_PET_POSITIONS] =
 +{
 +    0.f,//left
 +    float(M_PI)//right
 +};
-+float const DruidPetPositionAnglesByPosNumber[DRUID_MAX_PET_POSITIONS] =
++float constexpr DruidPetPositionAnglesByPosNumber[DRUID_MAX_PET_POSITIONS] =
 +{
 +    0.f,//left
 +    float(M_PI)/2,//back
 +    float(M_PI)//right
 +};
-+float const DKPetPositionAnglesByPosNumber[DK_MAX_PET_POSITIONS] =
++float constexpr DKPetPositionAnglesByPosNumber[DK_MAX_PET_POSITIONS] =
 +{
 +    0.f,
 +    float(M_PI),
@@ -58192,7 +58223,7 @@ index 000000000..69cc60803
 +    2.4434609f,//7*M_PI/9
 +    2.7925268f //8*M_PI/9
 +};
-+float const DarkRangerPetPositionAnglesByPosNumber[DARK_RANGER_MAX_PET_POSITIONS] =
++float constexpr DarkRangerPetPositionAnglesByPosNumber[DARK_RANGER_MAX_PET_POSITIONS] =
 +{
 +    0.f,
 +    float(M_PI),
@@ -58200,7 +58231,7 @@ index 000000000..69cc60803
 +    1.5707963f,//2*M_PI/4
 +    2.3561944f //3*M_PI/4
 +};
-+float const NecromancerPetPositionAnglesByPosNumber[NECROMANCER_MAX_PET_POSITIONS] =
++float constexpr NecromancerPetPositionAnglesByPosNumber[NECROMANCER_MAX_PET_POSITIONS] =
 +{
 +    0.f,
 +    float(M_PI),
