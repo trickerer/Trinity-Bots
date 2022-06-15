@@ -50,8 +50,8 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1354 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 17198 +++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |   685 +
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 17269 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |   687 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   406 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   941 +
  src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp  |   617 +
@@ -70,7 +70,7 @@
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  2084 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2258 +++
  src/server/game/AI/NpcBots/botcommands.cpp         |  1643 ++
- src/server/game/AI/NpcBots/botcommon.h             |  1123 ++
+ src/server/game/AI/NpcBots/botcommon.h             |  1129 ++
  src/server/game/AI/NpcBots/botdatamgr.cpp          |   522 +
  src/server/game/AI/NpcBots/botdatamgr.h            |   135 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   133 +
@@ -78,9 +78,9 @@
  src/server/game/AI/NpcBots/botdump.cpp             |   938 +
  src/server/game/AI/NpcBots/botdump.h               |    50 +
  src/server/game/AI/NpcBots/botgiver.cpp            |   268 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  1563 ++
- src/server/game/AI/NpcBots/botmgr.h                |   217 +
- src/server/game/AI/NpcBots/bpet_ai.cpp             |  2399 +++
+ src/server/game/AI/NpcBots/botmgr.cpp              |  1572 ++
+ src/server/game/AI/NpcBots/botmgr.h                |   218 +
+ src/server/game/AI/NpcBots/bpet_ai.cpp             |  2426 +++
  src/server/game/AI/NpcBots/bpet_ai.h               |   175 +
  src/server/game/AI/NpcBots/bpet_archmage.cpp       |   140 +
  src/server/game/AI/NpcBots/bpet_dark_ranger.cpp    |   213 +
@@ -157,7 +157,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   273 +
- 159 files changed, 66440 insertions(+), 75 deletions(-)
+ 159 files changed, 66556 insertions(+), 75 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -5736,10 +5736,10 @@ index 000000000..16f7ee941
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..70635d8b9
+index 000000000..4cc018d19
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,17198 @@
+@@ -0,0 +1,17269 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -18982,9 +18982,12 @@ index 000000000..70635d8b9
 +            {
 +                targets.SetDst(spell->m_targets);
 +                veh->GetBase()->ToCreature()->BotStopMovement();
-+                veh->GetBase()->SetFacingTo(me->GetAbsoluteAngle(spell->m_targets.GetDstPos()));
++                float destangle = me->GetAbsoluteAngle(spell->m_targets.GetDstPos());
++                if (veh->GetBase()->GetTransport())
++                    destangle = Position::NormalizeOrientation(destangle + veh->GetBase()->GetTransport()->GetOrientation());
++                veh->GetBase()->SetFacingTo(destangle);
 +                //force orientation (inconsistent with SetFacingTo)
-+                veh->GetBase()->SetOrientation(me->GetAbsoluteAngle(spell->m_targets.GetDstPos()));
++                veh->GetBase()->SetOrientation(destangle);
 +            }
 +            if (spell->m_targets.GetSpeed() != 0)
 +                targets.SetSpeed(spell->m_targets.GetSpeed());
@@ -20079,7 +20082,7 @@ index 000000000..70635d8b9
 +        default:
 +            strat = BOT_VEH_STRAT_GENERIC;
 +            if (curVehStrat != strat)
-+                TC_LOG_ERROR("scripts", "bot_ai DoVehicleActions: %s has to use generic strat for vehicle creature %s (%u)",
++                TC_LOG_DEBUG("scripts", "bot_ai DoVehicleActions: %s has to use generic strat for vehicle creature %s (%u)",
 +                me->GetName().c_str(), me->GetVehicleBase()->GetName().c_str(), me->GetVehicleBase()->GetEntry());
 +            break;
 +    }
@@ -20465,6 +20468,8 @@ index 000000000..70635d8b9
 +                if (me->GetDistance2d(master) < 20.f)
 +                {
 +                    master->GetTransport()->AddPassenger(me);
++                    me->m_movementInfo.transport.pos.Relocate(master->GetTransOffset());
++                    me->Relocate(GetAbsoluteTransportPosition(master));
 +                    me->AddUnitState(UNIT_STATE_IGNORE_PATHFINDING);
 +                }
 +            }
@@ -21014,9 +21019,12 @@ index 000000000..70635d8b9
 +    if (master->GetTransport())
 +    {
 +        master->GetTransport()->AddPassenger(me);
++        me->m_movementInfo.transport.pos.Relocate(master->GetTransOffset());
++        me->Relocate(GetAbsoluteTransportPosition(master));
 +        me->AddUnitState(UNIT_STATE_IGNORE_PATHFINDING);
 +    }
-+    me->Relocate(master);
++    else
++        me->Relocate(master);
 +    map->AddToMap(me);
 +    me->BotStopMovement();
 +    //bot->SetAI(oldAI);
@@ -21172,10 +21180,10 @@ index 000000000..70635d8b9
 +            uint32 creEntry = 0;
 +            uint32 vehEntry;
 +
-+            ChooseVehicleForEncounter(master, creEntry, vehEntry);
++            ChooseVehicleForEncounter(creEntry, vehEntry);
 +            if (!creEntry)
 +            {
-+                TC_LOG_ERROR("scripts", "OnBotOwnerEnterVehicle: no vehicle selected for bot master veh %s!",
++                TC_LOG_DEBUG("scripts", "OnBotOwnerEnterVehicle: no vehicle selected for bot master veh %s!",
 +                    master->GetVehicleCreatureBase()->GetName().c_str());
 +                return;
 +            }
@@ -21263,23 +21271,57 @@ index 000000000..70635d8b9
 +        ASSERT(sVehicleStore.LookupEntry(vehEntry));
 +
 +    Map* map = me->GetMap();
-+    float x, y, z, o = master->GetOrientation();
-+    me->GetClosePoint(x, y, z, me->GetCombatReach());
++    float x, y, z, o;
++    TempSummon* vc;
++    if (!me->GetTransport())
++    {
++        o = master->GetOrientation();
++        me->GetClosePoint(x, y, z, me->GetCombatReach());
++        vc = new TempSummon(nullptr, me, false);
++        ASSERT(vc->Create(map->GenerateLowGuid<HighGuid::Unit>(), map, master->GetPhaseMask(), creEntry, Position(x,y,z,o), nullptr, vehEntry, true));
++        vc->SetTempSummonType(TEMPSUMMON_CORPSE_DESPAWN);
++        vc->InitStats(0);
++        ASSERT(map->AddToMap(vc->ToCreature()));
++        vc->InitSummon(); //not needed really
++    }
++    else
++    {
++        if (master->GetVehicle())
++            o = master->GetVehicleBase()->GetTransOffsetO();
++        else
++            o = master->GetTransOffsetO();
++        x = me->GetTransOffsetX();
++        y = me->GetTransOffsetY();
++        z = me->GetTransOffsetZ();
++        Position vehpos(x, y, z, o);
++        me->GetTransport()->CalculatePassengerPosition(x, y, z, &o);
++        vc = new TempSummon(nullptr, me, false);
++        ASSERT(vc->Create(map->GenerateLowGuid<HighGuid::Unit>(), map, master->GetPhaseMask(), creEntry, Position(x,y,z,o), nullptr, vehEntry, true));
 +
-+    //TempSummon* vc = map->SummonCreature(creEntry, vpos, nullptr, 0, nullptr, 0, vehEntry);
-+    TempSummon* vc = new TempSummon(nullptr, me, false);
-+    ASSERT(vc->Create(map->GenerateLowGuid<HighGuid::Unit>(), map, master->GetPhaseMask(), creEntry, Position(x, y, z, o), nullptr, vehEntry, true));
-+    vc->SetTempSummonType(TEMPSUMMON_CORPSE_DESPAWN);
-+    vc->InitStats(0);
-+    map->AddToMap(vc->ToCreature());
-+    vc->InitSummon(); //not needed really
++        //vc->SetTransport(me->GetTransport());
++        //vc->AddUnitMovementFlag(MOVEMENTFLAG_ONTRANSPORT);
++        //vc->m_movementInfo.transport.guid = GetGUID();
++        me->GetTransport()->AddPassenger(vc);
++
++        vc->m_movementInfo.transport.pos.Relocate(vehpos);
++        vc->Relocate(x, y, z, o);
++        vc->SetHomePosition(x, y, z, o);
++        vc->SetTransportHomePosition(vehpos);
++
++        vc->AddUnitState(UNIT_STATE_IGNORE_PATHFINDING);
++        vc->InitStats(0);
++        ASSERT(map->AddToMap(vc->ToCreature()));
++        vc->InitSummon(); //not needed really
++        vc->SetTempSummonType(TEMPSUMMON_CORPSE_DESPAWN);
++        //vc = me->GetTransport()->SummonPassenger(creEntry, vehpos, TEMPSUMMON_CORPSE_DESPAWN);
++    }
 +
 +    return vc;
 +}
 +
-+void bot_ai::ChooseVehicleForEncounter(Player const* owner, uint32 &creEntry, uint32 &vehEntry) const
++void bot_ai::ChooseVehicleForEncounter(uint32 &creEntry, uint32 &vehEntry) const
 +{
-+    Vehicle* mVeh = owner->GetVehicle();
++    Vehicle* mVeh = master->GetVehicle();
 +    ASSERT_NODEBUGINFO(mVeh);
 +    ASSERT_NODEBUGINFO(mVeh->GetBase()->GetTypeId() == TYPEID_UNIT);
 +
@@ -21332,8 +21374,22 @@ index 000000000..70635d8b9
 +        //        default:                 creEntry = CREATURE_TOC_STEED_QUELDOREI;        break;
 +        //    }
 +        //    break;
++        case CREATURE_ICC_GUNSHIPCANNON_ALLIANCE:
++        case CREATURE_ICC_GUNSHIPCANNON_HORDE:
++            //limited amount of cannons
++            if (!IsTank() && HasRole(BOT_ROLE_DPS) &&
++                master->GetBotMgr()->GetNpcBotsCountByVehicleEntry(mVeh->GetBase()->GetEntry()) <
++                std::max<uint8>(master->GetBotMgr()->GetNpcBotsCount() / 2, 8))
++                creEntry = mVeh->GetBase()->GetEntry();
++            break;
++        case CREATURE_ICC_ABOMINATION_10_N:
++        case CREATURE_ICC_ABOMINATION_25_N:
++        case CREATURE_ICC_ABOMINATION_10_H:
++        case CREATURE_ICC_ABOMINATION_25_H:
++            //no abomination bots
++            break;
 +        default:
-+            if (VehicleSeatEntry const* seat = mVeh->GetSeatForPassenger(owner))
++            if (VehicleSeatEntry const* seat = mVeh->GetSeatForPassenger(master))
 +            {
 +                if (seat->Flags & VEHICLE_SEAT_FLAG_CAN_CONTROL)
 +                {
@@ -21344,17 +21400,32 @@ index 000000000..70635d8b9
 +            }
 +
 +            TC_LOG_ERROR("scripts", "ChooseVehicleForEncounter: unhandled master vehicle creature %s (%u)",
-+                owner->GetVehicleBase()->GetName().c_str(), owner->GetVehicleBase()->GetEntry());
++                master->GetVehicleBase()->GetName().c_str(), master->GetVehicleBase()->GetEntry());
 +            return;
 +    }
 +
-+    if (creEntry != mVeh->GetBase()->GetEntry())
++    if (creEntry && creEntry != mVeh->GetBase()->GetEntry())
 +    {
 +        CreatureTemplate const* cProto = sObjectMgr->GetCreatureTemplate(creEntry);
 +        ASSERT_NODEBUGINFO(cProto);
 +        vehEntry = cProto->VehicleId;
 +        ASSERT_NODEBUGINFO(sVehicleStore.LookupEntry(vehEntry));
 +    }
++}
++
++Position bot_ai::GetAbsoluteTransportPosition(WorldObject const* object)
++{
++    if (!object->GetTransport())
++        return object->GetPosition();
++
++    Position p = object->GetTransport()->GetPosition();
++    Position t = object->GetTransOffset();
++    t.m_positionX += p.m_positionX;
++    t.m_positionY += p.m_positionY;
++    t.m_positionZ += p.m_positionZ;
++    t.SetOrientation(Position::NormalizeOrientation(t.GetOrientation() + p.GetOrientation()));
++
++    return t;
 +}
 +
 +int32 bot_ai::GetBotResistanceBonus(SpellSchoolMask mask) const
@@ -22940,10 +23011,10 @@ index 000000000..70635d8b9
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 000000000..85824120a
+index 000000000..5157ad08a
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,685 @@
+@@ -0,0 +1,687 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -23018,7 +23089,9 @@ index 000000000..85824120a
 +        virtual void OnBotOwnerExitVehicle(Vehicle const* /*vehicle*/);
 +
 +        Unit* SpawnVehicle(uint32 creEntry, uint32 vehEntry);
-+        void ChooseVehicleForEncounter(Player const* owner, uint32 &creEntry, uint32 &vehEntry) const;
++        void ChooseVehicleForEncounter(uint32 &creEntry, uint32 &vehEntry) const;
++
++        static Position GetAbsoluteTransportPosition(WorldObject const* object);
 +
 +        static const std::string& LocalizedNpcText(Player const* forPlayer, uint32 textId);
 +
@@ -53126,10 +53199,10 @@ index 000000000..993a2272f
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommon.h b/src/server/game/AI/NpcBots/botcommon.h
 new file mode 100644
-index 000000000..3d4c6fae2
+index 000000000..f5ee7a2d0
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommon.h
-@@ -0,0 +1,1123 @@
+@@ -0,0 +1,1129 @@
 +#ifndef _BOTCOMMON_H
 +#define _BOTCOMMON_H
 +
@@ -53717,6 +53790,12 @@ index 000000000..3d4c6fae2
 +    CREATURE_ICC_BONE_SPIKE1            = 36619,
 +    CREATURE_ICC_BONE_SPIKE2            = 38712,
 +    CREATURE_ICC_BONE_SPIKE3            = 38711,
++    CREATURE_ICC_GUNSHIPCANNON_ALLIANCE = 36838,
++    CREATURE_ICC_GUNSHIPCANNON_HORDE    = 36839,
++    CREATURE_ICC_ABOMINATION_10_N       = 38285,
++    CREATURE_ICC_ABOMINATION_25_N       = 38788,
++    CREATURE_ICC_ABOMINATION_10_H       = 38789,
++    CREATURE_ICC_ABOMINATION_25_H       = 38790,
 +//COMMON ENEMY CREATURES
 +    CREATURE_BOSS_EREGOS_N              = 27656,
 +    CREATURE_BOSS_EREGOS_H              = 31561,
@@ -56385,10 +56464,10 @@ index 000000000..cba03caec
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 000000000..64096e0c8
+index 000000000..5108213d2
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,1563 @@
+@@ -0,0 +1,1572 @@
 +#include "bot_ai.h"
 +#include "botdpstracker.h"
 +#include "bot_Events.h"
@@ -56660,6 +56739,15 @@ index 000000000..64096e0c8
 +    uint8 count = 0;
 +    for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
 +        if (itr->second && (roles & itr->second->GetBotRoles()))
++            ++count;
++    return count;
++}
++
++uint8 BotMgr::GetNpcBotsCountByVehicleEntry(uint32 creEntry) const
++{
++    uint8 count = 0;
++    for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
++        if (itr->second && itr->second->GetVehicle() && itr->second->GetVehicleBase()->GetEntry() == creEntry)
 +            ++count;
 +    return count;
 +}
@@ -57954,10 +58042,10 @@ index 000000000..64096e0c8
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.h b/src/server/game/AI/NpcBots/botmgr.h
 new file mode 100644
-index 000000000..8da9ca43f
+index 000000000..0090b2d9a
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.h
-@@ -0,0 +1,217 @@
+@@ -0,0 +1,218 @@
 +#ifndef _BOTMGR_H
 +#define _BOTMGR_H
 +
@@ -58080,6 +58168,7 @@ index 000000000..8da9ca43f
 +        bool HaveBot() const { return !_bots.empty(); }
 +        uint8 GetNpcBotsCount() const;
 +        uint8 GetNpcBotsCountByRole(uint32 roles) const;
++        uint8 GetNpcBotsCountByVehicleEntry(uint32 creEntry) const;
 +        uint8 GetNpcBotSlot(Creature const* bot) const;
 +        uint8 GetNpcBotSlotByRole(uint32 roles, Creature const* bot) const;
 +        uint32 GetAllNpcBotsClassMask() const;
@@ -58177,10 +58266,10 @@ index 000000000..8da9ca43f
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bpet_ai.cpp b/src/server/game/AI/NpcBots/bpet_ai.cpp
 new file mode 100644
-index 000000000..b437b7f32
+index 000000000..c994bac18
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_ai.cpp
-@@ -0,0 +1,2399 @@
+@@ -0,0 +1,2426 @@
 +#include "bpet_ai.h"
 +#include "bot_GridNotifiers.h"
 +#include "botmgr.h"
@@ -58189,6 +58278,7 @@ index 000000000..b437b7f32
 +#include "MotionMaster.h"
 +#include "ObjectMgr.h"
 +#include "SpellAuraEffects.h"
++#include "Transport.h"
 +#include "World.h"
 +/*
 +NpcBot Pet System by Trickerer (https://github.com/trickerer/Trinity-Bots; onlysuffering@gmail.com)
@@ -58293,7 +58383,7 @@ index 000000000..b437b7f32
 +{
 +    float x,y,z;
 +    //destination
-+    if (!petOwner->GetMotionMaster()->GetDestination(x, y, z))
++    if (petOwner->GetTransport() || !petOwner->GetMotionMaster()->GetDestination(x, y, z))
 +        petOwner->GetPosition(x, y, z);
 +    //relative angle
 +    float o = petOwner->GetOrientation() + PET_FOLLOW_ANGLE;
@@ -58313,7 +58403,8 @@ index 000000000..b437b7f32
 +    //distance
 +    x += (PET_FOLLOW_DIST + me->GetCombatReach()) * std::cos(o);
 +    y += (PET_FOLLOW_DIST + me->GetCombatReach()) * std::sin(o);
-+    me->UpdateGroundPositionZ(x, y, z);
++    if (!petOwner->GetTransport())
++        me->UpdateGroundPositionZ(x, y, z);
 +    if (me->GetPositionZ() < z)
 +        z += 0.5f; //prevent going underground
 +
@@ -60274,6 +60365,13 @@ index 000000000..b437b7f32
 +    ASSERT(!me->GetBotPetAI());
 +    me->SetBotPetAI(this);
 +    SetPetStats(true);
++    if (petOwner->GetTransport())
++    {
++        petOwner->GetTransport()->AddPassenger(me);
++        me->m_movementInfo.transport.pos.Relocate(petOwner->GetTransOffset());
++        me->Relocate(bot_ai::GetAbsoluteTransportPosition(petOwner));
++        me->AddUnitState(UNIT_STATE_IGNORE_PATHFINDING);
++    }
 +}
 +//This function is called after Spell::SendSpellCooldown() and Spell::DoAllEffects...() call
 +void bot_pet_ai::OnBotPetSpellGo(Spell const* spell, bool ok)
@@ -60431,6 +60529,24 @@ index 000000000..b437b7f32
 +        {
 +            //BotWhisper("Somehow we are not is same phase! Fixing that...");
 +            me->SetPhaseMask(petOwner->GetBotOwner()->GetPhaseMask(), true);
++        }
++        if (me->GetTransport() != petOwner->GetBotOwner()->GetTransport())
++        {
++            if (petOwner->GetBotOwner()->GetTransport())
++            {
++                if (me->GetDistance2d(petOwner->GetBotOwner()) < 20.f)
++                {
++                    petOwner->GetBotOwner()->GetTransport()->AddPassenger(me);
++                    me->m_movementInfo.transport.pos.Relocate(petOwner->GetBotOwner()->GetTransOffset());
++                    me->Relocate(bot_ai::GetAbsoluteTransportPosition(petOwner->GetBotOwner()));
++                    me->AddUnitState(UNIT_STATE_IGNORE_PATHFINDING);
++                }
++            }
++            else
++            {
++                me->ClearUnitState(UNIT_STATE_IGNORE_PATHFINDING);
++                me->GetTransport()->RemovePassenger(me);
++            }
 +        }
 +        //end DEBUG
 +    }
