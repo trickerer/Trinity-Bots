@@ -51,7 +51,7 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1354 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 17310 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 17390 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   687 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   406 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   941 +
@@ -70,8 +70,8 @@
  src/server/game/AI/NpcBots/bot_sphynx_ai.cpp       |   594 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  2084 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2258 +++
- src/server/game/AI/NpcBots/botcommands.cpp         |  1643 ++
- src/server/game/AI/NpcBots/botcommon.h             |  1129 ++
+ src/server/game/AI/NpcBots/botcommands.cpp         |  1647 ++
+ src/server/game/AI/NpcBots/botcommon.h             |  1141 ++
  src/server/game/AI/NpcBots/botdatamgr.cpp          |   522 +
  src/server/game/AI/NpcBots/botdatamgr.h            |   135 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   133 +
@@ -158,7 +158,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   275 +
- 160 files changed, 66608 insertions(+), 75 deletions(-)
+ 160 files changed, 66704 insertions(+), 75 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -5746,10 +5746,10 @@ index 000000000..16f7ee941
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..390ebdcb2
+index 000000000..2ec3983a2
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,17310 @@
+@@ -0,0 +1,17390 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -7780,14 +7780,14 @@ index 000000000..390ebdcb2
 +        if (_botclass < BOT_CLASS_EX_START)
 +            botstring << "\n" << LocalizedNpcText(player, BOT_TEXT_SPEC) << ": " << uint32(_spec);
 +
-+        //debug
-+        //botstring << "\n_lastWMOAreaId: " << uint32(_lastWMOAreaId);
-+
 +        botstring << "\n" << LocalizedNpcText(player, BOT_TEXT_BOT_ROLEMASK_MAIN) << ": " << uint32(_roleMask & BOT_ROLE_MASK_MAIN);
 +        botstring << "\n" << LocalizedNpcText(player, BOT_TEXT_BOT_ROLEMASK_GATHERING) << ": " << uint32(_roleMask & BOT_ROLE_MASK_GATHERING);
 +
 +        botstring << "\n" << LocalizedNpcText(player, BOT_TEXT_PVP_KILLS) << ": " << uint32(_pvpKillsCount) << ", " << LocalizedNpcText(player, BOT_TEXT_PLAYERS) << ": " << uint32(_playerKillsCount) << ", " << LocalizedNpcText(player, BOT_TEXT_TOTAL) << ": " << uint32(_killsCount);
 +        botstring << "\n" << LocalizedNpcText(player, BOT_TEXT_DIED_) << uint32(_deathsCount) << LocalizedNpcText(player, BOT_TEXT__TIMES);
++
++        //debug
++        botstring << "\n_lastWMOAreaId: " << uint32(_lastWMOAreaId);
 +
 +        //debug
 +        //botstring << "\ncurrent Engage timer: " << GetEngageTimer();
@@ -9331,9 +9331,10 @@ index 000000000..390ebdcb2
 +        return mytar;
 +
 +    //Immediate targets
-+    if (!IAmFree() && !IsTank() && HasRole(BOT_ROLE_DPS) && me->GetMap()->GetEntry() && !me->GetMap()->GetEntry()->IsWorldMap())
++    if (!IAmFree() && me->GetMap()->GetEntry() && !me->GetMap()->GetEntry()->IsWorldMap())
 +    {
-+        static constexpr std::array<uint32, 1> WMOAreaGroupMarrowgar = { 47833 }; // The Spire
++        static constexpr std::array WMOAreaGroupMarrowgar = { 47833u }; // The Spire
++        static constexpr std::array WMOAreaGroupSindragosa = { 48066u }; // Frost Queen's Lair
 +
 +        static auto isInWMOArea = [=](auto const& ids) {
 +            for (auto wmoId : ids) {
@@ -9343,13 +9344,15 @@ index 000000000..390ebdcb2
 +            return false;
 +        };
 +
-+        if (me->GetMapId() == 631 && isInWMOArea(WMOAreaGroupMarrowgar) && me->IsInCombat() && // Icecrown Citadel - Lord Marrowgar
++        // Icecrown Citadel - Lord Marrowgar
++        if (me->GetMapId() == 631 && isInWMOArea(WMOAreaGroupMarrowgar) && me->IsInCombat() && HasRole(BOT_ROLE_DPS) &&
++            (!IsTank() || (!mytar && !me->IsInCombat())) &&
 +            (!mytar || (mytar->GetEntry() != CREATURE_ICC_BONE_SPIKE1 && mytar->GetEntry() != CREATURE_ICC_BONE_SPIKE2 &&
 +            mytar->GetEntry() != CREATURE_ICC_BONE_SPIKE3)))
 +        {
-+            static constexpr std::array<uint32, 3> BoneSpikeIds = { CREATURE_ICC_BONE_SPIKE1, CREATURE_ICC_BONE_SPIKE2, CREATURE_ICC_BONE_SPIKE3 };
++            static constexpr std::array BoneSpikeIds = { CREATURE_ICC_BONE_SPIKE1, CREATURE_ICC_BONE_SPIKE2, CREATURE_ICC_BONE_SPIKE3 };
 +
-+            auto boneSpikeCheck = [=, mydist = 50.f](Unit* unit) mutable {
++            auto boneSpikeCheck = [=, mydist = 50.f](Unit const* unit) mutable {
 +                for (uint32 bsId : BoneSpikeIds) {
 +                    if (unit->GetEntry() == bsId)  {
 +                        if (HasRole(BOT_ROLE_RANGED))
@@ -9373,6 +9376,79 @@ index 000000000..390ebdcb2
 +            {
 +                // Bone spike is always attackable - no additional checks needed
 +                return spike;
++            }
++        }
++
++        // Icecrown Citadel - Sindragosa
++        if (me->GetMapId() == 631 && isInWMOArea(WMOAreaGroupSindragosa)/* &&
++            (!mytar || (mytar->GetEntry() != CREATURE_ICC_ICE_TOMB1 && mytar->GetEntry() != CREATURE_ICC_ICE_TOMB2 &&
++            mytar->GetEntry() != CREATURE_ICC_ICE_TOMB3 && mytar->GetEntry() != CREATURE_ICC_ICE_TOMB4))*/)
++        {
++            static constexpr std::array IceTombIds = { CREATURE_ICC_ICE_TOMB1, CREATURE_ICC_ICE_TOMB2, CREATURE_ICC_ICE_TOMB3, CREATURE_ICC_ICE_TOMB4 };
++            static constexpr std::array SindragosaIds = { CREATURE_ICC_SINDRAGOSA1, CREATURE_ICC_SINDRAGOSA2, CREATURE_ICC_SINDRAGOSA3, CREATURE_ICC_SINDRAGOSA4 };
++
++            static auto SiItCheck = [=](Unit const* unit) {
++                if (unit->IsAlive())
++                {
++                    for (uint32 itId : IceTombIds)
++                        if (unit->GetEntry() == itId)
++                            return true;
++                    for (uint32 siId : SindragosaIds)
++                        if (unit->GetEntry() == siId)
++                            return true;
++                }
++                return false;
++            };
++
++            std::list<Creature*> cList;
++            Trinity::CreatureListSearcher searcher(master, cList, SiItCheck);
++            Cell::VisitAllObjects(me, searcher, 200.f);
++
++            if (!cList.empty())
++            {
++                Creature* sindragosa = nullptr;
++                Creature* icetomb = nullptr;
++                for (Creature* siit : cList)
++                {
++                    if (!icetomb)
++                    {
++                        for (uint32 itId : IceTombIds)
++                        {
++                            if (siit->GetEntry() == itId)
++                            {
++                                icetomb = siit;
++                                break;
++                            }
++                        }
++                    }
++                    if (!sindragosa)
++                    {
++                        for (uint32 siId : SindragosaIds)
++                        {
++                            if (siit->GetEntry() == siId)
++                            {
++                                sindragosa = siit;
++                                break;
++                            }
++                        }
++                    }
++                    else
++                        break;
++                }
++
++                if (icetomb)
++                {
++                    bool air_phase = sindragosa && sindragosa->GetReactState() == REACT_PASSIVE;
++                    bool above35 = GetHealthPCT(icetomb) > 35;
++                    if (!air_phase || above35)
++                        return icetomb;
++                    else if (mytar == icetomb || !master->GetVictim())
++                    {
++                        if (botPet && botPet->GetVictim())
++                            botPet->AttackStop();
++                        return nullptr;
++                    }
++                }
 +            }
 +        }
 +    }
@@ -21433,10 +21509,14 @@ index 000000000..390ebdcb2
 +                std::max<uint8>(master->GetBotMgr()->GetNpcBotsCount() / 2, 8))
 +                creEntry = mVeh->GetBase()->GetEntry();
 +            break;
-+        case CREATURE_ICC_ABOMINATION_10_N:
-+        case CREATURE_ICC_ABOMINATION_25_N:
-+        case CREATURE_ICC_ABOMINATION_10_H:
-+        case CREATURE_ICC_ABOMINATION_25_H:
++        case CREATURE_ICC_MUTATED_ABOMINATION1:
++        case CREATURE_ICC_MUTATED_ABOMINATION2:
++        case CREATURE_ICC_MUTATED_ABOMINATION3:
++        case CREATURE_ICC_MUTATED_ABOMINATION4:
++        case CREATURE_ICC_MUTATED_ABOMINATION5:
++        case CREATURE_ICC_MUTATED_ABOMINATION6:
++        case CREATURE_ICC_MUTATED_ABOMINATION7:
++        case CREATURE_ICC_MUTATED_ABOMINATION8:
 +            //no abomination bots
 +            break;
 +        default:
@@ -51601,10 +51681,10 @@ index 000000000..0112755c1
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 000000000..993a2272f
+index 000000000..82d82246e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
-@@ -0,0 +1,1643 @@
+@@ -0,0 +1,1647 @@
 +#include "bot_ai.h"
 +#include "botdump.h"
 +#include "botmgr.h"
@@ -52001,7 +52081,7 @@ index 000000000..993a2272f
 +            uint8 bot_class = BotMgr::BotClassByClassName(std::string(class_name));
 +            if (bot_class == BOT_CLASS_NONE)
 +            {
-+                handler->PSendSysMessage("Unknown bot class %s!", std::string(class_name).c_str());
++                handler->PSendSysMessage("Unknown bot name or class %s!", std::string(class_name).c_str());
 +                return true;
 +            }
 +
@@ -52062,6 +52142,10 @@ index 000000000..993a2272f
 +            target_guid = bot->GetGUID();
 +        else if (target_token == "me" || target_token == "master")
 +            target_guid = owner->GetGUID();
++        else if (target_token == "mypet")
++            target_guid = owner->GetPetGUID();
++        else if (target_token == "myvehicle")
++            target_guid = owner->GetVehicle() ? owner->GetVehicleBase()->GetGUID() : ObjectGuid::Empty;
 +        else if (target_token == "target")
 +            target_guid = bot->GetTarget();
 +        else if (target_token == "mytarget")
@@ -52069,11 +52153,11 @@ index 000000000..993a2272f
 +        else
 +        {
 +            handler->PSendSysMessage("Invalid target token '%s'!", *target_token);
-+            handler->SendSysMessage("Valid target tokens:\n    '','bot','self', 'me','master', 'target', 'mytarget'");
++            handler->SendSysMessage("Valid target tokens:\n    '','bot','self', 'me','master', 'mypet', 'myvehicle', 'target', 'mytarget'");
 +            return true;
 +        }
 +
-+        Unit* target = ObjectAccessor::GetUnit(*owner, target_guid);
++        Unit* target = target_guid ? ObjectAccessor::GetUnit(*owner, target_guid) : nullptr;
 +        if (!target || !bot->FindMap() || target->FindMap() != bot->FindMap())
 +        {
 +            handler->PSendSysMessage("Invalid target '%s'!", target ? target->GetName().c_str() : "unknown");
@@ -53250,10 +53334,10 @@ index 000000000..993a2272f
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommon.h b/src/server/game/AI/NpcBots/botcommon.h
 new file mode 100644
-index 000000000..f5ee7a2d0
+index 000000000..7a7d7cd93
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommon.h
-@@ -0,0 +1,1129 @@
+@@ -0,0 +1,1141 @@
 +#ifndef _BOTCOMMON_H
 +#define _BOTCOMMON_H
 +
@@ -53838,15 +53922,27 @@ index 000000000..f5ee7a2d0
 +    CREATURE_ULDUAR_SIEGE_ENGINE        = 33060,
 +    CREATURE_ULDUAR_CHOPPER             = 33062,
 +    CREATURE_ULDUAR_CHOPPER1            = 34045,
-+    CREATURE_ICC_BONE_SPIKE1            = 36619,
++    CREATURE_ICC_BONE_SPIKE1            = 36619, // Icecrown Citadel
 +    CREATURE_ICC_BONE_SPIKE2            = 38712,
 +    CREATURE_ICC_BONE_SPIKE3            = 38711,
++    CREATURE_ICC_SINDRAGOSA1            = 36853,
++    CREATURE_ICC_SINDRAGOSA2            = 38265,
++    CREATURE_ICC_SINDRAGOSA3            = 38266,
++    CREATURE_ICC_SINDRAGOSA4            = 38267,
++    CREATURE_ICC_ICE_TOMB1              = 36980,
++    CREATURE_ICC_ICE_TOMB2              = 38320,
++    CREATURE_ICC_ICE_TOMB3              = 38321,
++    CREATURE_ICC_ICE_TOMB4              = 38322,
 +    CREATURE_ICC_GUNSHIPCANNON_ALLIANCE = 36838,
 +    CREATURE_ICC_GUNSHIPCANNON_HORDE    = 36839,
-+    CREATURE_ICC_ABOMINATION_10_N       = 38285,
-+    CREATURE_ICC_ABOMINATION_25_N       = 38788,
-+    CREATURE_ICC_ABOMINATION_10_H       = 38789,
-+    CREATURE_ICC_ABOMINATION_25_H       = 38790,
++    CREATURE_ICC_MUTATED_ABOMINATION1   = 38285,
++    CREATURE_ICC_MUTATED_ABOMINATION2   = 38788,
++    CREATURE_ICC_MUTATED_ABOMINATION3   = 38789,
++    CREATURE_ICC_MUTATED_ABOMINATION4   = 38790,
++    CREATURE_ICC_MUTATED_ABOMINATION5   = 37672,
++    CREATURE_ICC_MUTATED_ABOMINATION6   = 38605,
++    CREATURE_ICC_MUTATED_ABOMINATION7   = 38786,
++    CREATURE_ICC_MUTATED_ABOMINATION8   = 38787,
 +//COMMON ENEMY CREATURES
 +    CREATURE_BOSS_EREGOS_N              = 27656,
 +    CREATURE_BOSS_EREGOS_H              = 31561,
