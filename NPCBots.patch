@@ -45,13 +45,14 @@
  sql/Bots/updates/world/2022_01_02_03_npc_text.sql  |    15 +
  sql/Bots/updates/world/2022_01_31_npc_text.sql     |    10 +
  ...22_06_15_00_creature_template_npcbot_extras.sql |     2 +
+ sql/Bots/updates/world/2022_06_17_npc_text.sql     |     3 +
  src/common/Utilities/EventProcessor.h              |     1 +
  .../Database/Implementation/CharacterDatabase.cpp  |    18 +
  .../Database/Implementation/CharacterDatabase.h    |    14 +
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1354 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 17390 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 17446 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   687 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   406 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   941 +
@@ -71,7 +72,7 @@
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  2084 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2258 +++
  src/server/game/AI/NpcBots/botcommands.cpp         |  1647 ++
- src/server/game/AI/NpcBots/botcommon.h             |  1141 ++
+ src/server/game/AI/NpcBots/botcommon.h             |  1153 ++
  src/server/game/AI/NpcBots/botdatamgr.cpp          |   522 +
  src/server/game/AI/NpcBots/botdatamgr.h            |   135 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   133 +
@@ -158,7 +159,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   275 +
- 160 files changed, 66704 insertions(+), 75 deletions(-)
+ 161 files changed, 66775 insertions(+), 75 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -204,6 +205,7 @@
  create mode 100644 sql/Bots/updates/world/2022_01_02_03_npc_text.sql
  create mode 100644 sql/Bots/updates/world/2022_01_31_npc_text.sql
  create mode 100644 sql/Bots/updates/world/2022_06_15_00_creature_template_npcbot_extras.sql
+ create mode 100644 sql/Bots/updates/world/2022_06_17_npc_text.sql
  create mode 100644 src/server/game/AI/NpcBots/bot_Events.h
  create mode 100644 src/server/game/AI/NpcBots/bot_GridNotifiers.h
  create mode 100644 src/server/game/AI/NpcBots/bot_ai.cpp
@@ -4245,6 +4247,15 @@ index 000000000..12b9362cc
 @@ -0,0 +1,2 @@
 +-- Maldryn race fix
 +UPDATE `creature_template_npcbot_extras` SET `race`='4' WHERE (`entry`='70413');
+diff --git a/sql/Bots/updates/world/2022_06_17_npc_text.sql b/sql/Bots/updates/world/2022_06_17_npc_text.sql
+new file mode 100644
+index 000000000..4e8ebf0b9
+--- /dev/null
++++ b/sql/Bots/updates/world/2022_06_17_npc_text.sql
+@@ -0,0 +1,3 @@
++--
++
++UPDATE `npc_text` SET `text0_0`='|cff9900ccObsidian Destroyer|r$b|cffdd6600-=Warcraft III tribute=-|r$B$B\"An obsidian winged monstrocity with insatiable hunger for magic\".$B$BHigh armor, very high resistances, partially immune to magic, loses mana over time and doesn\'t benefit from passive mana regeneration effects, mail/plate armor, dual-wielding wands, deals spellshadow damage, no physical attack, cannot attack enemies not in front while moving, spell power bonus: 50% attack power + 200% intellect + wands damage.$B$BDevour Magic. Dispels up to 2 magic effects from enemies, up to 2 magic effects and up to 2 curses from allies and damaging summoned units in 20 yards area. Every dispelled effect restores 20% mana and 5% health, 7 seconds cooldown.$B$BShadow Blast. Empowered attack that deals increased splash damage.$B$BDrain Mana. Drains all mana (limited by caster\'s mana pool) from a random friendly unit.$B$BReplenish Mana. Energizes surrounding party and raid members within 25 yards for 3% of their maximum mana nullifying caster\'s mana, 3 seconds cooldown.$B$BRegenerating Aura. Heals surrounding party and raid members within 25 yards for 3% of their maximum health nullifying caster\'s mana, 3 seconds cooldown.$B$BShadow Armor (passive). Restores mana equal to a percentage of damage taken.$B$B' WHERE (`ID`='70102');
 diff --git a/src/common/Utilities/EventProcessor.h b/src/common/Utilities/EventProcessor.h
 index 2bf682165..0b8261ec0 100644
 --- a/src/common/Utilities/EventProcessor.h
@@ -5746,10 +5757,10 @@ index 000000000..16f7ee941
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..2ec3983a2
+index 000000000..51b188b6b
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,17390 @@
+@@ -0,0 +1,17446 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -9335,6 +9346,7 @@ index 000000000..2ec3983a2
 +    {
 +        static constexpr std::array WMOAreaGroupMarrowgar = { 47833u }; // The Spire
 +        static constexpr std::array WMOAreaGroupSindragosa = { 48066u }; // Frost Queen's Lair
++        static constexpr std::array WMOAreaGroupLichKing = { 50038u, 50040u }; // The Frozen Throne
 +
 +        static auto isInWMOArea = [=](auto const& ids) {
 +            for (auto wmoId : ids) {
@@ -9345,10 +9357,7 @@ index 000000000..2ec3983a2
 +        };
 +
 +        // Icecrown Citadel - Lord Marrowgar
-+        if (me->GetMapId() == 631 && isInWMOArea(WMOAreaGroupMarrowgar) && me->IsInCombat() && HasRole(BOT_ROLE_DPS) &&
-+            (!IsTank() || (!mytar && !me->IsInCombat())) &&
-+            (!mytar || (mytar->GetEntry() != CREATURE_ICC_BONE_SPIKE1 && mytar->GetEntry() != CREATURE_ICC_BONE_SPIKE2 &&
-+            mytar->GetEntry() != CREATURE_ICC_BONE_SPIKE3)))
++        if (me->GetMapId() == 631 && isInWMOArea(WMOAreaGroupMarrowgar) && me->IsInCombat() && HasRole(BOT_ROLE_DPS) && !IsTank())
 +        {
 +            static constexpr std::array BoneSpikeIds = { CREATURE_ICC_BONE_SPIKE1, CREATURE_ICC_BONE_SPIKE2, CREATURE_ICC_BONE_SPIKE3 };
 +
@@ -9374,7 +9383,7 @@ index 000000000..2ec3983a2
 +            if (Creature* spike = cList.empty() ? nullptr : cList.size() == 1 ? cList.front() :
 +                Trinity::Containers::SelectRandomContainerElement(cList))
 +            {
-+                // Bone spike is always attackable - no additional checks needed
++                // Bone Spike is always attackable - no additional checks needed
 +                return spike;
 +            }
 +        }
@@ -9450,6 +9459,49 @@ index 000000000..2ec3983a2
 +                    }
 +                }
 +            }
++        }
++
++        // Icecrown Citadel - The Lich King
++        if (me->GetMapId() == 631 && isInWMOArea(WMOAreaGroupLichKing) && me->IsInCombat() && HasRole(BOT_ROLE_DPS) && !IsTank())
++        {
++            static constexpr std::array IceSphereIds = { CREATURE_ICC_ICE_SPHERE1, CREATURE_ICC_ICE_SPHERE2, CREATURE_ICC_ICE_SPHERE3, CREATURE_ICC_ICE_SPHERE4 };
++            static constexpr std::array ValkyrShadowguardIds = { CREATURE_ICC_VALKYR_LK1, CREATURE_ICC_VALKYR_LK2, CREATURE_ICC_VALKYR_LK3, CREATURE_ICC_VALKYR_LK4 };
++
++            static auto valkyrCheck = [=](Unit const* unit) {
++                for (uint32 vsId : ValkyrShadowguardIds) {
++                    if (unit->IsAlive() && unit->GetEntry() == vsId && !unit->HasUnitFlag(UNIT_FLAG_UNINTERACTIBLE))
++                        return true;
++                }
++                return false;
++            };
++
++            Creature* valkyr = nullptr;
++            Trinity::CreatureSearcher searcher(me, valkyr, valkyrCheck);
++            Cell::VisitAllObjects(me, searcher, 50.f);
++
++            if (valkyr)
++                return valkyr;
++
++            Unit const* usearcher = master->IsAlive() ? master->ToUnit() : me->ToUnit();
++            auto iceSphereCheck = [=, mydist = 30.f](Unit const* unit) mutable {
++                for (uint32 isId : IceSphereIds) {
++                    if (unit->IsAlive() && unit->GetEntry() == isId) {
++                        float dist = usearcher->GetDistance2d(unit);
++                        if (dist < mydist && (HasRole(BOT_ROLE_RANGED) || dist < 7.f)) {
++                            mydist = dist;
++                            return true;
++                        }
++                    }
++                }
++                return false;
++            };
++
++            Creature* sphere = nullptr;
++            Trinity::CreatureLastSearcher searcher2(usearcher, sphere, iceSphereCheck);
++            Cell::VisitAllObjects(usearcher, searcher2, 30.f);
++
++            if (sphere)
++                return sphere;
 +        }
 +    }
 +
@@ -10030,7 +10082,7 @@ index 000000000..2ec3983a2
 +    if (unit->GetMapId() == 616 && unit->GetVehicle())
 +    {
 +        std::list<Creature*> cList;
-+        Trinity::AllCreaturesOfEntryInRange check2(unit->GetVehicleBase(), 30592, 60.f); //Static Field
++        Trinity::AllCreaturesOfEntryInRange check2(unit->GetVehicleBase(), CREATURE_EOE_STATIC_FIELD, 60.f);
 +        Trinity::CreatureListSearcher<Trinity::AllCreaturesOfEntryInRange> searcher2(unit->GetVehicleBase(), cList, check2);
 +        //unit->GetVehicleBase()->VisitNearbyObject(60.f, searcher2);
 +        Cell::VisitAllObjects(unit->GetVehicleBase(), searcher2, 60.f);
@@ -10046,7 +10098,7 @@ index 000000000..2ec3983a2
 +    else if (unit->GetMapId() == 568)
 +    {
 +        std::list<Creature*> cList;
-+        Trinity::AllCreaturesOfEntryInRange check2(unit, 23920, 40.f); //Fire Bomb (Zul'Aman)
++        Trinity::AllCreaturesOfEntryInRange check2(unit, CREATURE_ZA_FIRE_BOMB, 40.f);
 +        Trinity::CreatureListSearcher<Trinity::AllCreaturesOfEntryInRange> searcher2(unit, cList, check2);
 +        //unit->VisitNearbyObject(40.f, searcher2);
 +        Cell::VisitAllObjects(unit, searcher2, 40.f);
@@ -10055,6 +10107,21 @@ index 000000000..2ec3983a2
 +        for (std::list<Creature*>::const_iterator ci = cList.begin(); ci != cList.end(); ++ci)
 +        {
 +            float radius = spellInfo->_effects[0].CalcRadius() + DEFAULT_PLAYER_COMBAT_REACH * 1.2f;
++            spots.push_back(AoeSpotsVec::value_type(*(*ci), radius));
++        }
++    }
++    //Icecrown Citadel
++    else if (unit->GetMapId() == 631)
++    {
++        std::list<Creature*> cList;
++        Trinity::AllCreaturesOfEntryInRange check2(unit, CREATURE_ICC_OOZE_PUDDLE, 50.f);
++        Trinity::CreatureListSearcher<Trinity::AllCreaturesOfEntryInRange> searcher2(unit, cList, check2);
++        //unit->VisitNearbyObject(50.f, searcher2);
++        Cell::VisitAllObjects(unit, searcher2, 50.f);
++
++        for (std::list<Creature*>::const_iterator ci = cList.begin(); ci != cList.end(); ++ci)
++        {
++            float radius = (*ci)->GetObjectScale() * 2.5f + DEFAULT_PLAYER_COMBAT_REACH * 3.f; //grows
 +            spots.push_back(AoeSpotsVec::value_type(*(*ci), radius));
 +        }
 +    }
@@ -10070,10 +10137,10 @@ index 000000000..2ec3983a2
 +        float angledelta = float(M_PI) / 20.f;
 +        float aoedist = 0.f;
 +        float aoeangle;
-+        for (uint8 i = 0; i < 5; ++i)
++        for (uint8 i = 0; i < 8; ++i)
 +        {
 +            aoeangle = 0.0f;
-+            for (uint8 j = 0; j < 40; ++j)
++            for (uint8 j = 0; j < 25; ++j)
 +            {
 +                aoedist += distdelta;
 +                aoeangle += angledelta;
@@ -22442,7 +22509,7 @@ index 000000000..2ec3983a2
 +    sinfo->CastTimeEntry = nullptr;//sSpellCastTimesStore.LookupEntry(2); //250ms
 +    sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW | SPELL_SCHOOL_MASK_ARCANE;
 +    sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
-+    sinfo->MaxAffectedTargets = 10;
++    sinfo->MaxAffectedTargets = 100;
 +    sinfo->Attributes |= SPELL_ATTR0_ABILITY | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE | SPELL_ATTR0_IS_REPLENISHMENT | SPELL_ATTR0_HIDE_IN_COMBAT_LOG;
 +    sinfo->AttributesEx |= SPELL_ATTR1_DRAIN_ALL_POWER/* | SPELL_ATTR1_CANT_TARGET_SELF*/;
 +    sinfo->AttributesEx2 |= SPELL_ATTR2_CAN_TARGET_NOT_IN_LOS;
@@ -22452,7 +22519,7 @@ index 000000000..2ec3983a2
 +    sinfo->AttributesEx6 |= SPELL_ATTR6_CAN_TARGET_POSSESSED_FRIENDS;
 +
 +    sinfo->_effects[0].Effect = SPELL_EFFECT_TRIGGER_SPELL;
-+    sinfo->_effects[0].BasePoints = 2;
++    sinfo->_effects[0].BasePoints = 3;
 +    sinfo->_effects[0].DieSides = 0;
 +    sinfo->_effects[0].RealPointsPerLevel = 0.f;
 +    sinfo->_effects[0].ValueMultiplier = 0.f;
@@ -22476,7 +22543,7 @@ index 000000000..2ec3983a2
 +    sinfo->CastTimeEntry = nullptr;//sSpellCastTimesStore.LookupEntry(2); //250ms
 +    sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW | SPELL_SCHOOL_MASK_ARCANE;
 +    sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
-+    sinfo->MaxAffectedTargets = 10;
++    sinfo->MaxAffectedTargets = 100;
 +    sinfo->Attributes |= SPELL_ATTR0_ABILITY | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE | SPELL_ATTR0_IS_REPLENISHMENT | SPELL_ATTR0_HIDE_IN_COMBAT_LOG;
 +    sinfo->AttributesEx |= SPELL_ATTR1_DRAIN_ALL_POWER/* | SPELL_ATTR1_CANT_TARGET_SELF*/;
 +    sinfo->AttributesEx &= ~(SPELL_ATTR1_CANT_TARGET_SELF);
@@ -53334,10 +53401,10 @@ index 000000000..82d82246e
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommon.h b/src/server/game/AI/NpcBots/botcommon.h
 new file mode 100644
-index 000000000..7a7d7cd93
+index 000000000..9f0f359ac
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommon.h
-@@ -0,0 +1,1141 @@
+@@ -0,0 +1,1153 @@
 +#ifndef _BOTCOMMON_H
 +#define _BOTCOMMON_H
 +
@@ -53925,14 +53992,6 @@ index 000000000..7a7d7cd93
 +    CREATURE_ICC_BONE_SPIKE1            = 36619, // Icecrown Citadel
 +    CREATURE_ICC_BONE_SPIKE2            = 38712,
 +    CREATURE_ICC_BONE_SPIKE3            = 38711,
-+    CREATURE_ICC_SINDRAGOSA1            = 36853,
-+    CREATURE_ICC_SINDRAGOSA2            = 38265,
-+    CREATURE_ICC_SINDRAGOSA3            = 38266,
-+    CREATURE_ICC_SINDRAGOSA4            = 38267,
-+    CREATURE_ICC_ICE_TOMB1              = 36980,
-+    CREATURE_ICC_ICE_TOMB2              = 38320,
-+    CREATURE_ICC_ICE_TOMB3              = 38321,
-+    CREATURE_ICC_ICE_TOMB4              = 38322,
 +    CREATURE_ICC_GUNSHIPCANNON_ALLIANCE = 36838,
 +    CREATURE_ICC_GUNSHIPCANNON_HORDE    = 36839,
 +    CREATURE_ICC_MUTATED_ABOMINATION1   = 38285,
@@ -53943,9 +54002,29 @@ index 000000000..7a7d7cd93
 +    CREATURE_ICC_MUTATED_ABOMINATION6   = 38605,
 +    CREATURE_ICC_MUTATED_ABOMINATION7   = 38786,
 +    CREATURE_ICC_MUTATED_ABOMINATION8   = 38787,
++//COMMON AOE TRIGGERS
++    CREATURE_ZA_FIRE_BOMB               = 23920,
++    CREATURE_EOE_STATIC_FIELD           = 30592,
++    CREATURE_ICC_OOZE_PUDDLE            = 37690,
 +//COMMON ENEMY CREATURES
 +    CREATURE_BOSS_EREGOS_N              = 27656,
 +    CREATURE_BOSS_EREGOS_H              = 31561,
++    CREATURE_ICC_SINDRAGOSA1            = 36853,
++    CREATURE_ICC_SINDRAGOSA2            = 38265,
++    CREATURE_ICC_SINDRAGOSA3            = 38266,
++    CREATURE_ICC_SINDRAGOSA4            = 38267,
++    CREATURE_ICC_ICE_TOMB1              = 36980,
++    CREATURE_ICC_ICE_TOMB2              = 38320,
++    CREATURE_ICC_ICE_TOMB3              = 38321,
++    CREATURE_ICC_ICE_TOMB4              = 38322,
++    CREATURE_ICC_VALKYR_LK1             = 36609,
++    CREATURE_ICC_VALKYR_LK2             = 39120,
++    CREATURE_ICC_VALKYR_LK3             = 39121,
++    CREATURE_ICC_VALKYR_LK4             = 39122,
++    CREATURE_ICC_ICE_SPHERE1            = 36633,
++    CREATURE_ICC_ICE_SPHERE2            = 39305,
++    CREATURE_ICC_ICE_SPHERE3            = 39306,
++    CREATURE_ICC_ICE_SPHERE4            = 39307,
 +//COMMON NPCS
 +    SHAMAN_EARTH_ELEMENTAL              = 15352,
 +    SHAMAN_FIRE_ELEMENTAL               = 15438,
