@@ -6,7 +6,7 @@
 
 # [ THE NPCBOTS MANUAL ]
 >Compiled by: Trickerer (onlysuffering @ Gmail dot Com)  
->Version 0.16 - 02 Jan 2022  
+>Version 0.17 - 18 Jun 2022  
 >Original version by: Thesawolf (@ Gmail dot Com) Version 0.3 - 20 July 2016 [here](https://github.com/thesawolf/TrinityCore/blob/TrinityCoreLegacy/README_Bots.md)
 
 ---------------------------------------
@@ -99,7 +99,7 @@ characters_bots.sql
 ```
 7. Apply SQL update files from `/TrinityCore/sql/Bots/updates` to your DB  
 ```
-Hint: for fresh installation there are also shell scripts available for you to quickly merge all required SQL files into `ALL_chracters.sql` and `ALL_world.sql` to go to `characters` and `world` DB respectively
+Hint: for fresh installation there are also shell scripts available for you to quickly merge all required SQL files into `ALL_auth.sql`, `ALL_chracters.sql` and `ALL_world.sql` to go to `auth`, `characters` and `world` DB respectively
 ```
 And after that you are ready to go
 
@@ -143,13 +143,13 @@ _TARGET_ indicates that command is used on a selected unit
         - `.npcb sp [Haromm]` (spawn NPCBot by link)  
 - **`spawned`** -- (GM command) Lists all spawned bots in the world, their location and quick status  
     **Example Usage**:  
-        - `.npcbot spawned` (spawns NPCBot with ID 70001)  
+        - `.npcbot spawned`  
 - **`move <ENTRY|LINK|_TARGET_>`** -- (GM command) moves spawned NPCBot to a new location. This command replaces `.npc move` command for bots  
     - <ENTRY> = ID of NPCBot  
     - <LINK> = creature_template link added by Shift-click (obtained from lookup list)  
     - _TARGET_ = selected NPCBot  
     **Example Usage**:  
-        - `.npcbot move 70001` (spawns NPCBot with ID 70001)  
+        - `.npcbot move 70001` (moves NPCBot with ID 70001 to your position)  
 - **`delete _TARGET_`** -- (GM command) deletes NPCBot from world, NPCBot is removed from owner if any and deleted from DB  
     - _TARGET_ = selected NPCBot  
     **Example Usage**:  
@@ -220,7 +220,7 @@ _TARGET_ indicates that command is used on a selected unit
     - _TARGET_ = self (move all NPCBots)  
     **Example Usage:**  
         - `.npcbot recall`  
-- **`kill`|`suicide`** -- (Player command) forces a NPCBot to die. Designed for troubleshooting in situations like when NPCBots are not acting normally. This can be caused by a rare bug causing creatures to retain Unit States  
+- **`kill`|`suicide`** -- (Player command) forces a NPCBot to die. Designed for troubleshooting in situations like when NPCBots are not acting normally. This can be caused by a rare bug causing creatures to retain Unit States. If this doesn't work, try to `/tickle` them  
     - _TARGET_ = selected NPCBot (kill single NPCBot troublemaker)  
     - _TARGET_ = self (kill all your NPCBots)  
     **Example Usage:**  
@@ -432,7 +432,7 @@ As you can see, you can gear up pretty much every slot on your NPCBot
 #### NPCBot Roles
 NPCBot Role management allows you to adjust how they operate overall. The available options are dependent upon the class of the NPCBot you are controlling
 
-To adjust the NPCBot's roles, you need to right-click that NPCBot and choose `_Manage roles..._` from their Gossip Menu. You should then see (dependent upon the class):
+To adjust the NPCBot's roles, you need to right-click that NPCBot and choose `Manage roles...` from their Gossip Menu. You should then see (dependent upon the class):
 ```
 - Gathering...
 - Looting...
@@ -447,36 +447,37 @@ Clicking on the respective Role will toggle it on/off (changing the icon)
 
 The roles can be a little tricky to understand:
 
-- "Tanking" role only means that NPCBots will try to produce as much threat as possible, use taunt-like abilities to reaggro targets attacking friends and use defensive cooldowns more liberally. This does NOT include attacking anything. Also, if NPCBot has no tanking abilities this role will do nothing
+- "Tanking" role means that NPCBots will try to produce as much threat as possible, use taunt-like abilities to reaggro targets attacking friends and use defensive cooldowns more liberally. This does NOT include attacking anything. "Tanking" bots with no "Off-Tanking" enabled are considered Main Tanks and will always stay on targets pointed by `TankTargetIconMask` (see [Config Settings](#npcbot-config-settings))
 
-- "Off-Tanking" role makes tanking NPCBots to prioritize targets pointed by `OffTankTargetIconMask` (see [Config Settings](#npcbot-config-settings))
+- "Off-Tanking" is an addition to "Tanking" role and makes tanking NPCBots prioritize targets pointed by `OffTankTargetIconMask`
 
 - "DPS" role allows NPCBots to actually deal damage. If this role is disabled NPCBot will not use damaging abilities, not even auto-attack
 
-- "Heal" is the what your healer needs to be enabled. If this role is disabled NPCBots will not even try to heal anything, not even themselves. No, not even in a face of certain death
+- "Heal" is what your healers need to have enabled. If this role is disabled NPCBots will not even try to heal anything, not even themselves. No, not even in a face of certain death
 
-- "Ranged" role only affects NPCBots' postioning, the distance they will keep from their attack target.
+- "Ranged" role affects NPCBots' positioning and the distance they will keep from their attack target. Ranged DPS non-tanking bots will always attack target pointed by `RangedDPSTargetIconMask`
 _Example_: Warrior having Tanking + DPS + Ranged role enabled will constantly try to taunt the target and run away, only attacking if target catches up
 
 It's recommended to only enable 1 or 2 specific roles for that class to minimize them switching tactics around alot. The only exception is Priest which can handle DPS, Heal and Ranged roles just fine (they will preserve some mana for healing and resort to wand)
 
-Gathering roles allows NPCBots to collect different ores, herbs, leather and other trade goods. It does NOT allow to track those goods so good luck with that. It also does NOT allow bots to craft anything. NPCBots have their skill assigned according to their level so level 1 NPCBot for example will not be able to mine Mithril
+`Gathering...` roles allows NPCBots to collect different ores, herbs, leather and other trade goods. It does NOT allow to track those goods so good luck with that. It also does NOT allow bots to craft anything. NPCBots have their skill assigned according to their level so level 1 NPCBot for example will not be able to mine Mithril
 
-Looting roles allows NPCBots to automatically and quickly collect items from nearby lootable creatures for you and other players in your group. Make sure to chose loot method, quality threshold in your group and looting setting for your looter bot.
+`Looting...` roles allows NPCBots to automatically and quickly collect items from nearby lootable creatures for you and other players in your group. Make sure to chose loot method, quality threshold in your group and looting setting for your looter bot.
 
 #### NPCBot Formation
 Some times you just want your NPCBot close.. or as far away as possible. The formation option allows you to adjust your NPCBot's distance from you.
 
-Select `_Manage formation..._` from their Gossip Menu to adjust the formation. You will see:
+Select `Manage formation...` from their Gossip Menu to adjust the formation. You will see:
 ```
 - Follow distance (current: XX)
-- Attack distance...
 - BACK
+- Attack distance...
+- Attack angle...
 ```
-NOTE: you will only see "_Attack distance..._" if NPCBot has "Ranged" role assigned
-Selecting "_Follow distance_" will open up a popup window that you can enter in an amount. This amount can be anywhere from **0** to **100**. Setting any higher than **100** will default to **100** and any lower than **0** to **0**. Setting the distance to **0** will result in the NPCBot PASSIVELY following you rather closely and not engaging mobs unless you attack
+NOTE: you will only see `Attack distance...` if NPCBot has `Ranged` role assigned
+Selecting `Follow distance` will open up a popup window that you can enter in an amount. This amount can be anywhere from **0** to **100**. Setting any higher than **100** will default to **100** and any lower than **0** to **0**. Setting the distance to **0** will result in the NPCBot PASSIVELY following you rather closely and not engaging mobs unless you attack
 
-Selecting `_Attack distance..._` will allow you to set ranged attack distance. You will see:
+Selecting `Attack distance...` will allow you to set ranged attack distance. You will see:
 ```
 - Short range attacks
 - Long range attacks
@@ -487,12 +488,12 @@ NOTE: if "Exact" mode is set, its text will change to
 ```
 - Exact (current: XX)
 ```
-Short range are attacks that are the shortest distance of all ranged attacks for NPCBot's class. For example for paladins it is 10 yards (Judgement range) and for Mages it is 20 yards (Fire Blast range)
-Long range attacks are the opposit of short range ones. For most classes this range is about 30-35 yards. This mode is useful when attacking something very dangerous to stand close to
-Selecting "_Exact_" will open up a popup window that you can enter in an amount. This amount can be anywhere from **0** to **50**. Same rules as for follow distance.
-NOTE: setting exact attack distance to **0** will make NPCBots (and their pets) trying to position themselves on top of their target (ingoring model size)
+Short range are attacks that are the shortest distance of all ranged attacks for NPCBot's class. For example for paladins it is 10 yards (Judgement range) and for Mages it is 20 yards (Fire Blast range)  
+Long range attacks are the opposit of short range ones. For most classes this range is about 30-35 yards. This mode is useful when attacking something very dangerous to stand close to  
+Selecting `Exact` will open up a popup window that you can enter in an amount. This amount can be anywhere from **0** to **50**. Same rules as for follow distance  
+NOTE: setting exact attack distance to **0** will make NPCBots (and their pets) trying to position themselves on top of their target (ignoring model size)
 
-`_Attack angle..._` allows you to set ranged bots positioning mode. You will see:
+`Attack angle...` allows you to set ranged bots positioning mode. You will see:
 ```
 - Normal
 - Avoid frontal AOE
@@ -502,20 +503,19 @@ If you tell your NPCBots to avoid frontal AOE they will try to position themselv
 
 #### NPCBot Abilities
 NPCBots use most of real class spells. Some spells/abilities such as buffs, heals, remove curse/poison, etc. are available through an NPCBot's Abilities menu. Level restrictions apply to NPCBots too, for example Warlock will not be able to use Fear until level 8  
-Selecting `_Manage abilities..._` from the Gossip menu will give you a listing of spells/abilities that they can cast on you or for you. The "Update" option will refresh the spell listing as some spell may be cooled at the moment  
-If spell is not listed this doesn't mean NPCBot does not have the spell, probably you just cannot use it manually.  
+Selecting `Manage abilities...` from the Gossip menu will give you a listing of spells/abilities that they can cast on you or for you. The "Update" option will refresh the spell listing as some spell may be cooled at the moment  
+If spell is not listed this doesn't mean NPCBot does not have the spell, probably you just cannot use it manually  
 NPCBots' abilities check algorithm includes finding missing buffs, friends to heal, restocking on consumables (like healthstones), class enchants (Rogue, Shaman), utilities (like using Sprint if falling far behind), spells for party and self, self-heals, finding crowd control targets and finally, attack abilities
 
-Using `_Manage allowed abilities..._` submenu you can make bots not use some of their spells. Disabled spells list is saved in DB
+Using `Manage allowed abilities...` submenu you can make bots not use some of their spells. Disabled spells list is saved in DB
 
 #### NPCBot Talents
 NPCBots don't use normal talent pick choice system. Instead, main talent tree is used (according to a spec) while also picking vital talents from other two trees up to tier 3 (available to players of the same spec).  
-Select `_Manage talents..._` from the Gossip menu to chose a spec. Bot will activate it and continue to progress with chosen spec as you level up. This action has no cooldown
+Select `Manage talents...` from the Gossip menu to chose a spec. Bot will activate it and continue to progress with chosen spec as you level up. This action has no cooldown
 
 #### NPCBot Grouping
-Although NPCBots will follow their owner around grouped or ungrouped and will usually buff people outside their groups, selecting the ___<Create Group>___ (___<Create Group (all bots)>___) option will have them join your group and properly utilize group buffs for everyone in the group
-
-Grouping is required to properly utilize the DungeonFinder (as you cannot summon NPCBots in or into instances that are ungrouped)
+Although NPCBots will follow their owner around grouped or ungrouped and will usually buff people outside their groups, creating group will make NPCBots properly utilize buffs reserved for group members only  
+Grouping is also required to properly utilize the DungeonFinder (as you cannot summon NPCBots in or into instances that are ungrouped)
 
 >**NOTES**: There is a known issue where if you are in a group and get disconnected or kicked that the NPCBot(s) will remain in a group with their owner (thus showing up in both groups). The main group needs to kick the NPCBots from the group to be able to invite the owner of the NPCBots. This is the only workaround for that issue, at the moment
 
@@ -538,11 +538,13 @@ Ruby Drake (Oculus)
 Emerald Drake (Oculus)
 Amber Drake (Oculus)
 Argent Warhorse / Battleworg (Trial of the Champion)
+Alliance / Horde Gunship Cannon (Icecrown Citadel Gunship Battle)
+Mutated Abomination (Icecrown Citadel Professor Putricide, bots will never use)
 ```
 Note: NPCBots do not dismount from vehicles automatically while in combat. Use `.npcbot vehicle eject` command to force them out of their vehicles.
 
 #### NPCBot Extras
-Depending upon the class of the NPCBot, there may be extra options found in the Gossip menu for that NPCBot
+Depending on NPCBot's class, there may be extra options found in the Gossip menu for that NPCBot
 
 For example, Rogue NPCBots will present the options:
 ```
@@ -552,7 +554,7 @@ For example, Rogue NPCBots will present the options:
 - <Choose poison (Offhand)>
 ```
 Lockpicks allow you to open locked chests in the world and locked items in your inventory. The skill level (XX) is based on NPCBot's level  
-Poisons can be chosen for the expected encounters. You'll have to tell your NPCBot to refresh the poisons when you done
+Poisons can be chosen for the expected encounters. You'll have to tell your NPCBot to refresh the poisons when you are done
 
 Shaman NPCBots have similar menu for their weapon enchants
 
@@ -570,7 +572,7 @@ Warlock NPCBots will present the options:
 - I need your healthstone
 - I need a soulwell
 ```
-These options will summon a healthstone for you  
+First option will make that Warlock give you their healthstone  
 If your level is high enough, the warlock NPCBot can summon a soulwell  
 Level restrictions are applied here, too
 
@@ -579,18 +581,18 @@ Hunter and Warlock NPCBots (once they reach level 10) also have pet submenu:
 - <Choose pet type>
 ```
 You are still aware of level restrictions, right?  
-Because they don't quite apply to Hunter. He can summon any pet type but exotic pets are only unlocked at 80
+Because they don't quite apply to Hunter. He can summon any pet type, yet exotic pets are only unlocked at 80
 
 Lastly, all NPCBots will have the following extra options:
 ```
 - You are dismissed
 - Nevermind
 ```
-`_You are dismissed_` will remove the NPCBot from your control. They will become pissed off, throw all their gear at you and return back to their spawn location. They will also become enraged for 5 minutes to the point of starting attacking anyone attempting to hire them
-`_Nevermind_` will simply close out the Gossip menu
+`You are dismissed` will remove the NPCBot from your control. They will become pissed off, throw all their gear at you and return back to their spawn location. They will also become enraged for 5 minutes to the point where they will attack anyone attempting to hire them  
+`Nevermind` will simply close out the Gossip menu
 
 ### NPCBot Config Settings
-If some config settings look ambiguous to you, this section may help you
+If some config settings look ambiguous this section may be of help to you
 
 - **`NpcBot.BaseFollowDistance`**
     - This parameter determines formation size and enemy chase cutoff distance
@@ -600,25 +602,30 @@ If some config settings look ambiguous to you, this section may help you
 - **`NpcBot.XpReduction`**
     - This parameter allows you to set XP gain percent penalty for players using bots during leveling
     - Value range: **0-90**  
-    Explanation. XP amount is reduced by a percentage for every used bot after first one (it doesn't matter if bots are in group with you or not). Two bots are able to do much more damage than one player, especially on low levels. Bots also open great potential for grind. So you may want to punish your players a little. The formula is: **(100 - X \* (Y - 1))%** XP gained, where **X** is XP reduction and **Y** is bots count. *Example: XP reduction is 10, bots count = 4; XP gained: 100 - 10 * (4 - 1) = 70% XP gained*. In any case, overall XP reduction from this parameter will never exceed 90%
+    Explanation. XP amount is reduced by a percentage for every used bot after first one (it doesn't matter if bots are in group with you or not). Two bots are able to do much more damage than one player, especially on low levels. Bots also open great potential for grind. So you may want to punish your players a little. The formula is: **(100 - X \* (Y - 1))%** XP gained, where **X** is XP reduction and **Y** is bots count. *Example: XP reduction is 10, bots count = 4; XP gained: 100 - 10 * (4 - 1) = 70% XP gained*. In any case, overall XP reduction from this parameter will never exceed 90%. **This penalty only applies to bots' owner**
 - **`NpcBot.HealTargetIconsMask`**
     - This parameter allows players to mark units not under player's control as friends using Target Icons  
-    Explanation. Sometimes you need to protect targets other that yourself, escort quests are a good example. With this parameter activated players can set *Raid Icon* on a target they want bots to care about. Bots will treat said target as a member of player's party, heal it if needed and assist it in combat. Parameter itself is a bit mask and consists of a combination of values assigned to each target icon: **Star - 1, Circle - 2, Diamond - 4, Triangle - 8, Moon - 16, Square - 32, Cross - 64, Skull - 128**. *Example: Star, Diamond and Triangle = 1 + 4 + 8 = 13*
+    Explanation. Sometimes you need to protect targets other than yourself, escort quests are a good example. With this parameter activated players can set *Raid Icon* on a target they want bots to care about. Bots will treat said target as a member of player's party, heal it if needed and assist it in combat. Parameter itself is a bit mask and consists of a combination of values assigned to each target icon: **Star - 1, Circle - 2, Diamond - 4, Triangle - 8, Moon - 16, Square - 32, Cross - 64, Skull - 128**. *Example: Star, Diamond and Triangle = 1 + 4 + 8 = 13*
+- **`NpcBot.TankTargetIconsMask`**
+    - This parameter is similar to `NpcBot.HealTargetIconsMask`, but this one marks targets for your NPCBot main tanks
+    - Your main tanks **will not stop attacking pointed target** until it's dead or icon is unset
 - **`NpcBot.OffTankTargetIconsMask`**
-    - This parameter is similar to `NpcBot.HealTargetIconsMask`, but this one marks targets for your NPCBot off-tanks
-    - Icon priority: targets in combat first, from *Skull* (highest) to *Star* (lowest)
+    - This parameter is similar to `NpcBot.TankTargetIconsMask`**, but this one marks targets for your NPCBot off-tanks
     - Your off-tanks **will not stop attacking pointed target** until it's dead or icon is unset
 - **`NpcBot.DPSTargetIconsMask`**
-    - Same as `NpcBot.OffTankTargetIconsMask`, but this one affects your damage dealers and main tank(s) with the same rules
+    - Same as `NpcBot.TankTargetIconsMask`, but this one affects your damage dealers, and (off-)tanks with DPS role enabled without pointed tanking target, with the same rules
 - **`NpcBot.RangedDPSTargetIconsMask`**
     - Same as `NpcBot.DPSTargetIconsMask` but this one is higher priority for ranged NPCBots
 - **`NpcBot.NoDPSTargetIconMask`**
     - NPCBots will try to not damage these targets
+- **`Heal / Tank / DPS _TargetIconsMask` priorities**
+    - For every pointed target type priority goes from *Skull* (highest) to *Star* (lowest)
 - **`Heal / Tank / DPS _TargetIconsMask` intersections**
     - If there are any bitmask intersections between target icons (simply put, same icon is used, on accident or otherwise), these rules are applied:
-        - Target **will not be protected** by taunting or attacking the attackers
-        - Target **may still be healed** if can be healed
-        - Target **may still be attacked** if attackable and in combat
+        - Heal + DPS target **will not be protected** by taunting or attacking the attackers
+        - Heal + DPS target **may still be healed** if can be healed
+        - Heal + DPS target **may still be attacked** if attackable and in combat
+        - Heal + (Off-)Tank target **will still be tanked** if can be attacked
         - All DPS icons will be automatically excluded from **`NoDPSTargetIconMask`**
 - **`NpcBot.Cost`**
     - This parameter determines how much money player has to pay to hire a bot
@@ -676,8 +683,8 @@ Abilities:
 - Devour Magic. Dispels up to 2 magic effect from enemies, up to 2 magic effects and 2 curse effects from allies and damaging summoned units in 20 yards dest area, restoring caster's mana and health (20% mana and 5% health for every dispelled effect)
 - Shadow Blast. Empowered attack that deals increased splash damage to targets in a rather large area. Main target takes more damage than others
 - Drain Mana. Drains all mana from a random ***friendly*** unit. The amount drained is limited by Obsidian Destroyer's maximum mana. **This ability cannot be disabled**
-- Replenish Mana. Energizes surrounding party and raid members within 25 yards for 2% of their maximum mana, affecting up to 10 targets. *This ability drains all mana*
-- Replenish Health. Heals surrounding party and raid members within 25 yards for 3% of their maximum health, affecting up to 10 targets. *This ability drains all mana*
+- Replenish Mana. Energizes all surrounding party and raid members within 25 yards for 3% of their maximum mana. *This ability drains all mana*
+- Replenish Health. Heals all surrounding party and raid members within 25 yards for 3% of their maximum health. *This ability drains all mana*
 - Shadow Armor (passive). Restores mana equal to a percentage of damage taken. This ability only triggers when damage taken is enough to restore 10% of Obsidian Destroyer's mana  
 
 **Additional info:** Obsidian Destroyer in fact derives from a non-hero unit, but received elite status because of the ability to deal insane amounts of damage given the chance, support party of any kind, dispel, purge AND tank at the same time, utilizing abilities of original unit's both forms: statue form and true form  
@@ -804,6 +811,8 @@ Bots are being added to world at server loading (after Map System is started)
 ---------------------------------------
 ## Guide Changelog
 
+- **Version 0.17** (_18 Jun 2022_)
+    - Fixed numerous mistakes, added info on ICC vehicles
 - **Version 0.16** (_02 Jan 2022_)
     - Added info on necro
 - **Version 0.15** (_29 Mar 2021_)
