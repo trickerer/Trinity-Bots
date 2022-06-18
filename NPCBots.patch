@@ -52,7 +52,7 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1354 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 17446 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 17452 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   687 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   406 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   941 +
@@ -159,7 +159,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   275 +
- 161 files changed, 66775 insertions(+), 75 deletions(-)
+ 161 files changed, 66781 insertions(+), 75 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -5757,10 +5757,10 @@ index 000000000..16f7ee941
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..a1474012a
+index 000000000..cdf52d1e4
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,17446 @@
+@@ -0,0 +1,17452 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -10134,7 +10134,7 @@ index 000000000..a1474012a
 +        //find 200 safe spots
 +        Position ppos;
 +        float distdelta = maxdist / 200.f;
-+        float angledelta = float(M_PI) / 20.f;
++        float angledelta = float(M_PI) / 12.5f;
 +        float aoedist = 0.f;
 +        float aoeangle;
 +        for (uint8 i = 0; i < 8; ++i)
@@ -10362,18 +10362,24 @@ index 000000000..a1474012a
 +    if (!safespots.empty())
 +    {
 +        //find closest safe spot
-+        Position& optimalPos = safespots.front();
++        Position const* closestPos = nullptr;
++        Position const* optimalPos = nullptr;
 +        float mindist = 100.f;
-+        float curdist;
-+        for (std::vector<Position>::const_iterator ci = safespots.begin(); ci != safespots.end(); ++ci)
++        for (AoeSafeSpotsVec::const_iterator ci = safespots.begin(); ci != safespots.end(); ++ci)
 +        {
-+            curdist = ppos.GetExactDist2d(&(*ci));
++            float curdist = ppos.GetExactDist2d(*ci);
 +            if (curdist < mindist)
 +            {
-+                optimalPos = *ci;
++                closestPos = &(*ci);
++                if (HasRole(BOT_ROLE_RANGED) ?
++                    (target->GetDistance(*closestPos) - me->GetCombatReach()) < dist :
++                    target->IsWithinMeleeRangeAt(*closestPos, me))
++                    optimalPos = closestPos;
 +                mindist = curdist;
 +            }
 +        }
++        if (!optimalPos)
++            optimalPos = closestPos ? closestPos : me;
 +
 +        //TC_LOG_ERROR("scripts", "CalculateAttackPos %u safe spots, chosen at dist %.2f", uint32(safespots.size()), mindist);
 +        pos.Relocate(optimalPos);
