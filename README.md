@@ -1,12 +1,12 @@
 ### This mod was last updated:
-### 19 Jun 2022, [8f67409717](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/8f67409717)
+### 22 Jun 2022, [8fc43aa669](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/8fc43aa669)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 ### Make your support tangible: [Donate](https://paypal.me/trickerer)
 
 # [ THE NPCBOTS MANUAL ]
 >Compiled by: Trickerer (onlysuffering @ Gmail dot Com)  
->Version 0.17 - 18 Jun 2022  
+>Version 0.18 - 22 Jun 2022  
 >Original version by: Thesawolf (@ Gmail dot Com) Version 0.3 - 20 July 2016 [here](https://github.com/thesawolf/TrinityCore/blob/TrinityCoreLegacy/README_Bots.md)
 
 ---------------------------------------
@@ -615,7 +615,7 @@ If some config settings look ambiguous this section may be of help to you
 - **`NpcBot.DPSTargetIconsMask`**
     - Same as `NpcBot.TankTargetIconsMask`, but this one affects your damage dealers, and (off-)tanks with DPS role enabled without pointed tanking target, with the same rules
 - **`NpcBot.RangedDPSTargetIconsMask`**
-    - Same as `NpcBot.DPSTargetIconsMask` but this one is higher priority for ranged NPCBots
+    - Same as `NpcBot.DPSTargetIconsMask` but this one only affects your ranged NPCBots
 - **`NpcBot.NoDPSTargetIconMask`**
     - NPCBots will try to not damage these targets
 - **`Heal / Tank / DPS _TargetIconsMask` priorities**
@@ -782,6 +782,25 @@ Abilities:
 
 **Additional info:** Necromancer has some Diablo II spirit to it. Curses may come in the future. Necromancer is mainly a support class, he doesn't have any damaging abilities besides CE, but Skeletons combined with Unholy Frenzy can help quite a lot  
 
+#### Naga Sea Witch
+**Rank: Rareelite**  
+**Level Bonus: +3**  
+**Minimum player level: 1**  
+**Equipment affects visual: no**  
+**Number included: 5**  
+**Class specifics:** Spell damage taken reduced by 30%, attack power from stats: agility x2, parry bonus +25%, spellpower bonus: 200% intellect  
+Equippable weapon: daggers, bows  
+Equippable armor: cloth (no shield)  
+Abilities:
+
+- Forked Lightning. Calls forth a cone of lightning to damage enemies. Hits from 2 to all targets (depending on Sea Witch's level), stunning them for 2 seconds. This damage generates no threat  
+- Frost Arrows. Imbues arrow with spellfrost for extra damage, slowing target's movement, attack and casting speed by 30% to 70% (depending on Sea Witch's level)  
+- Mana Shield. Creates a shield that absorbs 100% incoming (non-mitigated) damage by using Sea Witch's mana. Absorbs 2 to 10 damage per point of mana (depending on Sea Witch's level)  
+- Tornado. Summons a fierce tornado that damages and slows nearby enemy units, sometimes incapacitating them completely. Tornado grows over time oudoors, increasing damage dealt and area of effect, but shrinks indoors, dissipating quickly. Unlocked at level 60
+- Naga (Passive). Swim speed increased by 200%, damage and dodge chance are greatly increased while in water
+
+**Additional info:** Sea Witch is a versatile ranged damage dealer. She is very durable and has some CC capabilities  
+
 ### NPCBot Occupations
 #### Database
 NPCBot data is stored in the following locations:
@@ -806,15 +825,17 @@ If you need to remove NPCBot mod completely you need to first manually delete ev
 Bots are counted as active objects (keep grids loaded like players)
 Bots are being added to world at server loading (after Map System is started)
 
-#### Bots available to spawn: **301**
+#### Bots available to spawn: **312**
 
 ---------------------------------------
 ## Guide Changelog
 
+- **Version 0.18** (_22 Jun 2022_)
+    - Added info on sea witch
 - **Version 0.17** (_18 Jun 2022_)
     - Fixed numerous mistakes, added info on ICC vehicles
 - **Version 0.16** (_02 Jan 2022_)
-    - Added info on necro
+    - Added info on necromancer
 - **Version 0.15** (_29 Mar 2021_)
     - Added info on new installation method
 - **Version 0.14** (_23 Jan 2021_)
