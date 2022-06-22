@@ -56,7 +56,7 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1354 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 17901 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 17904 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   694 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   390 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   925 +
@@ -70,7 +70,7 @@
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  2780 +++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  2104 +++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  2037 +++
- src/server/game/AI/NpcBots/bot_sea_witch_ai.cpp    |   662 +
+ src/server/game/AI/NpcBots/bot_sea_witch_ai.cpp    |   698 +
  src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  2821 +++
  src/server/game/AI/NpcBots/bot_spellbreaker_ai.cpp |   587 +
  src/server/game/AI/NpcBots/bot_sphynx_ai.cpp       |   594 +
@@ -165,7 +165,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   277 +
- 167 files changed, 68304 insertions(+), 75 deletions(-)
+ 167 files changed, 68343 insertions(+), 75 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -5901,10 +5901,10 @@ index 000000000..16f7ee941
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..d999faad5
+index 000000000..e5dce56f2
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,17901 @@
+@@ -0,0 +1,17904 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -11927,6 +11927,9 @@ index 000000000..d999faad5
 +            value = basemana * 0.0087f + 0.08f * GetTotalBotStat(BOT_STAT_MOD_INTELLECT);
 +            value += 0.2f * (me->GetTotalAuraModifierByMiscValue(SPELL_AURA_MOD_POWER_REGEN, POWER_MANA) + _getTotalBotStat(BOT_STAT_MOD_MANA_REGENERATION));
 +            value *= me->GetTotalAuraMultiplierByMiscValue(SPELL_AURA_MOD_POWER_REGEN_PERCENT, POWER_MANA);
++
++            //if (_botclass == BOT_CLASS_SEA_WITCH && me->HasAuraType(SPELL_AURA_MANA_SHIELD))
++            //    modManaRegenInterrupt *= 0.25f;
 +        }
 +        else if (_botclass == BOT_CLASS_SPHYNX)
 +        {
@@ -43937,10 +43940,10 @@ index 000000000..adcbd50bc
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_sea_witch_ai.cpp b/src/server/game/AI/NpcBots/bot_sea_witch_ai.cpp
 new file mode 100644
-index 000000000..ca398a4ac
+index 000000000..b3bdb7f4e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_sea_witch_ai.cpp
-@@ -0,0 +1,662 @@
+@@ -0,0 +1,698 @@
 +#include "bot_ai.h"
 +#include "bot_GridNotifiers.h"
 +#include "ScriptMgr.h"
@@ -43963,8 +43966,7 @@ index 000000000..ca398a4ac
 +4) Tornado. Summons a fierce tornado that damages and slows nearby enemy units, sometimes incapacitating them completely.
 +Tornado grows over time oudoors, increasing damage dealt and area of effect, but shrinks indoors, dissipating quickly
 +5ex) Auto Shot. A hunter auto shot ability since dark ranger is purely ranged and only uses bows.
-+6ex) Naga (passive). Swim speed increased by 200%
-+7ex) Power of the Deeps. Damage and dodge chance are greatly increased while in water
++6ex) Naga (passive). Swim speed increased by 200%. Damage and dodge chance are greatly increased while in water
 +Complete - 100%
 +*/
 +
@@ -43978,7 +43980,6 @@ index 000000000..ca398a4ac
 +};
 +enum SeaWitchPassives
 +{
-+    TORNADO_PASSIVE                     = 45869 //Periodic lightning
 +};
 +enum SeaWitchSpecial
 +{
@@ -43991,7 +43992,9 @@ index 000000000..ca398a4ac
 +    FORKED_LIGHTNING_EFFECT             = SPELL_FORKED_LIGHTNING_EFFECT,
 +    FROST_ARROW_EFFECT                  = SPELL_FROST_ARROW_EFFECT,
 +
-+    NAGA_SWIM_PASSIVE                   = 40513
++    NAGA_SWIM_PASSIVE                   = 40513,
++
++    SPELL_PARALYTIC_POISON              = 35201
 +};
 +
 +static const uint32 Seawitch_spells_damage_arr[] =
@@ -44038,6 +44041,8 @@ index 000000000..ca398a4ac
 +            me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_HORROR, true);
 +            me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_TURN, true);
 +            me->ApplySpellImmune(0, IMMUNITY_MECHANIC, MECHANIC_SLEEP, true);
++            //Sea Witch is immune to poisons
++            me->ApplySpellImmune(0, IMMUNITY_DISPEL, DISPEL_POISON, true);
 +        }
 +
 +        bool doCast(Unit* victim, uint32 spellId)
@@ -44228,7 +44233,8 @@ index 000000000..ca398a4ac
 +
 +        bool CheckForkedLightning(uint32 diff)
 +        {
-+            if (!IsSpellReady(FORKED_LIGHTNING_1, diff, false) || me->GetPower(POWER_MANA) < FORKEDLIGHTNING_COST || Rand() > 90)
++            if (!IsSpellReady(FORKED_LIGHTNING_1, diff, false) || me->GetPower(POWER_MANA) < FORKEDLIGHTNING_COST ||
++                Rand() > 90 || !me->HasInArc(M_PI, opponent))
 +                return false;
 +
 +            std::list<Unit*> targets;
@@ -44419,6 +44425,20 @@ index 000000000..ca398a4ac
 +                    arro->SetMaxDuration(dur);
 +                }
 +            }
++            if (baseId == SPELL_PARALYTIC_POISON)
++            {
++                if (Aura* para = target->GetAura(SPELL_PARALYTIC_POISON, me->GetGUID()))
++                {
++                    static constexpr int32 duration_threshold = 6000;
++                    if (para->GetMaxDuration() > duration_threshold)
++                    {
++                        para->SetDuration(duration_threshold);
++                        para->SetMaxDuration(duration_threshold);
++                    }
++                    else
++                        para->RefreshDuration();
++                }
++            }
 +
 +            OnSpellHitTarget(target, spell);
 +        }
@@ -44430,6 +44450,25 @@ index 000000000..ca398a4ac
 +                return;
 +
 +            OnSpellHit(caster, spell);
++        }
++
++        void OnBotDamageDealt(Unit* victim, uint32 damage, CleanDamage const* cleanDamage, DamageEffectType /*damagetype*/, SpellInfo const* /*spellInfo*/) override
++        {
++            if (damage && victim && (cleanDamage->attackType == BASE_ATTACK || cleanDamage->attackType == OFF_ATTACK) &&
++                victim->IsWithinCombatRange(me, ATTACK_DISTANCE))
++            {
++                if (urand(0, 100) < 5)
++                {
++                    int32 baseAmount = 1;
++                    if (AuraEffect* pois = victim->GetAuraEffect(SPELL_PARALYTIC_POISON, EFFECT_0, me->GetGUID()))
++                        baseAmount = pois->GetAmount() * 2;
++                    else
++                        baseAmount = int32(me->GetFloatValue(UNIT_FIELD_MAXDAMAGE)) + 1;
++                    CastSpellExtraArgs args(true);
++                    args.AddSpellBP0(baseAmount);
++                    me->CastSpell(victim, SPELL_PARALYTIC_POISON, args);
++                }
++            }
 +        }
 +
 +        void DamageDealt(Unit* victim, uint32& damage, DamageEffectType damageType) override
@@ -44563,17 +44602,17 @@ index 000000000..ca398a4ac
 +        {
 +        }
 +
-+        bool CanUseManually(uint32 basespell) const override
-+        {
-+            switch (basespell)
-+            {
-+                case FORKED_LIGHTNING_1:
-+                case TORNADO_1:
-+                    return true;
-+                default:
-+                    return false;
-+            }
-+        }
++        //bool CanUseManually(uint32 basespell) const override
++        //{
++        //    switch (basespell)
++        //    {
++        //        case FORKED_LIGHTNING_1:
++        //        case TORNADO_1:
++        //            return true;
++        //        default:
++        //            return false;
++        //    }
++        //}
 +
 +        std::vector<uint32> const* GetDamagingSpellsList() const override
 +        {
