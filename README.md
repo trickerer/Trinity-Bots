@@ -1,12 +1,12 @@
 ### This mod was last updated:
-### 22 Jun 2022, [c8c1b169a7](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/c8c1b169a7)
+### 24 Jun 2022, [0d2e85161e](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/0d2e85161e)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 ### Make your support tangible: [Donate](https://paypal.me/trickerer)
 
 # [ THE NPCBOTS MANUAL ]
 >Compiled by: Trickerer (onlysuffering @ Gmail dot Com)  
->Version 0.18 - 22 Jun 2022  
+>Version 0.19 - 24 Jun 2022  
 >Original version by: Thesawolf (@ Gmail dot Com) Version 0.3 - 20 July 2016 [here](https://github.com/thesawolf/TrinityCore/blob/TrinityCoreLegacy/README_Bots.md)
 
 ---------------------------------------
@@ -188,11 +188,12 @@ _TARGET_ indicates that command is used on a selected unit
     - (No arguments)  
     **Example Usage:**  
         - `.npcbot reloadconfig  
-- **`command <COMMAND> _TARGET_`** -- (Player command) allows you to manage your NPCBots positioning (by itself will display list of subcommands)  
+- **`command <COMMAND> _TARGET_`** -- (Player command) allows you to manage your NPCBots positioning and movement (by itself will display list of subcommands)  
     - COMMAND = command string  
         - follow, f = FOLLOW mode  
         - standstill, stand = STAY mode  
         - stopfully, stop = IDLE mode  
+        - walk, w = WALK mode (toggled)  
     - _TARGET_ = selected (your) NPCBot (command affects this NPCBot)  
     - _TARGET_ = any other unit or no selection (command affects all your NPCBots)  
     **Example Usage:**  
@@ -830,6 +831,8 @@ Bots are being added to world at server loading (after Map System is started)
 ---------------------------------------
 ## Guide Changelog
 
+- **Version 0.19** (_24 Jun 2022_)
+    - Added `.npcbot command walk` command
 - **Version 0.18** (_22 Jun 2022_)
     - Added info on sea witch
 - **Version 0.17** (_18 Jun 2022_)
