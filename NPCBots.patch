@@ -147,7 +147,7 @@
  src/server/game/Scripting/ScriptMgr.cpp            |     8 +
  src/server/game/Scripting/ScriptMgr.h              |     2 +
  src/server/game/Server/WorldSession.cpp            |    18 +
- src/server/game/Spells/Auras/SpellAuraEffects.cpp  |    67 +
+ src/server/game/Spells/Auras/SpellAuraEffects.cpp  |    72 +
  src/server/game/Spells/Auras/SpellAuras.cpp        |    23 +
  src/server/game/Spells/Spell.cpp                   |   144 +
  src/server/game/Spells/Spell.h                     |     3 +
@@ -172,7 +172,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   277 +
- 174 files changed, 68650 insertions(+), 75 deletions(-)
+ 174 files changed, 68655 insertions(+), 75 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -70052,7 +70052,7 @@ index 968e31498..994ecb5d9 100644
          {
              maxPacketCounterAllowed = 100;
 diff --git a/src/server/game/Spells/Auras/SpellAuraEffects.cpp b/src/server/game/Spells/Auras/SpellAuraEffects.cpp
-index 0d7f35138..0a709fcb1 100644
+index 0d7f35138..af82eab21 100644
 --- a/src/server/game/Spells/Auras/SpellAuraEffects.cpp
 +++ b/src/server/game/Spells/Auras/SpellAuraEffects.cpp
 @@ -1843,6 +1843,10 @@ void AuraEffect::HandleAuraModShapeshift(AuraApplication const* aurApp, uint8 mo
@@ -70077,7 +70077,19 @@ index 0d7f35138..0a709fcb1 100644
      else
          target->UpdateDisplayPower();
  
-@@ -2771,6 +2779,17 @@ void AuraEffect::HandleAuraModTotalThreat(AuraApplication const* aurApp, uint8 m
+@@ -1892,6 +1900,11 @@ void AuraEffect::HandleAuraModShapeshift(AuraApplication const* aurApp, uint8 mo
+         // and also HandleAuraModDisarm is not triggered
+         if (!target->CanUseAttackType(BASE_ATTACK))
+         {
++            //npcbot: skip bots (handled inside AI)
++            if (target->GetTypeId() == TYPEID_UNIT && target->ToCreature()->IsNPCBotOrPet())
++            {}
++            else
++            //end npcbot
+             if (Item* pItem = target->ToPlayer()->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_MAINHAND))
+                 target->ToPlayer()->_ApplyWeaponDamage(EQUIPMENT_SLOT_MAINHAND, pItem->GetTemplate(), apply);
+         }
+@@ -2771,6 +2784,17 @@ void AuraEffect::HandleAuraModTotalThreat(AuraApplication const* aurApp, uint8 m
  
      Unit* target = aurApp->GetTarget();
  
@@ -70095,7 +70107,7 @@ index 0d7f35138..0a709fcb1 100644
      if (!target->IsAlive() || target->GetTypeId() != TYPEID_PLAYER)
          return;
  
-@@ -5118,6 +5137,14 @@ void AuraEffect::HandlePeriodicDamageAurasTick(Unit* target, Unit* caster) const
+@@ -5118,6 +5142,14 @@ void AuraEffect::HandlePeriodicDamageAurasTick(Unit* target, Unit* caster) const
  
      if (GetAuraType() == SPELL_AURA_PERIODIC_DAMAGE)
      {
@@ -70110,7 +70122,7 @@ index 0d7f35138..0a709fcb1 100644
          // leave only target depending bonuses, rest is handled in calculate amount
          if (GetBase()->GetType() == DYNOBJ_AURA_TYPE)
              damage = caster->SpellDamageBonusDone(target, GetSpellInfo(), damage, DOT, GetSpellEffectInfo(), { }, GetBase()->GetStackAmount());
-@@ -5644,6 +5671,46 @@ void AuraEffect::HandleProcTriggerSpellAuraProc(AuraApplication* aurApp, ProcEve
+@@ -5644,6 +5676,46 @@ void AuraEffect::HandleProcTriggerSpellAuraProc(AuraApplication* aurApp, ProcEve
      if (SpellInfo const* triggeredSpellInfo = sSpellMgr->GetSpellInfo(triggerSpellId))
      {
          TC_LOG_DEBUG("spells.aura.effect", "AuraEffect::HandleProcTriggerSpellAuraProc: Triggering spell %u from aura %u proc", triggeredSpellInfo->Id, GetId());
