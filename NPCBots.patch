@@ -62,7 +62,7 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1355 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 17954 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 17957 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   694 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   391 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   929 +
@@ -172,7 +172,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   277 +
- 174 files changed, 68667 insertions(+), 75 deletions(-)
+ 174 files changed, 68670 insertions(+), 75 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -6024,10 +6024,10 @@ index 000000000..1f81a6c1e
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..3d33d557b
+index 000000000..3bcc6abf2
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,17954 @@
+@@ -0,0 +1,17957 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -10892,12 +10892,13 @@ index 000000000..3d33d557b
 +
 +    bool aura = me->HasAuraType(SPELL_AURA_MOUNTED);
 +    bool mounted = me->IsMounted() && (_botclass != BOT_CLASS_ARCHMAGE || aura);
++    bool template_fly = me->GetCreatureTemplate()->Movement.Flight == CreatureFlightMovementType::CanFly;
 +
 +    //allow dismount
 +    if (!CanMount() && !aura && !mounted)
 +        return;
 +
-+    if ((!master->IsMounted() || aura != mounted || (me->IsInCombat() && opponent)) && (aura || mounted))
++    if ((!master->IsMounted() || aura != mounted || (!mounted && template_fly) || (me->IsInCombat() && opponent)) && (aura || mounted || template_fly))
 +    {
 +        const_cast<CreatureTemplate*>(me->GetCreatureTemplate())->Movement.Flight = CreatureFlightMovementType::None;
 +        me->SetCanFly(false);
@@ -14910,13 +14911,15 @@ index 000000000..3d33d557b
 +                    {
 +                        SpellInfo const* info = itr->second->GetSpellInfo();
 +                        //spells we cannot remove
-+                        //1 passive, negative spells, hidden, locked, shapeshift spells (no hook for that)
++                        //1 passive, negative spells, hidden, locked, shapeshift / mount spells (no hook for that)
 +                        if (info->IsPassive() || !info->IsPositive())
 +                            continue;
 +                        if ((info->Attributes & (SPELL_ATTR0_CANT_CANCEL | SPELL_ATTR0_HIDDEN_CLIENTSIDE)) ||
 +                            (info->AttributesEx & SPELL_ATTR1_DONT_DISPLAY_IN_AURA_BAR))
 +                            continue;
 +                        if (info->HasAura(SPELL_AURA_MOD_SHAPESHIFT))
++                            continue;
++                        if (info->HasAura(SPELL_AURA_MOUNTED) && player->HasAura(info->Id))
 +                            continue;
 +                        //2 custom list
 +                        //2.1 Leader of the Pack AOE (supposed to be passive)
