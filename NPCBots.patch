@@ -62,8 +62,8 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1355 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 17957 +++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |   694 +
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 17973 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |   695 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   391 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   929 +
  src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp  |   604 +
@@ -155,6 +155,7 @@
  src/server/game/Spells/SpellInfo.cpp               |    51 +
  src/server/scripts/Commands/cs_npc.cpp             |    31 +
  .../CavernsOfTime/BattleForMountHyjal/hyjalAI.cpp  |     5 +
+ .../BattleForMountHyjal/hyjal_trash.cpp            |     8 +
  .../IcecrownCitadel/instance_icecrown_citadel.cpp  |    21 +
  .../Northrend/Naxxramas/boss_four_horsemen.cpp     |     4 +-
  .../Outland/BlackTemple/boss_warlord_najentus.cpp  |    17 +
@@ -172,7 +173,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   277 +
- 174 files changed, 68670 insertions(+), 75 deletions(-)
+ 175 files changed, 68695 insertions(+), 75 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -6024,10 +6025,10 @@ index 000000000..1f81a6c1e
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..3bcc6abf2
+index 000000000..59d489f7e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,17957 @@
+@@ -0,0 +1,17973 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -9445,15 +9446,7 @@ index 000000000..3bcc6abf2
 +    uint8 followdist = IAmFree() ? BotMgr::GetBotFollowDistDefault() : master->GetBotMgr()->GetBotFollowDist();
 +    float foldist = _getAttackDistance(float(followdist));
 +    if (!IAmFree() && (HasRole(BOT_ROLE_RANGED) || HasVehicleRoleOverride(BOT_ROLE_RANGED)) && me->IsWithinLOSInMap(target))
-+    {
-+        float spelldist;
-+        uint8 rangeMode = master->GetBotMgr()->GetBotAttackRangeMode();
-+        if (rangeMode == BOT_ATTACK_RANGE_EXACT)
-+            spelldist = master->GetBotMgr()->GetBotExactAttackRange();
-+        else
-+            spelldist = GetSpellAttackRange(rangeMode == BOT_ATTACK_RANGE_LONG);
-+        foldist = std::max<float>(foldist, spelldist * 0.5f + 4.f);
-+    }
++        _extendAttackRange(foldist);
 +
 +    SpellSchoolMask mainMask;
 +    if (!byspell)
@@ -9978,14 +9971,7 @@ index 000000000..3bcc6abf2
 +    float foldist = _getAttackDistance(float(followdist));
 +    if (!IAmFree() && (HasRole(BOT_ROLE_RANGED) || HasVehicleRoleOverride(BOT_ROLE_RANGED)))
 +    {
-+        float spelldist;
-+        uint8 rangeMode = master->GetBotMgr()->GetBotAttackRangeMode();
-+        if (rangeMode == BOT_ATTACK_RANGE_EXACT)
-+            spelldist = master->GetBotMgr()->GetBotExactAttackRange();
-+        else
-+            spelldist = GetSpellAttackRange(rangeMode == BOT_ATTACK_RANGE_LONG);
-+        foldist = std::max<float>(foldist, spelldist + 4.f);
-+
++        _extendAttackRange(foldist);
 +        //TC_LOG_ERROR("entities.player", "bot %s ranged foldist %.2f spelldist %.2f", me->GetName().c_str(), foldist, spelldist);
 +    }
 +    bool dropTarget = false;
@@ -10522,6 +10508,21 @@ index 000000000..3bcc6abf2
 +
 +    return origRange;
 +}
++void bot_ai::_extendAttackRange(float& dist) const
++{
++    ASSERT(!IAmFree());
++
++    uint8 rangeMode = master->GetBotMgr()->GetBotAttackRangeMode();
++    if (master->GetBotMgr()->GetBotFollowDist() > 0)
++    {
++        float spelldist;
++        if (rangeMode == BOT_ATTACK_RANGE_EXACT)
++            spelldist = master->GetBotMgr()->GetBotExactAttackRange();
++        else
++            spelldist = GetSpellAttackRange(rangeMode == BOT_ATTACK_RANGE_LONG);
++        dist = std::max<float>(dist, spelldist * 0.5f + 4.f);
++    }
++}
 +//Ranged attack position
 +void bot_ai::CalculateAttackPos(Unit* target, Position& pos, bool& force) const
 +{
@@ -10710,6 +10711,8 @@ index 000000000..3bcc6abf2
 +        return;
 +    if (UpdateImpossibleChase(newtarget))
 +        return;
++    if (AdjustTankingPosition(newtarget))
++        return;
 +
 +    if (!IAmFree() && master->GetBotMgr()->GetBotAttackRangeMode() == BOT_ATTACK_RANGE_EXACT &&
 +        master->GetBotMgr()->GetBotExactAttackRange() == 0)
@@ -10766,7 +10769,7 @@ index 000000000..3bcc6abf2
 +}
 +//Bots cannot dodge/parry from behind so try to condense enemies at front
 +//opponent is always valid
-+void bot_ai::AdjustTankingPosition() const
++bool bot_ai::AdjustTankingPosition(Unit const* mytarget) const
 +{
 +    //problem: chasing unit is constantly moving. Whoever the hell did that
 +//    if (/*!IsTank() || */!me->IsInCombat() || me->isMoving() || IsCasting() ||
@@ -10775,27 +10778,42 @@ index 000000000..3bcc6abf2
 +    if (/*!IsTank() || */!me->IsInCombat() || IsCasting() || me->GetVehicle() ||
 +        JumpingOrFalling() || CCed(me, true) || Rand() > 10 + 20*me->GetMap()->IsDungeon() ||
 +        HasBotCommandState(BOT_COMMAND_MASK_UNMOVING))
-+        return;
++        return false;
 +
 +    Unit::AttackerSet const& myattackers = me->getAttackers();
 +    if (myattackers.size() < 2)
-+        return;
++        return false;
 +
-+    //TC_LOG_ERROR("entities.player", "AdjustTankingPosition() by %s", me->GetName().c_str());
++    if (IsMelee())
++    {
++        if (!me->IsWithinMeleeRange(mytarget))
++            return false;
++    }
++    else
++    {
++        uint8 rangeMode = IAmFree() ? uint8(BOT_ATTACK_RANGE_LONG) : master->GetBotMgr()->GetBotAttackRangeMode();
++        uint8 exactRange = rangeMode != BOT_ATTACK_RANGE_EXACT || IAmFree() ? 255 : master->GetBotMgr()->GetBotExactAttackRange();
++        float dist = (rangeMode == BOT_ATTACK_RANGE_EXACT) ? exactRange : GetSpellAttackRange(rangeMode == BOT_ATTACK_RANGE_LONG);
++
++        if (me->GetDistance(mytarget) > dist)
++            return false;
++    }
++
++    //TC_LOG_ERROR("entities.player", "AdjustTankPosition() by %s", me->GetName().c_str());
 +
 +    uint32 bCount = 0;
 +    for (Unit::AttackerSet::const_iterator itr = myattackers.begin(); itr != myattackers.end(); ++itr)
 +    {
-+        if (/*!CCed(*itr) && */(*itr)->GetDistance(me) < 5 && !me->HasInArc(float(M_PI), *itr))
++        if (/*!CCed(*itr) && */(*itr)->IsWithinMeleeRange(me) && !me->HasInArc(float(M_PI), *itr))
 +            ++bCount;
 +            //if (++bCount)
 +            //    break;
 +    }
 +
 +    if (bCount == 0)
-+        return;
++        return false;
 +
-+    //TC_LOG_ERROR("entities.player", "AdjustTankingPosition(): atts %u, behind %u", uint32(myattackers.size()), bCount);
++    //TC_LOG_ERROR("entities.player", "AdjustTankPosition(): atts %u, behind %u", uint32(myattackers.size()), bCount);
 +
 +    //calculate new position
 +    float x = me->GetPositionX();
@@ -10843,6 +10861,7 @@ index 000000000..3bcc6abf2
 +    position.Relocate(x, y, z);
 +    BotMovement(BOT_MOVE_POINT, &position);
 +    //me->GetMotionMaster()->MovePoint(me->GetMapId(), x, y, z, false);
++    return true;
 +}
 +
 +void bot_ai::CheckAttackState()
@@ -19070,7 +19089,7 @@ index 000000000..3bcc6abf2
 +    str << item->GetItemSuffixFactor() << ':';
 +
 +    //reporter level
-+    str << me->GetLevel();
++    str << uint32(me->GetLevel());
 +
 +    //name
 +    _LocalizeItem(forPlayer, name, suffix, item);
@@ -19342,8 +19361,6 @@ index 000000000..3bcc6abf2
 +
 +void bot_ai::OnStartAttack(Unit const* u)
 +{
-+    AdjustTankingPosition();
-+
 +    if (u->GetGUID() != _lastTargetGuid)
 +    {
 +        ResetChase(u);
@@ -23987,10 +24004,10 @@ index 000000000..3bcc6abf2
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 000000000..219deb208
+index 000000000..6e90c07ee
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,694 @@
+@@ -0,0 +1,695 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -24355,7 +24372,7 @@ index 000000000..219deb208
 +        float InitAttackRange(float origRange, bool ranged) const;
 +        void CalculateAttackPos(Unit* target, Position &pos, bool& force) const;
 +        void GetInPosition(bool force, Unit* newtarget, Position* pos = nullptr);
-+        void AdjustTankingPosition() const;
++        bool AdjustTankingPosition(Unit const* mytarget) const;
 +        virtual float GetSpellAttackRange(bool longRange) const { return longRange ? 25.f : 15.f; }
 +        virtual void CheckAttackState();
 +        void OnSpellHit(Unit* caster, SpellInfo const* spell);
@@ -24543,6 +24560,7 @@ index 000000000..219deb208
 +        void _listAuras(Player const* player, Unit const* unit) const;
 +        bool _checkImmunities(Unit const* target, SpellInfo const* spellInfo) const;
 +        static float _getAttackDistance(float distance) { return distance*0.72f; }
++        void _extendAttackRange(float& dist) const;
 +
 +        //for moved
 +        void GetHomePosition(uint16& mapid, Position* pos) const;
@@ -66126,7 +66144,7 @@ index 000000000..b180e1e7e
 +    new warlock_pet_bot();
 +}
 diff --git a/src/server/game/AI/SmartScripts/SmartScript.cpp b/src/server/game/AI/SmartScripts/SmartScript.cpp
-index 285e73631..cc1b0bff9 100644
+index c4087ed21..5ec0f17ba 100644
 --- a/src/server/game/AI/SmartScripts/SmartScript.cpp
 +++ b/src/server/game/AI/SmartScripts/SmartScript.cpp
 @@ -292,6 +292,9 @@ void SmartScript::ProcessAction(SmartScriptHolder& e, Unit* unit, uint32 var0, u
@@ -68150,7 +68168,7 @@ index 142affc27..1309ad38a 100644
      float totalPct         = addTotalPct ? GetPctModifierValue(unitMod, TOTAL_PCT) : 1.0f;
      float dmgMultiplier    = GetCreatureTemplate()->ModDamage; // = ModDamage * _GetDamageMod(rank);
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index 43f9623e6..56407c18c 100644
+index 8316f8ff4..e3c9117ba 100644
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
 @@ -80,6 +80,10 @@
@@ -70915,6 +70933,25 @@ index 3d9e1d8b6..bac10872c 100644
                      if ((*itr) && (*itr)->IsAlive())
                      {
                          (*itr)->CastSpell(*itr, SPELL_TELEPORT_VISUAL, true);
+diff --git a/src/server/scripts/Kalimdor/CavernsOfTime/BattleForMountHyjal/hyjal_trash.cpp b/src/server/scripts/Kalimdor/CavernsOfTime/BattleForMountHyjal/hyjal_trash.cpp
+index f607c7fae..5ff872fe8 100644
+--- a/src/server/scripts/Kalimdor/CavernsOfTime/BattleForMountHyjal/hyjal_trash.cpp
++++ b/src/server/scripts/Kalimdor/CavernsOfTime/BattleForMountHyjal/hyjal_trash.cpp
+@@ -194,6 +194,14 @@ hyjal_trashAI::hyjal_trashAI(Creature* creature) : EscortAI(creature)
+ 
+ void hyjal_trashAI::DamageTaken(Unit* done_by, uint32& damage, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo = nullptr*/)
+ {
++    //npcbot:
++    if (done_by && done_by->GetTypeId() == TYPEID_UNIT && done_by->ToCreature()->IsNPCBotOrPet())
++    {
++        damageTaken += damage;
++        instance->SetData(DATA_RAIDDAMAGE, damage);
++    }
++    else
++    //end npcbot
+     if (!done_by || done_by->GetTypeId() == TYPEID_PLAYER || done_by->IsPet())
+     {
+         damageTaken += damage;
 diff --git a/src/server/scripts/Northrend/IcecrownCitadel/instance_icecrown_citadel.cpp b/src/server/scripts/Northrend/IcecrownCitadel/instance_icecrown_citadel.cpp
 index 849d8c8b5..e3b7be66d 100644
 --- a/src/server/scripts/Northrend/IcecrownCitadel/instance_icecrown_citadel.cpp
@@ -71145,7 +71182,7 @@ index 9efa58725..f747a7702 100644
          if (!caster)
              return false;
 diff --git a/src/server/scripts/Spells/spell_generic.cpp b/src/server/scripts/Spells/spell_generic.cpp
-index f566bc99e..60a16fb3f 100644
+index 559ef5e1a..4b81cffe5 100644
 --- a/src/server/scripts/Spells/spell_generic.cpp
 +++ b/src/server/scripts/Spells/spell_generic.cpp
 @@ -247,6 +247,11 @@ class spell_gen_arena_drink : public AuraScript
@@ -71190,7 +71227,7 @@ index f566bc99e..60a16fb3f 100644
          // default case - not in arena
          if (!GetCaster()->ToPlayer()->InArena())
              regen->ChangeAmount(amount);
-@@ -3586,6 +3607,10 @@ class spell_gen_vehicle_scaling : public AuraScript
+@@ -3512,6 +3533,10 @@ class spell_gen_vehicle_scaling : public AuraScript
  
      bool Load() override
      {
@@ -71201,7 +71238,7 @@ index f566bc99e..60a16fb3f 100644
          return GetCaster() && GetCaster()->GetTypeId() == TYPEID_PLAYER;
      }
  
-@@ -3608,7 +3633,19 @@ class spell_gen_vehicle_scaling : public AuraScript
+@@ -3534,7 +3559,19 @@ class spell_gen_vehicle_scaling : public AuraScript
                  break;
          }
  
