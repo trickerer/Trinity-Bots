@@ -1,5 +1,5 @@
 ### This mod was last updated:
-### 03 Jul 2022, [d63dfd03b0](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/d63dfd03b0)
+### 04 Jul 2022, [7b76cb4adf](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/7b76cb4adf)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 ### Make your support tangible: [Donate](https://paypal.me/trickerer)
@@ -260,6 +260,27 @@ _TARGET_ indicates that command is used on a selected unit
         **Example Usage:**  
             - `.npcbot dump load bots_backup` (load from `bots_backup.sql`)  
             - `.npcb du l 1.txt` (load from `1.txt`)  
+- **`createnew <NAME> <CLASS> _RACE_ _GENDER_ _SKIN_ _FACE_ _HEARSTYLE_ _HAIRCOLOR_ _FEATURES_`** -- (Admin command) allows you to create new NPCBots for players to use. Creature ids 70800+ are reserved for that so you can create up to 200 custom NPCBots  
+    - NAME = name of created NPCBot. Note that first letter will always be in Upper Case  
+    - CLASS = this refers to NPCBot class. Use `.npcbot lookup` comand to list all available classes  
+    - _RACE_ = you have to provide a race for your new NPCbot unless you are creating a NPCBot of one of the special classes for whose race is predefined as well as other details  
+        - 1: Human  
+        - 2: Orc  
+        - 3: Dwarf  
+        - 4: Night Elf  
+        - 5: Undead  
+        - 6: Tauren  
+        - 7: Gnome  
+        - 8: Troll  
+        - 10: Blood Elf  
+        - 11: Draenei  
+    - _GENDER_ = same as _RACE_, for normal classes you have to select one  
+        - 0: Male  
+        - 1: Female  
+    - _SKIN_, _FACE_, _HEARSTYLE_, _HAIRCOLOR_, _FEATURES_ - appearance details, 0 and up. Different race/gender combinations have different limits for those, lowest being **0-3** (female Tauren face) and highest **0-23** (female Human hair style)  
+    **Example Usage:**  
+        - `.npcbot createnew Selendris 2 10 1 6 4 3 2 4` (creates a female redhead Blood Elf mage npcbot)  
+        - `.npcb cre Selendris 2 10 1 6 4 3 2 4` (creates a female redhead Blood Elf mage npcbot)  
 
 ### NPCBot Control and Usage
 #### NPCBot Getting started
