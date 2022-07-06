@@ -65,7 +65,7 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1355 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 17989 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 17999 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   695 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   391 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   929 +
@@ -79,8 +79,8 @@
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  2780 +++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  2105 +++
  src/server/game/AI/NpcBots/bot_rogue_ai.cpp        |  2037 +++
- src/server/game/AI/NpcBots/bot_sea_witch_ai.cpp    |   729 +
- src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  2821 +++
+ src/server/game/AI/NpcBots/bot_sea_witch_ai.cpp    |   766 +
+ src/server/game/AI/NpcBots/bot_shaman_ai.cpp       |  2820 +++
  src/server/game/AI/NpcBots/bot_spellbreaker_ai.cpp |   590 +
  src/server/game/AI/NpcBots/bot_sphynx_ai.cpp       |   597 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  2085 +++
@@ -176,7 +176,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   277 +
- 178 files changed, 68907 insertions(+), 75 deletions(-)
+ 178 files changed, 68953 insertions(+), 75 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -6067,10 +6067,10 @@ index 000000000..1f81a6c1e
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..8535a0fff
+index 000000000..4301a4e33
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,17989 @@
+@@ -0,0 +1,17999 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -8696,15 +8696,25 @@ index 000000000..8535a0fff
 +        if (mylevel >= 55 && _spec == BOT_SPEC_MAGE_ARCANE)
 +            value += 6.f;
 +    }
-+    if (_botclass == BOT_CLASS_BM)
++    if (_botclass >= BOT_CLASS_EX_START)
 +    {
-+        //Blademaster haste
-+        value += 70.f;
-+    }
-+    if (_botclass == BOT_CLASS_DREADLORD)
-+    {
-+        //Dreadlord haste
-+        value += 70.f;
++        float haste_per_lvl;
++        switch (_botclass)
++        {
++            case BOT_CLASS_BM:
++            case BOT_CLASS_DREADLORD:
++                haste_per_lvl = 0.875f;
++                break;
++            case BOT_CLASS_ARCHMAGE:
++            case BOT_CLASS_DARK_RANGER:
++            case BOT_CLASS_SEA_WITCH:
++                haste_per_lvl = 0.5f;
++                break;
++            default:
++                haste_per_lvl = 0.25f;
++                break;
++        }
++        value += mylevel * haste_per_lvl;
 +    }
 +
 +    haste = int32(value);
@@ -24763,7 +24773,7 @@ index 000000000..6e90c07ee
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_archmage_ai.cpp b/src/server/game/AI/NpcBots/bot_archmage_ai.cpp
 new file mode 100644
-index 000000000..29211084d
+index 000000000..8493f57a5
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_archmage_ai.cpp
 @@ -0,0 +1,391 @@
@@ -24978,7 +24988,7 @@ index 000000000..29211084d
 +            uint32 baseId = spellInfo->GetFirstRankSpell()->Id;
 +
 +            if (baseId == MAIN_ATTACK_1 || baseId == BLIZZARD_1)
-+                GC_Timer = me->GetAttackTime(BASE_ATTACK);
++                GC_Timer = uint32(me->GetAttackTime(BASE_ATTACK) * me->m_modAttackSpeedPct[BASE_ATTACK]);
 +
 +            if (baseId == MAIN_ATTACK_1)
 +                me->CastSpell(me, MH_ATTACK_ANIM, true);
@@ -36513,7 +36523,7 @@ index 000000000..d0b02af4c
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_necromancer_ai.cpp b/src/server/game/AI/NpcBots/bot_necromancer_ai.cpp
 new file mode 100644
-index 000000000..76b0cd6f3
+index 000000000..1375d9855
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_necromancer_ai.cpp
 @@ -0,0 +1,748 @@
@@ -36964,7 +36974,7 @@ index 000000000..76b0cd6f3
 +
 +            if (baseId == MAIN_ATTACK_1 || baseId == RAISE_DEAD_1 || baseId == UNHOLY_FRENZY_1 ||
 +                baseId == CRIPPLE_1 || baseId == CORPSE_EXPLOSION_1/* || baseId == ATTRACT_1*/)
-+                GC_Timer = me->GetAttackTime(BASE_ATTACK);
++                GC_Timer = uint32(me->GetAttackTime(BASE_ATTACK) * me->m_modAttackSpeedPct[BASE_ATTACK]);
 +
 +            if (baseId == MAIN_ATTACK_1 || baseId == RAISE_DEAD_1 || baseId == UNHOLY_FRENZY_1 ||
 +                baseId == CRIPPLE_1/* || baseId == CORPSE_EXPLOSION_1*//* || baseId == ATTRACT_1*/)
@@ -44207,10 +44217,10 @@ index 000000000..3be8cdab1
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_sea_witch_ai.cpp b/src/server/game/AI/NpcBots/bot_sea_witch_ai.cpp
 new file mode 100644
-index 000000000..3d789bdbe
+index 000000000..40d67a925
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_sea_witch_ai.cpp
-@@ -0,0 +1,729 @@
+@@ -0,0 +1,766 @@
 +#include "bot_ai.h"
 +#include "bot_GridNotifiers.h"
 +#include "botspell.h"
@@ -44562,6 +44572,32 @@ index 000000000..3d789bdbe
 +            damage = int32(fdamage * pctbonus + flat_mod);
 +        }
 +
++        void ApplyClassSpellCastTimeMods(SpellInfo const* spellInfo, int32& casttime) const override
++        {
++            //uint32 spellId = spellInfo->Id;
++            uint32 baseId = spellInfo->GetFirstRankSpell()->Id;
++            //SpellSchool school = GetFirstSchoolInMask(spellInfo->GetSchoolMask());
++            //uint8 lvl = me->GetLevel();
++            int32 timebonus = 0;
++            float pctbonus = 0.0f;
++
++            //100% mods
++            //if ()
++            //    pctbonus += 1.0f;
++
++            //pct mods
++            //Frost Arrow affect by attack speed
++            if (baseId == FROST_ARROW_1)
++                pctbonus += 1.0f - me->m_modAttackSpeedPct[RANGED_ATTACK];
++
++            //flat mods
++            //Starlight Wrath: -0.5 sec cast time for Wrath and Starfire
++            //if (lvl >= 10 && (baseId == WRATH_1 || baseId == STARFIRE_1))
++            //    timebonus += 500;
++
++            casttime = std::max<int32>(int32((float(casttime) * (1.0f - pctbonus)) - timebonus), 0);
++        }
++
 +        void ApplyClassSpellMaxTargetsMods(SpellInfo const* spellInfo, uint32& targets) const override
 +        {
 +            uint32 baseId = spellInfo->GetFirstRankSpell()->Id;
@@ -44635,17 +44671,28 @@ index 000000000..3d789bdbe
 +        {
 +            uint32 baseId = spellInfo->GetFirstRankSpell()->Id;
 +
-+            if (baseId == FROST_ARROW_1)
++            switch (baseId)
 +            {
-+                uint32 castTime = spellInfo->CalcCastTime();
-+                GC_Timer = castTime >= me->GetAttackTime(BASE_ATTACK) ? 0 : me->GetAttackTime(BASE_ATTACK) - castTime;
-+            }
-+
-+            if (baseId == FORKED_LIGHTNING_1 || baseId == TORNADO_1)
-+            {
-+                me->resetAttackTimer();
-+                GC_Timer = me->GetAttackTime(BASE_ATTACK);
-+                //me->CastSpell(me, MH_ATTACK_ANIM, true);
++                case FROST_ARROW_1:
++                case FORKED_LIGHTNING_1:
++                case TORNADO_1:
++                {
++                    uint32 attackTime = uint32(me->GetAttackTime(RANGED_ATTACK) * me->m_modAttackSpeedPct[RANGED_ATTACK]);
++                    if (baseId == FROST_ARROW_1)
++                    {
++                        uint32 castTime = spellInfo->CalcCastTime();
++                        GC_Timer = castTime >= attackTime ? 0 : attackTime - castTime;
++                    }
++                    if (baseId == FORKED_LIGHTNING_1 || baseId == TORNADO_1)
++                    {
++                        me->resetAttackTimer();
++                        GC_Timer = attackTime;
++                        //me->CastSpell(me, MH_ATTACK_ANIM, true);
++                    }
++                    break;
++                }
++                default:
++                    break;
 +            }
 +
 +            if (baseId == TORNADO_1)
@@ -44942,10 +44989,10 @@ index 000000000..3d789bdbe
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_shaman_ai.cpp b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 new file mode 100644
-index 000000000..6bcc97d08
+index 000000000..b11bdd9b6
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
-@@ -0,0 +1,2821 @@
+@@ -0,0 +1,2820 @@
 +#include "bot_ai.h"
 +#include "botmgr.h"
 +#include "Group.h"
@@ -45322,7 +45369,6 @@ index 000000000..6bcc97d08
 +                return;
 +
 +            //already rockin'
-+            //if (HasAuraName(master, BLOODLUST_1) || HasAuraName(me, BLOODLUST_1))
 +            if (me->GetAuraEffect(SPELL_AURA_MOD_MELEE_RANGED_HASTE, SPELLFAMILY_SHAMAN, 0x0, 0x40, 0x0) ||
 +                master->GetAuraEffect(SPELL_AURA_MOD_MELEE_RANGED_HASTE, SPELLFAMILY_SHAMAN, 0x0, 0x40, 0x0))
 +                return;
@@ -45330,9 +45376,9 @@ index 000000000..6bcc97d08
 +            //environment conditions
 +            Unit const* u = me->GetVictim();
 +            Creature const* cre = u ? u->ToCreature() : nullptr;
-+            if (!(u && (u->GetHealth() > me->GetMaxHealth() * 5 || u->GetTypeId() == TYPEID_PLAYER ||
++            if (!(u && (u->GetHealth() > me->GetMaxHealth() * 10 || u->GetTypeId() == TYPEID_PLAYER ||
 +                (cre && (cre->IsDungeonBoss() || cre->isWorldBoss())) ||
-+                me->getAttackers().size() + master->getAttackers().size() > 4)))
++                me->getAttackers().size() + master->getAttackers().size() >= 8)))
 +                return;
 +
 +            //BLOODLUST = GetSpell(BLOODLUST); //not ranked
@@ -48365,7 +48411,7 @@ index 000000000..7b27fc352
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_sphynx_ai.cpp b/src/server/game/AI/NpcBots/bot_sphynx_ai.cpp
 new file mode 100644
-index 000000000..3e325d59f
+index 000000000..05305607f
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_sphynx_ai.cpp
 @@ -0,0 +1,597 @@
@@ -48742,7 +48788,7 @@ index 000000000..3e325d59f
 +
 +            if (baseId == MAIN_ATTACK_1 || baseId == SPLASH_ATTACK_1 || baseId == DEVOUR_MAGIC_1 ||
 +                baseId == DRAIN_MANA_1 || baseId == REPLENISH_MANA_1 || baseId == REPLENISH_HEALTH_1)
-+                GC_Timer = me->GetAttackTime(BASE_ATTACK);
++                GC_Timer = uint32(me->GetAttackTime(BASE_ATTACK) * me->m_modAttackSpeedPct[BASE_ATTACK]);
 +
 +            if (baseId == SPLASH_ATTACK_1)
 +                me->CastSpell(me, MH_ATTACK_ANIM, true);
