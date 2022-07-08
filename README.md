@@ -1,8 +1,7 @@
 ### This mod was last updated:
-### 06 Jul 2022, [d7b1b8117b](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/d7b1b8117b)
+### 08 Jul 2022, [37a0df4d4e](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/37a0df4d4e)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
-### Make your support tangible: [Donate](https://paypal.me/trickerer)
 
 # [ THE NPCBOTS MANUAL ]
 >Compiled by: Trickerer (onlysuffering @ Gmail dot Com)  
