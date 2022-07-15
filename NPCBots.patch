@@ -65,7 +65,7 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1355 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 17999 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 18122 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   695 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   391 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   929 +
@@ -96,7 +96,7 @@
  src/server/game/AI/NpcBots/botgiver.cpp            |   270 +
  src/server/game/AI/NpcBots/botmgr.cpp              |  1626 ++
  src/server/game/AI/NpcBots/botmgr.h                |   223 +
- src/server/game/AI/NpcBots/botspell.h              |   154 +
+ src/server/game/AI/NpcBots/botspell.h              |   247 +
  src/server/game/AI/NpcBots/bpet_ai.cpp             |  2445 +++
  src/server/game/AI/NpcBots/bpet_ai.h               |   176 +
  src/server/game/AI/NpcBots/bpet_archmage.cpp       |   141 +
@@ -104,7 +104,7 @@
  src/server/game/AI/NpcBots/bpet_death_knight.cpp   |   191 +
  src/server/game/AI/NpcBots/bpet_dreadlord.cpp      |   164 +
  src/server/game/AI/NpcBots/bpet_druid.cpp          |   146 +
- src/server/game/AI/NpcBots/bpet_hunter.cpp         |  1000 ++
+ src/server/game/AI/NpcBots/bpet_hunter.cpp         |  1000 +
  src/server/game/AI/NpcBots/bpet_mage.cpp           |   177 +
  src/server/game/AI/NpcBots/bpet_necromancer.cpp    |   193 +
  src/server/game/AI/NpcBots/bpet_priest.cpp         |   172 +
@@ -176,7 +176,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   277 +
- 178 files changed, 68953 insertions(+), 75 deletions(-)
+ 178 files changed, 69169 insertions(+), 75 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -6067,10 +6067,10 @@ index 000000000..1f81a6c1e
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..16a672763
+index 000000000..0affb3a05
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,17999 @@
+@@ -0,0 +1,18122 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -10986,17 +10986,140 @@ index 000000000..16a672763
 +
 +    if (master->IsMounted() && !me->IsMounted() && !master->IsInCombat() && !me->IsInCombat() && !me->GetVictim())
 +    {
-+        uint32 mount = 0;
-+        Unit::AuraEffectList const &mounts = master->GetAuraEffectsByType(SPELL_AURA_MOUNTED);
-+        if (!mounts.empty())
++        Unit::AuraEffectList const& mounts = master->GetAuraEffectsByType(SPELL_AURA_MOUNTED);
++        Aura const* mountAura = nullptr;
++        int32 maxMountSpeed = 0;
++        for (AuraEffect const* meff : mounts)
++        {
++            for (uint8 i = EFFECT_0; i < MAX_SPELL_EFFECTS; ++i)
++            {
++                AuraEffect const* maeff = meff->GetBase()->GetEffect(i);
++                if (maeff && (maeff->GetSpellEffectInfo().IsAura(master->CanFly() ? SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED : SPELL_AURA_MOD_INCREASE_MOUNTED_SPEED)) &&
++                    maeff->GetAmount() > maxMountSpeed)
++                {
++                    maxMountSpeed = maeff->GetAmount();
++                    mountAura = meff->GetBase();
++                }
++            }
++        }
++
++        uint32 const mountSpellId = mountAura ? mountAura->GetId() : 0;
++        uint32 myMountSpellId = 0;
++        if (maxMountSpeed > 20)
 +        {
 +            //Winter Veil addition
 +            if (sGameEventMgr->IsActiveEvent(GAME_EVENT_WINTER_VEIL))
-+                mount = master->CanFly() ? REINDEER_FLY : REINDEER;
-+            else
-+                mount = mounts.front()->GetId();
++                myMountSpellId = master->CanFly() ? REINDEER_FLY : REINDEER;
++            if (!myMountSpellId && me->GetMapId() == 531) //Ahn'Qiraj
++            {
++                //Select AQ40 mount
++                static const std::array<uint32, 4> QirajiMountSpellIds = { QIRAJI_BATTLE_TANK_1, QIRAJI_BATTLE_TANK_2, QIRAJI_BATTLE_TANK_3, QIRAJI_BATTLE_TANK_4 };
++                //Count Black Qiraji Battle Tank too
++                if (mountSpellId == 26656 || std::find(QirajiMountSpellIds.cbegin(), QirajiMountSpellIds.cend(), mountSpellId) != QirajiMountSpellIds.end())
++                    myMountSpellId = QirajiMountSpellIds[me->GetEntry() % QirajiMountSpellIds.size()];
++            }
++            if (!myMountSpellId)
++            {
++                using MountArray = std::array<uint32, NUM_MOUNTS_PER_SPEED>;
++
++                bool useSlowMount = master->CanFly() ?  (me->GetLevel() < 70 || maxMountSpeed < 220) : (me->GetLevel() < 40 || maxMountSpeed < 80);
++
++                if (!master->CanFly())
++                {
++                    //Select by class
++                    switch (_botclass)
++                    {
++                        case BOT_CLASS_DARK_RANGER:
++                            myMountSpellId = BOT_DARK_RANGER_MOUNT;
++                            break;
++                        case BOT_CLASS_WARLOCK:
++                            myMountSpellId = useSlowMount ? BOT_WARLOCK_MOUNT : BOT_WARLOCK_FAST_MOUNT;
++                            break;
++                        case BOT_CLASS_PALADIN:
++                            if (me->GetRace() == RACE_BLOODELF)
++                                myMountSpellId = useSlowMount ? BOT_BE_PALLY_MOUNT : BOT_BE_PALLY_FAST_MOUNT;
++                            else
++                                myMountSpellId = useSlowMount ? BOT_ALLI_PALLY_MOUNT : BOT_ALLI_PALLY_FAST_MOUNT;
++                            break;
++                        case BOT_CLASS_DEATH_KNIGHT:
++                            myMountSpellId = BOT_DEATH_KNIGHT_MOUNT;
++                            break;
++                        default:
++                            break;
++                    }
++                    //Select by race
++                    if (!myMountSpellId)
++                    {
++                        static const MountArray MOUNTS_60_HUMAN = { BOT_MOUNT_HUMAN_60_1, BOT_MOUNT_HUMAN_60_2, BOT_MOUNT_HUMAN_60_3 };
++                        static const MountArray MOUNTS_60_ORC = { BOT_MOUNT_ORC_60_1, BOT_MOUNT_ORC_60_2, BOT_MOUNT_ORC_60_3 };
++                        static const MountArray MOUNTS_60_DWARF = { BOT_MOUNT_DWARF_60_1, BOT_MOUNT_DWARF_60_2, BOT_MOUNT_DWARF_60_3 };
++                        static const MountArray MOUNTS_60_NIGHTELF = { BOT_MOUNT_NIGHTELF_60_1, BOT_MOUNT_NIGHTELF_60_2, BOT_MOUNT_NIGHTELF_60_3 };
++                        static const MountArray MOUNTS_60_FORSAKEN = { BOT_MOUNT_FORSAKEN_60_1, BOT_MOUNT_FORSAKEN_60_2, BOT_MOUNT_FORSAKEN_60_3 };
++                        static const MountArray MOUNTS_60_TAUREN = { BOT_MOUNT_TAUREN_60_1, BOT_MOUNT_TAUREN_60_2, BOT_MOUNT_TAUREN_60_3 };
++                        static const MountArray MOUNTS_60_GNOME = { BOT_MOUNT_GNOME_60_1, BOT_MOUNT_GNOME_60_2, BOT_MOUNT_GNOME_60_3 };
++                        static const MountArray MOUNTS_60_TROLL = { BOT_MOUNT_TROLL_60_1, BOT_MOUNT_TROLL_60_2, BOT_MOUNT_TROLL_60_3 };
++                        static const MountArray MOUNTS_60_BLOODELF = { BOT_MOUNT_BLOODELF_60_1, BOT_MOUNT_BLOODELF_60_2, BOT_MOUNT_BLOODELF_60_3 };
++                        static const MountArray MOUNTS_60_DRAENEI = { BOT_MOUNT_DRAENEI_60_1, BOT_MOUNT_DRAENEI_60_2, BOT_MOUNT_DRAENEI_60_3 };
++
++                        static const MountArray MOUNTS_100_HUMAN = { BOT_MOUNT_HUMAN_100_1, BOT_MOUNT_HUMAN_100_2, BOT_MOUNT_HUMAN_100_3 };
++                        static const MountArray MOUNTS_100_ORC = { BOT_MOUNT_ORC_100_1, BOT_MOUNT_ORC_100_2, BOT_MOUNT_ORC_100_3 };
++                        static const MountArray MOUNTS_100_DWARF = { BOT_MOUNT_DWARF_100_1, BOT_MOUNT_DWARF_100_2, BOT_MOUNT_DWARF_100_3 };
++                        static const MountArray MOUNTS_100_NIGHTELF = { BOT_MOUNT_NIGHTELF_100_1, BOT_MOUNT_NIGHTELF_100_2, BOT_MOUNT_NIGHTELF_100_3 };
++                        static const MountArray MOUNTS_100_FORSAKEN = { BOT_MOUNT_FORSAKEN_100_1, BOT_MOUNT_FORSAKEN_100_2, BOT_MOUNT_FORSAKEN_100_3 };
++                        static const MountArray MOUNTS_100_TAUREN = { BOT_MOUNT_TAUREN_100_1, BOT_MOUNT_TAUREN_100_2, BOT_MOUNT_TAUREN_100_3 };
++                        static const MountArray MOUNTS_100_GNOME = { BOT_MOUNT_GNOME_100_1, BOT_MOUNT_GNOME_100_2, BOT_MOUNT_GNOME_100_3 };
++                        static const MountArray MOUNTS_100_TROLL = { BOT_MOUNT_TROLL_100_1, BOT_MOUNT_TROLL_100_2, BOT_MOUNT_TROLL_100_3 };
++                        static const MountArray MOUNTS_100_BLOODELF = { BOT_MOUNT_BLOODELF_100_1, BOT_MOUNT_BLOODELF_100_2, BOT_MOUNT_BLOODELF_100_3 };
++                        static const MountArray MOUNTS_100_DRAENEI = { BOT_MOUNT_DRAENEI_100_1, BOT_MOUNT_DRAENEI_100_2, BOT_MOUNT_DRAENEI_100_3 };
++
++                        Optional<MountArray> myMounts;
++                        switch (me->GetRace())
++                        {
++                            case RACE_HUMAN:         myMounts = useSlowMount ? MOUNTS_60_HUMAN : MOUNTS_100_HUMAN;       break;
++                            case RACE_ORC:           myMounts = useSlowMount ? MOUNTS_60_ORC : MOUNTS_100_ORC;           break;
++                            case RACE_DWARF:         myMounts = useSlowMount ? MOUNTS_60_DWARF : MOUNTS_100_DWARF;       break;
++                            case RACE_NIGHTELF:      myMounts = useSlowMount ? MOUNTS_60_NIGHTELF : MOUNTS_100_NIGHTELF; break;
++                            case RACE_UNDEAD_PLAYER: myMounts = useSlowMount ? MOUNTS_60_FORSAKEN : MOUNTS_100_FORSAKEN; break;
++                            case RACE_TAUREN:        myMounts = useSlowMount ? MOUNTS_60_TAUREN : MOUNTS_100_TAUREN;     break;
++                            case RACE_GNOME:         myMounts = useSlowMount ? MOUNTS_60_GNOME : MOUNTS_100_GNOME;       break;
++                            case RACE_TROLL:         myMounts = useSlowMount ? MOUNTS_60_TROLL : MOUNTS_100_TROLL;       break;
++                            case RACE_BLOODELF:      myMounts = useSlowMount ? MOUNTS_60_BLOODELF : MOUNTS_100_BLOODELF; break;
++                            case RACE_DRAENEI:       myMounts = useSlowMount ? MOUNTS_60_DRAENEI : MOUNTS_100_DRAENEI;   break;
++                            default:                                                                                     break;
++                        }
++
++                        if (myMounts)
++                            myMountSpellId = (*myMounts)[me->GetEntry() % myMounts->size()];
++                    }
++                }
++                else //if (master->CanFly())
++                {
++                    static const MountArray MOUNTS_150_ALLIANCE = { BOT_MOUNT_FLY_ALLIANCE_150_1, BOT_MOUNT_FLY_ALLIANCE_150_2, BOT_MOUNT_FLY_ALLIANCE_150_3 };
++                    static const MountArray MOUNTS_150_HORDE = { BOT_MOUNT_FLY_HORDE_150_1, BOT_MOUNT_FLY_HORDE_150_2, BOT_MOUNT_FLY_HORDE_150_3 };
++                    static const MountArray MOUNTS_280_ALLIANCE = { BOT_MOUNT_FLY_ALLIANCE_280_1, BOT_MOUNT_FLY_ALLIANCE_280_2, BOT_MOUNT_FLY_ALLIANCE_280_3 };
++                    static const MountArray MOUNTS_280_HORDE = { BOT_MOUNT_FLY_HORDE_280_1, BOT_MOUNT_FLY_HORDE_280_2, BOT_MOUNT_FLY_HORDE_280_3 };
++
++                    Optional<MountArray> myMounts;
++                    if (me->GetRaceMask() & RACEMASK_ALLIANCE)
++                        myMounts = useSlowMount ? MOUNTS_150_ALLIANCE : MOUNTS_280_ALLIANCE;
++                    else if (me->GetRaceMask() & RACEMASK_HORDE)
++                        myMounts = useSlowMount ? MOUNTS_150_HORDE : MOUNTS_280_HORDE;
++
++                    if (myMounts)
++                        myMountSpellId = (*myMounts)[me->GetEntry() % myMounts->size()];
++                }
++            }
 +        }
-+        if (mount)
++
++        if (!myMountSpellId) // shouldn't happen normally
++        {
++            if (mountSpellId)
++                myMountSpellId = mountSpellId;
++            else if (!mounts.empty())
++                myMountSpellId = mounts.front()->GetId();
++        }
++
++        if (myMountSpellId)
 +        {
 +            if (me->HasAuraType(SPELL_AURA_MOUNTED))
 +                me->RemoveAurasByType(SPELL_AURA_MOUNTED);
@@ -11009,7 +11132,7 @@ index 000000000..16a672763
 +            me->BotStopMovement();
 +            if (_botclass == BOT_CLASS_DRUID && me->GetShapeshiftForm() != FORM_NONE)
 +                removeShapeshiftForm();
-+            if (doCast(me, mount))
++            if (doCast(me, myMountSpellId))
 +            { }
 +
 +            //RemoveSpell(mount);
@@ -60313,10 +60436,10 @@ index 000000000..b1af098e3
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botspell.h b/src/server/game/AI/NpcBots/botspell.h
 new file mode 100644
-index 000000000..58d585061
+index 000000000..bf518f1a1
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botspell.h
-@@ -0,0 +1,154 @@
+@@ -0,0 +1,247 @@
 +#ifndef _BOTSPELL_H
 +#define _BOTSPELL_H
 +
@@ -60367,9 +60490,6 @@ index 000000000..58d585061
 +    RACIAL_GIFT_OF_NAARU_DEATHKNIGHT    = 59545,
 +    RACIAL_GIFT_OF_NAARU_SHAMAN         = 59547,
 +    RACIAL_GIFT_OF_NAARU_MAGE           = 59548,
-+//COMMON MOUNTS SPELLS
-+    REINDEER                            = 25859,
-+    REINDEER_FLY                        = 44827,
 +//ADVANCED
 +    //HONORLESS_TARGET                    = 2479,
 +    COSMETIC_TELEPORT_EFFECT            = 52096,//visual instant cast omni
@@ -60469,6 +60589,102 @@ index 000000000..58d585061
 +  //unmodify
 +    SPELL_TORNADO_LIGHTNING_VISUAL      = 45869, //periodic, 1 sec
 +};
++
++enum BotMountSpells : uint32
++{
++    //By game events
++    REINDEER                            = 25859,
++    REINDEER_FLY                        = 44827,
++    //AQ40
++    QIRAJI_BATTLE_TANK_1                = 25953,
++    QIRAJI_BATTLE_TANK_2                = 26054,
++    QIRAJI_BATTLE_TANK_3                = 26055,
++    QIRAJI_BATTLE_TANK_4                = 26056,
++    //By class
++    BOT_DARK_RANGER_MOUNT               = 17481, // Deathcharger's Reins
++    BOT_BE_PALLY_FAST_MOUNT             = 34767,
++    BOT_BE_PALLY_MOUNT                  = 34769,
++    BOT_ALLI_PALLY_FAST_MOUNT           = 23214,
++    BOT_ALLI_PALLY_MOUNT                = 13819,
++    BOT_DEATH_KNIGHT_MOUNT              = 48778,
++    BOT_WARLOCK_FAST_MOUNT              = 23161,
++    BOT_WARLOCK_MOUNT                   = 5784,
++    //By race
++    BOT_MOUNT_HUMAN_60_1                = 458,
++    BOT_MOUNT_HUMAN_60_2                = 468,
++    BOT_MOUNT_HUMAN_60_3                = 470,
++    BOT_MOUNT_ORC_60_1                  = 459,
++    BOT_MOUNT_ORC_60_2                  = 578,
++    BOT_MOUNT_ORC_60_3                  = 579,
++    BOT_MOUNT_DWARF_60_1                = 6777,
++    BOT_MOUNT_DWARF_60_2                = 6896,
++    BOT_MOUNT_DWARF_60_3                = 6897,
++    BOT_MOUNT_NIGHTELF_60_1             = 8394,
++    BOT_MOUNT_NIGHTELF_60_2             = 10787,
++    BOT_MOUNT_NIGHTELF_60_3             = 10789,
++    BOT_MOUNT_FORSAKEN_60_1             = 8980,
++    BOT_MOUNT_FORSAKEN_60_2             = 17462,
++    BOT_MOUNT_FORSAKEN_60_3             = 17463,
++    BOT_MOUNT_TAUREN_60_1               = 18363,
++    BOT_MOUNT_TAUREN_60_2               = 18989,
++    BOT_MOUNT_TAUREN_60_3               = 18990,
++    BOT_MOUNT_GNOME_60_1                = 10873,
++    BOT_MOUNT_GNOME_60_2                = 10969,
++    BOT_MOUNT_GNOME_60_3                = 15780,
++    BOT_MOUNT_TROLL_60_1                = 8395,
++    BOT_MOUNT_TROLL_60_2                = 10795,
++    BOT_MOUNT_TROLL_60_3                = 10796,
++    BOT_MOUNT_BLOODELF_60_1             = 34795,
++    BOT_MOUNT_BLOODELF_60_2             = 35018,
++    BOT_MOUNT_BLOODELF_60_3             = 35020,
++    BOT_MOUNT_DRAENEI_60_1              = 34406,
++    BOT_MOUNT_DRAENEI_60_2              = 35710,
++    BOT_MOUNT_DRAENEI_60_3              = 35711,
++    BOT_MOUNT_HUMAN_100_1               = 23227,
++    BOT_MOUNT_HUMAN_100_2               = 23228,
++    BOT_MOUNT_HUMAN_100_3               = 23229,
++    BOT_MOUNT_ORC_100_1                 = 23250,
++    BOT_MOUNT_ORC_100_2                 = 23251,
++    BOT_MOUNT_ORC_100_3                 = 23252,
++    BOT_MOUNT_DWARF_100_1               = 23238,
++    BOT_MOUNT_DWARF_100_2               = 23239,
++    BOT_MOUNT_DWARF_100_3               = 23240,
++    BOT_MOUNT_NIGHTELF_100_1            = 23219,
++    BOT_MOUNT_NIGHTELF_100_2            = 23220,
++    BOT_MOUNT_NIGHTELF_100_3            = 23221,
++    BOT_MOUNT_FORSAKEN_100_1            = 17465,
++    BOT_MOUNT_FORSAKEN_100_2            = 22722,
++    BOT_MOUNT_FORSAKEN_100_3            = 23246,
++    BOT_MOUNT_TAUREN_100_1              = 23247,
++    BOT_MOUNT_TAUREN_100_2              = 23248,
++    BOT_MOUNT_TAUREN_100_3              = 23249,
++    BOT_MOUNT_GNOME_100_1               = 23222,
++    BOT_MOUNT_GNOME_100_2               = 23223,
++    BOT_MOUNT_GNOME_100_3               = 23225,
++    BOT_MOUNT_TROLL_100_1               = 23241,
++    BOT_MOUNT_TROLL_100_2               = 23242,
++    BOT_MOUNT_TROLL_100_3               = 23243,
++    BOT_MOUNT_BLOODELF_100_1            = 35025,
++    BOT_MOUNT_BLOODELF_100_2            = 35027,
++    BOT_MOUNT_BLOODELF_100_3            = 46628,
++    BOT_MOUNT_DRAENEI_100_1             = 35712,
++    BOT_MOUNT_DRAENEI_100_2             = 35713,
++    BOT_MOUNT_DRAENEI_100_3             = 35714,
++    //By Team (flyers)
++    BOT_MOUNT_FLY_ALLIANCE_150_1        = 32235,
++    BOT_MOUNT_FLY_ALLIANCE_150_2        = 32239,
++    BOT_MOUNT_FLY_ALLIANCE_150_3        = 32240,
++    BOT_MOUNT_FLY_HORDE_150_1           = 32243,
++    BOT_MOUNT_FLY_HORDE_150_2           = 32244,
++    BOT_MOUNT_FLY_HORDE_150_3           = 32245,
++    BOT_MOUNT_FLY_ALLIANCE_280_1        = 32242,
++    BOT_MOUNT_FLY_ALLIANCE_280_2        = 32289,
++    BOT_MOUNT_FLY_ALLIANCE_280_3        = 32290,
++    BOT_MOUNT_FLY_HORDE_280_1           = 32246,
++    BOT_MOUNT_FLY_HORDE_280_2           = 32295,
++    BOT_MOUNT_FLY_HORDE_280_3           = 32296
++};
++constexpr std::size_t NUM_MOUNTS_PER_SPEED = 3;
 +
 +#endif //_BOTSPELL_H
 diff --git a/src/server/game/AI/NpcBots/bpet_ai.cpp b/src/server/game/AI/NpcBots/bpet_ai.cpp
