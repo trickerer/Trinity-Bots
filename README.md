@@ -1,5 +1,5 @@
 ### This mod was last updated:
-### 19 Jul 2022, [22e19628e0](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/22e19628e0)
+### 19 Jul 2022, [4718c0a98b](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/4718c0a98b)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 
@@ -609,7 +609,7 @@ Lastly, all NPCBots will have the following extra options:
 - You are dismissed
 - Nevermind
 ```
-`You are dismissed` will remove the NPCBot from your control. They will become pissed off, throw all their gear at you and return back to their spawn location. They will also become enraged for 5 minutes to the point where they will attack anyone attempting to hire them  
+`You are dismissed` will remove the NPCBot from your control. They will become pissed off, throw all their gear at you and return back to their spawn location. They will also become enraged for 5 minutes to the point where they will attack anyone attempting to hire them (this can be disabled in config)  
 `Nevermind` will simply close out the Gossip menu
 
 ### NPCBot Config Settings

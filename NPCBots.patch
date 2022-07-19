@@ -65,7 +65,7 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1355 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 18122 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 18125 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   695 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   391 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   929 +
@@ -94,8 +94,8 @@
  src/server/game/AI/NpcBots/botdump.cpp             |   938 +
  src/server/game/AI/NpcBots/botdump.h               |    50 +
  src/server/game/AI/NpcBots/botgiver.cpp            |   270 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  1626 ++
- src/server/game/AI/NpcBots/botmgr.h                |   223 +
+ src/server/game/AI/NpcBots/botmgr.cpp              |  1632 ++
+ src/server/game/AI/NpcBots/botmgr.h                |   224 +
  src/server/game/AI/NpcBots/botspell.h              |   247 +
  src/server/game/AI/NpcBots/bpet_ai.cpp             |  2445 +++
  src/server/game/AI/NpcBots/bpet_ai.h               |   176 +
@@ -175,8 +175,8 @@
  src/server/shared/DataStores/DBCStructure.h        |     9 +-
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
- src/server/worldserver/worldserver.conf.dist       |   277 +
- 178 files changed, 69169 insertions(+), 75 deletions(-)
+ src/server/worldserver/worldserver.conf.dist       |   285 +
+ 178 files changed, 69187 insertions(+), 75 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -6067,10 +6067,10 @@ index 000000000..1f81a6c1e
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..0affb3a05
+index 000000000..0afcdc7ed
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,18122 @@
+@@ -0,0 +1,18125 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -14879,11 +14879,14 @@ index 000000000..0affb3a05
 +                break;
 +
 +            mgr->RemoveBot(me->GetGUID(), BOT_REMOVE_DISMISS);
-+            if (Aura* bers = me->AddAura(BERSERK, me))
++            if (BotMgr::IsEnrageOnDimissEnabled())
 +            {
-+                uint32 dur = 5 * MINUTE * IN_MILLISECONDS;
-+                bers->SetDuration(dur);
-+                bers->SetMaxDuration(dur);
++                if (Aura* bers = me->AddAura(BERSERK, me))
++                {
++                    uint32 dur = 5 * MINUTE * IN_MILLISECONDS;
++                    bers->SetDuration(dur);
++                    bers->SetMaxDuration(dur);
++                }
 +            }
 +            //if (urand(1,100) <= 25)
 +            //{
@@ -58575,10 +58578,10 @@ index 000000000..89cda63d5
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 000000000..47514257e
+index 000000000..3f4ef5085
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,1626 @@
+@@ -0,0 +1,1632 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "botdatamgr.h"
@@ -58650,6 +58653,7 @@ index 000000000..47514257e
 +bool _enableclass_darkranger;
 +bool _enableclass_necromancer;
 +bool _enableclass_seawitch;
++bool _enrageOnDismiss;
 +bool _botStatLimits;
 +float _botStatLimits_dodge;
 +float _botStatLimits_parry;
@@ -58816,6 +58820,7 @@ index 000000000..47514257e
 +    _enableclass_darkranger         = sConfigMgr->GetBoolDefault("NpcBot.NewClasses.DarkRanger.Enable", true);
 +    _enableclass_necromancer        = sConfigMgr->GetBoolDefault("NpcBot.NewClasses.Necromancer.Enable", true);
 +    _enableclass_seawitch           = sConfigMgr->GetBoolDefault("NpcBot.NewClasses.SeaWitch.Enable", true);
++    _enrageOnDismiss                = sConfigMgr->GetBoolDefault("NpcBot.EnrageOnDismiss", true);
 +    _botStatLimits                  = sConfigMgr->GetBoolDefault("NpcBot.Stats.Limits.Enable", false);
 +    _botStatLimits_dodge            = sConfigMgr->GetFloatDefault("NpcBot.Stats.Limits.Dodge", 95.0f);
 +    _botStatLimits_parry            = sConfigMgr->GetFloatDefault("NpcBot.Stats.Limits.Parry", 95.0f);
@@ -58965,6 +58970,10 @@ index 000000000..47514257e
 +    }
 +}
 +
++bool BotMgr::IsEnrageOnDimissEnabled()
++{
++    return _enrageOnDismiss;
++}
 +bool BotMgr::IsBotStatsLimitsEnabled()
 +{
 +    return _botStatLimits;
@@ -60207,10 +60216,10 @@ index 000000000..47514257e
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.h b/src/server/game/AI/NpcBots/botmgr.h
 new file mode 100644
-index 000000000..b1af098e3
+index 000000000..43f4bc8fc
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.h
-@@ -0,0 +1,223 @@
+@@ -0,0 +1,224 @@
 +#ifndef _BOTMGR_H
 +#define _BOTMGR_H
 +
@@ -60283,6 +60292,7 @@ index 000000000..b1af098e3
 +        static bool ShowEquippedHelm();
 +        static bool SendEquipListItems();
 +        static bool IsClassEnabled(uint8 m_class);
++        static bool IsEnrageOnDimissEnabled();
 +        static bool IsBotStatsLimitsEnabled();
 +        static bool IsPvPEnabled();
 +        static bool IsFoodInterruptedByMovement();
@@ -72306,10 +72316,10 @@ index b19c205d9..e92bd4c39 100644
  #define CLASSMASK_WAND_USERS ((1<<(CLASS_PRIEST-1))|(1<<(CLASS_MAGE-1))|(1<<(CLASS_WARLOCK-1)))
  
 diff --git a/src/server/worldserver/worldserver.conf.dist b/src/server/worldserver/worldserver.conf.dist
-index 442681e64..03e692d23 100644
+index 442681e64..f121626ca 100644
 --- a/src/server/worldserver/worldserver.conf.dist
 +++ b/src/server/worldserver/worldserver.conf.dist
-@@ -4147,3 +4147,280 @@ Metric.OverallStatusInterval = 1
+@@ -4147,3 +4147,288 @@ Metric.OverallStatusInterval = 1
  
  #
  ###################################################################################################
@@ -72587,6 +72597,14 @@ index 442681e64..03e692d23 100644
 +#                     604800 - (7 Days)
 +
 +NpcBot.OwnershipExpireTime = 0
++
++#
++#    NpcBot.EnrageOnDismiss
++#        Description: Enable Berserk buff when bot is dismissed and related hostile reaction.
++#        Default:     1 - (Enabled)
++#                     0 - (Disabled)
++
++NpcBot.EnrageOnDismiss = 1
 +
 +#
 +###################################################################################################
