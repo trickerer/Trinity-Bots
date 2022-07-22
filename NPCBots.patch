@@ -65,7 +65,7 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1355 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 18125 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 18137 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   695 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   391 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   929 +
@@ -74,7 +74,7 @@
  src/server/game/AI/NpcBots/bot_dreadlord_ai.cpp    |   539 +
  src/server/game/AI/NpcBots/bot_druid_ai.cpp        |  2929 +++
  src/server/game/AI/NpcBots/bot_hunter_ai.cpp       |  2364 +++
- src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  1836 ++
+ src/server/game/AI/NpcBots/bot_mage_ai.cpp         |  1837 ++
  src/server/game/AI/NpcBots/bot_necromancer_ai.cpp  |   748 +
  src/server/game/AI/NpcBots/bot_paladin_ai.cpp      |  2780 +++
  src/server/game/AI/NpcBots/bot_priest_ai.cpp       |  2105 +++
@@ -176,7 +176,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   285 +
- 178 files changed, 69187 insertions(+), 75 deletions(-)
+ 178 files changed, 69200 insertions(+), 75 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -6067,10 +6067,10 @@ index 000000000..1f81a6c1e
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..0afcdc7ed
+index 000000000..06615c606
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,18125 @@
+@@ -0,0 +1,18137 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -10871,8 +10871,8 @@ index 000000000..0afcdc7ed
 +    float x = me->GetPositionX();
 +    float y = me->GetPositionY();
 +    float z = me->GetPositionZ();
-+    float ori = CCed(opponent, true) ? me->GetOrientation() + 0.75f * M_PI : me->GetOrientation();
-+    float const moveDist = -1.f * std::max<float>(opponent->GetCombatReach(), 3.f);
++    float ori = CCed(mytarget, true) ? me->GetOrientation() + 0.75f * M_PI : me->GetOrientation();
++    float const moveDist = -1.f * std::max<float>(mytarget->GetCombatReach(), 3.f);
 +    float moveX;
 +    float moveY;
 +    //bool move = false;
@@ -10906,7 +10906,7 @@ index 000000000..0afcdc7ed
 +    if (me->GetPositionZ() < z)
 +        z += 0.75f; //prevent going underground
 +
-+    //if (CCed(opponent, true))
++    //if (CCed(mytarget, true))
 +    //    me->AttackStop();
 +    //me->SetOrientation(ori);
 +    Position position;
@@ -14665,8 +14665,20 @@ index 000000000..0afcdc7ed
 +                                    SpellEffectInfo const& effect = spellInfo->GetEffect(SpellEffIndex(i));
 +                                    if (!effect.IsEffect())
 +                                        continue;
-+                                    if (effect.Effect == SPELL_EFFECT_SUMMON || effect.TargetA.GetTarget() != TARGET_UNIT_CASTER || effect.TargetB.GetTarget() != 0)
++                                    if (effect.TargetA.GetTarget() != TARGET_UNIT_CASTER || effect.TargetB.GetTarget() != 0)
 +                                        valid_effect = false;
++                                    else
++                                    {
++                                        switch (effect.Effect)
++                                        {
++                                            case SPELL_EFFECT_SUMMON:
++                                            case SPELL_EFFECT_CREATE_ITEM:
++                                                valid_effect = false;
++                                                break;
++                                            default:
++                                                break;
++                                        }
++                                    }
 +                                }
 +                                if (!valid_effect)
 +                                    continue;
@@ -34807,10 +34819,10 @@ index 000000000..0e4b6ed45
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_mage_ai.cpp b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 new file mode 100644
-index 000000000..d0b02af4c
+index 000000000..7b872fbf5
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
-@@ -0,0 +1,1836 @@
+@@ -0,0 +1,1837 @@
 +#include "bot_ai.h"
 +#include "botmgr.h"
 +#include "botspell.h"
@@ -35409,7 +35421,8 @@ index 000000000..d0b02af4c
 +                if (doCast(opponent, GetSpell(ARCANE_BLAST_1)))
 +                    return;
 +            }
-+            if (IsSpellReady(FROSTFIREBOLT, diff) && (_spec == BOT_SPEC_MAGE_FIRE || !GetSpell(ARCANE_BLAST_1)) &&
++            if (IsSpellReady(FROSTFIREBOLT, diff) && (_spec == BOT_SPEC_MAGE_FIRE ||
++                (_spec == BOT_SPEC_MAGE_FROST && (FROSTFIREBOLT == FROSTFIRE_BOLT_1 || !GetSpell(FROSTBOLT_1)))) &&
 +                dist < CalcSpellMaxRange(FROSTFIREBOLT))
 +            {
 +                if (doCast(opponent, GetSpell(FROSTFIREBOLT)))
