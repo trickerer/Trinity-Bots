@@ -66,7 +66,7 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1355 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 18140 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 18241 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   695 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   391 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   929 +
@@ -88,16 +88,16 @@
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2259 +++
  src/server/game/AI/NpcBots/botcommands.cpp         |  1890 ++
  src/server/game/AI/NpcBots/botcommon.h             |  1047 ++
- src/server/game/AI/NpcBots/botdatamgr.cpp          |   523 +
+ src/server/game/AI/NpcBots/botdatamgr.cpp          |   524 +
  src/server/game/AI/NpcBots/botdatamgr.h            |   135 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   133 +
  src/server/game/AI/NpcBots/botdpstracker.h         |    42 +
  src/server/game/AI/NpcBots/botdump.cpp             |   938 +
  src/server/game/AI/NpcBots/botdump.h               |    50 +
  src/server/game/AI/NpcBots/botgiver.cpp            |   270 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  1632 ++
+ src/server/game/AI/NpcBots/botmgr.cpp              |  1633 ++
  src/server/game/AI/NpcBots/botmgr.h                |   224 +
- src/server/game/AI/NpcBots/botspell.h              |   247 +
+ src/server/game/AI/NpcBots/botspell.h              |   246 +
  src/server/game/AI/NpcBots/bpet_ai.cpp             |  2445 +++
  src/server/game/AI/NpcBots/bpet_ai.h               |   176 +
  src/server/game/AI/NpcBots/bpet_archmage.cpp       |   141 +
@@ -177,7 +177,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   285 +
- 179 files changed, 69219 insertions(+), 75 deletions(-)
+ 179 files changed, 69321 insertions(+), 75 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -6082,10 +6082,10 @@ index 000000000..1f81a6c1e
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..1cd2555d3
+index 000000000..a125beda1
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,18140 @@
+@@ -0,0 +1,18241 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -6224,7 +6224,6 @@ index 000000000..1cd2555d3
 +static uint16 __rand; //calculated for each bot separately once every updateAI tick
 +
 +static std::set<uint32> BotCustomSpells;
-+static bool SPELLS_DEFINED = false;
 +
 +bot_ai::bot_ai(Creature* creature) : CreatureAI(creature)
 +{
@@ -22816,61 +22815,95 @@ index 000000000..1cd2555d3
 +
 +void bot_ai::InitBotCustomSpells()
 +{
-+    if (SPELLS_DEFINED)
++    static std::map<uint32, SpellInfo> spellInfoBackups;
++
++    if (spellInfoBackups.empty())
 +    {
-+        //TC_LOG_ERROR("entities.player", "Bot custom spells initialization... fail...");
-+        return;
++        for (uint32 spellId : { SPELL_COMBAT_SPECIAL_2H_ATTACK, SPELL_TRANSPARENCY_50, SPELL_NETHERWALK, SPELL_MIRROR_IMAGE_BM,
++            SPELL_SHADOW_BLAST, SPELL_SHADOW_BOLT1, SPELL_ATTACK_MELEE_RANDOM, SHADOWFURY_VISUAL, SPELL_DEVOUR_MAGIC, SPELL_DRAIN_MANA, SPELL_REPLENISH_MANA, SPELL_REPLENISH_HEALTH,
++            SPELL_BRILLIANCE_AURA, SPELL_FIREBALL, SPELL_BLIZZARD, SPELL_SUMMON_WATER_ELEMENTAL, SPELL_WATERBOLT,
++            SPELL_VAMPIRIC_AURA, SPELL_TRIGGERED_HEAL, SPELL_SLEEP, SPELL_CARRION_SWARM, SPELL_INFERNO, SPELL_INFERNO_METEOR_VISUAL,
++            SPELL_STEAL_MAGIC, SPELL_FEEDBACK,
++            SPELL_BLACK_ARROW, SPELL_DRAIN_LIFE, SPELL_SILENCE,
++            SPELL_SHADOW_BOLT2, SPELL_RAISE_DEAD, SPELL_UNHOLY_FRENZY, SPELL_CRIPPLE, SPELL_CORPSE_EXPLOSION,
++            SPELL_FORKED_LIGHTNING, SPELL_FORKED_LIGHTNING_EFFECT, SPELL_FROST_ARROW, SPELL_FROST_ARROW_EFFECT, SPELL_MANA_SHIELD, SPELL_TORNADO,
++            SPELL_TORNADO_EFFECT, SPELL_TORNADO_EFFECT2, SPELL_TORNADO_EFFECT3, SPELL_SHOOT_BOW
++        })
++        {
++            spellInfoBackups.insert({ spellId, *sSpellMgr->GetSpellInfo(spellId) });
++        }
 +    }
-+    //TC_LOG_ERROR("entities.player", "Bot custom spells initialization... success...");
-+    SPELLS_DEFINED = true;
 +
-+    //see bot_ai.h::CommonValues::CUSTOM_SPELLS
-+    //all ids must be here
++    BotCustomSpells.clear();
 +
-+    //BotCustomSpells.insert(SPELL_COMBAT_SPECIAL_2H_ATTACK); //exclusive
-+    BotCustomSpells.insert(SPELL_TRANSPARENCY_50);//3.1
-+    BotCustomSpells.insert(SPELL_NETHERWALK);//3
-+    BotCustomSpells.insert(SPELL_MIRROR_IMAGE_BM);//4
-+    BotCustomSpells.insert(SPELL_SHADOW_BLAST);//5
-+    BotCustomSpells.insert(SPELL_SHADOW_BOLT1);//6
-+    //BotCustomSpells.insert(SPELL_ATTACK_MELEE_RANDOM);//7 //exclusive
-+    //BotCustomSpells.insert(SHADOWFURY_VISUAL);//8 //exclusive
-+    BotCustomSpells.insert(SPELL_DEVOUR_MAGIC);//9
-+    BotCustomSpells.insert(SPELL_DRAIN_MANA);//10
-+    BotCustomSpells.insert(SPELL_REPLENISH_MANA);//11
-+    BotCustomSpells.insert(SPELL_REPLENISH_HEALTH);//12
-+    BotCustomSpells.insert(SPELL_BRILLIANCE_AURA);//13
-+    BotCustomSpells.insert(SPELL_FIREBALL);//14
-+    BotCustomSpells.insert(SPELL_BLIZZARD);//15
-+    BotCustomSpells.insert(SPELL_SUMMON_WATER_ELEMENTAL);//16
-+    BotCustomSpells.insert(SPELL_WATERBOLT);//17
-+    BotCustomSpells.insert(SPELL_VAMPIRIC_AURA);//18
-+    //BotCustomSpells.insert(SPELL_TRIGGERED_HEAL);//19 //exclusive
-+    BotCustomSpells.insert(SPELL_SLEEP);//20
-+    BotCustomSpells.insert(SPELL_CARRION_SWARM);//21
-+    BotCustomSpells.insert(SPELL_INFERNO);//22
-+    //BotCustomSpells.insert(SPELL_INFERNO_METEOR_VISUAL);//23 //exclusive
-+    //BotCustomSpells.insert(SPELL_STEAL_MAGIC);//24 //exclusive
-+    BotCustomSpells.insert(SPELL_FEEDBACK);//25
-+    //BotCustomSpells.insert(SPELL_BLACK_ARROW);//26 //exclusive
-+    //BotCustomSpells.insert(SPELL_DRAIN_LIFE);//27 //exclusive
-+    //BotCustomSpells.insert(SPELL_SILENCE);//28 //exclusive
-+    BotCustomSpells.insert(SPELL_SHADOW_BOLT2);//29
-+    BotCustomSpells.insert(SPELL_RAISE_DEAD);//30
-+    BotCustomSpells.insert(SPELL_UNHOLY_FRENZY);//31
-+    BotCustomSpells.insert(SPELL_CRIPPLE);//32
-+    BotCustomSpells.insert(SPELL_CORPSE_EXPLOSION);//33
-+    //BotCustomSpells.insert(SPELL_BLOOD_CURSE);//34 //NIY
-+    BotCustomSpells.insert(SPELL_FORKED_LIGHTNING);//35
-+    BotCustomSpells.insert(SPELL_FORKED_LIGHTNING_EFFECT);//36
-+    BotCustomSpells.insert(SPELL_FROST_ARROW);//37
-+    BotCustomSpells.insert(SPELL_FROST_ARROW_EFFECT);//38
-+    BotCustomSpells.insert(SPELL_MANA_SHIELD);//39
-+    BotCustomSpells.insert(SPELL_TORNADO);//40
-+    BotCustomSpells.insert(SPELL_TORNADO_EFFECT);//41
-+    BotCustomSpells.insert(SPELL_TORNADO_EFFECT2);//42
-+    //BotCustomSpells.insert(SPELL_TORNADO_EFFECT3);//43 //exclusive
-+    BotCustomSpells.insert(SPELL_SHOOT_BOW);//44
++    if (BotMgr::IsClassEnabled(BOT_CLASS_BM))
++    {
++        //BotCustomSpells.insert(SPELL_COMBAT_SPECIAL_2H_ATTACK); //exclusive
++        BotCustomSpells.insert(SPELL_TRANSPARENCY_50);//3.1
++        BotCustomSpells.insert(SPELL_NETHERWALK);//3
++        BotCustomSpells.insert(SPELL_MIRROR_IMAGE_BM);//4
++    }
++    if (BotMgr::IsClassEnabled(BOT_CLASS_SPHYNX))
++    {
++        BotCustomSpells.insert(SPELL_SHADOW_BLAST);//5
++        BotCustomSpells.insert(SPELL_SHADOW_BOLT1);//6
++        //BotCustomSpells.insert(SPELL_ATTACK_MELEE_RANDOM);//7 //exclusive
++        //BotCustomSpells.insert(SHADOWFURY_VISUAL);//8 //exclusive
++        BotCustomSpells.insert(SPELL_DEVOUR_MAGIC);//9
++        BotCustomSpells.insert(SPELL_DRAIN_MANA);//10
++        BotCustomSpells.insert(SPELL_REPLENISH_MANA);//11
++        BotCustomSpells.insert(SPELL_REPLENISH_HEALTH);//12
++    }
++    if (BotMgr::IsClassEnabled(BOT_CLASS_ARCHMAGE))
++    {
++        BotCustomSpells.insert(SPELL_BRILLIANCE_AURA);//13
++        BotCustomSpells.insert(SPELL_FIREBALL);//14
++        BotCustomSpells.insert(SPELL_BLIZZARD);//15
++        BotCustomSpells.insert(SPELL_SUMMON_WATER_ELEMENTAL);//16
++        BotCustomSpells.insert(SPELL_WATERBOLT);//17
++    }
++    if (BotMgr::IsClassEnabled(BOT_CLASS_DREADLORD))
++    {
++        BotCustomSpells.insert(SPELL_VAMPIRIC_AURA);//18
++        //BotCustomSpells.insert(SPELL_TRIGGERED_HEAL);//19 //exclusive
++        BotCustomSpells.insert(SPELL_SLEEP);//20
++        BotCustomSpells.insert(SPELL_CARRION_SWARM);//21
++        BotCustomSpells.insert(SPELL_INFERNO);//22
++        //BotCustomSpells.insert(SPELL_INFERNO_METEOR_VISUAL);//23 //exclusive
++    }
++    if (BotMgr::IsClassEnabled(BOT_CLASS_SPELLBREAKER))
++    {
++        //BotCustomSpells.insert(SPELL_STEAL_MAGIC);//24 //exclusive
++        BotCustomSpells.insert(SPELL_FEEDBACK);//25
++    }
++    if (BotMgr::IsClassEnabled(BOT_CLASS_DARK_RANGER))
++    {
++        //BotCustomSpells.insert(SPELL_BLACK_ARROW);//26 //exclusive
++        //BotCustomSpells.insert(SPELL_DRAIN_LIFE);//27 //exclusive
++        //BotCustomSpells.insert(SPELL_SILENCE);//28 //exclusive
++    }
++    if (BotMgr::IsClassEnabled(BOT_CLASS_NECROMANCER))
++    {
++        BotCustomSpells.insert(SPELL_SHADOW_BOLT2);//29
++        BotCustomSpells.insert(SPELL_RAISE_DEAD);//30
++        BotCustomSpells.insert(SPELL_UNHOLY_FRENZY);//31
++        BotCustomSpells.insert(SPELL_CRIPPLE);//32
++        BotCustomSpells.insert(SPELL_CORPSE_EXPLOSION);//33
++        //BotCustomSpells.insert(SPELL_BLOOD_CURSE);//34 //NIY
++    }
++    if (BotMgr::IsClassEnabled(BOT_CLASS_SEA_WITCH))
++    {
++        BotCustomSpells.insert(SPELL_FORKED_LIGHTNING);//35
++        BotCustomSpells.insert(SPELL_FORKED_LIGHTNING_EFFECT);//36
++        BotCustomSpells.insert(SPELL_FROST_ARROW);//37
++        BotCustomSpells.insert(SPELL_FROST_ARROW_EFFECT);//38
++        BotCustomSpells.insert(SPELL_MANA_SHIELD);//39
++        BotCustomSpells.insert(SPELL_TORNADO);//40
++        BotCustomSpells.insert(SPELL_TORNADO_EFFECT);//41
++        BotCustomSpells.insert(SPELL_TORNADO_EFFECT2);//42
++        //BotCustomSpells.insert(SPELL_TORNADO_EFFECT3);//43 //exclusive
++        BotCustomSpells.insert(SPELL_SHOOT_BOW);//44
++    }
 +
 +    uint32 trig;
 +    SpellInfo* trigInfo;
@@ -22878,1350 +22911,1418 @@ index 000000000..1cd2555d3
 +    SpellInfo* sinfo;
 +
 +    //BLADEMASTER
++    if (BotMgr::IsClassEnabled(BOT_CLASS_BM))
++    {
++        //2) SPELL_COMBAT_SPECIAL_2H_ATTACK
++        spellId = SPELL_COMBAT_SPECIAL_2H_ATTACK; //44079
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //2) SPELL_COMBAT_SPECIAL_2H_ATTACK
-+    spellId = SPELL_COMBAT_SPECIAL_2H_ATTACK; //1132
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
-+    sinfo->RangeEntry = sSpellRangeStore.LookupEntry(6); //6 - 100 yds
-+    sinfo->Attributes &= ~(SPELL_ATTR0_CANT_USED_IN_COMBAT);
-+    sinfo->AttributesEx2 |= SPELL_ATTR2_CAN_TARGET_DEAD;
-+    //2) END SPELL_COMBAT_SPECIAL_2H_ATTACK
++        sinfo->RangeEntry = sSpellRangeStore.LookupEntry(6); //6 - 100 yds
++        sinfo->Attributes &= ~(SPELL_ATTR0_CANT_USED_IN_COMBAT);
++        sinfo->AttributesEx2 |= SPELL_ATTR2_CAN_TARGET_DEAD;
++        //2) END SPELL_COMBAT_SPECIAL_2H_ATTACK
 +
-+    //3) WINDWALK
-+    //3.1) TRANSPARENCY
-+    trig = SPELL_TRANSPARENCY_50; //44816
-+    trigInfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(trig));
-+    trigInfo->Attributes |= (SPELL_ATTR0_NOT_SHAPESHIFT | SPELL_ATTR0_CASTABLE_WHILE_SITTING);
-+    trigInfo->AttributesEx |= (SPELL_ATTR1_NOT_BREAK_STEALTH);
-+    trigInfo->AuraInterruptFlags =
-+        AURA_INTERRUPT_FLAG_SPELL_ATTACK | AURA_INTERRUPT_FLAG_MELEE_ATTACK |
-+        AURA_INTERRUPT_FLAG_NOT_ABOVEWATER | AURA_INTERRUPT_FLAG_MOUNT; //0x00003C07;vanish
-+    trigInfo->CasterAuraStateNot = 0;
-+    //3.1) END TRANSPARENCY
++        //3) WINDWALK
++        //3.1) TRANSPARENCY
++        trig = SPELL_TRANSPARENCY_50; //44816
++        trigInfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(trig));
 +
-+    spellId = SPELL_NETHERWALK; //31599
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        trigInfo->Attributes |= (SPELL_ATTR0_NOT_SHAPESHIFT | SPELL_ATTR0_CASTABLE_WHILE_SITTING);
++        trigInfo->AttributesEx |= (SPELL_ATTR1_NOT_BREAK_STEALTH);
++        trigInfo->AuraInterruptFlags =
++            AURA_INTERRUPT_FLAG_SPELL_ATTACK | AURA_INTERRUPT_FLAG_MELEE_ATTACK |
++            AURA_INTERRUPT_FLAG_NOT_ABOVEWATER | AURA_INTERRUPT_FLAG_MOUNT; //0x00003C07;vanish
++        trigInfo->CasterAuraStateNot = 0;
++        //3.1) END TRANSPARENCY
 +
-+    sinfo->SpellLevel = 0;
-+    sinfo->MaxLevel = 0;
-+    sinfo->RecoveryTime = 5000;
-+    sinfo->PowerType = POWER_MANA;
-+    sinfo->ManaCost = 75 * 5;
-+    sinfo->ManaCostPercentage = 0;
-+    sinfo->ManaCostPerlevel = 0;
-+    sinfo->Attributes &= ~(SPELL_ATTR0_UNK11);
-+    sinfo->Attributes |= (SPELL_ATTR0_NOT_SHAPESHIFT | SPELL_ATTR0_CASTABLE_WHILE_SITTING | SPELL_ATTR0_UNAFFECTED_BY_INVULNERABILITY);
-+    sinfo->AttributesEx &= ~SPELL_ATTR1_DONT_REFRESH_DURATION_ON_RECAST;
-+    sinfo->AttributesEx |= (SPELL_ATTR1_NOT_BREAK_STEALTH | SPELL_ATTR1_NO_THREAT);
-+    sinfo->AttributesEx2 |= SPELL_ATTR2_UNK1;
-+    sinfo->AuraInterruptFlags =
-+        AURA_INTERRUPT_FLAG_SPELL_ATTACK | AURA_INTERRUPT_FLAG_MELEE_ATTACK |
-+        AURA_INTERRUPT_FLAG_NOT_ABOVEWATER | AURA_INTERRUPT_FLAG_MOUNT; //0x00003C07;vanish
-+    sinfo->CasterAuraStateNot = 0;
++        spellId = SPELL_NETHERWALK; //31599
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    sinfo->_effects[0].Effect = SPELL_EFFECT_APPLY_AURA;
-+    sinfo->_effects[0].BasePoints = 100;
-+    sinfo->_effects[0].RealPointsPerLevel = 2.5f;
-+    sinfo->_effects[0].ValueMultiplier = 1.0f;
-+    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
-+    sinfo->_effects[0].ApplyAuraName = SPELL_AURA_MOD_INVISIBILITY;
-+    sinfo->_effects[0].Amplitude = 0;
-+    sinfo->_effects[0].TriggerSpell = 0;
-+    sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS);
++        sinfo->SpellLevel = 0;
++        sinfo->MaxLevel = 0;
++        sinfo->RecoveryTime = 5000;
++        sinfo->PowerType = POWER_MANA;
++        sinfo->ManaCost = 75 * 5;
++        sinfo->ManaCostPercentage = 0;
++        sinfo->ManaCostPerlevel = 0;
++        sinfo->Attributes &= ~(SPELL_ATTR0_UNK11);
++        sinfo->Attributes |= (SPELL_ATTR0_NOT_SHAPESHIFT | SPELL_ATTR0_CASTABLE_WHILE_SITTING | SPELL_ATTR0_UNAFFECTED_BY_INVULNERABILITY);
++        sinfo->AttributesEx &= ~SPELL_ATTR1_DONT_REFRESH_DURATION_ON_RECAST;
++        sinfo->AttributesEx |= (SPELL_ATTR1_NOT_BREAK_STEALTH | SPELL_ATTR1_NO_THREAT);
++        sinfo->AttributesEx2 |= SPELL_ATTR2_UNK1;
++        sinfo->AuraInterruptFlags =
++            AURA_INTERRUPT_FLAG_SPELL_ATTACK | AURA_INTERRUPT_FLAG_MELEE_ATTACK |
++            AURA_INTERRUPT_FLAG_NOT_ABOVEWATER | AURA_INTERRUPT_FLAG_MOUNT; //0x00003C07;vanish
++        sinfo->CasterAuraStateNot = 0;
 +
-+    sinfo->_effects[1].Effect = SPELL_EFFECT_APPLY_AURA;
-+    sinfo->_effects[1].BasePoints = 10;
-+    sinfo->_effects[1].RealPointsPerLevel = 0.5f;
-+    sinfo->_effects[1].ValueMultiplier = 1.0f;
-+    sinfo->_effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
-+    sinfo->_effects[1].TargetB = SpellImplicitTargetInfo(0);
-+    sinfo->_effects[1].ApplyAuraName = SPELL_AURA_MOD_INCREASE_SPEED;
-+    sinfo->_effects[1].Amplitude = 0;
-+    sinfo->_effects[1].TriggerSpell = 0;
-+    sinfo->_effects[1].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS); //14
++        sinfo->_effects[0].Effect = SPELL_EFFECT_APPLY_AURA;
++        sinfo->_effects[0].BasePoints = 100;
++        sinfo->_effects[0].RealPointsPerLevel = 2.5f;
++        sinfo->_effects[0].ValueMultiplier = 1.0f;
++        sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
++        sinfo->_effects[0].ApplyAuraName = SPELL_AURA_MOD_INVISIBILITY;
++        sinfo->_effects[0].Amplitude = 0;
++        sinfo->_effects[0].TriggerSpell = 0;
++        sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS);
 +
-+    sinfo->_effects[2].Effect = SPELL_EFFECT_TRIGGER_SPELL;
-+    sinfo->_effects[2].BasePoints = 0;
-+    sinfo->_effects[2].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
-+    sinfo->_effects[2].TargetB = SpellImplicitTargetInfo(0);
-+    sinfo->_effects[2].ApplyAuraName = SPELL_AURA_NONE;
-+    sinfo->_effects[2].Amplitude = 0;
-+    sinfo->_effects[2].TriggerSpell = trig;
-+    sinfo->_effects[2].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS); //14
-+    //3) END WINDWALK
++        sinfo->_effects[1].Effect = SPELL_EFFECT_APPLY_AURA;
++        sinfo->_effects[1].BasePoints = 10;
++        sinfo->_effects[1].RealPointsPerLevel = 0.5f;
++        sinfo->_effects[1].ValueMultiplier = 1.0f;
++        sinfo->_effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
++        sinfo->_effects[1].TargetB = SpellImplicitTargetInfo(0);
++        sinfo->_effects[1].ApplyAuraName = SPELL_AURA_MOD_INCREASE_SPEED;
++        sinfo->_effects[1].Amplitude = 0;
++        sinfo->_effects[1].TriggerSpell = 0;
++        sinfo->_effects[1].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS); //14
 +
-+    //4) MIRROR IMAGE (BLADEMASTER)
-+    spellId = SPELL_MIRROR_IMAGE_BM; //69936
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->_effects[2].Effect = SPELL_EFFECT_TRIGGER_SPELL;
++        sinfo->_effects[2].BasePoints = 0;
++        sinfo->_effects[2].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
++        sinfo->_effects[2].TargetB = SpellImplicitTargetInfo(0);
++        sinfo->_effects[2].ApplyAuraName = SPELL_AURA_NONE;
++        sinfo->_effects[2].Amplitude = 0;
++        sinfo->_effects[2].TriggerSpell = trig;
++        sinfo->_effects[2].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS); //14
++        //3) END WINDWALK
 +
-+    sinfo->RangeEntry = sSpellRangeStore.LookupEntry(1); //1 - self only //6 - 100 yds
-+    sinfo->DurationEntry = sSpellDurationStore.LookupEntry(566); //566 - 0 sec //3 - 60 sec //1 - 10 sec //32 - 6 seconds
-+    sinfo->RecoveryTime = 8000;
-+    sinfo->PowerType = POWER_MANA;
-+    sinfo->ManaCost = 125 * 5;
-+    sinfo->ManaCostPercentage = 0;
-+    sinfo->ManaCostPerlevel = 0;
-+    sinfo->Attributes |= (SPELL_ATTR0_NOT_SHAPESHIFT/* | SPELL_ATTR0_CASTABLE_WHILE_SITTING | SPELL_ATTR0_UNAFFECTED_BY_INVULNERABILITY*/);
-+    sinfo->AttributesEx2 &= ~(SPELL_ATTR2_CAN_TARGET_NOT_IN_LOS);
-+    //sinfo->AttributesEx3 |= SPELL_ATTR3_DONT_DISPLAY_RANGE;
++        //4) MIRROR IMAGE (BLADEMASTER)
++        spellId = SPELL_MIRROR_IMAGE_BM; //69936
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    sinfo->_effects[0].Effect = SPELL_EFFECT_DUMMY;
-+    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
-+    sinfo->_effects[0].MiscValue = 0;
-+    sinfo->_effects[0].MiscValueB = 0;
-+    sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS);
-+    //4) END MIRROR IMAGE (BLADEMASTER)
++        sinfo->RangeEntry = sSpellRangeStore.LookupEntry(1); //1 - self only //6 - 100 yds
++        sinfo->DurationEntry = sSpellDurationStore.LookupEntry(566); //566 - 0 sec //3 - 60 sec //1 - 10 sec //32 - 6 seconds
++        sinfo->RecoveryTime = 8000;
++        sinfo->PowerType = POWER_MANA;
++        sinfo->ManaCost = 125 * 5;
++        sinfo->ManaCostPercentage = 0;
++        sinfo->ManaCostPerlevel = 0;
++        sinfo->Attributes |= (SPELL_ATTR0_NOT_SHAPESHIFT/* | SPELL_ATTR0_CASTABLE_WHILE_SITTING | SPELL_ATTR0_UNAFFECTED_BY_INVULNERABILITY*/);
++        sinfo->AttributesEx2 &= ~(SPELL_ATTR2_CAN_TARGET_NOT_IN_LOS);
++        //sinfo->AttributesEx3 |= SPELL_ATTR3_DONT_DISPLAY_RANGE;
++
++        sinfo->_effects[0].Effect = SPELL_EFFECT_DUMMY;
++        sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
++        sinfo->_effects[0].MiscValue = 0;
++        sinfo->_effects[0].MiscValueB = 0;
++        sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS);
++        //4) END MIRROR IMAGE (BLADEMASTER)
++    }
++    else
++    {
++        for (uint32 spellId : { SPELL_COMBAT_SPECIAL_2H_ATTACK, SPELL_TRANSPARENCY_50, SPELL_NETHERWALK, SPELL_MIRROR_IMAGE_BM })
++            *const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId)) = spellInfoBackups.at(spellId);
++    }
 +
 +    //SPHYNX
++    if (BotMgr::IsClassEnabled(BOT_CLASS_SPHYNX))
++    {
++        //5) SHADOW BLAST (SPLASH ATTACK)
++        //TODO: balance
++        spellId = SPELL_SHADOW_BLAST; //38085
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //5) SHADOW BLAST (SPLASH ATTACK)
-+    //TODO: balance
-+    spellId = SPELL_SHADOW_BLAST; //38085
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellFamilyName = SPELLFAMILY_WARLOCK;
++        sinfo->SpellLevel = 60;
++        sinfo->MaxLevel = 83;
++        sinfo->ManaCost = BASE_MANA_SPHYNX / 16;
++        sinfo->ManaCostPercentage = 0;
++        sinfo->ManaCostPerlevel = 0;
++        sinfo->CastTimeEntry = nullptr;
++        sinfo->RangeEntry = sSpellRangeStore.LookupEntry(4); //30 yds
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW | SPELL_SCHOOL_MASK_ARCANE;
++        sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT | TARGET_FLAG_DEST_LOCATION;
++        //sinfo->MaxAffectedTargets = 1000;
++        //sinfo->Attributes |= SPELL_ATTR0_HIDE_IN_COMBAT_LOG | SPELL_ATTR0_HIDDEN_CLIENTSIDE | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE;
++        sinfo->Attributes &= ~(SPELL_ATTR0_LEVEL_DAMAGE_CALCULATION);
++        //sinfo->AttributesEx2 |= SPELL_ATTR2_CAN_TARGET_NOT_IN_LOS;
++        sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
 +
-+    sinfo->SpellFamilyName = SPELLFAMILY_WARLOCK;
-+    sinfo->SpellLevel = 60;
-+    sinfo->MaxLevel = 83;
-+    sinfo->ManaCost = BASE_MANA_SPHYNX/16;
-+    sinfo->ManaCostPercentage = 0;
-+    sinfo->ManaCostPerlevel = 0;
-+    sinfo->CastTimeEntry = nullptr;
-+    sinfo->RangeEntry = sSpellRangeStore.LookupEntry(4); //30 yds
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW | SPELL_SCHOOL_MASK_ARCANE;
-+    sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT | TARGET_FLAG_DEST_LOCATION;
-+    //sinfo->MaxAffectedTargets = 1000;
-+    //sinfo->Attributes |= SPELL_ATTR0_HIDE_IN_COMBAT_LOG | SPELL_ATTR0_HIDDEN_CLIENTSIDE | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE;
-+    sinfo->Attributes &= ~(SPELL_ATTR0_LEVEL_DAMAGE_CALCULATION);
-+    //sinfo->AttributesEx2 |= SPELL_ATTR2_CAN_TARGET_NOT_IN_LOS;
-+    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
++        sinfo->_effects[0].BasePoints = 300;
++        sinfo->_effects[0].DieSides = 0;
++        sinfo->_effects[0].BonusMultiplier = 0.f;
++        sinfo->_effects[0].DamageMultiplier = 0.75f;
++        sinfo->_effects[0].RealPointsPerLevel = 50.f;
++        //sinfo->_effects[0].ValueMultiplier = 1.f;
 +
-+    sinfo->_effects[0].BasePoints = 300;
-+    sinfo->_effects[0].DieSides = 0;
-+    sinfo->_effects[0].BonusMultiplier = 0.f;
-+    sinfo->_effects[0].DamageMultiplier = 0.75f;
-+    sinfo->_effects[0].RealPointsPerLevel = 50.f;
-+    //sinfo->_effects[0].ValueMultiplier = 1.f;
++        sinfo->_effects[1].Effect = SPELL_EFFECT_SCHOOL_DAMAGE;
++        sinfo->_effects[1].BasePoints = 50;
++        sinfo->_effects[1].BonusMultiplier = 1.0f;
++        sinfo->_effects[1].DamageMultiplier = 0.5f;
++        sinfo->_effects[1].DieSides = /*17*/25;
++        sinfo->_effects[1].RealPointsPerLevel = 30.f;
++        //sinfo->_effects[1].ValueMultiplier = 1.f;
++        sinfo->_effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
++        sinfo->_effects[1].TargetB = SpellImplicitTargetInfo(TARGET_UNIT_DEST_AREA_ENEMY);
++        sinfo->_effects[1].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_12_YARDS);
++        //5) END SHADOW BLAST (SPLASH ATTACK)
 +
-+    sinfo->_effects[1].Effect = SPELL_EFFECT_SCHOOL_DAMAGE;
-+    sinfo->_effects[1].BasePoints = 50;
-+    sinfo->_effects[1].BonusMultiplier = 1.0f;
-+    sinfo->_effects[1].DamageMultiplier = 0.5f;
-+    sinfo->_effects[1].DieSides = /*17*/25;
-+    sinfo->_effects[1].RealPointsPerLevel = 30.f;
-+    //sinfo->_effects[1].ValueMultiplier = 1.f;
-+    sinfo->_effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
-+    sinfo->_effects[1].TargetB = SpellImplicitTargetInfo(TARGET_UNIT_DEST_AREA_ENEMY);
-+    sinfo->_effects[1].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_12_YARDS);
-+    //5) END SHADOW BLAST (SPLASH ATTACK)
++        //6) SHADOW BOLT (BASE ATTACK)
++        spellId = SPELL_SHADOW_BOLT1; //16408
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //6) SHADOW BOLT (BASE ATTACK)
-+    spellId = SPELL_SHADOW_BOLT1; //16408
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->PreventionType = SPELL_PREVENTION_TYPE_NONE;
++        sinfo->SpellLevel = 60;
++        sinfo->MaxLevel = 83;
++        sinfo->ManaCost = 0;
++        sinfo->ManaCostPercentage = 0;
++        sinfo->ManaCostPerlevel = 0;
++        sinfo->CastTimeEntry = nullptr;
++        sinfo->RangeEntry = sSpellRangeStore.LookupEntry(4); //30 yds
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW | SPELL_SCHOOL_MASK_ARCANE;
++        //sinfo->Attributes |= SPELL_ATTR0_HIDE_IN_COMBAT_LOG | SPELL_ATTR0_HIDDEN_CLIENTSIDE | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE;
++        //sinfo->AttributesEx3 |= SPELL_ATTR3_DONT_DISPLAY_RANGE;
 +
-+    sinfo->PreventionType = SPELL_PREVENTION_TYPE_NONE;
-+    sinfo->SpellLevel = 60;
-+    sinfo->MaxLevel = 83;
-+    sinfo->ManaCost = 0;
-+    sinfo->ManaCostPercentage = 0;
-+    sinfo->ManaCostPerlevel = 0;
-+    sinfo->CastTimeEntry = nullptr;
-+    sinfo->RangeEntry = sSpellRangeStore.LookupEntry(4); //30 yds
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW | SPELL_SCHOOL_MASK_ARCANE;
-+    //sinfo->Attributes |= SPELL_ATTR0_HIDE_IN_COMBAT_LOG | SPELL_ATTR0_HIDDEN_CLIENTSIDE | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE;
-+    //sinfo->AttributesEx3 |= SPELL_ATTR3_DONT_DISPLAY_RANGE;
++        sinfo->_effects[0].BasePoints = 200;
++        sinfo->_effects[0].DieSides = /*12*/25;
++        sinfo->_effects[0].BonusMultiplier = 1.15f;
++        sinfo->_effects[0].DamageMultiplier = 1.f;
++        sinfo->_effects[0].RealPointsPerLevel = 10.f;
++        //sinfo->_effects[0].ValueMultiplier = 1.f;
++        //6) END SHADOW BOLT (BASE ATTACK)
 +
-+    sinfo->_effects[0].BasePoints = 200;
-+    sinfo->_effects[0].DieSides = /*12*/25;
-+    sinfo->_effects[0].BonusMultiplier = 1.15f;
-+    sinfo->_effects[0].DamageMultiplier = 1.f;
-+    sinfo->_effects[0].RealPointsPerLevel = 10.f;
-+    //sinfo->_effects[0].ValueMultiplier = 1.f;
-+    //6) END SHADOW BOLT (BASE ATTACK)
++        //7) ATTACK ANIMATION
++        spellId = SPELL_ATTACK_MELEE_RANDOM; //42902
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //7) ATTACK ANIMATION
-+    spellId = SPELL_ATTACK_MELEE_RANDOM; //42902
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->Attributes &= ~(SPELL_ATTR0_CANT_USED_IN_COMBAT);
++        //7) END ATTACK ANIMATION
 +
-+    sinfo->Attributes &= ~(SPELL_ATTR0_CANT_USED_IN_COMBAT);
-+    //7) END ATTACK ANIMATION
++        //8) SPLASH ANIMATION
++        spellId = SHADOWFURY_VISUAL; //48582
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //8) SPLASH ANIMATION
-+    spellId = SHADOWFURY_VISUAL; //48582
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellLevel = 0;
++        sinfo->MaxLevel = 0;
++        sinfo->ManaCost = 0;
++        sinfo->ManaCostPercentage = 0;
++        sinfo->ManaCostPerlevel = 0;
++        sinfo->RangeEntry = sSpellRangeStore.LookupEntry(6); //100 yds
++        sinfo->ExplicitTargetMask = TARGET_FLAG_DEST_LOCATION;
++        sinfo->MaxAffectedTargets = 1;
++        sinfo->Stances = 0;
++        sinfo->Speed = 0.f;
++        sinfo->Attributes |= SPELL_ATTR0_CASTABLE_WHILE_DEAD | SPELL_ATTR0_UNAFFECTED_BY_INVULNERABILITY;
++        sinfo->AttributesEx |= SPELL_ATTR1_UNAFFECTED_BY_SCHOOL_IMMUNE | SPELL_ATTR1_NO_THREAT;
++        sinfo->AttributesEx2 |= SPELL_ATTR2_CAN_TARGET_DEAD | SPELL_ATTR2_CAN_TARGET_NOT_IN_LOS;
++        sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
++        sinfo->AttributesEx5 |= SPELL_ATTR5_USABLE_WHILE_STUNNED | SPELL_ATTR5_USABLE_WHILE_CONFUSED | SPELL_ATTR5_USABLE_WHILE_FEARED;
 +
-+    sinfo->SpellLevel = 0;
-+    sinfo->MaxLevel = 0;
-+    sinfo->ManaCost = 0;
-+    sinfo->ManaCostPercentage = 0;
-+    sinfo->ManaCostPerlevel = 0;
-+    sinfo->RangeEntry = sSpellRangeStore.LookupEntry(6); //100 yds
-+    sinfo->ExplicitTargetMask = TARGET_FLAG_DEST_LOCATION;
-+    sinfo->MaxAffectedTargets = 1;
-+    sinfo->Stances = 0;
-+    sinfo->Speed = 0.f;
-+    sinfo->Attributes |= SPELL_ATTR0_CASTABLE_WHILE_DEAD | SPELL_ATTR0_UNAFFECTED_BY_INVULNERABILITY;
-+    sinfo->AttributesEx |= SPELL_ATTR1_UNAFFECTED_BY_SCHOOL_IMMUNE | SPELL_ATTR1_NO_THREAT;
-+    sinfo->AttributesEx2 |= SPELL_ATTR2_CAN_TARGET_DEAD | SPELL_ATTR2_CAN_TARGET_NOT_IN_LOS;
-+    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
-+    sinfo->AttributesEx5 |= SPELL_ATTR5_USABLE_WHILE_STUNNED | SPELL_ATTR5_USABLE_WHILE_CONFUSED | SPELL_ATTR5_USABLE_WHILE_FEARED;
++        sinfo->_effects[0].Effect = SPELL_EFFECT_DUMMY;
++        sinfo->_effects[0].BasePoints = 1;
++        sinfo->_effects[0].RealPointsPerLevel = 0.f;
++        sinfo->_effects[0].ValueMultiplier = 0.f;
++        sinfo->_effects[0].RealPointsPerLevel = 0.f;
++        sinfo->_effects[0].DamageMultiplier = 0.f;
++        sinfo->_effects[0].TargetB = SpellImplicitTargetInfo(0);
++        sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS);
++        sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_DEST_DEST);
++        //8) END SPLASH ANIMATION
 +
-+    sinfo->_effects[0].Effect = SPELL_EFFECT_DUMMY;
-+    sinfo->_effects[0].BasePoints = 1;
-+    sinfo->_effects[0].RealPointsPerLevel = 0.f;
-+    sinfo->_effects[0].ValueMultiplier = 0.f;
-+    sinfo->_effects[0].RealPointsPerLevel = 0.f;
-+    sinfo->_effects[0].DamageMultiplier = 0.f;
-+    sinfo->_effects[0].TargetB = SpellImplicitTargetInfo(0);
-+    sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS);
-+    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_DEST_DEST);
-+    //8) END SPLASH ANIMATION
++        //9) DEVOUR MAGIC
++        spellId = SPELL_DEVOUR_MAGIC; //17012
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //9) DEVOUR MAGIC
-+    spellId = SPELL_DEVOUR_MAGIC; //17012
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->InterruptFlags = 0xF;
++        sinfo->SpellLevel = 0;
++        sinfo->MaxLevel = 0;
++        sinfo->MaxTargetLevel = 0;
++        sinfo->RecoveryTime = 7000;
++        sinfo->PowerType = POWER_MANA;
++        sinfo->ManaCost = 0;
++        sinfo->ManaCostPercentage = 0;
++        sinfo->ManaCostPerlevel = 0;
++        sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(4); //1000ms
++        sinfo->RangeEntry = sSpellRangeStore.LookupEntry(5); //40 yds
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW | SPELL_SCHOOL_MASK_ARCANE;
++        sinfo->DmgClass = SPELL_DAMAGE_CLASS_MAGIC;
++        sinfo->ExplicitTargetMask = TARGET_FLAG_DEST_LOCATION;
++        //sinfo->MaxAffectedTargets = 100;
++        sinfo->Attributes |= SPELL_ATTR0_UNAFFECTED_BY_INVULNERABILITY;
++        sinfo->AttributesEx |= SPELL_ATTR1_NO_THREAT;
++        //sinfo->Attributes &= ~(SPELL_ATTR0_HIDE_IN_COMBAT_LOG);
++        //sinfo->AttributesEx3 |= SPELL_ATTR3_DONT_DISPLAY_RANGE;
 +
-+    sinfo->InterruptFlags = 0xF;
-+    sinfo->SpellLevel = 0;
-+    sinfo->MaxLevel = 0;
-+    sinfo->MaxTargetLevel = 0;
-+    sinfo->RecoveryTime = 7000;
-+    sinfo->PowerType = POWER_MANA;
-+    sinfo->ManaCost = 0;
-+    sinfo->ManaCostPercentage = 0;
-+    sinfo->ManaCostPerlevel = 0;
-+    sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(4); //1000ms
-+    sinfo->RangeEntry = sSpellRangeStore.LookupEntry(5); //40 yds
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW | SPELL_SCHOOL_MASK_ARCANE;
-+    sinfo->DmgClass = SPELL_DAMAGE_CLASS_MAGIC;
-+    sinfo->ExplicitTargetMask = TARGET_FLAG_DEST_LOCATION;
-+    //sinfo->MaxAffectedTargets = 100;
-+    sinfo->Attributes |= SPELL_ATTR0_UNAFFECTED_BY_INVULNERABILITY;
-+    sinfo->AttributesEx |= SPELL_ATTR1_NO_THREAT;
-+    //sinfo->Attributes &= ~(SPELL_ATTR0_HIDE_IN_COMBAT_LOG);
-+    //sinfo->AttributesEx3 |= SPELL_ATTR3_DONT_DISPLAY_RANGE;
++        sinfo->_effects[0].Effect = SPELL_EFFECT_DISPEL;
++        sinfo->_effects[0].BasePoints = 2;
++        sinfo->_effects[0].MiscValue = DISPEL_MAGIC;
++        sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_DEST_AREA_ALLY);
++        sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_20_YARDS);
 +
-+    sinfo->_effects[0].Effect = SPELL_EFFECT_DISPEL;
-+    sinfo->_effects[0].BasePoints = 2;
-+    sinfo->_effects[0].MiscValue = DISPEL_MAGIC;
-+    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_DEST_AREA_ALLY);
-+    sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_20_YARDS);
++        sinfo->_effects[1].Effect = SPELL_EFFECT_DISPEL;
++        sinfo->_effects[1].BasePoints = 2;
++        sinfo->_effects[1].MiscValue = DISPEL_CURSE;
++        sinfo->_effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_DEST_AREA_ALLY);
++        sinfo->_effects[1].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_20_YARDS);
 +
-+    sinfo->_effects[1].Effect = SPELL_EFFECT_DISPEL;
-+    sinfo->_effects[1].BasePoints = 2;
-+    sinfo->_effects[1].MiscValue = DISPEL_CURSE;
-+    sinfo->_effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_DEST_AREA_ALLY);
-+    sinfo->_effects[1].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_20_YARDS);
++        sinfo->_effects[2].Effect = SPELL_EFFECT_DISPEL;
++        sinfo->_effects[2].BasePoints = 2;
++        sinfo->_effects[2].MiscValue = DISPEL_MAGIC;
++        sinfo->_effects[2].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_DEST_AREA_ENEMY);
++        sinfo->_effects[2].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_20_YARDS);
++        //9) END DEVOUR MAGIC
 +
-+    sinfo->_effects[2].Effect = SPELL_EFFECT_DISPEL;
-+    sinfo->_effects[2].BasePoints = 2;
-+    sinfo->_effects[2].MiscValue = DISPEL_MAGIC;
-+    sinfo->_effects[2].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_DEST_AREA_ENEMY);
-+    sinfo->_effects[2].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_20_YARDS);
-+    //9) END DEVOUR MAGIC
++        //10) DRAIN MANA
++        spellId = SPELL_DRAIN_MANA; //25755
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //10) DRAIN MANA
-+    spellId = SPELL_DRAIN_MANA; //25755
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellLevel = 0;
++        sinfo->MaxLevel = 0;
++        sinfo->MaxTargetLevel = 0;
++        sinfo->RecoveryTime = 0;//60000;
++        //sinfo->PowerType = POWER_MANA;
++        //sinfo->ManaCost = 0;
++        //sinfo->ManaCostPercentage = 0;
++        //sinfo->ManaCostPerlevel = 0;
++        sinfo->Speed = 0.f;
++        sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(4); //1000ms
++        sinfo->RangeEntry = sSpellRangeStore.LookupEntry(5); //40 yds
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW | SPELL_SCHOOL_MASK_ARCANE;
++        //sinfo->DmgClass = SPELL_DAMAGE_CLASS_MAGIC;
++        sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
++        sinfo->Attributes |= SPELL_ATTR0_ABILITY | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE;
++        sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT | SPELL_ATTR3_NO_DONE_BONUS;
 +
-+    sinfo->SpellLevel = 0;
-+    sinfo->MaxLevel = 0;
-+    sinfo->MaxTargetLevel = 0;
-+    sinfo->RecoveryTime = 0;//60000;
-+    //sinfo->PowerType = POWER_MANA;
-+    //sinfo->ManaCost = 0;
-+    //sinfo->ManaCostPercentage = 0;
-+    //sinfo->ManaCostPerlevel = 0;
-+    sinfo->Speed = 0.f;
-+    sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(4); //1000ms
-+    sinfo->RangeEntry = sSpellRangeStore.LookupEntry(5); //40 yds
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW | SPELL_SCHOOL_MASK_ARCANE;
-+    //sinfo->DmgClass = SPELL_DAMAGE_CLASS_MAGIC;
-+    sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
-+    sinfo->Attributes |= SPELL_ATTR0_ABILITY | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE;
-+    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT | SPELL_ATTR3_NO_DONE_BONUS;
++        //sinfo->_effects[0].Effect = SPELL_EFFECT_POWER_DRAIN;
++        sinfo->_effects[0].BasePoints = 999999;
++        sinfo->_effects[0].RealPointsPerLevel = 0.f;
++        sinfo->_effects[0].ValueMultiplier = 1.f;
++        sinfo->_effects[0].RealPointsPerLevel = 0.f;
++        sinfo->_effects[0].DamageMultiplier = 1.f;
++        sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ANY);
 +
-+    //sinfo->_effects[0].Effect = SPELL_EFFECT_POWER_DRAIN;
-+    sinfo->_effects[0].BasePoints = 999999;
-+    sinfo->_effects[0].RealPointsPerLevel = 0.f;
-+    sinfo->_effects[0].ValueMultiplier = 1.f;
-+    sinfo->_effects[0].RealPointsPerLevel = 0.f;
-+    sinfo->_effects[0].DamageMultiplier = 1.f;
-+    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ANY);
++        sinfo->_effects[1].Effect = SPELL_EFFECT_NONE;
++        //10) END DRAIN MANA
 +
-+    sinfo->_effects[1].Effect = SPELL_EFFECT_NONE;
-+    //10) END DRAIN MANA
++        //11) REPLENISH MANA
++        spellId = SPELL_REPLENISH_MANA; //33394
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //11) REPLENISH MANA
-+    spellId = SPELL_REPLENISH_MANA; //33394
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellFamilyName = SPELLFAMILY_WARLOCK;
++        sinfo->SpellLevel = 0;
++        sinfo->RecoveryTime = 3000;
++        sinfo->CategoryEntry = nullptr;
++        sinfo->PowerType = POWER_MANA;
++        sinfo->CastTimeEntry = nullptr;//sSpellCastTimesStore.LookupEntry(2); //250ms
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW | SPELL_SCHOOL_MASK_ARCANE;
++        sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
++        sinfo->MaxAffectedTargets = 100;
++        sinfo->Attributes |= SPELL_ATTR0_ABILITY | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE | SPELL_ATTR0_IS_REPLENISHMENT | SPELL_ATTR0_HIDE_IN_COMBAT_LOG;
++        sinfo->AttributesEx |= SPELL_ATTR1_DRAIN_ALL_POWER/* | SPELL_ATTR1_CANT_TARGET_SELF*/;
++        sinfo->AttributesEx2 |= SPELL_ATTR2_CAN_TARGET_NOT_IN_LOS;
++        sinfo->AttributesEx3 |= SPELL_ATTR3_NO_DONE_BONUS;
++        sinfo->AttributesEx4 |= SPELL_ATTR4_NOT_CHECK_SELFCAST_POWER;
++        sinfo->AttributesEx5 |= SPELL_ATTR5_DONT_TURN_DURING_CAST;
++        sinfo->AttributesEx6 |= SPELL_ATTR6_CAN_TARGET_POSSESSED_FRIENDS;
 +
-+    sinfo->SpellFamilyName = SPELLFAMILY_WARLOCK;
-+    sinfo->SpellLevel = 0;
-+    sinfo->RecoveryTime = 3000;
-+    sinfo->CategoryEntry = nullptr;
-+    sinfo->PowerType = POWER_MANA;
-+    sinfo->CastTimeEntry = nullptr;//sSpellCastTimesStore.LookupEntry(2); //250ms
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW | SPELL_SCHOOL_MASK_ARCANE;
-+    sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
-+    sinfo->MaxAffectedTargets = 100;
-+    sinfo->Attributes |= SPELL_ATTR0_ABILITY | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE | SPELL_ATTR0_IS_REPLENISHMENT | SPELL_ATTR0_HIDE_IN_COMBAT_LOG;
-+    sinfo->AttributesEx |= SPELL_ATTR1_DRAIN_ALL_POWER/* | SPELL_ATTR1_CANT_TARGET_SELF*/;
-+    sinfo->AttributesEx2 |= SPELL_ATTR2_CAN_TARGET_NOT_IN_LOS;
-+    sinfo->AttributesEx3 |= SPELL_ATTR3_NO_DONE_BONUS;
-+    sinfo->AttributesEx4 |= SPELL_ATTR4_NOT_CHECK_SELFCAST_POWER;
-+    sinfo->AttributesEx5 |= SPELL_ATTR5_DONT_TURN_DURING_CAST;
-+    sinfo->AttributesEx6 |= SPELL_ATTR6_CAN_TARGET_POSSESSED_FRIENDS;
++        sinfo->_effects[0].Effect = SPELL_EFFECT_TRIGGER_SPELL;
++        sinfo->_effects[0].BasePoints = 3;
++        sinfo->_effects[0].DieSides = 0;
++        sinfo->_effects[0].RealPointsPerLevel = 0.f;
++        sinfo->_effects[0].ValueMultiplier = 0.f;
++        sinfo->_effects[0].RealPointsPerLevel = 0.f;
++        sinfo->_effects[0].DamageMultiplier = 0.f;
++        sinfo->_effects[0].TriggerSpell = SPELL_TRIGGERED_ENERGIZE;
++        sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_SRC_CASTER);
++        sinfo->_effects[0].TargetB = SpellImplicitTargetInfo(TARGET_UNIT_SRC_AREA_ALLY);
++        sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_25_YARDS);
++        //11) END REPLENISH MANA
 +
-+    sinfo->_effects[0].Effect = SPELL_EFFECT_TRIGGER_SPELL;
-+    sinfo->_effects[0].BasePoints = 3;
-+    sinfo->_effects[0].DieSides = 0;
-+    sinfo->_effects[0].RealPointsPerLevel = 0.f;
-+    sinfo->_effects[0].ValueMultiplier = 0.f;
-+    sinfo->_effects[0].RealPointsPerLevel = 0.f;
-+    sinfo->_effects[0].DamageMultiplier = 0.f;
-+    sinfo->_effects[0].TriggerSpell = SPELL_TRIGGERED_ENERGIZE;
-+    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_SRC_CASTER);
-+    sinfo->_effects[0].TargetB = SpellImplicitTargetInfo(TARGET_UNIT_SRC_AREA_ALLY);
-+    sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_25_YARDS);
-+    //11) END REPLENISH MANA
++        //12) REPLENISH HEALTH
++        spellId = SPELL_REPLENISH_HEALTH; //34756
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //12) REPLENISH HEALTH
-+    spellId = SPELL_REPLENISH_HEALTH; //34756
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellFamilyName = SPELLFAMILY_WARLOCK;
++        sinfo->SpellLevel = 0;
++        sinfo->RecoveryTime = 3000;
++        sinfo->CategoryEntry = nullptr;
++        sinfo->PowerType = POWER_MANA;
++        sinfo->CastTimeEntry = nullptr;//sSpellCastTimesStore.LookupEntry(2); //250ms
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW | SPELL_SCHOOL_MASK_ARCANE;
++        sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
++        sinfo->MaxAffectedTargets = 100;
++        sinfo->Attributes |= SPELL_ATTR0_ABILITY | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE | SPELL_ATTR0_IS_REPLENISHMENT | SPELL_ATTR0_HIDE_IN_COMBAT_LOG;
++        sinfo->AttributesEx |= SPELL_ATTR1_DRAIN_ALL_POWER/* | SPELL_ATTR1_CANT_TARGET_SELF*/;
++        sinfo->AttributesEx &= ~(SPELL_ATTR1_CANT_TARGET_SELF);
++        sinfo->AttributesEx2 |= SPELL_ATTR2_CAN_TARGET_NOT_IN_LOS;
++        sinfo->AttributesEx3 |= SPELL_ATTR3_NO_DONE_BONUS;
++        sinfo->AttributesEx4 |= SPELL_ATTR4_NOT_CHECK_SELFCAST_POWER;
++        sinfo->AttributesEx5 |= SPELL_ATTR5_DONT_TURN_DURING_CAST;
++        sinfo->AttributesEx6 |= SPELL_ATTR6_CAN_TARGET_POSSESSED_FRIENDS;
 +
-+    sinfo->SpellFamilyName = SPELLFAMILY_WARLOCK;
-+    sinfo->SpellLevel = 0;
-+    sinfo->RecoveryTime = 3000;
-+    sinfo->CategoryEntry = nullptr;
-+    sinfo->PowerType = POWER_MANA;
-+    sinfo->CastTimeEntry = nullptr;//sSpellCastTimesStore.LookupEntry(2); //250ms
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW | SPELL_SCHOOL_MASK_ARCANE;
-+    sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
-+    sinfo->MaxAffectedTargets = 100;
-+    sinfo->Attributes |= SPELL_ATTR0_ABILITY | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE | SPELL_ATTR0_IS_REPLENISHMENT | SPELL_ATTR0_HIDE_IN_COMBAT_LOG;
-+    sinfo->AttributesEx |= SPELL_ATTR1_DRAIN_ALL_POWER/* | SPELL_ATTR1_CANT_TARGET_SELF*/;
-+    sinfo->AttributesEx &= ~(SPELL_ATTR1_CANT_TARGET_SELF);
-+    sinfo->AttributesEx2 |= SPELL_ATTR2_CAN_TARGET_NOT_IN_LOS;
-+    sinfo->AttributesEx3 |= SPELL_ATTR3_NO_DONE_BONUS;
-+    sinfo->AttributesEx4 |= SPELL_ATTR4_NOT_CHECK_SELFCAST_POWER;
-+    sinfo->AttributesEx5 |= SPELL_ATTR5_DONT_TURN_DURING_CAST;
-+    sinfo->AttributesEx6 |= SPELL_ATTR6_CAN_TARGET_POSSESSED_FRIENDS;
-+
-+    sinfo->_effects[0].Effect = SPELL_EFFECT_TRIGGER_SPELL;
-+    sinfo->_effects[0].BasePoints = 3;
-+    sinfo->_effects[0].DieSides = 0;
-+    sinfo->_effects[0].RealPointsPerLevel = 0.f;
-+    sinfo->_effects[0].ValueMultiplier = 0.f;
-+    sinfo->_effects[0].RealPointsPerLevel = 0.f;
-+    sinfo->_effects[0].DamageMultiplier = 0.f;
-+    sinfo->_effects[0].TriggerSpell = SPELL_TRIGGERED_HEAL;
-+    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_SRC_CASTER);
-+    sinfo->_effects[0].TargetB = SpellImplicitTargetInfo(TARGET_UNIT_SRC_AREA_ALLY);
-+    sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_25_YARDS);
-+    //12) END REPLENISH HEALTH
++        sinfo->_effects[0].Effect = SPELL_EFFECT_TRIGGER_SPELL;
++        sinfo->_effects[0].BasePoints = 3;
++        sinfo->_effects[0].DieSides = 0;
++        sinfo->_effects[0].RealPointsPerLevel = 0.f;
++        sinfo->_effects[0].ValueMultiplier = 0.f;
++        sinfo->_effects[0].RealPointsPerLevel = 0.f;
++        sinfo->_effects[0].DamageMultiplier = 0.f;
++        sinfo->_effects[0].TriggerSpell = SPELL_TRIGGERED_HEAL;
++        sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_SRC_CASTER);
++        sinfo->_effects[0].TargetB = SpellImplicitTargetInfo(TARGET_UNIT_SRC_AREA_ALLY);
++        sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_25_YARDS);
++        //12) END REPLENISH HEALTH
++    }
++    else
++    {
++        for (uint32 spellId : { SPELL_SHADOW_BLAST, SPELL_SHADOW_BOLT1, SPELL_ATTACK_MELEE_RANDOM, SHADOWFURY_VISUAL, SPELL_DEVOUR_MAGIC, SPELL_DRAIN_MANA, SPELL_REPLENISH_MANA, SPELL_REPLENISH_HEALTH })
++            *const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId)) = spellInfoBackups.at(spellId);
++    }
 +
 +    //ARCHMAGE
++    if (BotMgr::IsClassEnabled(BOT_CLASS_ARCHMAGE))
++    {
++        //13) BRILLIANCE AURA
++        spellId = SPELL_BRILLIANCE_AURA; //1234
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //13) BRILLIANCE AURA
-+    spellId = SPELL_BRILLIANCE_AURA; //1234
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellLevel = 0;
++        sinfo->MaxLevel = 0;
++        sinfo->MaxTargetLevel = 0;
++        sinfo->RangeEntry = sSpellRangeStore.LookupEntry(1); //0 yds
++        sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
++        sinfo->Attributes |= SPELL_ATTR0_ABILITY | SPELL_ATTR0_PASSIVE;
++        sinfo->AttributesEx4 |= SPELL_ATTR4_DONT_REMOVE_IN_ARENA;
++        sinfo->AttributesEx7 |= SPELL_ATTR7_CONSOLIDATED_RAID_BUFF;
 +
-+    sinfo->SpellLevel = 0;
-+    sinfo->MaxLevel = 0;
-+    sinfo->MaxTargetLevel = 0;
-+    sinfo->RangeEntry = sSpellRangeStore.LookupEntry(1); //0 yds
-+    sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
-+    sinfo->Attributes |= SPELL_ATTR0_ABILITY | SPELL_ATTR0_PASSIVE;
-+    sinfo->AttributesEx4 |= SPELL_ATTR4_DONT_REMOVE_IN_ARENA;
-+    sinfo->AttributesEx7 |= SPELL_ATTR7_CONSOLIDATED_RAID_BUFF;
++        sinfo->_effects[0].Effect = SPELL_EFFECT_APPLY_AREA_AURA_RAID;
++        sinfo->_effects[0].ApplyAuraName = SPELL_AURA_MOD_POWER_REGEN_PERCENT;
++        sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
++        sinfo->_effects[0].BasePoints = 100;
++        sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_40_YARDS);
 +
-+    sinfo->_effects[0].Effect = SPELL_EFFECT_APPLY_AREA_AURA_RAID;
-+    sinfo->_effects[0].ApplyAuraName = SPELL_AURA_MOD_POWER_REGEN_PERCENT;
-+    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
-+    sinfo->_effects[0].BasePoints = 100;
-+    sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_40_YARDS);
++        sinfo->_effects[1].Effect = SPELL_EFFECT_APPLY_AREA_AURA_RAID;
++        sinfo->_effects[1].ApplyAuraName = SPELL_AURA_MOD_INCREASE_ENERGY_PERCENT;
++        sinfo->_effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
++        sinfo->_effects[1].BasePoints = 10;
++        sinfo->_effects[1].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_40_YARDS);
 +
-+    sinfo->_effects[1].Effect = SPELL_EFFECT_APPLY_AREA_AURA_RAID;
-+    sinfo->_effects[1].ApplyAuraName = SPELL_AURA_MOD_INCREASE_ENERGY_PERCENT;
-+    sinfo->_effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
-+    sinfo->_effects[1].BasePoints = 10;
-+    sinfo->_effects[1].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_40_YARDS);
++        //for stacking rule
++        /*
++        sinfo->_effects[2].Effect = SPELL_EFFECT_APPLY_AURA;
++        sinfo->_effects[2].ApplyAuraName = SPELL_AURA_DUMMY;
++        sinfo->_effects[2].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
++        sinfo->_effects[2].BasePoints = 1;
++        sinfo->_effects[2].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS);
++        */
++        //13) END BRILLIANCE AURA
 +
-+    //for stacking rule
-+    /*
-+    sinfo->_effects[2].Effect = SPELL_EFFECT_APPLY_AURA;
-+    sinfo->_effects[2].ApplyAuraName = SPELL_AURA_DUMMY;
-+    sinfo->_effects[2].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
-+    sinfo->_effects[2].BasePoints = 1;
-+    sinfo->_effects[2].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS);
-+    */
-+    //13) END BRILLIANCE AURA
++        //14) FIREBALL (MAIN_ATTACK)
++        //TODO: balance
++        spellId = SPELL_FIREBALL; //9488
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //14) FIREBALL (MAIN_ATTACK)
-+    //TODO: balance
-+    spellId = SPELL_FIREBALL; //9488
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellLevel = 20;
++        sinfo->BaseLevel = 20;
++        sinfo->MaxLevel = 81;
++        sinfo->ManaCost = 0;
++        sinfo->ManaCostPercentage = 0;
++        sinfo->ManaCostPerlevel = 0;
++        sinfo->CastTimeEntry = nullptr;
++        sinfo->RangeEntry = sSpellRangeStore.LookupEntry(4); //30 yds
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_FIRE | SPELL_SCHOOL_MASK_ARCANE;
++        //sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
++        //sinfo->MaxAffectedTargets = 1000;
++        sinfo->Attributes |= SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE | SPELL_ATTR0_ABILITY | SPELL_ATTR0_CASTABLE_WHILE_MOUNTED;
++        sinfo->Attributes &= ~(SPELL_ATTR0_LEVEL_DAMAGE_CALCULATION);
++        sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
 +
-+    sinfo->SpellLevel = 20;
-+    sinfo->BaseLevel = 20;
-+    sinfo->MaxLevel = 81;
-+    sinfo->ManaCost = 0;
-+    sinfo->ManaCostPercentage = 0;
-+    sinfo->ManaCostPerlevel = 0;
-+    sinfo->CastTimeEntry = nullptr;
-+    sinfo->RangeEntry = sSpellRangeStore.LookupEntry(4); //30 yds
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_FIRE | SPELL_SCHOOL_MASK_ARCANE;
-+    //sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
-+    //sinfo->MaxAffectedTargets = 1000;
-+    sinfo->Attributes |= SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE | SPELL_ATTR0_ABILITY | SPELL_ATTR0_CASTABLE_WHILE_MOUNTED;
-+    sinfo->Attributes &= ~(SPELL_ATTR0_LEVEL_DAMAGE_CALCULATION);
-+    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
++        sinfo->_effects[0].BasePoints = 15;
++        sinfo->_effects[0].DieSides = 9;
++        sinfo->_effects[0].BonusMultiplier = 0.5f;
++        sinfo->_effects[0].DamageMultiplier = 1.f;
++        sinfo->_effects[0].RealPointsPerLevel = 15.f;
++        sinfo->_effects[0].ValueMultiplier = 1.f;
++        //14) END FIREBALL (MAIN ATTACK)
 +
-+    sinfo->_effects[0].BasePoints = 15;
-+    sinfo->_effects[0].DieSides = 9;
-+    sinfo->_effects[0].BonusMultiplier = 0.5f;
-+    sinfo->_effects[0].DamageMultiplier = 1.f;
-+    sinfo->_effects[0].RealPointsPerLevel = 15.f;
-+    sinfo->_effects[0].ValueMultiplier = 1.f;
-+    //14) END FIREBALL (MAIN ATTACK)
++        //15) BLIZZARD
++        //TODO: balance
++        spellId = SPELL_BLIZZARD; //15783
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //15) BLIZZARD
-+    //TODO: balance
-+    spellId = SPELL_BLIZZARD; //15783
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellFamilyName = SPELLFAMILY_MAGE;
++        sinfo->SpellLevel = 20;
++        sinfo->BaseLevel = 20;
++        sinfo->MaxLevel = 0;
++        sinfo->ManaCost = 75 * 5;
++        sinfo->ManaCostPercentage = 0;
++        sinfo->ManaCostPerlevel = 0;
++        sinfo->CastTimeEntry = nullptr;
++        sinfo->RecoveryTime = 6000;
++        sinfo->RangeEntry = sSpellRangeStore.LookupEntry(4); //30 yds
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_FROST | SPELL_SCHOOL_MASK_ARCANE;
++        ///sinfo->ExplicitTargetMask = TARGET_FLAG_DEST_LOCATION;
++        //sinfo->MaxAffectedTargets = 1000;
++        sinfo->Attributes |= SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE | SPELL_ATTR0_ABILITY | SPELL_ATTR0_CASTABLE_WHILE_MOUNTED;
++        sinfo->AttributesEx2 |= SPELL_ATTR2_CAN_TARGET_NOT_IN_LOS | SPELL_ATTR2_UNK22;
++        sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
++        sinfo->AttributesEx5 |= SPELL_ATTR5_HASTE_AFFECT_DURATION;
 +
-+    sinfo->SpellFamilyName = SPELLFAMILY_MAGE;
-+    sinfo->SpellLevel = 20;
-+    sinfo->BaseLevel = 20;
-+    sinfo->MaxLevel = 0;
-+    sinfo->ManaCost = 75 * 5;
-+    sinfo->ManaCostPercentage = 0;
-+    sinfo->ManaCostPerlevel = 0;
-+    sinfo->CastTimeEntry = nullptr;
-+    sinfo->RecoveryTime = 6000;
-+    sinfo->RangeEntry = sSpellRangeStore.LookupEntry(4); //30 yds
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_FROST | SPELL_SCHOOL_MASK_ARCANE;
-+    ///sinfo->ExplicitTargetMask = TARGET_FLAG_DEST_LOCATION;
-+    //sinfo->MaxAffectedTargets = 1000;
-+    sinfo->Attributes |= SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE | SPELL_ATTR0_ABILITY | SPELL_ATTR0_CASTABLE_WHILE_MOUNTED;
-+    sinfo->AttributesEx2 |= SPELL_ATTR2_CAN_TARGET_NOT_IN_LOS | SPELL_ATTR2_UNK22;
-+    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
-+    sinfo->AttributesEx5 |= SPELL_ATTR5_HASTE_AFFECT_DURATION;
++        sinfo->_effects[0].BasePoints = 26;
++        sinfo->_effects[0].DieSides = 0;
++        sinfo->_effects[0].BonusMultiplier = 1.f;
++        sinfo->_effects[0].DamageMultiplier = 1.f;
++        sinfo->_effects[0].RealPointsPerLevel = 15.f;
++        sinfo->_effects[0].ValueMultiplier = 1.f;
++        sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_13_YARDS);
++        sinfo->_effects[0].Amplitude = 1000;
++        //15) END BLIZZARD
 +
-+    sinfo->_effects[0].BasePoints = 26;
-+    sinfo->_effects[0].DieSides = 0;
-+    sinfo->_effects[0].BonusMultiplier = 1.f;
-+    sinfo->_effects[0].DamageMultiplier = 1.f;
-+    sinfo->_effects[0].RealPointsPerLevel = 15.f;
-+    sinfo->_effects[0].ValueMultiplier = 1.f;
-+    sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_13_YARDS);
-+    sinfo->_effects[0].Amplitude = 1000;
-+    //15) END BLIZZARD
++        //16) SUMMON WATER ELEMENTAL (dummy spell)
++        spellId = SPELL_SUMMON_WATER_ELEMENTAL; //35593
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //16) SUMMON WATER ELEMENTAL (dummy spell)
-+    spellId = SPELL_SUMMON_WATER_ELEMENTAL; //35593
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellFamilyName = SPELLFAMILY_MAGE;
++        sinfo->SpellLevel = 20;
++        sinfo->BaseLevel = 20;
++        sinfo->MaxLevel = 0;
++        sinfo->RecoveryTime = 20000;
++        sinfo->PowerType = POWER_MANA;
++        sinfo->ManaCost = 125 * 5;
++        sinfo->ManaCostPercentage = 0;
++        sinfo->ManaCostPerlevel = 0;
++        sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(3); //500ms
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_FROST | SPELL_SCHOOL_MASK_ARCANE;
++        sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
 +
-+    sinfo->SpellFamilyName = SPELLFAMILY_MAGE;
-+    sinfo->SpellLevel = 20;
-+    sinfo->BaseLevel = 20;
-+    sinfo->MaxLevel = 0;
-+    sinfo->RecoveryTime = 20000;
-+    sinfo->PowerType = POWER_MANA;
-+    sinfo->ManaCost = 125 * 5;
-+    sinfo->ManaCostPercentage = 0;
-+    sinfo->ManaCostPerlevel = 0;
-+    sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(3); //500ms
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_FROST | SPELL_SCHOOL_MASK_ARCANE;
-+    sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
++        sinfo->_effects[0].Effect = SPELL_EFFECT_DUMMY;
++        //sinfo->_effects[0].BasePoints = 1;
++        sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
++        sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS);
++        //16) END SUMMON WATER ELEMENTAL
 +
-+    sinfo->_effects[0].Effect = SPELL_EFFECT_DUMMY;
-+    //sinfo->_effects[0].BasePoints = 1;
-+    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
-+    sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS);
-+    //16) END SUMMON WATER ELEMENTAL
++        //17) WATERBOLT (MAIN_ATTACK)
++        //TODO: balance, we only have 1 of 3 possible elementals so boost damage
++        spellId = SPELL_WATERBOLT; //72898
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //17) WATERBOLT (MAIN_ATTACK)
-+    //TODO: balance, we only have 1 of 3 possible elementals so boost damage
-+    spellId = SPELL_WATERBOLT; //72898
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellFamilyName = SPELLFAMILY_GENERIC;
++        sinfo->SpellLevel = 20;
++        sinfo->BaseLevel = 20;
++        sinfo->MaxTargetLevel = 0;
++        sinfo->ManaCost = 0;
++        sinfo->ManaCostPercentage = 0;
++        sinfo->ManaCostPerlevel = 0;
++        sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(5); //2000ms
++        sinfo->RangeEntry = sSpellRangeStore.LookupEntry(4); //30 yds
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_FROST | SPELL_SCHOOL_MASK_ARCANE;
++        sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
 +
-+    sinfo->SpellFamilyName = SPELLFAMILY_GENERIC;
-+    sinfo->SpellLevel = 20;
-+    sinfo->BaseLevel = 20;
-+    sinfo->MaxTargetLevel = 0;
-+    sinfo->ManaCost = 0;
-+    sinfo->ManaCostPercentage = 0;
-+    sinfo->ManaCostPerlevel = 0;
-+    sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(5); //2000ms
-+    sinfo->RangeEntry = sSpellRangeStore.LookupEntry(4); //30 yds
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_FROST | SPELL_SCHOOL_MASK_ARCANE;
-+    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
-+
-+    sinfo->_effects[0].BasePoints = 25;
-+    sinfo->_effects[0].DieSides = 20;
-+    sinfo->_effects[0].BonusMultiplier = 1.f;
-+    sinfo->_effects[0].DamageMultiplier = 1.f;
-+    sinfo->_effects[0].RealPointsPerLevel = 25.f;
-+    sinfo->_effects[0].ValueMultiplier = 1.f;
-+    //17) END WATERBOLT (MAIN ATTACK)
++        sinfo->_effects[0].BasePoints = 25;
++        sinfo->_effects[0].DieSides = 20;
++        sinfo->_effects[0].BonusMultiplier = 1.f;
++        sinfo->_effects[0].DamageMultiplier = 1.f;
++        sinfo->_effects[0].RealPointsPerLevel = 25.f;
++        sinfo->_effects[0].ValueMultiplier = 1.f;
++        //17) END WATERBOLT (MAIN ATTACK)
++    }
++    else
++    {
++        for (uint32 spellId : { SPELL_BRILLIANCE_AURA, SPELL_FIREBALL, SPELL_BLIZZARD, SPELL_SUMMON_WATER_ELEMENTAL, SPELL_WATERBOLT })
++            *const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId)) = spellInfoBackups.at(spellId);
++    }
 +
 +    //DREADLORD
++    if (BotMgr::IsClassEnabled(BOT_CLASS_DREADLORD))
++    {
++        //18) VAMPIRIC AURA
++        spellId = SPELL_VAMPIRIC_AURA; //20810
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //18) VAMPIRIC AURA
-+    spellId = SPELL_VAMPIRIC_AURA; //20810
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->ProcFlags = PROC_FLAG_DONE_MELEE_AUTO_ATTACK | PROC_FLAG_DONE_SPELL_MELEE_DMG_CLASS;
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW | SPELL_SCHOOL_MASK_ARCANE;
++        sinfo->PreventionType = SPELL_PREVENTION_TYPE_NONE;
++        sinfo->DmgClass = SPELL_DAMAGE_CLASS_NONE;
++        sinfo->SpellLevel = 0;
++        sinfo->BaseLevel = 0;
++        sinfo->MaxTargetLevel = 0;
++        sinfo->RangeEntry = sSpellRangeStore.LookupEntry(1); //0 yds
++        sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
++        sinfo->Attributes |= SPELL_ATTR0_ABILITY | SPELL_ATTR0_PASSIVE;
++        sinfo->AttributesEx3 |= SPELL_ATTR3_CAN_PROC_WITH_TRIGGERED;
++        sinfo->AttributesEx4 |= SPELL_ATTR4_DONT_REMOVE_IN_ARENA;
++        sinfo->AttributesEx7 |= SPELL_ATTR7_CONSOLIDATED_RAID_BUFF;
 +
-+    sinfo->ProcFlags = PROC_FLAG_DONE_MELEE_AUTO_ATTACK | PROC_FLAG_DONE_SPELL_MELEE_DMG_CLASS;
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW | SPELL_SCHOOL_MASK_ARCANE;
-+    sinfo->PreventionType = SPELL_PREVENTION_TYPE_NONE;
-+    sinfo->DmgClass = SPELL_DAMAGE_CLASS_NONE;
-+    sinfo->SpellLevel = 0;
-+    sinfo->BaseLevel = 0;
-+    sinfo->MaxTargetLevel = 0;
-+    sinfo->RangeEntry = sSpellRangeStore.LookupEntry(1); //0 yds
-+    sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
-+    sinfo->Attributes |= SPELL_ATTR0_ABILITY | SPELL_ATTR0_PASSIVE;
-+    sinfo->AttributesEx3 |= SPELL_ATTR3_CAN_PROC_WITH_TRIGGERED;
-+    sinfo->AttributesEx4 |= SPELL_ATTR4_DONT_REMOVE_IN_ARENA;
-+    sinfo->AttributesEx7 |= SPELL_ATTR7_CONSOLIDATED_RAID_BUFF;
++        sinfo->_effects[0].Effect = SPELL_EFFECT_APPLY_AREA_AURA_RAID;
++        sinfo->_effects[0].ApplyAuraName = SPELL_AURA_MOD_CRIT_DAMAGE_BONUS;
++        sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
++        sinfo->_effects[0].BasePoints = 5;
++        sinfo->_effects[0].MiscValue = SPELL_SCHOOL_MASK_NORMAL;
++        sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_40_YARDS);
 +
-+    sinfo->_effects[0].Effect = SPELL_EFFECT_APPLY_AREA_AURA_RAID;
-+    sinfo->_effects[0].ApplyAuraName = SPELL_AURA_MOD_CRIT_DAMAGE_BONUS;
-+    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
-+    sinfo->_effects[0].BasePoints = 5;
-+    sinfo->_effects[0].MiscValue = SPELL_SCHOOL_MASK_NORMAL;
-+    sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_40_YARDS);
++        sinfo->_effects[1].Effect = SPELL_EFFECT_APPLY_AREA_AURA_RAID;
++        sinfo->_effects[1].ApplyAuraName = SPELL_AURA_PROC_TRIGGER_SPELL;
++        sinfo->_effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
++        sinfo->_effects[1].BasePoints = 1;
++        sinfo->_effects[1].TriggerSpell = SPELL_TRIGGERED_HEAL;
++        sinfo->_effects[1].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_40_YARDS);
 +
-+    sinfo->_effects[1].Effect = SPELL_EFFECT_APPLY_AREA_AURA_RAID;
-+    sinfo->_effects[1].ApplyAuraName = SPELL_AURA_PROC_TRIGGER_SPELL;
-+    sinfo->_effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
-+    sinfo->_effects[1].BasePoints = 1;
-+    sinfo->_effects[1].TriggerSpell = SPELL_TRIGGERED_HEAL;
-+    sinfo->_effects[1].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_40_YARDS);
++        //for stacking rule
++        /*
++        sinfo->_effects[2].Effect = SPELL_EFFECT_APPLY_AURA;
++        sinfo->_effects[2].ApplyAuraName = SPELL_AURA_DUMMY;
++        sinfo->_effects[2].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
++        sinfo->_effects[2].BasePoints = 1;
++        sinfo->_effects[2].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS);
++        */
++        //18) END VAMPIRIC AURA
 +
-+    //for stacking rule
-+    /*
-+    sinfo->_effects[2].Effect = SPELL_EFFECT_APPLY_AURA;
-+    sinfo->_effects[2].ApplyAuraName = SPELL_AURA_DUMMY;
-+    sinfo->_effects[2].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
-+    sinfo->_effects[2].BasePoints = 1;
-+    sinfo->_effects[2].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_0_YARDS);
-+    */
-+    //18) END VAMPIRIC AURA
++        //19) VAMPIRIC HEAL
++        spellId = SPELL_TRIGGERED_HEAL; //25155
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //19) VAMPIRIC HEAL
-+    spellId = SPELL_TRIGGERED_HEAL; //25155
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->PreventionType = SPELL_PREVENTION_TYPE_NONE;
++        sinfo->DmgClass = SPELL_DAMAGE_CLASS_NONE;
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW | SPELL_SCHOOL_MASK_ARCANE;
++        sinfo->Attributes &= ~(SPELL_ATTR0_NOT_SHAPESHIFT);
++        sinfo->AttributesEx |= SPELL_ATTR1_CANT_BE_REFLECTED | SPELL_ATTR1_CANT_BE_REDIRECTED | SPELL_ATTR1_NO_THREAT;
++        sinfo->AttributesEx2 |= SPELL_ATTR2_CANT_CRIT;
++        sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT | SPELL_ATTR3_DISABLE_PROC | SPELL_ATTR3_CAN_PROC_WITH_TRIGGERED | SPELL_ATTR3_NO_DONE_BONUS;
 +
-+    sinfo->PreventionType = SPELL_PREVENTION_TYPE_NONE;
-+    sinfo->DmgClass = SPELL_DAMAGE_CLASS_NONE;
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW | SPELL_SCHOOL_MASK_ARCANE;
-+    sinfo->Attributes &= ~(SPELL_ATTR0_NOT_SHAPESHIFT);
-+    sinfo->AttributesEx |= SPELL_ATTR1_CANT_BE_REFLECTED | SPELL_ATTR1_CANT_BE_REDIRECTED | SPELL_ATTR1_NO_THREAT;
-+    sinfo->AttributesEx2 |= SPELL_ATTR2_CANT_CRIT;
-+    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT | SPELL_ATTR3_DISABLE_PROC | SPELL_ATTR3_CAN_PROC_WITH_TRIGGERED | SPELL_ATTR3_NO_DONE_BONUS;
++        sinfo->_effects[0].BasePoints = 1;
 +
-+    sinfo->_effects[0].BasePoints = 1;
++        sinfo->_effects[1].Effect = SPELL_EFFECT_NONE;
++        //19) END VAMPIRIC HEAL
 +
-+    sinfo->_effects[1].Effect = SPELL_EFFECT_NONE;
-+    //19) END VAMPIRIC HEAL
++        //20) SLEEP
++        spellId = SPELL_SLEEP; //20663
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //20) SLEEP
-+    spellId = SPELL_SLEEP; //20663
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellFamilyName = SPELLFAMILY_WARLOCK;
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW | SPELL_SCHOOL_MASK_ARCANE;
++        sinfo->InterruptFlags = 0xF;
++        sinfo->SpellLevel = 0;
++        sinfo->BaseLevel = 0;
++        sinfo->MaxTargetLevel = 0;
++        sinfo->Dispel = DISPEL_MAGIC;
++        sinfo->Mechanic = MECHANIC_SLEEP;
++        sinfo->RangeEntry = sSpellRangeStore.LookupEntry(4); //30 yds
++        sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(3); //500ms
++        sinfo->RecoveryTime = 6000;
++        //sinfo->StartRecoveryCategory = 133;
++        //sinfo->StartRecoveryTime = 1000;
++        sinfo->DurationEntry = sSpellDurationStore.LookupEntry(3); //60000ms
++        sinfo->ManaCost = 50 * 5;
++        sinfo->ManaCostPercentage = 0;
++        sinfo->ManaCostPerlevel = 0;
++        sinfo->AuraInterruptFlags = AURA_INTERRUPT_FLAG_DIRECT_DAMAGE;
++        sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
++        sinfo->Attributes &= ~(SPELL_ATTR0_NOT_SHAPESHIFT | SPELL_ATTR0_HEARTBEAT_RESIST_CHECK);
++        sinfo->AttributesEx |= SPELL_ATTR1_CANT_BE_REDIRECTED | SPELL_ATTR1_CANT_BE_REFLECTED;
++        sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
 +
-+    sinfo->SpellFamilyName = SPELLFAMILY_WARLOCK;
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW | SPELL_SCHOOL_MASK_ARCANE;
-+    sinfo->InterruptFlags = 0xF;
-+    sinfo->SpellLevel = 0;
-+    sinfo->BaseLevel = 0;
-+    sinfo->MaxTargetLevel = 0;
-+    sinfo->Dispel = DISPEL_MAGIC;
-+    sinfo->Mechanic = MECHANIC_SLEEP;
-+    sinfo->RangeEntry = sSpellRangeStore.LookupEntry(4); //30 yds
-+    sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(3); //500ms
-+    sinfo->RecoveryTime = 6000;
-+    //sinfo->StartRecoveryCategory = 133;
-+    //sinfo->StartRecoveryTime = 1000;
-+    sinfo->DurationEntry = sSpellDurationStore.LookupEntry(3); //60000ms
-+    sinfo->ManaCost = 50 * 5;
-+    sinfo->ManaCostPercentage = 0;
-+    sinfo->ManaCostPerlevel = 0;
-+    sinfo->AuraInterruptFlags = AURA_INTERRUPT_FLAG_DIRECT_DAMAGE;
-+    sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
-+    sinfo->Attributes &= ~(SPELL_ATTR0_NOT_SHAPESHIFT | SPELL_ATTR0_HEARTBEAT_RESIST_CHECK);
-+    sinfo->AttributesEx |= SPELL_ATTR1_CANT_BE_REDIRECTED | SPELL_ATTR1_CANT_BE_REFLECTED;
-+    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
++        //sinfo->_effects[0].Effect = SPELL_EFFECT_APPLY_AURA;
++        //sinfo->_effects[0].ApplyAuraName = SPELL_AURA_MOD_STUN;
++        //sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
++        //sinfo->_effects[0].BasePoints = 1;
 +
-+    //sinfo->_effects[0].Effect = SPELL_EFFECT_APPLY_AURA;
-+    //sinfo->_effects[0].ApplyAuraName = SPELL_AURA_MOD_STUN;
-+    //sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
-+    //sinfo->_effects[0].BasePoints = 1;
++        sinfo->_effects[1].Effect = SPELL_EFFECT_APPLY_AURA;
++        sinfo->_effects[1].ApplyAuraName = SPELL_AURA_MOD_RESISTANCE_PCT;
++        sinfo->_effects[1].MiscValue = SPELL_SCHOOL_MASK_NORMAL;
++        sinfo->_effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
++        sinfo->_effects[1].BasePoints = -100;
++        //20) END SLEEP
 +
-+    sinfo->_effects[1].Effect = SPELL_EFFECT_APPLY_AURA;
-+    sinfo->_effects[1].ApplyAuraName = SPELL_AURA_MOD_RESISTANCE_PCT;
-+    sinfo->_effects[1].MiscValue = SPELL_SCHOOL_MASK_NORMAL;
-+    sinfo->_effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
-+    sinfo->_effects[1].BasePoints = -100;
-+    //20) END SLEEP
++        //21) CARRION SWARM
++        //TODO: balance
++        spellId = SPELL_CARRION_SWARM; //34240
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //21) CARRION SWARM
-+    //TODO: balance
-+    spellId = SPELL_CARRION_SWARM; //34240
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellFamilyName = SPELLFAMILY_WARLOCK;
++        sinfo->DmgClass = SPELL_DAMAGE_CLASS_MAGIC;
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW | SPELL_SCHOOL_MASK_ARCANE;
++        sinfo->PreventionType = SPELL_PREVENTION_TYPE_NONE;
++        sinfo->SpellLevel = 40;
++        sinfo->BaseLevel = 40;
++        sinfo->MaxTargetLevel = 0;
++        sinfo->RangeEntry = sSpellRangeStore.LookupEntry(4); //30 yds
++        sinfo->RecoveryTime = 10000;
++        sinfo->StartRecoveryCategory = 133;
++        sinfo->StartRecoveryTime = 1500;
++        sinfo->ManaCost = 110 * 5;
++        //sinfo->MaxAffectedTargets = 1000;
++        //sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
++        sinfo->Attributes &= ~(SPELL_ATTR0_UNK11);
++        sinfo->AttributesEx |= SPELL_ATTR1_CANT_BE_REDIRECTED | SPELL_ATTR1_CANT_BE_REFLECTED;
++        sinfo->AttributesEx2 |= SPELL_ATTR2_CANT_CRIT/* | SPELL_ATTR2_CAN_TARGET_NOT_IN_LOS*/;
++        sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
 +
-+    sinfo->SpellFamilyName = SPELLFAMILY_WARLOCK;
-+    sinfo->DmgClass = SPELL_DAMAGE_CLASS_MAGIC;
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW | SPELL_SCHOOL_MASK_ARCANE;
-+    sinfo->PreventionType = SPELL_PREVENTION_TYPE_NONE;
-+    sinfo->SpellLevel = 40;
-+    sinfo->BaseLevel = 40;
-+    sinfo->MaxTargetLevel = 0;
-+    sinfo->RangeEntry = sSpellRangeStore.LookupEntry(4); //30 yds
-+    sinfo->RecoveryTime = 10000;
-+    sinfo->StartRecoveryCategory = 133;
-+    sinfo->StartRecoveryTime = 1500;
-+    sinfo->ManaCost = 110 * 5;
-+    //sinfo->MaxAffectedTargets = 1000;
-+    //sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
-+    sinfo->Attributes &= ~(SPELL_ATTR0_UNK11);
-+    sinfo->AttributesEx |= SPELL_ATTR1_CANT_BE_REDIRECTED | SPELL_ATTR1_CANT_BE_REFLECTED;
-+    sinfo->AttributesEx2 |= SPELL_ATTR2_CANT_CRIT/* | SPELL_ATTR2_CAN_TARGET_NOT_IN_LOS*/;
-+    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
++        //sinfo->_effects[0].Effect = SPELL_EFFECT_SCHOOL_DAMAGE;
++        sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CONE_ENEMY_104);
++        sinfo->_effects[0].BasePoints = 425;
++        sinfo->_effects[0].DieSides = 150;
++        sinfo->_effects[0].BonusMultiplier = 2.f;
++        sinfo->_effects[0].DamageMultiplier = 1.f;
++        sinfo->_effects[0].RealPointsPerLevel = 37.5f; //2000 avg at 80
++        sinfo->_effects[0].ValueMultiplier = 1.f;
++        sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_40_YARDS);
++        //21) END CARRION SWARM
 +
-+    //sinfo->_effects[0].Effect = SPELL_EFFECT_SCHOOL_DAMAGE;
-+    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CONE_ENEMY_104);
-+    sinfo->_effects[0].BasePoints = 425;
-+    sinfo->_effects[0].DieSides = 150;
-+    sinfo->_effects[0].BonusMultiplier = 2.f;
-+    sinfo->_effects[0].DamageMultiplier = 1.f;
-+    sinfo->_effects[0].RealPointsPerLevel = 37.5f; //2000 avg at 80
-+    sinfo->_effects[0].ValueMultiplier = 1.f;
-+    sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_40_YARDS);
-+    //21) END CARRION SWARM
++        //22) INFERNO (dummy summon)
++        spellId = SPELL_INFERNO; //12740
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //22) INFERNO (dummy summon)
-+    spellId = SPELL_INFERNO; //12740
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellFamilyName = SPELLFAMILY_WARLOCK;
++        sinfo->SpellLevel = 60;
++        sinfo->BaseLevel = 60;
++        sinfo->RangeEntry = sSpellRangeStore.LookupEntry(4); //30 yds
++        sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(3); //500ms
++        sinfo->RecoveryTime = 180000;
++        sinfo->StartRecoveryCategory = 133;
++        sinfo->StartRecoveryTime = 1500;
++        sinfo->ManaCost = 175 * 5;
++        sinfo->ExplicitTargetMask = TARGET_FLAG_DEST_LOCATION;
++        sinfo->Attributes &= ~(SPELL_ATTR0_ABILITY);
++        sinfo->AttributesEx |= /*SPELL_ATTR1_UNAFFECTED_BY_SCHOOL_IMMUNE | */SPELL_ATTR1_NO_THREAT;
++        //sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
 +
-+    sinfo->SpellFamilyName = SPELLFAMILY_WARLOCK;
-+    sinfo->SpellLevel = 60;
-+    sinfo->BaseLevel = 60;
-+    sinfo->RangeEntry = sSpellRangeStore.LookupEntry(4); //30 yds
-+    sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(3); //500ms
-+    sinfo->RecoveryTime = 180000;
-+    sinfo->StartRecoveryCategory = 133;
-+    sinfo->StartRecoveryTime = 1500;
-+    sinfo->ManaCost = 175 * 5;
-+    sinfo->ExplicitTargetMask = TARGET_FLAG_DEST_LOCATION;
-+    sinfo->Attributes &= ~(SPELL_ATTR0_ABILITY);
-+    sinfo->AttributesEx |= /*SPELL_ATTR1_UNAFFECTED_BY_SCHOOL_IMMUNE | */SPELL_ATTR1_NO_THREAT;
-+    //sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
++        sinfo->_effects[0].Effect = SPELL_EFFECT_DUMMY;
++        sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_DEST_DEST);
++        sinfo->_effects[0].BasePoints = 1;
++        //22) END INFERNO
 +
-+    sinfo->_effects[0].Effect = SPELL_EFFECT_DUMMY;
-+    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_DEST_DEST);
-+    sinfo->_effects[0].BasePoints = 1;
-+    //22) END INFERNO
++        //23) INFERNO VISUAL (dummy summon)
++        spellId = SPELL_INFERNO_METEOR_VISUAL; //5739
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //23) INFERNO VISUAL (dummy summon)
-+    spellId = SPELL_INFERNO_METEOR_VISUAL; //5739
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->ExplicitTargetMask = TARGET_FLAG_DEST_LOCATION;
 +
-+    sinfo->ExplicitTargetMask = TARGET_FLAG_DEST_LOCATION;
-+
-+    //sinfo->_effects[0].Effect = SPELL_EFFECT_DUMMY;
-+    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_DEST_DEST);
-+    //23) END INFERNO VISUAL
++        //sinfo->_effects[0].Effect = SPELL_EFFECT_DUMMY;
++        sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_DEST_DEST);
++        //23) END INFERNO VISUAL
++    }
++    else
++    {
++        for (uint32 spellId : { SPELL_VAMPIRIC_AURA, SPELL_TRIGGERED_HEAL, SPELL_SLEEP, SPELL_CARRION_SWARM, SPELL_INFERNO, SPELL_INFERNO_METEOR_VISUAL })
++            *const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId)) = spellInfoBackups.at(spellId);
++    }
 +
 +    //SPELL BREAKER
++    if (BotMgr::IsClassEnabled(BOT_CLASS_SPELLBREAKER))
++    {
++        //24) STEAL MAGIC
++        spellId = SPELL_STEAL_MAGIC; //30036
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //24) STEAL MAGIC
-+    spellId = SPELL_STEAL_MAGIC; //30036
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellFamilyName = SPELLFAMILY_PALADIN;
++        sinfo->RangeEntry = sSpellRangeStore.LookupEntry(34); //25 yds
++        sinfo->RecoveryTime = 2000;
++        sinfo->ManaCost = 75 * 5;
++        sinfo->ManaCostPercentage = 0;
++        sinfo->ManaCostPerlevel = 0;
++        sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
++        sinfo->AttributesEx |= SPELL_ATTR1_CANT_BE_REDIRECTED | SPELL_ATTR1_CANT_BE_REFLECTED;
++        sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
++        sinfo->AttributesEx6 |= SPELL_ATTR6_CAN_TARGET_POSSESSED_FRIENDS;
 +
-+    sinfo->SpellFamilyName = SPELLFAMILY_PALADIN;
-+    sinfo->RangeEntry = sSpellRangeStore.LookupEntry(34); //25 yds
-+    sinfo->RecoveryTime = 2000;
-+    sinfo->ManaCost = 75 * 5;
-+    sinfo->ManaCostPercentage = 0;
-+    sinfo->ManaCostPerlevel = 0;
-+    sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
-+    sinfo->AttributesEx |= SPELL_ATTR1_CANT_BE_REDIRECTED | SPELL_ATTR1_CANT_BE_REFLECTED;
-+    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
-+    sinfo->AttributesEx6 |= SPELL_ATTR6_CAN_TARGET_POSSESSED_FRIENDS;
++        sinfo->_effects[0].Effect = SPELL_EFFECT_DUMMY;
++        sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ANY);
 +
-+    sinfo->_effects[0].Effect = SPELL_EFFECT_DUMMY;
-+    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ANY);
++        sinfo->_effects[1].Effect = SPELL_EFFECT_NONE;
++        //24) END STEAL MAGIC
 +
-+    sinfo->_effects[1].Effect = SPELL_EFFECT_NONE;
-+    //24) END STEAL MAGIC
++        //25) FEEDBACK
++        spellId = SPELL_FEEDBACK; //32897
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //25) FEEDBACK
-+    spellId = SPELL_FEEDBACK; //32897
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellFamilyName = SPELLFAMILY_PALADIN;
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_ARCANE;
++        sinfo->PreventionType = SPELL_PREVENTION_TYPE_NONE;
++        sinfo->SpellLevel = 0;
++        sinfo->BaseLevel = 0;
++        sinfo->RangeEntry = sSpellRangeStore.LookupEntry(13); //50000 yds
++        sinfo->ManaCost = 0;
++        sinfo->ManaCostPercentage = 0;
++        sinfo->ManaCostPerlevel = 0;
++        sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
++        sinfo->Attributes &= ~(SPELL_ATTR0_NOT_SHAPESHIFT);
++        sinfo->AttributesEx |= SPELL_ATTR1_CANT_BE_REDIRECTED | SPELL_ATTR1_CANT_BE_REFLECTED | SPELL_ATTR1_UNAFFECTED_BY_SCHOOL_IMMUNE;
++        sinfo->AttributesEx2 |= SPELL_ATTR2_CANT_CRIT;
++        sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
 +
-+    sinfo->SpellFamilyName = SPELLFAMILY_PALADIN;
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_ARCANE;
-+    sinfo->PreventionType = SPELL_PREVENTION_TYPE_NONE;
-+    sinfo->SpellLevel = 0;
-+    sinfo->BaseLevel = 0;
-+    sinfo->RangeEntry = sSpellRangeStore.LookupEntry(13); //50000 yds
-+    sinfo->ManaCost = 0;
-+    sinfo->ManaCostPercentage = 0;
-+    sinfo->ManaCostPerlevel = 0;
-+    sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
-+    sinfo->Attributes &= ~(SPELL_ATTR0_NOT_SHAPESHIFT);
-+    sinfo->AttributesEx |= SPELL_ATTR1_CANT_BE_REDIRECTED | SPELL_ATTR1_CANT_BE_REFLECTED | SPELL_ATTR1_UNAFFECTED_BY_SCHOOL_IMMUNE;
-+    sinfo->AttributesEx2 |= SPELL_ATTR2_CANT_CRIT;
-+    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
-+
-+    sinfo->_effects[0].Effect = SPELL_EFFECT_POWER_BURN;
-+    sinfo->_effects[0].DieSides = 0;
-+    sinfo->_effects[0].ValueMultiplier = 1.f;
-+    //25) END FEEDBACK
++        sinfo->_effects[0].Effect = SPELL_EFFECT_POWER_BURN;
++        sinfo->_effects[0].DieSides = 0;
++        sinfo->_effects[0].ValueMultiplier = 1.f;
++        //25) END FEEDBACK
++    }
++    else
++    {
++        for (uint32 spellId : { SPELL_STEAL_MAGIC, SPELL_FEEDBACK })
++            *const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId)) = spellInfoBackups.at(spellId);
++    }
 +
 +    // DARK RANGER
++    if (BotMgr::IsClassEnabled(BOT_CLASS_DARK_RANGER))
++    {
++        //26) BLACK ARROW
++        //TODO: balance
++        spellId = SPELL_BLACK_ARROW; //20733
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //26) BLACK ARROW
-+    //TODO: balance
-+    spellId = SPELL_BLACK_ARROW; //20733
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellFamilyName = SPELLFAMILY_WARLOCK;
++        //sinfo->SpellFamilyFlags[0] = 0x0;
++        sinfo->SpellFamilyFlags[1] = 0x4; //custom, not present in db
++        //sinfo->SpellFamilyFlags[2] = 0x0;
++        sinfo->DmgClass = SPELL_DAMAGE_CLASS_RANGED;
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW | SPELL_SCHOOL_MASK_ARCANE;
++        sinfo->PreventionType = SPELL_PREVENTION_TYPE_PACIFY;
++        sinfo->Dispel = DISPEL_NONE;
++        sinfo->Mechanic = MECHANIC_NONE;
++        sinfo->SpellLevel = 40;
++        sinfo->BaseLevel = 40;
++        sinfo->MaxTargetLevel = 0;
++        sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(3); //500ms
++        sinfo->RangeEntry = sSpellRangeStore.LookupEntry(4); //5-30 yds
++        sinfo->DurationEntry = sSpellDurationStore.LookupEntry(85); //18 sec
++        sinfo->RecoveryTime = 3000;
++        sinfo->StartRecoveryCategory = 133;
++        sinfo->StartRecoveryTime = 1500;
++        sinfo->ManaCost = 6 * 5 * 2; //need to increase cost since ability is not autocast, has cd and deals more damage
++        sinfo->MaxAffectedTargets = 1;
++        sinfo->AuraInterruptFlags = AURA_INTERRUPT_FLAG_CHANGE_MAP;
++        sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
++        sinfo->Attributes |= SPELL_ATTR0_IMPOSSIBLE_DODGE_PARRY_BLOCK;
++        sinfo->AttributesEx |= SPELL_ATTR1_CANT_BE_REDIRECTED | SPELL_ATTR1_CANT_BE_REFLECTED;
++        sinfo->AttributesEx2 |= SPELL_ATTR2_NOT_RESET_AUTO_ACTIONS/* | SPELL_ATTR2_CANT_CRIT*/;
++        sinfo->AttributesEx4 |= SPELL_ATTR4_IGNORE_RESISTANCES;
 +
-+    sinfo->SpellFamilyName = SPELLFAMILY_WARLOCK;
-+    //sinfo->SpellFamilyFlags[0] = 0x0;
-+    sinfo->SpellFamilyFlags[1] = 0x4; //custom, not present in db
-+    //sinfo->SpellFamilyFlags[2] = 0x0;
-+    sinfo->DmgClass = SPELL_DAMAGE_CLASS_RANGED;
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW | SPELL_SCHOOL_MASK_ARCANE;
-+    sinfo->PreventionType = SPELL_PREVENTION_TYPE_PACIFY;
-+    sinfo->Dispel = DISPEL_NONE;
-+    sinfo->Mechanic = MECHANIC_NONE;
-+    sinfo->SpellLevel = 40;
-+    sinfo->BaseLevel = 40;
-+    sinfo->MaxTargetLevel = 0;
-+    sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(3); //500ms
-+    sinfo->RangeEntry = sSpellRangeStore.LookupEntry(4); //5-30 yds
-+    sinfo->DurationEntry = sSpellDurationStore.LookupEntry(85); //18 sec
-+    sinfo->RecoveryTime = 3000;
-+    sinfo->StartRecoveryCategory = 133;
-+    sinfo->StartRecoveryTime = 1500;
-+    sinfo->ManaCost = 6 * 5 * 2; //need to increase cost since ability is not autocast, has cd and deals more damage
-+    sinfo->MaxAffectedTargets = 1;
-+    sinfo->AuraInterruptFlags = AURA_INTERRUPT_FLAG_CHANGE_MAP;
-+    sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
-+    sinfo->Attributes |= SPELL_ATTR0_IMPOSSIBLE_DODGE_PARRY_BLOCK;
-+    sinfo->AttributesEx |= SPELL_ATTR1_CANT_BE_REDIRECTED | SPELL_ATTR1_CANT_BE_REFLECTED;
-+    sinfo->AttributesEx2 |= SPELL_ATTR2_NOT_RESET_AUTO_ACTIONS/* | SPELL_ATTR2_CANT_CRIT*/;
-+    sinfo->AttributesEx4 |= SPELL_ATTR4_IGNORE_RESISTANCES;
++        sinfo->_effects[0].Effect = SPELL_EFFECT_WEAPON_PERCENT_DAMAGE;
++        sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
++        sinfo->_effects[0].BasePoints = 150;
++        sinfo->_effects[0].DieSides = 0;
++        sinfo->_effects[0].BonusMultiplier = 1.f;
++        sinfo->_effects[0].DamageMultiplier = 1.f;
++        sinfo->_effects[0].RealPointsPerLevel = 0.f;
++        sinfo->_effects[0].ValueMultiplier = 1.f;
++        sinfo->_effects[0].RadiusEntry = nullptr;
 +
-+    sinfo->_effects[0].Effect = SPELL_EFFECT_WEAPON_PERCENT_DAMAGE;
-+    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
-+    sinfo->_effects[0].BasePoints = 150;
-+    sinfo->_effects[0].DieSides = 0;
-+    sinfo->_effects[0].BonusMultiplier = 1.f;
-+    sinfo->_effects[0].DamageMultiplier = 1.f;
-+    sinfo->_effects[0].RealPointsPerLevel = 0.f;
-+    sinfo->_effects[0].ValueMultiplier = 1.f;
-+    sinfo->_effects[0].RadiusEntry = nullptr;
++        sinfo->_effects[1].Effect = SPELL_EFFECT_APPLY_AURA;
++        sinfo->_effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
++        sinfo->_effects[1].ApplyAuraName = SPELL_AURA_PERIODIC_DAMAGE;
++        sinfo->_effects[1].BasePoints = 100;
++        sinfo->_effects[1].DieSides = 0;
++        sinfo->_effects[1].BonusMultiplier = 2.f;
++        sinfo->_effects[1].DamageMultiplier = 1.f;
++        sinfo->_effects[1].RealPointsPerLevel = 10.f;
++        sinfo->_effects[1].ValueMultiplier = 1.f;
++        sinfo->_effects[1].RadiusEntry = nullptr;
++        sinfo->_effects[1].Amplitude = 2000;
++        //26) END BLACK ARROW
 +
-+    sinfo->_effects[1].Effect = SPELL_EFFECT_APPLY_AURA;
-+    sinfo->_effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
-+    sinfo->_effects[1].ApplyAuraName = SPELL_AURA_PERIODIC_DAMAGE;
-+    sinfo->_effects[1].BasePoints = 100;
-+    sinfo->_effects[1].DieSides = 0;
-+    sinfo->_effects[1].BonusMultiplier = 2.f;
-+    sinfo->_effects[1].DamageMultiplier = 1.f;
-+    sinfo->_effects[1].RealPointsPerLevel = 10.f;
-+    sinfo->_effects[1].ValueMultiplier = 1.f;
-+    sinfo->_effects[1].RadiusEntry = nullptr;
-+    sinfo->_effects[1].Amplitude = 2000;
-+    //26) END BLACK ARROW
++        //27) DRAIN LIFE
++        //TODO: balance
++        spellId = SPELL_DRAIN_LIFE; //17238
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //27) DRAIN LIFE
-+    //TODO: balance
-+    spellId = SPELL_DRAIN_LIFE; //17238
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellFamilyName = SPELLFAMILY_WARLOCK;
++        sinfo->DmgClass = SPELL_DAMAGE_CLASS_MAGIC;
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW;
++        sinfo->PreventionType = SPELL_PREVENTION_TYPE_SILENCE;
++        sinfo->Dispel = DISPEL_NONE;
++        sinfo->Mechanic = MECHANIC_NONE;
++        sinfo->SpellLevel = 40;
++        sinfo->BaseLevel = 40;
++        sinfo->MaxTargetLevel = 0;
++        sinfo->CastTimeEntry = nullptr;
++        sinfo->RangeEntry = sSpellRangeStore.LookupEntry(4); //30 yds
++        //sinfo->DurationEntry = sSpellDurationStore.LookupEntry(85); //18 sec
++        sinfo->RecoveryTime = 5000;
++        sinfo->StartRecoveryCategory = 133;
++        sinfo->StartRecoveryTime = 1500;
++        sinfo->ManaCost = 75 * 5;
++        sinfo->MaxAffectedTargets = 1;
++        sinfo->AuraInterruptFlags = 0x0;
++        sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
++        sinfo->Attributes |= SPELL_ATTR0_IMPOSSIBLE_DODGE_PARRY_BLOCK;
++        sinfo->AttributesEx |= SPELL_ATTR1_CANT_BE_REDIRECTED | SPELL_ATTR1_CANT_BE_REFLECTED;
++        sinfo->AttributesEx3 |= SPELL_ATTR3_NO_INITIAL_AGGRO | SPELL_ATTR3_IGNORE_HIT_RESULT;
++        sinfo->AttributesEx4 |= SPELL_ATTR4_IGNORE_RESISTANCES;
++        sinfo->AttributesEx5 |= SPELL_ATTR5_START_PERIODIC_AT_APPLY;
 +
-+    sinfo->SpellFamilyName = SPELLFAMILY_WARLOCK;
-+    sinfo->DmgClass = SPELL_DAMAGE_CLASS_MAGIC;
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW;
-+    sinfo->PreventionType = SPELL_PREVENTION_TYPE_SILENCE;
-+    sinfo->Dispel = DISPEL_NONE;
-+    sinfo->Mechanic = MECHANIC_NONE;
-+    sinfo->SpellLevel = 40;
-+    sinfo->BaseLevel = 40;
-+    sinfo->MaxTargetLevel = 0;
-+    sinfo->CastTimeEntry = nullptr;
-+    sinfo->RangeEntry = sSpellRangeStore.LookupEntry(4); //30 yds
-+    //sinfo->DurationEntry = sSpellDurationStore.LookupEntry(85); //18 sec
-+    sinfo->RecoveryTime = 5000;
-+    sinfo->StartRecoveryCategory = 133;
-+    sinfo->StartRecoveryTime = 1500;
-+    sinfo->ManaCost = 75 * 5;
-+    sinfo->MaxAffectedTargets = 1;
-+    sinfo->AuraInterruptFlags = 0x0;
-+    sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
-+    sinfo->Attributes |= SPELL_ATTR0_IMPOSSIBLE_DODGE_PARRY_BLOCK;
-+    sinfo->AttributesEx |= SPELL_ATTR1_CANT_BE_REDIRECTED | SPELL_ATTR1_CANT_BE_REFLECTED;
-+    sinfo->AttributesEx3 |= SPELL_ATTR3_NO_INITIAL_AGGRO | SPELL_ATTR3_IGNORE_HIT_RESULT;
-+    sinfo->AttributesEx4 |= SPELL_ATTR4_IGNORE_RESISTANCES;
-+    sinfo->AttributesEx5 |= SPELL_ATTR5_START_PERIODIC_AT_APPLY;
++        sinfo->_effects[0].Effect = SPELL_EFFECT_APPLY_AURA;
++        sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
++        sinfo->_effects[0].ApplyAuraName = SPELL_AURA_PERIODIC_LEECH;
++        sinfo->_effects[0].BasePoints = 45;
++        sinfo->_effects[0].DieSides = 0;
++        sinfo->_effects[0].BonusMultiplier = 1.f;
++        sinfo->_effects[0].DamageMultiplier = 1.f;
++        sinfo->_effects[0].RealPointsPerLevel = 6.f;
++        sinfo->_effects[0].ValueMultiplier = 2.f;
++        sinfo->_effects[0].RadiusEntry = nullptr;
++        sinfo->_effects[0].Amplitude = 1000;
++        //27) END DRAIN LIFE
 +
-+    sinfo->_effects[0].Effect = SPELL_EFFECT_APPLY_AURA;
-+    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
-+    sinfo->_effects[0].ApplyAuraName = SPELL_AURA_PERIODIC_LEECH;
-+    sinfo->_effects[0].BasePoints = 45;
-+    sinfo->_effects[0].DieSides = 0;
-+    sinfo->_effects[0].BonusMultiplier = 1.f;
-+    sinfo->_effects[0].DamageMultiplier = 1.f;
-+    sinfo->_effects[0].RealPointsPerLevel = 6.f;
-+    sinfo->_effects[0].ValueMultiplier = 2.f;
-+    sinfo->_effects[0].RadiusEntry = nullptr;
-+    sinfo->_effects[0].Amplitude = 1000;
-+    //27) END DRAIN LIFE
++        //28) SILENCE
++        //TODO: balance
++        spellId = SPELL_SILENCE; //29943
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //28) SILENCE
-+    //TODO: balance
-+    spellId = SPELL_SILENCE; //29943
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellFamilyName = SPELLFAMILY_WARLOCK;
++        sinfo->DmgClass = SPELL_DAMAGE_CLASS_NONE;
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW | SPELL_SCHOOL_MASK_ARCANE;
++        sinfo->PreventionType = SPELL_PREVENTION_TYPE_SILENCE;
++        sinfo->Dispel = DISPEL_MAGIC;
++        sinfo->Mechanic = MECHANIC_SILENCE;
++        sinfo->SpellLevel = 60;
++        sinfo->BaseLevel = 60;
++        sinfo->MaxTargetLevel = 0;
++        sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(2); //250ms
++        sinfo->RangeEntry = sSpellRangeStore.LookupEntry(4); //30 yds
++        //sinfo->DurationEntry = sSpellDurationStore.LookupEntry(85); //18 sec
++        sinfo->RecoveryTime = 15000;
++        sinfo->StartRecoveryCategory = 133;
++        sinfo->StartRecoveryTime = 1500;
++        sinfo->ManaCost = 75 * 5;
++        sinfo->MaxAffectedTargets = 5;
++        sinfo->AuraInterruptFlags = 0x0;
++        sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT | TARGET_FLAG_DEST_LOCATION;
++        sinfo->AttributesEx |= SPELL_ATTR1_CANT_BE_REFLECTED | SPELL_ATTR1_CANT_BE_REDIRECTED;
 +
-+    sinfo->SpellFamilyName = SPELLFAMILY_WARLOCK;
-+    sinfo->DmgClass = SPELL_DAMAGE_CLASS_NONE;
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW | SPELL_SCHOOL_MASK_ARCANE;
-+    sinfo->PreventionType = SPELL_PREVENTION_TYPE_SILENCE;
-+    sinfo->Dispel = DISPEL_MAGIC;
-+    sinfo->Mechanic = MECHANIC_SILENCE;
-+    sinfo->SpellLevel = 60;
-+    sinfo->BaseLevel = 60;
-+    sinfo->MaxTargetLevel = 0;
-+    sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(2); //250ms
-+    sinfo->RangeEntry = sSpellRangeStore.LookupEntry(4); //30 yds
-+    //sinfo->DurationEntry = sSpellDurationStore.LookupEntry(85); //18 sec
-+    sinfo->RecoveryTime = 15000;
-+    sinfo->StartRecoveryCategory = 133;
-+    sinfo->StartRecoveryTime = 1500;
-+    sinfo->ManaCost = 75 * 5;
-+    sinfo->MaxAffectedTargets = 5;
-+    sinfo->AuraInterruptFlags = 0x0;
-+    sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT | TARGET_FLAG_DEST_LOCATION;
-+    sinfo->AttributesEx |= SPELL_ATTR1_CANT_BE_REFLECTED | SPELL_ATTR1_CANT_BE_REDIRECTED;
-+
-+    sinfo->_effects[0].Effect = SPELL_EFFECT_APPLY_AURA;
-+    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
-+    sinfo->_effects[0].TargetB = SpellImplicitTargetInfo(TARGET_UNIT_DEST_AREA_ENEMY);
-+    sinfo->_effects[0].ApplyAuraName = SPELL_AURA_MOD_SILENCE;
-+    sinfo->_effects[0].BasePoints = 1;
-+    sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_15_YARDS);
-+    //28) END SILENCE
++        sinfo->_effects[0].Effect = SPELL_EFFECT_APPLY_AURA;
++        sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
++        sinfo->_effects[0].TargetB = SpellImplicitTargetInfo(TARGET_UNIT_DEST_AREA_ENEMY);
++        sinfo->_effects[0].ApplyAuraName = SPELL_AURA_MOD_SILENCE;
++        sinfo->_effects[0].BasePoints = 1;
++        sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_15_YARDS);
++        //28) END SILENCE
++    }
++    else
++    {
++        for (uint32 spellId : { SPELL_BLACK_ARROW, SPELL_DRAIN_LIFE, SPELL_SILENCE })
++            *const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId)) = spellInfoBackups.at(spellId);
++    }
 +
 +    // NECROMANCER
++    if (BotMgr::IsClassEnabled(BOT_CLASS_NECROMANCER))
++    {
++        //29) SHADOW BOLT (MAIN_ATTACK)
++        //TODO: balance
++        spellId = SPELL_SHADOW_BOLT2; //17509
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //29) SHADOW BOLT (MAIN_ATTACK)
-+    //TODO: balance
-+    spellId = SPELL_SHADOW_BOLT2; //17509
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellFamilyName = SPELLFAMILY_WARLOCK;
++        sinfo->SpellLevel = 20;
++        sinfo->BaseLevel = 20;
++        sinfo->MaxLevel = 82;
++        sinfo->ManaCost = 0;
++        sinfo->ManaCostPercentage = 0;
++        sinfo->ManaCostPerlevel = 0;
++        sinfo->CastTimeEntry = nullptr;
++        sinfo->RangeEntry = sSpellRangeStore.LookupEntry(4); //30 yds
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW | SPELL_SCHOOL_MASK_ARCANE;
++        sinfo->Attributes |= SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE;
 +
-+    sinfo->SpellFamilyName = SPELLFAMILY_WARLOCK;
-+    sinfo->SpellLevel = 20;
-+    sinfo->BaseLevel = 20;
-+    sinfo->MaxLevel = 82;
-+    sinfo->ManaCost = 0;
-+    sinfo->ManaCostPercentage = 0;
-+    sinfo->ManaCostPerlevel = 0;
-+    sinfo->CastTimeEntry = nullptr;
-+    sinfo->RangeEntry = sSpellRangeStore.LookupEntry(4); //30 yds
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW | SPELL_SCHOOL_MASK_ARCANE;
-+    sinfo->Attributes |= SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE;
++        sinfo->_effects[0].BasePoints = 15;
++        sinfo->_effects[0].DieSides = 9;
++        sinfo->_effects[0].BonusMultiplier = 0.5f;
++        sinfo->_effects[0].DamageMultiplier = 1.f;
++        sinfo->_effects[0].RealPointsPerLevel = 12.f;
++        sinfo->_effects[0].ValueMultiplier = 1.f;
++        //29) END SHADOW BOLT (MAIN_ATTACK)
 +
-+    sinfo->_effects[0].BasePoints = 15;
-+    sinfo->_effects[0].DieSides = 9;
-+    sinfo->_effects[0].BonusMultiplier = 0.5f;
-+    sinfo->_effects[0].DamageMultiplier = 1.f;
-+    sinfo->_effects[0].RealPointsPerLevel = 12.f;
-+    sinfo->_effects[0].ValueMultiplier = 1.f;
-+    //29) END SHADOW BOLT (MAIN_ATTACK)
++        //30) RAISE DEAD
++        spellId = SPELL_RAISE_DEAD; //34011
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //30) RAISE DEAD
-+    spellId = SPELL_RAISE_DEAD; //34011
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellFamilyName = SPELLFAMILY_WARLOCK;
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW;
++        sinfo->InterruptFlags = 0xF;
++        sinfo->SpellLevel = 20;
++        sinfo->BaseLevel = 20;
++        sinfo->MaxTargetLevel = 0;
++        sinfo->RangeEntry = sSpellRangeStore.LookupEntry(34); //25 yds
++        sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(3); //500ms
++        sinfo->RecoveryTime = 8000;
++        sinfo->StartRecoveryCategory = 133;
++        sinfo->StartRecoveryTime = 1500;
++        sinfo->ManaCost = 50 * 5;
++        sinfo->ManaCostPercentage = 0;
++        sinfo->ManaCostPerlevel = 0;
++        sinfo->ExplicitTargetMask = TARGET_FLAG_CORPSE_ENEMY;
++        sinfo->Attributes |= SPELL_ATTR0_ABILITY | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE;
++        sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
 +
-+    sinfo->SpellFamilyName = SPELLFAMILY_WARLOCK;
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW;
-+    sinfo->InterruptFlags = 0xF;
-+    sinfo->SpellLevel = 20;
-+    sinfo->BaseLevel = 20;
-+    sinfo->MaxTargetLevel = 0;
-+    sinfo->RangeEntry = sSpellRangeStore.LookupEntry(34); //25 yds
-+    sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(3); //500ms
-+    sinfo->RecoveryTime = 8000;
-+    sinfo->StartRecoveryCategory = 133;
-+    sinfo->StartRecoveryTime = 1500;
-+    sinfo->ManaCost = 50 * 5;
-+    sinfo->ManaCostPercentage = 0;
-+    sinfo->ManaCostPerlevel = 0;
-+    sinfo->ExplicitTargetMask = TARGET_FLAG_CORPSE_ENEMY;
-+    sinfo->Attributes |= SPELL_ATTR0_ABILITY | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE;
-+    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
++        sinfo->_effects[0].Effect = SPELL_EFFECT_DUMMY;
++        sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ANY);
++        sinfo->_effects[0].TargetB = SpellImplicitTargetInfo(0);
++        sinfo->_effects[1].Effect = SPELL_EFFECT_NONE;
++        sinfo->_effects[2].Effect = SPELL_EFFECT_NONE;
++        //30) END RAISE DEAD
 +
-+    sinfo->_effects[0].Effect = SPELL_EFFECT_DUMMY;
-+    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ANY);
-+    sinfo->_effects[0].TargetB = SpellImplicitTargetInfo(0);
-+    sinfo->_effects[1].Effect = SPELL_EFFECT_NONE;
-+    sinfo->_effects[2].Effect = SPELL_EFFECT_NONE;
-+    //30) END RAISE DEAD
++        //31) UNHOLY FRENZY
++        spellId = SPELL_UNHOLY_FRENZY; //52499
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //31) UNHOLY FRENZY
-+    spellId = SPELL_UNHOLY_FRENZY; //52499
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellFamilyName = SPELLFAMILY_WARLOCK;
++        sinfo->DmgClass = SPELL_DAMAGE_CLASS_NONE;
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW;
++        sinfo->SpellLevel = 30;
++        sinfo->BaseLevel = 30;
++        sinfo->MaxTargetLevel = 0;
++        sinfo->DurationEntry = sSpellDurationStore.LookupEntry(22); //566 - 0 sec //3 - 60 sec //1 - 10 sec //32 - 6 sec //22 - 45 sec
++        sinfo->RecoveryTime = 2000; //original 1000
++        sinfo->CategoryEntry = nullptr;
++        sinfo->StartRecoveryCategory = 133;
++        sinfo->StartRecoveryTime = 1500;
++        sinfo->ManaCost = 50 * 5;
++        sinfo->ManaCostPercentage = 0;
++        sinfo->ManaCostPerlevel = 0;
++        sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
++        sinfo->Attributes |= SPELL_ATTR0_ABILITY | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE;
++        sinfo->AttributesEx |= SPELL_ATTR1_CANT_BE_REFLECTED | SPELL_ATTR1_CANT_BE_REDIRECTED;
++        sinfo->AttributesEx2 |= SPELL_ATTR2_CANT_CRIT;
++        sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT | SPELL_ATTR3_NO_DONE_BONUS;
++        sinfo->AttributesEx4 |= SPELL_ATTR4_IGNORE_RESISTANCES;
 +
-+    sinfo->SpellFamilyName = SPELLFAMILY_WARLOCK;
-+    sinfo->DmgClass = SPELL_DAMAGE_CLASS_NONE;
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW;
-+    sinfo->SpellLevel = 30;
-+    sinfo->BaseLevel = 30;
-+    sinfo->MaxTargetLevel = 0;
-+    sinfo->DurationEntry = sSpellDurationStore.LookupEntry(22); //566 - 0 sec //3 - 60 sec //1 - 10 sec //32 - 6 sec //22 - 45 sec
-+    sinfo->RecoveryTime = 2000; //original 1000
-+    sinfo->CategoryEntry = nullptr;
-+    sinfo->StartRecoveryCategory = 133;
-+    sinfo->StartRecoveryTime = 1500;
-+    sinfo->ManaCost = 50 * 5;
-+    sinfo->ManaCostPercentage = 0;
-+    sinfo->ManaCostPerlevel = 0;
-+    sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
-+    sinfo->Attributes |= SPELL_ATTR0_ABILITY | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE;
-+    sinfo->AttributesEx |= SPELL_ATTR1_CANT_BE_REFLECTED | SPELL_ATTR1_CANT_BE_REDIRECTED;
-+    sinfo->AttributesEx2 |= SPELL_ATTR2_CANT_CRIT;
-+    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT | SPELL_ATTR3_NO_DONE_BONUS;
-+    sinfo->AttributesEx4 |= SPELL_ATTR4_IGNORE_RESISTANCES;
++        sinfo->_effects[0].ApplyAuraName = SPELL_AURA_MOD_ATTACKSPEED;
++        sinfo->_effects[0].BasePoints = 75;
++        sinfo->_effects[1].Amplitude = 1000;
++        sinfo->_effects[1].BasePoints = 1;
++        //31) END UNHOLY FRENZY
 +
-+    sinfo->_effects[0].ApplyAuraName = SPELL_AURA_MOD_ATTACKSPEED;
-+    sinfo->_effects[0].BasePoints = 75;
-+    sinfo->_effects[1].Amplitude = 1000;
-+    sinfo->_effects[1].BasePoints = 1;
-+    //31) END UNHOLY FRENZY
++        //32) CRIPPLE
++        spellId = SPELL_CRIPPLE; //50379
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //32) CRIPPLE
-+    spellId = SPELL_CRIPPLE; //50379
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellFamilyName = SPELLFAMILY_WARLOCK;
++        sinfo->DmgClass = SPELL_DAMAGE_CLASS_NONE;
++        sinfo->Dispel = DISPEL_CURSE; //TODO: check if works
++        sinfo->SpellLevel = 50;
++        sinfo->BaseLevel = 50;
++        sinfo->MaxLevel = 0;
++        sinfo->MaxTargetLevel = 0;
++        sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(0); //0ms
++        sinfo->DurationEntry = sSpellDurationStore.LookupEntry(3); //60 sec
++        sinfo->RecoveryTime = 10000;
++        sinfo->CategoryEntry = nullptr;
++        sinfo->StartRecoveryCategory = 133;
++        sinfo->StartRecoveryTime = 1500;
++        sinfo->ManaCost = 175 * 5;
++        sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
++        sinfo->AttributesEx |= SPELL_ATTR1_CANT_BE_REFLECTED | SPELL_ATTR1_CANT_BE_REDIRECTED;
++        sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
++        //32) END CRIPPLE
 +
-+    sinfo->SpellFamilyName = SPELLFAMILY_WARLOCK;
-+    sinfo->DmgClass = SPELL_DAMAGE_CLASS_NONE;
-+    sinfo->Dispel = DISPEL_CURSE; //TODO: check if works
-+    sinfo->SpellLevel = 50;
-+    sinfo->BaseLevel = 50;
-+    sinfo->MaxLevel = 0;
-+    sinfo->MaxTargetLevel = 0;
-+    sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(0); //0ms
-+    sinfo->DurationEntry = sSpellDurationStore.LookupEntry(3); //60 sec
-+    sinfo->RecoveryTime = 10000;
-+    sinfo->CategoryEntry = nullptr;
-+    sinfo->StartRecoveryCategory = 133;
-+    sinfo->StartRecoveryTime = 1500;
-+    sinfo->ManaCost = 175 * 5;
-+    sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
-+    sinfo->AttributesEx |= SPELL_ATTR1_CANT_BE_REFLECTED | SPELL_ATTR1_CANT_BE_REDIRECTED;
-+    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
-+    //32) END CRIPPLE
++        //33) CORPSE EXPLOSION
++        spellId = SPELL_CORPSE_EXPLOSION; //61614
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //33) CORPSE EXPLOSION
-+    spellId = SPELL_CORPSE_EXPLOSION; //61614
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellFamilyName = SPELLFAMILY_WARLOCK;
++        sinfo->DmgClass = SPELL_DAMAGE_CLASS_NONE;
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW;
++        sinfo->TargetCreatureType = 0x0000037F;
++        sinfo->InterruptFlags = 0xF;
++        sinfo->SpellLevel = 40;
++        sinfo->BaseLevel = 40;
++        sinfo->MaxTargetLevel = 0;
++        sinfo->DurationEntry = sSpellDurationStore.LookupEntry(21); //-1
++        sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(110); //750ms
++        sinfo->RangeEntry = sSpellRangeStore.LookupEntry(3); //20 yds
++        sinfo->RecoveryTime = 1500;
++        sinfo->StartRecoveryCategory = 133;
++        sinfo->StartRecoveryTime = 1500;
++        sinfo->ManaCost = 100 * 5;
++        sinfo->ExplicitTargetMask = TARGET_FLAG_CORPSE_ENEMY;
++        sinfo->Attributes |= SPELL_ATTR0_ABILITY | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE;
++        sinfo->AttributesEx2 |= SPELL_ATTR2_CANT_CRIT;
++        sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT | SPELL_ATTR3_NO_DONE_BONUS;
 +
-+    sinfo->SpellFamilyName = SPELLFAMILY_WARLOCK;
-+    sinfo->DmgClass = SPELL_DAMAGE_CLASS_NONE;
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_SHADOW;
-+    sinfo->TargetCreatureType = 0x0000037F;
-+    sinfo->InterruptFlags = 0xF;
-+    sinfo->SpellLevel = 40;
-+    sinfo->BaseLevel = 40;
-+    sinfo->MaxTargetLevel = 0;
-+    sinfo->DurationEntry = sSpellDurationStore.LookupEntry(21); //-1
-+    sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(110); //750ms
-+    sinfo->RangeEntry = sSpellRangeStore.LookupEntry(3); //20 yds
-+    sinfo->RecoveryTime = 1500;
-+    sinfo->StartRecoveryCategory = 133;
-+    sinfo->StartRecoveryTime = 1500;
-+    sinfo->ManaCost = 100 * 5;
-+    sinfo->ExplicitTargetMask = TARGET_FLAG_CORPSE_ENEMY;
-+    sinfo->Attributes |= SPELL_ATTR0_ABILITY | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE;
-+    sinfo->AttributesEx2 |= SPELL_ATTR2_CANT_CRIT;
-+    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT | SPELL_ATTR3_NO_DONE_BONUS;
++        sinfo->_effects[0].Effect = SPELL_EFFECT_APPLY_AURA;
++        sinfo->_effects[0].ApplyAuraName = SPELL_AURA_DUMMY;
++        sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ANY);
++        sinfo->_effects[0].TargetB = SpellImplicitTargetInfo(0);
++        sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_10_YARDS);
++        sinfo->_effects[0].SpellClassMask[0] = 0;
++        sinfo->_effects[0].BasePoints = 1;
++        sinfo->_effects[1].Effect = SPELL_EFFECT_NONE;
++        //33) END CORPSE EXPLOSION
++    }
++    else
++    {
++        for (uint32 spellId : { SPELL_SHADOW_BOLT2, SPELL_RAISE_DEAD, SPELL_UNHOLY_FRENZY, SPELL_CRIPPLE, SPELL_CORPSE_EXPLOSION })
++            *const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId)) = spellInfoBackups.at(spellId);
++    }
 +
-+    sinfo->_effects[0].Effect = SPELL_EFFECT_APPLY_AURA;
-+    sinfo->_effects[0].ApplyAuraName = SPELL_AURA_DUMMY;
-+    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ANY);
-+    sinfo->_effects[0].TargetB = SpellImplicitTargetInfo(0);
-+    sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_10_YARDS);
-+    sinfo->_effects[0].SpellClassMask[0] = 0;
-+    sinfo->_effects[0].BasePoints = 1;
-+    sinfo->_effects[1].Effect = SPELL_EFFECT_NONE;
-+    //33) END CORPSE EXPLOSION
++    //SEA WITCH
++    if (BotMgr::IsClassEnabled(BOT_CLASS_SEA_WITCH))
++    {
++        //35) FORKED LIGHTNING
++        spellId = SPELL_FORKED_LIGHTNING; //63541
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //35) FORKED LIGHTNING
-+    spellId = SPELL_FORKED_LIGHTNING; //63541
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellFamilyName = SPELLFAMILY_MAGE;
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_NATURE | SPELL_SCHOOL_MASK_ARCANE;
++        sinfo->PreventionType = SPELL_PREVENTION_TYPE_SILENCE;
++        sinfo->InterruptFlags = 0x9;
++        sinfo->SpellLevel = 3;
++        sinfo->BaseLevel = 3;
++        sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(110); //750ms
++        sinfo->RangeEntry = sSpellRangeStore.LookupEntry(4); //30 yds
++        sinfo->RecoveryTime = 11000;
++        sinfo->StartRecoveryCategory = 133;
++        sinfo->StartRecoveryTime = 1500;
++        sinfo->ManaCost = 110 * 5;
++        sinfo->MaxAffectedTargets = 2;
++        sinfo->Speed = 1000.f;
++        sinfo->AttributesEx |= SPELL_ATTR1_NO_THREAT;
++        sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
++        sinfo->AttributesEx5 |= SPELL_ATTR5_DONT_TURN_DURING_CAST;
++        //sinfo->AttributesEx6 |= SPELL_ATTR6_CAN_TARGET_INVISIBLE;
 +
-+    sinfo->SpellFamilyName = SPELLFAMILY_MAGE;
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_NATURE | SPELL_SCHOOL_MASK_ARCANE;
-+    sinfo->PreventionType = SPELL_PREVENTION_TYPE_SILENCE;
-+    sinfo->InterruptFlags = 0x9;
-+    sinfo->SpellLevel = 3;
-+    sinfo->BaseLevel = 3;
-+    sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(110); //750ms
-+    sinfo->RangeEntry = sSpellRangeStore.LookupEntry(4); //30 yds
-+    sinfo->RecoveryTime = 11000;
-+    sinfo->StartRecoveryCategory = 133;
-+    sinfo->StartRecoveryTime = 1500;
-+    sinfo->ManaCost = 110 * 5;
-+    sinfo->MaxAffectedTargets = 2;
-+    sinfo->Speed = 1000.f;
-+    sinfo->AttributesEx |= SPELL_ATTR1_NO_THREAT;
-+    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
-+    sinfo->AttributesEx5 |= SPELL_ATTR5_DONT_TURN_DURING_CAST;
-+    //sinfo->AttributesEx6 |= SPELL_ATTR6_CAN_TARGET_INVISIBLE;
++        sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CONE_ENEMY_24);
++        //sinfo->_effects[0].TargetB = SpellImplicitTargetInfo(TARGET_UNIT_CONE_ENEMY_24);
++        sinfo->_effects[0].RadiusEntry = nullptr;//sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_50_YARDS);
++        sinfo->_effects[0].BasePoints = 1;
++        sinfo->_effects[0].DieSides = 49;
++        sinfo->_effects[0].BonusMultiplier = 2.f;
++        sinfo->_effects[0].DamageMultiplier = 1.f;
++        sinfo->_effects[0].RealPointsPerLevel = 20.f;
++        sinfo->_effects[0].ValueMultiplier = 1.f;
++        //35) END FORKED LIGHTNING
 +
-+    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CONE_ENEMY_24);
-+    //sinfo->_effects[0].TargetB = SpellImplicitTargetInfo(TARGET_UNIT_CONE_ENEMY_24);
-+    sinfo->_effects[0].RadiusEntry = nullptr;//sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_50_YARDS);
-+    sinfo->_effects[0].BasePoints = 1;
-+    sinfo->_effects[0].DieSides = 49;
-+    sinfo->_effects[0].BonusMultiplier = 2.f;
-+    sinfo->_effects[0].DamageMultiplier = 1.f;
-+    sinfo->_effects[0].RealPointsPerLevel = 20.f;
-+    sinfo->_effects[0].ValueMultiplier = 1.f;
-+    //35) END FORKED LIGHTNING
++        //36) FORKED LIGHTNING EFFECT
++        spellId = SPELL_FORKED_LIGHTNING_EFFECT; //50900
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //36) FORKED LIGHTNING EFFECT
-+    spellId = SPELL_FORKED_LIGHTNING_EFFECT; //50900
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellFamilyName = SPELLFAMILY_MAGE;
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_NATURE | SPELL_SCHOOL_MASK_ARCANE;
++        sinfo->Dispel = DISPEL_MAGIC;
++        sinfo->Mechanic = MECHANIC_STUN;
++        sinfo->DurationEntry = sSpellDurationStore.LookupEntry(39); //2000ms
++        sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(1); //instant
++        sinfo->RangeEntry = sSpellRangeStore.LookupEntry(6); //100 yds
++        sinfo->ManaCost = 0;
++        sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
++        sinfo->AttributesEx5 |= SPELL_ATTR5_DONT_TURN_DURING_CAST;
++        sinfo->AttributesEx6 |= SPELL_ATTR6_CAN_TARGET_INVISIBLE;
 +
-+    sinfo->SpellFamilyName = SPELLFAMILY_MAGE;
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_NATURE | SPELL_SCHOOL_MASK_ARCANE;
-+    sinfo->Dispel = DISPEL_MAGIC;
-+    sinfo->Mechanic = MECHANIC_STUN;
-+    sinfo->DurationEntry = sSpellDurationStore.LookupEntry(39); //2000ms
-+    sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(1); //instant
-+    sinfo->RangeEntry = sSpellRangeStore.LookupEntry(6); //100 yds
-+    sinfo->ManaCost = 0;
-+    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
-+    sinfo->AttributesEx5 |= SPELL_ATTR5_DONT_TURN_DURING_CAST;
-+    sinfo->AttributesEx6 |= SPELL_ATTR6_CAN_TARGET_INVISIBLE;
++        sinfo->_effects[0].Effect = SPELL_EFFECT_APPLY_AURA;
++        sinfo->_effects[0].ApplyAuraName = SPELL_AURA_MOD_STUN;
++        sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
++        sinfo->_effects[0].RadiusEntry = nullptr;
++        //36) END FORKED LIGHTNING EFFECT
 +
-+    sinfo->_effects[0].Effect = SPELL_EFFECT_APPLY_AURA;
-+    sinfo->_effects[0].ApplyAuraName = SPELL_AURA_MOD_STUN;
-+    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
-+    sinfo->_effects[0].RadiusEntry = nullptr;
-+    //36) END FORKED LIGHTNING EFFECT
++        //37) FROST ARROW
++        spellId = SPELL_FROST_ARROW; //38942
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //37) FROST ARROW
-+    spellId = SPELL_FROST_ARROW; //38942
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellFamilyName = SPELLFAMILY_MAGE;
++        //sinfo->SpellFamilyFlags[0] = 0x0;
++        sinfo->SpellFamilyFlags[1] = 0x4; //custom, not present in db
++        //sinfo->SpellFamilyFlags[2] = 0x0;
++        sinfo->DmgClass = SPELL_DAMAGE_CLASS_RANGED;
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_FROST | SPELL_SCHOOL_MASK_ARCANE;
++        sinfo->PreventionType = SPELL_PREVENTION_TYPE_PACIFY;
++        sinfo->Dispel = DISPEL_NONE;
++        sinfo->Mechanic = MECHANIC_NONE;
++        sinfo->SpellLevel = 3;
++        sinfo->BaseLevel = 3;
++        sinfo->MaxTargetLevel = 0;
++        sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(110); //750ms
++        sinfo->RangeEntry = sSpellRangeStore.LookupEntry(35); //0-35 yds
++        sinfo->DurationEntry = nullptr;
++        sinfo->RecoveryTime = 0;
++        sinfo->StartRecoveryCategory = 133;
++        sinfo->StartRecoveryTime = 750;
++        sinfo->PowerType = POWER_MANA;
++        sinfo->ManaCost = 10 * 5;
++        sinfo->MaxAffectedTargets = 1;
++        sinfo->AuraInterruptFlags = AURA_INTERRUPT_FLAG_CHANGE_MAP;
++        sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
++        sinfo->Attributes |= SPELL_ATTR0_IMPOSSIBLE_DODGE_PARRY_BLOCK | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE;
++        sinfo->Attributes &= ~(SPELL_ATTR0_REQ_AMMO);
++        sinfo->AttributesEx |= SPELL_ATTR1_CANT_BE_REDIRECTED | SPELL_ATTR1_CANT_BE_REFLECTED;
++        sinfo->AttributesEx2 |= SPELL_ATTR2_NOT_RESET_AUTO_ACTIONS/* | SPELL_ATTR2_CANT_CRIT*/;
++        sinfo->AttributesEx4 |= SPELL_ATTR4_IGNORE_RESISTANCES;
++        sinfo->AttributesEx4 &= ~(SPELL_ATTR4_INHERIT_CRIT_FROM_AURA);
 +
-+    sinfo->SpellFamilyName = SPELLFAMILY_MAGE;
-+    //sinfo->SpellFamilyFlags[0] = 0x0;
-+    sinfo->SpellFamilyFlags[1] = 0x4; //custom, not present in db
-+    //sinfo->SpellFamilyFlags[2] = 0x0;
-+    sinfo->DmgClass = SPELL_DAMAGE_CLASS_RANGED;
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_FROST | SPELL_SCHOOL_MASK_ARCANE;
-+    sinfo->PreventionType = SPELL_PREVENTION_TYPE_PACIFY;
-+    sinfo->Dispel = DISPEL_NONE;
-+    sinfo->Mechanic = MECHANIC_NONE;
-+    sinfo->SpellLevel = 3;
-+    sinfo->BaseLevel = 3;
-+    sinfo->MaxTargetLevel = 0;
-+    sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(110); //750ms
-+    sinfo->RangeEntry = sSpellRangeStore.LookupEntry(35); //0-35 yds
-+    sinfo->DurationEntry = nullptr;
-+    sinfo->RecoveryTime = 0;
-+    sinfo->StartRecoveryCategory = 133;
-+    sinfo->StartRecoveryTime = 750;
-+    sinfo->PowerType = POWER_MANA;
-+    sinfo->ManaCost = 10 * 5;
-+    sinfo->MaxAffectedTargets = 1;
-+    sinfo->AuraInterruptFlags = AURA_INTERRUPT_FLAG_CHANGE_MAP;
-+    sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
-+    sinfo->Attributes |= SPELL_ATTR0_IMPOSSIBLE_DODGE_PARRY_BLOCK | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE;
-+    sinfo->Attributes &= ~(SPELL_ATTR0_REQ_AMMO);
-+    sinfo->AttributesEx |= SPELL_ATTR1_CANT_BE_REDIRECTED | SPELL_ATTR1_CANT_BE_REFLECTED;
-+    sinfo->AttributesEx2 |= SPELL_ATTR2_NOT_RESET_AUTO_ACTIONS/* | SPELL_ATTR2_CANT_CRIT*/;
-+    sinfo->AttributesEx4 |= SPELL_ATTR4_IGNORE_RESISTANCES;
-+    sinfo->AttributesEx4 &= ~(SPELL_ATTR4_INHERIT_CRIT_FROM_AURA);
++        sinfo->_effects[0].Effect = SPELL_EFFECT_WEAPON_DAMAGE;
++        sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
++        sinfo->_effects[0].BasePoints = 10;
++        sinfo->_effects[0].DieSides = 0;
++        sinfo->_effects[0].BonusMultiplier = 0.5f;
++        sinfo->_effects[0].DamageMultiplier = 1.f;
++        sinfo->_effects[0].RealPointsPerLevel = 2.f;
++        sinfo->_effects[0].ValueMultiplier = 1.f;
++        sinfo->_effects[0].RadiusEntry = nullptr;
++        sinfo->_effects[1].Effect = SPELL_EFFECT_NONE;
++        //37) END FROST ARROW
 +
-+    sinfo->_effects[0].Effect = SPELL_EFFECT_WEAPON_DAMAGE;
-+    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
-+    sinfo->_effects[0].BasePoints = 10;
-+    sinfo->_effects[0].DieSides = 0;
-+    sinfo->_effects[0].BonusMultiplier = 0.5f;
-+    sinfo->_effects[0].DamageMultiplier = 1.f;
-+    sinfo->_effects[0].RealPointsPerLevel = 2.f;
-+    sinfo->_effects[0].ValueMultiplier = 1.f;
-+    sinfo->_effects[0].RadiusEntry = nullptr;
-+    sinfo->_effects[1].Effect = SPELL_EFFECT_NONE;
-+    //37) END FROST ARROW
++        //38) FROST ARROW EFFECT
++        spellId = SPELL_FROST_ARROW_EFFECT; //56095
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //38) FROST ARROW EFFECT
-+    spellId = SPELL_FROST_ARROW_EFFECT; //56095
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellFamilyName = SPELLFAMILY_GENERIC;
++        //sinfo->SpellFamilyFlags[0] = 0x0;
++        sinfo->SpellFamilyFlags[1] = 0x4; //custom, not present in db
++        //sinfo->SpellFamilyFlags[2] = 0x0;
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_FROST | SPELL_SCHOOL_MASK_ARCANE;
++        sinfo->Dispel = DISPEL_MAGIC;
++        sinfo->Mechanic = MECHANIC_SNARE;
++        sinfo->Attributes &= ~(SPELL_ATTR0_CAST_TRACK_TARGET);
++        sinfo->AttributesEx |= SPELL_ATTR1_CANT_BE_REDIRECTED | SPELL_ATTR1_CANT_BE_REFLECTED;
++        sinfo->AttributesEx4 |= SPELL_ATTR4_IGNORE_RESISTANCES;
 +
-+    sinfo->SpellFamilyName = SPELLFAMILY_GENERIC;
-+    //sinfo->SpellFamilyFlags[0] = 0x0;
-+    sinfo->SpellFamilyFlags[1] = 0x4; //custom, not present in db
-+    //sinfo->SpellFamilyFlags[2] = 0x0;
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_FROST | SPELL_SCHOOL_MASK_ARCANE;
-+    sinfo->Dispel = DISPEL_MAGIC;
-+    sinfo->Mechanic = MECHANIC_SNARE;
-+    sinfo->Attributes &= ~(SPELL_ATTR0_CAST_TRACK_TARGET);
-+    sinfo->AttributesEx |= SPELL_ATTR1_CANT_BE_REDIRECTED | SPELL_ATTR1_CANT_BE_REFLECTED;
-+    sinfo->AttributesEx4 |= SPELL_ATTR4_IGNORE_RESISTANCES;
++        sinfo->_effects[0].Effect = SPELL_EFFECT_APPLY_AURA;
++        sinfo->_effects[0].ApplyAuraName = SPELL_AURA_MOD_SPEED_SLOW_ALL;
++        sinfo->_effects[0].Mechanic = MECHANIC_SLOW_ATTACK;
++        sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
++        sinfo->_effects[0].BasePoints = -30;
++        sinfo->_effects[0].DieSides = 0;
++        sinfo->_effects[0].BonusMultiplier = 1.f;
++        sinfo->_effects[0].DamageMultiplier = 1.f;
++        sinfo->_effects[0].RealPointsPerLevel = 0.f;
++        sinfo->_effects[0].ValueMultiplier = 1.f;
++        sinfo->_effects[0].RadiusEntry = nullptr;
++        sinfo->_effects[1].Effect = SPELL_EFFECT_APPLY_AURA;
++        sinfo->_effects[1].ApplyAuraName = SPELL_AURA_MOD_DECREASE_SPEED;
++        sinfo->_effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
++        sinfo->_effects[1].BasePoints = -30;
++        sinfo->_effects[1].DieSides = 0;
++        sinfo->_effects[1].BonusMultiplier = 1.f;
++        sinfo->_effects[1].DamageMultiplier = 1.f;
++        sinfo->_effects[1].RealPointsPerLevel = 0.f;
++        sinfo->_effects[1].ValueMultiplier = 1.f;
++        sinfo->_effects[1].RadiusEntry = nullptr;
++        //38) END FROST ARROW EFFECT
 +
-+    sinfo->_effects[0].Effect = SPELL_EFFECT_APPLY_AURA;
-+    sinfo->_effects[0].ApplyAuraName = SPELL_AURA_MOD_SPEED_SLOW_ALL;
-+    sinfo->_effects[0].Mechanic = MECHANIC_SLOW_ATTACK;
-+    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
-+    sinfo->_effects[0].BasePoints = -30;
-+    sinfo->_effects[0].DieSides = 0;
-+    sinfo->_effects[0].BonusMultiplier = 1.f;
-+    sinfo->_effects[0].DamageMultiplier = 1.f;
-+    sinfo->_effects[0].RealPointsPerLevel = 0.f;
-+    sinfo->_effects[0].ValueMultiplier = 1.f;
-+    sinfo->_effects[0].RadiusEntry = nullptr;
-+    sinfo->_effects[1].Effect = SPELL_EFFECT_APPLY_AURA;
-+    sinfo->_effects[1].ApplyAuraName = SPELL_AURA_MOD_DECREASE_SPEED;
-+    sinfo->_effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
-+    sinfo->_effects[1].BasePoints = -30;
-+    sinfo->_effects[1].DieSides = 0;
-+    sinfo->_effects[1].BonusMultiplier = 1.f;
-+    sinfo->_effects[1].DamageMultiplier = 1.f;
-+    sinfo->_effects[1].RealPointsPerLevel = 0.f;
-+    sinfo->_effects[1].ValueMultiplier = 1.f;
-+    sinfo->_effects[1].RadiusEntry = nullptr;
-+    //38) END FROST ARROW EFFECT
++        //39) MANA SHIELD
++        spellId = SPELL_MANA_SHIELD; //35064
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //39) MANA SHIELD
-+    spellId = SPELL_MANA_SHIELD; //35064
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->Dispel = DISPEL_NONE;
++        sinfo->PreventionType = SPELL_PREVENTION_TYPE_NONE;
++        sinfo->SpellLevel = 0;
++        sinfo->BaseLevel = 0;
++        sinfo->MaxTargetLevel = 0;
++        sinfo->DurationEntry = sSpellDurationStore.LookupEntry(21); //-1
++        sinfo->RecoveryTime = 10000;
++        sinfo->StartRecoveryCategory = 133;
++        sinfo->StartRecoveryTime = 1500;
++        sinfo->Attributes |= SPELL_ATTR0_ABILITY | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE | SPELL_ATTR0_DISABLED_WHILE_ACTIVE;
++        sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT | SPELL_ATTR3_NO_DONE_BONUS;
++        sinfo->AttributesEx4 |= SPELL_ATTR4_NOT_STEALABLE;
 +
-+    sinfo->Dispel = DISPEL_NONE;
-+    sinfo->PreventionType = SPELL_PREVENTION_TYPE_NONE;
-+    sinfo->SpellLevel = 0;
-+    sinfo->BaseLevel = 0;
-+    sinfo->MaxTargetLevel = 0;
-+    sinfo->DurationEntry = sSpellDurationStore.LookupEntry(21); //-1
-+    sinfo->RecoveryTime = 10000;
-+    sinfo->StartRecoveryCategory = 133;
-+    sinfo->StartRecoveryTime = 1500;
-+    sinfo->Attributes |= SPELL_ATTR0_ABILITY | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE | SPELL_ATTR0_DISABLED_WHILE_ACTIVE;
-+    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT | SPELL_ATTR3_NO_DONE_BONUS;
-+    sinfo->AttributesEx4 |= SPELL_ATTR4_NOT_STEALABLE;
++        sinfo->_effects[0].BasePoints = 1000000000;
++        sinfo->_effects[0].ValueMultiplier = 10.f;
++        //39) END MANA SHIELD
 +
-+    sinfo->_effects[0].BasePoints = 1000000000;
-+    sinfo->_effects[0].ValueMultiplier = 10.f;
-+    //39) END MANA SHIELD
++        //40) TORNADO
++        spellId = SPELL_TORNADO; //34695
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //40) TORNADO
-+    spellId = SPELL_TORNADO; //34695
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellFamilyName = SPELLFAMILY_MAGE;
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_NATURE | SPELL_SCHOOL_MASK_ARCANE;
++        sinfo->InterruptFlags = 0x9;
++        sinfo->SpellLevel = 60;
++        sinfo->BaseLevel = 60;
++        sinfo->MaxTargetLevel = 0;
++        sinfo->DurationEntry = nullptr;
++        sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(15); //4000ms
++        //sinfo->RangeEntry = sSpellRangeStore.LookupEntry(5); //40 yds
++        sinfo->RecoveryTime = 120000;
++        sinfo->StartRecoveryCategory = 133;
++        sinfo->StartRecoveryTime = 1500;
++        sinfo->ManaCost = 250 * 5;
++        sinfo->ExplicitTargetMask = TARGET_FLAG_DEST_LOCATION;
++        sinfo->Attributes |= SPELL_ATTR0_ABILITY | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE | SPELL_ATTR0_OUTDOORS_ONLY;
++        sinfo->AttributesEx2 |= SPELL_ATTR2_CANT_CRIT | SPELL_ATTR2_CAN_TARGET_NOT_IN_LOS;
++        sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT | SPELL_ATTR3_NO_DONE_BONUS;
++        sinfo->AttributesEx3 &= ~(SPELL_ATTR3_ONLY_TARGET_PLAYERS);
++        sinfo->AttributesEx4 = 0;
 +
-+    sinfo->SpellFamilyName = SPELLFAMILY_MAGE;
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_NATURE | SPELL_SCHOOL_MASK_ARCANE;
-+    sinfo->InterruptFlags = 0x9;
-+    sinfo->SpellLevel = 60;
-+    sinfo->BaseLevel = 60;
-+    sinfo->MaxTargetLevel = 0;
-+    sinfo->DurationEntry = nullptr;
-+    sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(15); //4000ms
-+    //sinfo->RangeEntry = sSpellRangeStore.LookupEntry(5); //40 yds
-+    sinfo->RecoveryTime = 120000;
-+    sinfo->StartRecoveryCategory = 133;
-+    sinfo->StartRecoveryTime = 1500;
-+    sinfo->ManaCost = 250 * 5;
-+    sinfo->ExplicitTargetMask = TARGET_FLAG_DEST_LOCATION;
-+    sinfo->Attributes |= SPELL_ATTR0_ABILITY | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE | SPELL_ATTR0_OUTDOORS_ONLY;
-+    sinfo->AttributesEx2 |= SPELL_ATTR2_CANT_CRIT | SPELL_ATTR2_CAN_TARGET_NOT_IN_LOS;
-+    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT | SPELL_ATTR3_NO_DONE_BONUS;
-+    sinfo->AttributesEx3 &= ~(SPELL_ATTR3_ONLY_TARGET_PLAYERS);
-+    sinfo->AttributesEx4 = 0;
++        sinfo->_effects[0].Effect = SPELL_EFFECT_DUMMY;
++        sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_DEST_DEST);
++        sinfo->_effects[0].TargetB = SpellImplicitTargetInfo(0);
++        sinfo->_effects[0].RadiusEntry = nullptr;
++        sinfo->_effects[0].BasePoints = 1;
++        sinfo->_effects[0].TriggerSpell = 0;
++        sinfo->_effects[0].Amplitude = 0;
++        sinfo->_effects[1].Effect = SPELL_EFFECT_NONE;
++        //40) END TORNADO
 +
-+    sinfo->_effects[0].Effect = SPELL_EFFECT_DUMMY;
-+    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_DEST_DEST);
-+    sinfo->_effects[0].TargetB = SpellImplicitTargetInfo(0);
-+    sinfo->_effects[0].RadiusEntry = nullptr;
-+    sinfo->_effects[0].BasePoints = 1;
-+    sinfo->_effects[0].TriggerSpell = 0;
-+    sinfo->_effects[0].Amplitude = 0;
-+    sinfo->_effects[1].Effect = SPELL_EFFECT_NONE;
-+    //40) END TORNADO
++        //41) TORNADO EFFECT
++        spellId = SPELL_TORNADO_EFFECT; //21990
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //41) TORNADO EFFECT
-+    spellId = SPELL_TORNADO_EFFECT; //21990
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellFamilyName = SPELLFAMILY_MAGE;
++        //sinfo->SpellFamilyFlags[0] = 0x0;
++        sinfo->SpellFamilyFlags[1] = 0x4; //custom, not present in db
++        //sinfo->SpellFamilyFlags[2] = 0x0;
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_NATURE | SPELL_SCHOOL_MASK_ARCANE;
++        sinfo->Dispel = DISPEL_MAGIC;
++        sinfo->Mechanic = MECHANIC_NONE; //MECHANIC_KNOCKOUT
++        sinfo->InterruptFlags = 0x0;
++        sinfo->SpellLevel = 60;
++        sinfo->BaseLevel = 60;
++        sinfo->MaxTargetLevel = 0;
++        sinfo->DurationEntry = sSpellDurationStore.LookupEntry(29); //12000ms
++        sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(1); //0ms
++        sinfo->RangeEntry = sSpellRangeStore.LookupEntry(2); //5 yds
++        sinfo->RecoveryTime = 3000;
++        //sinfo->StartRecoveryCategory = 133;
++        //sinfo->StartRecoveryTime = 1500;
++        //sinfo->ManaCost = 250 * 5;
++        sinfo->MaxAffectedTargets = 1;
++        sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
++        sinfo->Attributes |= SPELL_ATTR0_ABILITY | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE | SPELL_ATTR0_OUTDOORS_ONLY;
++        sinfo->Attributes &= ~(SPELL_ATTR0_HEARTBEAT_RESIST_CHECK);
++        sinfo->AttributesEx2 |= SPELL_ATTR2_CANT_CRIT | SPELL_ATTR2_CAN_TARGET_NOT_IN_LOS;
++        sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT | SPELL_ATTR3_NO_DONE_BONUS;
++        sinfo->AttributesEx3 &= ~(SPELL_ATTR3_ONLY_TARGET_PLAYERS);
++        sinfo->AttributesEx4 = 0;
++        sinfo->AttributesEx5 = 0;
 +
-+    sinfo->SpellFamilyName = SPELLFAMILY_MAGE;
-+    //sinfo->SpellFamilyFlags[0] = 0x0;
-+    sinfo->SpellFamilyFlags[1] = 0x4; //custom, not present in db
-+    //sinfo->SpellFamilyFlags[2] = 0x0;
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_NATURE | SPELL_SCHOOL_MASK_ARCANE;
-+    sinfo->Dispel = DISPEL_MAGIC;
-+    sinfo->Mechanic = MECHANIC_NONE; //MECHANIC_KNOCKOUT
-+    sinfo->InterruptFlags = 0x0;
-+    sinfo->SpellLevel = 60;
-+    sinfo->BaseLevel = 60;
-+    sinfo->MaxTargetLevel = 0;
-+    sinfo->DurationEntry = sSpellDurationStore.LookupEntry(29); //12000ms
-+    sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(1); //0ms
-+    sinfo->RangeEntry = sSpellRangeStore.LookupEntry(2); //5 yds
-+    sinfo->RecoveryTime = 3000;
-+    //sinfo->StartRecoveryCategory = 133;
-+    //sinfo->StartRecoveryTime = 1500;
-+    //sinfo->ManaCost = 250 * 5;
-+    sinfo->MaxAffectedTargets = 1;
-+    sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
-+    sinfo->Attributes |= SPELL_ATTR0_ABILITY | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE | SPELL_ATTR0_OUTDOORS_ONLY;
-+    sinfo->Attributes &= ~(SPELL_ATTR0_HEARTBEAT_RESIST_CHECK);
-+    sinfo->AttributesEx2 |= SPELL_ATTR2_CANT_CRIT | SPELL_ATTR2_CAN_TARGET_NOT_IN_LOS;
-+    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT | SPELL_ATTR3_NO_DONE_BONUS;
-+    sinfo->AttributesEx3 &= ~(SPELL_ATTR3_ONLY_TARGET_PLAYERS);
-+    sinfo->AttributesEx4 = 0;
-+    sinfo->AttributesEx5 = 0;
++        //sinfo->_effects[0].Effect = SPELL_EFFECT_DUMMY;
++        //sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
++        //sinfo->_effects[0].TargetB = SpellImplicitTargetInfo(0);
++        //sinfo->_effects[0].RadiusEntry = nullptr;
++        //sinfo->_effects[0].BasePoints = 1;
++        //sinfo->_effects[0].TriggerSpell = 0;
++        //sinfo->_effects[0].Amplitude = 0;
++        sinfo->_effects[1].Effect = SPELL_EFFECT_APPLY_AURA;
++        sinfo->_effects[1].ApplyAuraName = SPELL_AURA_MOD_RESISTANCE_PCT;
++        sinfo->_effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
++        sinfo->_effects[1].TargetB = SpellImplicitTargetInfo(0);
++        sinfo->_effects[1].BasePoints = -100;
++        sinfo->_effects[1].MiscValue = SPELL_SCHOOL_MASK_ALL;
++        sinfo->_effects[2].Effect = SPELL_EFFECT_APPLY_AURA;
++        sinfo->_effects[2].ApplyAuraName = SPELL_AURA_PERIODIC_DAMAGE;
++        sinfo->_effects[2].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
++        sinfo->_effects[2].TargetB = SpellImplicitTargetInfo(0);
++        sinfo->_effects[2].BasePoints = 212;
++        sinfo->_effects[2].DieSides = 183;
++        sinfo->_effects[2].RealPointsPerLevel = 35.f;
++        sinfo->_effects[2].BonusMultiplier = 0.25f;
++        sinfo->_effects[2].Amplitude = 1500;
++        //41) END TORNADO EFFECT
 +
-+    //sinfo->_effects[0].Effect = SPELL_EFFECT_DUMMY;
-+    //sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
-+    //sinfo->_effects[0].TargetB = SpellImplicitTargetInfo(0);
-+    //sinfo->_effects[0].RadiusEntry = nullptr;
-+    //sinfo->_effects[0].BasePoints = 1;
-+    //sinfo->_effects[0].TriggerSpell = 0;
-+    //sinfo->_effects[0].Amplitude = 0;
-+    sinfo->_effects[1].Effect = SPELL_EFFECT_APPLY_AURA;
-+    sinfo->_effects[1].ApplyAuraName = SPELL_AURA_MOD_RESISTANCE_PCT;
-+    sinfo->_effects[1].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
-+    sinfo->_effects[1].TargetB = SpellImplicitTargetInfo(0);
-+    sinfo->_effects[1].BasePoints = -100;
-+    sinfo->_effects[1].MiscValue = SPELL_SCHOOL_MASK_ALL;
-+    sinfo->_effects[2].Effect = SPELL_EFFECT_APPLY_AURA;
-+    sinfo->_effects[2].ApplyAuraName = SPELL_AURA_PERIODIC_DAMAGE;
-+    sinfo->_effects[2].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
-+    sinfo->_effects[2].TargetB = SpellImplicitTargetInfo(0);
-+    sinfo->_effects[2].BasePoints = 212;
-+    sinfo->_effects[2].DieSides = 183;
-+    sinfo->_effects[2].RealPointsPerLevel = 35.f;
-+    sinfo->_effects[2].BonusMultiplier = 0.25f;
-+    sinfo->_effects[2].Amplitude = 1500;
-+    //41) END TORNADO EFFECT
++        //42) TORNADO EFFECT2
++        spellId = SPELL_TORNADO_EFFECT2; //34683
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //42) TORNADO EFFECT2
-+    spellId = SPELL_TORNADO_EFFECT2; //34683
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellFamilyName = SPELLFAMILY_MAGE;
++        //sinfo->SpellFamilyFlags[0] = 0x0;
++        //sinfo->SpellFamilyFlags[1] = 0x4; //custom, not present in db
++        //sinfo->SpellFamilyFlags[2] = 0x0;
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_NATURE | SPELL_SCHOOL_MASK_ARCANE;
++        //sinfo->Dispel = DISPEL_MAGIC;
++        //sinfo->Mechanic = MECHANIC_DISORIENTED;
++        sinfo->ProcFlags = 0;
++        sinfo->InterruptFlags = 0x0;
++        sinfo->SpellLevel = 60;
++        sinfo->BaseLevel = 60;
++        sinfo->MaxTargetLevel = 0;
++        sinfo->DurationEntry = nullptr;
++        //sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(1); //0ms
++        sinfo->RangeEntry = sSpellRangeStore.LookupEntry(7); //10 yds
++        sinfo->RecoveryTime = 4500;
++        //sinfo->StartRecoveryCategory = 133;
++        //sinfo->StartRecoveryTime = 1500;
++        //sinfo->ManaCost = 250 * 5;
++        sinfo->MaxAffectedTargets = 1;
++        sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
++        sinfo->Attributes |= SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE | SPELL_ATTR0_OUTDOORS_ONLY;
++        sinfo->Attributes &= ~(SPELL_ATTR0_UNK11);
++        sinfo->AttributesEx2 |= SPELL_ATTR2_CAN_TARGET_NOT_IN_LOS;
++        sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
++        sinfo->AttributesEx4 = 0;
++        sinfo->AttributesEx5 = 0;
 +
-+    sinfo->SpellFamilyName = SPELLFAMILY_MAGE;
-+    //sinfo->SpellFamilyFlags[0] = 0x0;
-+    //sinfo->SpellFamilyFlags[1] = 0x4; //custom, not present in db
-+    //sinfo->SpellFamilyFlags[2] = 0x0;
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_NATURE | SPELL_SCHOOL_MASK_ARCANE;
-+    //sinfo->Dispel = DISPEL_MAGIC;
-+    //sinfo->Mechanic = MECHANIC_DISORIENTED;
-+    sinfo->ProcFlags = 0;
-+    sinfo->InterruptFlags = 0x0;
-+    sinfo->SpellLevel = 60;
-+    sinfo->BaseLevel = 60;
-+    sinfo->MaxTargetLevel = 0;
-+    sinfo->DurationEntry = nullptr;
-+    //sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(1); //0ms
-+    sinfo->RangeEntry = sSpellRangeStore.LookupEntry(7); //10 yds
-+    sinfo->RecoveryTime = 4500;
-+    //sinfo->StartRecoveryCategory = 133;
-+    //sinfo->StartRecoveryTime = 1500;
-+    //sinfo->ManaCost = 250 * 5;
-+    sinfo->MaxAffectedTargets = 1;
-+    sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
-+    sinfo->Attributes |= SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE | SPELL_ATTR0_OUTDOORS_ONLY;
-+    sinfo->Attributes &= ~(SPELL_ATTR0_UNK11);
-+    sinfo->AttributesEx2 |= SPELL_ATTR2_CAN_TARGET_NOT_IN_LOS;
-+    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
-+    sinfo->AttributesEx4 = 0;
-+    sinfo->AttributesEx5 = 0;
++        sinfo->_effects[0].Effect = SPELL_EFFECT_SCHOOL_DAMAGE;
++        sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
++        sinfo->_effects[0].TargetB = SpellImplicitTargetInfo(0);
++        //sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_10_YARDS);
++        sinfo->_effects[0].BasePoints = 541;
++        sinfo->_effects[0].DieSides = 215;
++        sinfo->_effects[0].RealPointsPerLevel = 40.f;
++        sinfo->_effects[0].BonusMultiplier = 0.5f;
++        //42) END TORNADO EFFECT2
 +
-+    sinfo->_effects[0].Effect = SPELL_EFFECT_SCHOOL_DAMAGE;
-+    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
-+    sinfo->_effects[0].TargetB = SpellImplicitTargetInfo(0);
-+    //sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_10_YARDS);
-+    sinfo->_effects[0].BasePoints = 541;
-+    sinfo->_effects[0].DieSides = 215;
-+    sinfo->_effects[0].RealPointsPerLevel = 40.f;
-+    sinfo->_effects[0].BonusMultiplier = 0.5f;
-+    //42) END TORNADO EFFECT2
++        //43) TORNADO EFFECT3
++        spellId = SPELL_TORNADO_EFFECT3; //39261
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //43) TORNADO EFFECT3
-+    spellId = SPELL_TORNADO_EFFECT3; //39261
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellFamilyName = SPELLFAMILY_MAGE;
++        //sinfo->SpellFamilyFlags[0] = 0x0;
++        //sinfo->SpellFamilyFlags[1] = 0x4; //custom, not present in db
++        //sinfo->SpellFamilyFlags[2] = 0x0;
++        sinfo->SchoolMask = SPELL_SCHOOL_MASK_NATURE | SPELL_SCHOOL_MASK_ARCANE;
++        //sinfo->Dispel = DISPEL_NONE;
++        //sinfo->Mechanic = MECHANIC_DISORIENTED;
++        //sinfo->ProcFlags = 0;
++        //sinfo->InterruptFlags = 0x0;
++        sinfo->SpellLevel = 0;
++        sinfo->BaseLevel = 0;
++        //sinfo->MaxTargetLevel = 0;
++        sinfo->DurationEntry = sSpellDurationStore.LookupEntry(21); //-1
++        //sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(1); //0ms
++        //sinfo->RangeEntry = sSpellRangeStore.LookupEntry(1); //self
++        //sinfo->RecoveryTime = 4500;
++        //sinfo->StartRecoveryCategory = 133;
++        //sinfo->StartRecoveryTime = 1500;
++        //sinfo->ManaCost = 250 * 5;
++        //sinfo->MaxAffectedTargets = 1;
++        //sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
++        sinfo->Attributes |= SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE | SPELL_ATTR0_OUTDOORS_ONLY;
++        sinfo->AttributesEx |= SPELL_ATTR1_NO_THREAT;
++        sinfo->AttributesEx2 |= SPELL_ATTR2_CAN_TARGET_NOT_IN_LOS;
++        sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
++        sinfo->AttributesEx4 = 0;
++        sinfo->AttributesEx5 = 0;
 +
-+    sinfo->SpellFamilyName = SPELLFAMILY_MAGE;
-+    //sinfo->SpellFamilyFlags[0] = 0x0;
-+    //sinfo->SpellFamilyFlags[1] = 0x4; //custom, not present in db
-+    //sinfo->SpellFamilyFlags[2] = 0x0;
-+    sinfo->SchoolMask = SPELL_SCHOOL_MASK_NATURE | SPELL_SCHOOL_MASK_ARCANE;
-+    //sinfo->Dispel = DISPEL_NONE;
-+    //sinfo->Mechanic = MECHANIC_DISORIENTED;
-+    //sinfo->ProcFlags = 0;
-+    //sinfo->InterruptFlags = 0x0;
-+    sinfo->SpellLevel = 0;
-+    sinfo->BaseLevel = 0;
-+    //sinfo->MaxTargetLevel = 0;
-+    sinfo->DurationEntry = sSpellDurationStore.LookupEntry(21); //-1
-+    //sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(1); //0ms
-+    //sinfo->RangeEntry = sSpellRangeStore.LookupEntry(1); //self
-+    //sinfo->RecoveryTime = 4500;
-+    //sinfo->StartRecoveryCategory = 133;
-+    //sinfo->StartRecoveryTime = 1500;
-+    //sinfo->ManaCost = 250 * 5;
-+    //sinfo->MaxAffectedTargets = 1;
-+    //sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
-+    sinfo->Attributes |= SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE | SPELL_ATTR0_OUTDOORS_ONLY;
-+    sinfo->AttributesEx |= SPELL_ATTR1_NO_THREAT;
-+    sinfo->AttributesEx2 |= SPELL_ATTR2_CAN_TARGET_NOT_IN_LOS;
-+    sinfo->AttributesEx3 |= SPELL_ATTR3_IGNORE_HIT_RESULT;
-+    sinfo->AttributesEx4 = 0;
-+    sinfo->AttributesEx5 = 0;
++        sinfo->_effects[0].Effect = SPELL_EFFECT_APPLY_AREA_AURA_ENEMY;
++        //sinfo->_effects[0].ApplyAuraName = SPELL_AURA_MOD_DECREASE_SPEED;
++        //sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_SRC_CASTER);
++        //sinfo->_effects[0].TargetB = SpellImplicitTargetInfo(TARGET_UNIT_SRC_AREA_ENEMY);
++        sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_5_YARDS);
++        //sinfo->_effects[0].BasePoints = -50;
++        sinfo->_effects[1].Effect = SPELL_EFFECT_APPLY_AREA_AURA_ENEMY;
++        sinfo->_effects[1].ApplyAuraName = SPELL_AURA_MOD_DECREASE_SPEED;
++        sinfo->_effects[1].TargetA = SpellImplicitTargetInfo(TARGET_SRC_CASTER);
++        sinfo->_effects[1].TargetB = SpellImplicitTargetInfo(TARGET_UNIT_SRC_AREA_ENEMY);
++        sinfo->_effects[1].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_5_YARDS);
++        sinfo->_effects[1].BasePoints = -60;
++        //sinfo->AttributesCu &= ~(SPELL_ATTR0_CU_NEGATIVE_EFF1);
++        //43) END TORNADO EFFECT3
 +
-+    sinfo->_effects[0].Effect = SPELL_EFFECT_APPLY_AREA_AURA_ENEMY;
-+    //sinfo->_effects[0].ApplyAuraName = SPELL_AURA_MOD_DECREASE_SPEED;
-+    //sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_SRC_CASTER);
-+    //sinfo->_effects[0].TargetB = SpellImplicitTargetInfo(TARGET_UNIT_SRC_AREA_ENEMY);
-+    sinfo->_effects[0].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_5_YARDS);
-+    //sinfo->_effects[0].BasePoints = -50;
-+    sinfo->_effects[1].Effect = SPELL_EFFECT_APPLY_AREA_AURA_ENEMY;
-+    sinfo->_effects[1].ApplyAuraName = SPELL_AURA_MOD_DECREASE_SPEED;
-+    sinfo->_effects[1].TargetA = SpellImplicitTargetInfo(TARGET_SRC_CASTER);
-+    sinfo->_effects[1].TargetB = SpellImplicitTargetInfo(TARGET_UNIT_SRC_AREA_ENEMY);
-+    sinfo->_effects[1].RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_5_YARDS);
-+    sinfo->_effects[1].BasePoints = -60;
-+    //sinfo->AttributesCu &= ~(SPELL_ATTR0_CU_NEGATIVE_EFF1);
-+    //43) END TORNADO EFFECT3
++        //44) SHOOT
++        spellId = SPELL_SHOOT_BOW; //41188
++        sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
 +
-+    //44) SHOOT
-+    spellId = SPELL_SHOOT_BOW; //30221
-+    sinfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
++        sinfo->SpellFamilyName = SPELLFAMILY_MAGE;
++        sinfo->DmgClass = SPELL_DAMAGE_CLASS_RANGED;
++        sinfo->PreventionType = SPELL_PREVENTION_TYPE_PACIFY;
++        sinfo->SpellLevel = 1;
++        sinfo->BaseLevel = 1;
++        sinfo->CategoryEntry = sSpellCategoryStore.LookupEntry(76);
++        sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(110); //750ms
++        sinfo->RangeEntry = sSpellRangeStore.LookupEntry(35); //0-35 yds
++        sinfo->StartRecoveryCategory = 133;
++        sinfo->StartRecoveryTime = 750;
++        sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
++        sinfo->Attributes |= SPELL_ATTR0_IMPOSSIBLE_DODGE_PARRY_BLOCK/* | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE*/;
++        sinfo->Attributes &= ~(SPELL_ATTR0_REQ_AMMO/* | SPELL_ATTR0_ABILITY*/ | SPELL_ATTR0_CAST_TRACK_TARGET | SPELL_ATTR0_LEVEL_DAMAGE_CALCULATION | SPELL_ATTR0_UNAFFECTED_BY_INVULNERABILITY);
++        sinfo->AttributesEx |= SPELL_ATTR1_CANT_BE_REDIRECTED | SPELL_ATTR1_CANT_BE_REFLECTED;
++        sinfo->AttributesEx &= ~(SPELL_ATTR1_CHANNEL_TRACK_TARGET | SPELL_ATTR1_NO_THREAT);
++        sinfo->AttributesEx2 |= SPELL_ATTR2_NOT_RESET_AUTO_ACTIONS;
++        sinfo->AttributesEx2 &= ~(SPELL_ATTR2_CAN_TARGET_NOT_IN_LOS);
++        sinfo->AttributesEx3 |= SPELL_ATTR3_UNK15;
 +
-+    sinfo->SpellFamilyName = SPELLFAMILY_MAGE;
-+    sinfo->CategoryEntry = sSpellCategoryStore.LookupEntry(76);
-+    sinfo->CastTimeEntry = sSpellCastTimesStore.LookupEntry(110); //750ms
-+    sinfo->RangeEntry = sSpellRangeStore.LookupEntry(35); //0-35 yds
-+    sinfo->StartRecoveryCategory = 133;
-+    sinfo->StartRecoveryTime = 750;
-+    sinfo->ExplicitTargetMask = TARGET_FLAG_UNIT;
-+    sinfo->Attributes |= SPELL_ATTR0_IMPOSSIBLE_DODGE_PARRY_BLOCK | SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE;
-+    sinfo->Attributes &= ~(SPELL_ATTR0_REQ_AMMO/* | SPELL_ATTR0_ABILITY*/ | SPELL_ATTR0_CAST_TRACK_TARGET);
-+    sinfo->AttributesEx |= SPELL_ATTR1_CANT_BE_REDIRECTED | SPELL_ATTR1_CANT_BE_REFLECTED;
-+    sinfo->AttributesEx &= ~(SPELL_ATTR1_CHANNEL_TRACK_TARGET);
-+    sinfo->AttributesEx2 |= SPELL_ATTR2_NOT_RESET_AUTO_ACTIONS;
-+    sinfo->AttributesEx3 |= SPELL_ATTR3_UNK15;
-+
-+    sinfo->_effects[0].Effect = SPELL_EFFECT_WEAPON_PERCENT_DAMAGE;
-+    sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
-+    sinfo->_effects[0].BasePoints = 100;
-+    sinfo->_effects[0].BonusMultiplier = 1.f;
-+    //44) END SHOOT
++        sinfo->_effects[0].Effect = SPELL_EFFECT_WEAPON_PERCENT_DAMAGE;
++        sinfo->_effects[0].TargetA = SpellImplicitTargetInfo(TARGET_UNIT_TARGET_ENEMY);
++        sinfo->_effects[0].TargetB = SpellImplicitTargetInfo(0);
++        sinfo->_effects[0].BasePoints = 100;
++        sinfo->_effects[0].DieSides = 0;
++        sinfo->_effects[0].BonusMultiplier = 1.f;
++        //44) END SHOOT
++    }
++    else
++    {
++        for (uint32 spellId : { SPELL_FORKED_LIGHTNING, SPELL_FORKED_LIGHTNING_EFFECT, SPELL_FROST_ARROW, SPELL_FROST_ARROW_EFFECT, SPELL_MANA_SHIELD, SPELL_TORNADO,
++            SPELL_TORNADO_EFFECT, SPELL_TORNADO_EFFECT2, SPELL_TORNADO_EFFECT3, SPELL_SHOOT_BOW })
++            *const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId)) = spellInfoBackups.at(spellId);
++    }
 +
 +    TC_LOG_INFO("server.loading", "Re-Loading Spell Proc conditions...");
 +    sSpellMgr->LoadSpellProcs();
@@ -56485,10 +56586,10 @@ index 000000000..9b5d079c0
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.cpp b/src/server/game/AI/NpcBots/botdatamgr.cpp
 new file mode 100644
-index 000000000..089edbbc2
+index 000000000..19dbfde9b
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.cpp
-@@ -0,0 +1,523 @@
+@@ -0,0 +1,524 @@
 +#include "botdatamgr.h"
 +#include "Creature.h"
 +#include "DatabaseEnv.h"
@@ -56682,9 +56783,10 @@ index 000000000..089edbbc2
 +        Creature* bot = map->GetCreature(Guid);
 +        if (!bot) //not in map, use storage
 +        {
-+            typedef std::unordered_multimap<uint32, Creature*>::const_iterator SpawnIter;
++            //TC_LOG_DEBUG("server.loading", "bot %u: spawnId %u, is not in map on load", entry, tableGuid);
++            typedef Map::CreatureBySpawnIdContainer::const_iterator SpawnIter;
 +            std::pair<SpawnIter, SpawnIter> creBounds = map->GetCreatureBySpawnIdStore().equal_range(tableGuid);
-+            if (creBounds.first == map->GetCreatureBySpawnIdStore().cend())
++            if (creBounds.first == creBounds.second)
 +            {
 +                TC_LOG_ERROR("server.loading", "bot %u is not in spawns list, consider re-spawning it!", entry);
 +                continue;
@@ -58618,10 +58720,10 @@ index 000000000..89cda63d5
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 000000000..3f4ef5085
+index 000000000..33a06972a
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,1632 @@
+@@ -0,0 +1,1633 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "botdatamgr.h"
@@ -58803,7 +58905,6 @@ index 000000000..3f4ef5085
 +        return;
 +
 +    BotDataMgr::LoadNpcBots();
-+    bot_ai::InitBotCustomSpells();
 +}
 +
 +void BotMgr::ReloadConfig()
@@ -58883,6 +58984,8 @@ index 000000000..3f4ef5085
 +        TC_LOG_ERROR("scripts", "BotMgr::LoadConfig: _noDpsTargetIconFlags intersects with targets flags 0x%02X! Removed, new mask: 0x%02X",
 +            uint32(interFlags), uint32(_noDpsTargetIconFlags));
 +    }
++
++    bot_ai::InitBotCustomSpells();
 +}
 +
 +uint8 BotMgr::GetNpcBotsCount() const
@@ -60486,10 +60589,10 @@ index 000000000..43f4bc8fc
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botspell.h b/src/server/game/AI/NpcBots/botspell.h
 new file mode 100644
-index 000000000..bf518f1a1
+index 000000000..213b0f77c
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botspell.h
-@@ -0,0 +1,247 @@
+@@ -0,0 +1,246 @@
 +#ifndef _BOTSPELL_H
 +#define _BOTSPELL_H
 +
@@ -60633,9 +60736,8 @@ index 000000000..bf518f1a1
 +    SPELL_TORNADO                       = 34695,
 +    SPELL_TORNADO_EFFECT                = 21990, // stun, -resistances
 +    SPELL_TORNADO_EFFECT2               = 34683, // aoe damage
-+    //SPELL_TORNADO_EFFECT3               = 61572, // used by Frostworg 29358 (Sons of Hodir)
 +    SPELL_TORNADO_EFFECT3               = 39261,
-+    SPELL_SHOOT_BOW                     = 30221,
++    SPELL_SHOOT_BOW                     = 41188,
 +  //unmodify
 +    SPELL_TORNADO_LIGHTNING_VISUAL      = 45869, //periodic, 1 sec
 +};
