@@ -1,7 +1,7 @@
 DELETE FROM `npc_text_locale` WHERE `Locale`='zhCN' AND `ID` BETWEEN '70000' AND '71000';
 INSERT INTO `npc_text_locale` (`ID`, `Locale`, `Text0_0`, `Text0_1`, `Text1_0`, `Text1_1`, `Text2_0`, `Text2_1`, `Text3_0`, `Text3_1`, `Text4_0`, `Text4_1`, `Text5_0`, `Text5_1`, `Text6_0`, `Text6_1`, `Text7_0`, `Text7_1`)
 VALUES
-('70001','zhCN','我愿意为你奉献一切。',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
+('70001','ruRU','我愿意为你奉献一切。',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 ('70002','zhCN','你需要什么吗？',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 ('70003','zhCN','凡人，通常情况下，我会立刻杀了你这混蛋！',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
 ('70004','zhCN','<你看着这个黑曜石毁灭者。它看起来有点与众不同，它并没有因为你的伤害而消失，在仔细检查过后，你注意到它的背部有一个小口。>',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
