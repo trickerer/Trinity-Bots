@@ -95,8 +95,8 @@
  src/server/game/AI/NpcBots/botdump.cpp             |   938 +
  src/server/game/AI/NpcBots/botdump.h               |    50 +
  src/server/game/AI/NpcBots/botgiver.cpp            |   270 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  1638 ++
- src/server/game/AI/NpcBots/botmgr.h                |   225 +
+ src/server/game/AI/NpcBots/botmgr.cpp              |  1642 ++
+ src/server/game/AI/NpcBots/botmgr.h                |   226 +
  src/server/game/AI/NpcBots/botspell.h              |   246 +
  src/server/game/AI/NpcBots/bpet_ai.cpp             |  2445 +++
  src/server/game/AI/NpcBots/bpet_ai.h               |   176 +
@@ -176,8 +176,8 @@
  src/server/shared/DataStores/DBCStructure.h        |     9 +-
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
- src/server/worldserver/worldserver.conf.dist       |   285 +
- 179 files changed, 69400 insertions(+), 76 deletions(-)
+ src/server/worldserver/worldserver.conf.dist       |   287 +
+ 179 files changed, 69407 insertions(+), 76 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -6083,7 +6083,7 @@ index 00000000..1f81a6c1
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 00000000..5bae75ab
+index 00000000..eaa6e92e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
 @@ -0,0 +1,18243 @@
@@ -12098,7 +12098,7 @@ index 00000000..5bae75ab
 +    //TC_LOG_ERROR("entities.player", "_OnHealthUpdate(): updating bot %s", me->GetName().c_str());
 +    bool fullhp = me->GetHealth() == me->GetMaxHealth();
 +    float pct = fullhp ? 100.f : me->GetHealthPct(); // needs for regeneration
-+    uint32 m_basehp = _classinfo->basehealth;
++    uint32 m_basehp = uint32(_classinfo->basehealth * BotMgr::GetBotHPMod());
 +    //TC_LOG_ERROR("entities.player", "class base health: %u", m_basehp);
 +    me->SetCreateHealth(m_basehp);
 +
@@ -12112,7 +12112,7 @@ index 00000000..5bae75ab
 +    //hp_add += IAmFree() ? mylevel * 375.f : 0; //+30000/+0 hp at 80
 +    hp_add += _getTotalBotStat(BOT_STAT_MOD_HEALTH);
 +    //TC_LOG_ERROR("entities.player", "health to add after stam mod: %i", hp_add);
-+    uint32 m_totalhp = m_basehp + int32(hp_add); //m_totalhp = uint32(float(m_basehp + hp_add) * stammod);
++    uint32 m_totalhp = m_basehp + int32(hp_add * BotMgr::GetBotHPMod()); //m_totalhp = uint32(float(m_basehp + hp_add) * stammod);
 +    //TC_LOG_ERROR("entities.player", "total base health: %u", m_totalhp);
 +
 +    //hp bonuses
@@ -49288,7 +49288,7 @@ index 00000000..05305607
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warlock_ai.cpp b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 new file mode 100644
-index 00000000..fe61e960
+index 00000000..2d7784f4
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warlock_ai.cpp
 @@ -0,0 +1,2085 @@
@@ -50056,7 +50056,7 @@ index 00000000..fe61e960
 +            if (lifeTapCheckTimer <= diff && HasRole(BOT_ROLE_DPS) && Rand() < 75)
 +            {
 +                lifeTapCheckTimer = 10000;
-+                if (!me->GetAuraEffect(SPELL_AURA_MOD_SPELL_DAMAGE_OF_STAT_PERCENT, SPELLFAMILY_WARLOCK, 208, 0))
++                if (me->GetLevel() >= 15 && !me->GetAuraEffect(SPELL_AURA_MOD_SPELL_DAMAGE_OF_STAT_PERCENT, SPELLFAMILY_WARLOCK, 208, 0))
 +                {
 +                    //doesn't work: wrong spell proc entry 10.12.2020
 +                    //if (IsSpellReady(DARK_PACT_1, diff) && botPet && GetManaPCT(me) > 70)
@@ -58782,10 +58782,10 @@ index 00000000..89cda63d
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 00000000..24605010
+index 00000000..ae168175
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,1638 @@
+@@ -0,0 +1,1642 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "botdatamgr.h"
@@ -58866,6 +58866,7 @@ index 00000000..24605010
 +float _mult_dmg_physical;
 +float _mult_dmg_spell;
 +float _mult_healing;
++float _mult_hp;
 +
 +bool __firstload = true;
 +
@@ -58996,6 +58997,7 @@ index 00000000..24605010
 +    _mult_dmg_physical              = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Physical", 1.0f);
 +    _mult_dmg_spell                 = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Spell", 1.0f);
 +    _mult_healing                   = sConfigMgr->GetFloatDefault("NpcBot.Mult.Healing", 1.0f);
++    _mult_hp                        = sConfigMgr->GetFloatDefault("NpcBot.Mult.HP", 1.0f);
 +    _enableNpcBotsDungeons          = sConfigMgr->GetBoolDefault("NpcBot.Enable.Dungeon", true);
 +    _enableNpcBotsRaids             = sConfigMgr->GetBoolDefault("NpcBot.Enable.Raid", false);
 +    _enableNpcBotsBGs               = sConfigMgr->GetBoolDefault("NpcBot.Enable.BG", false);
@@ -59031,12 +59033,10 @@ index 00000000..24605010
 +    _botStatLimits_crit             = sConfigMgr->GetFloatDefault("NpcBot.Stats.Limits.Crit", 95.0f);
 +
 +    //limits
-+    _mult_dmg_physical              = std::max<float>(_mult_dmg_physical, 0.1f);
-+    _mult_dmg_spell                 = std::max<float>(_mult_dmg_spell, 0.1f);
-+    _mult_healing                   = std::max<float>(_mult_healing,   0.1f);
-+    _mult_dmg_physical              = std::min<float>(_mult_dmg_physical, 10.f);
-+    _mult_dmg_spell                 = std::min<float>(_mult_dmg_spell, 10.f);
-+    _mult_healing                   = std::min<float>(_mult_healing,   10.f);
++    RoundToInterval(_mult_dmg_physical, 0.1f, 10.f);
++    RoundToInterval(_mult_dmg_spell, 0.1f, 10.f);
++    RoundToInterval(_mult_healing, 0.1f, 10.f);
++    RoundToInterval(_mult_hp, 0.1f, 10.f);
 +
 +    //exclusions
 +    uint8 dpsFlags = /*_tankingTargetIconFlags | _offTankingTargetIconFlags | */_dpsTargetIconFlags | _rangedDpsTargetIconFlags;
@@ -60424,12 +60424,16 @@ index 00000000..24605010
 +{
 +    return _mult_healing;
 +}
++float BotMgr::GetBotHPMod()
++{
++    return _mult_hp;
++}
 diff --git a/src/server/game/AI/NpcBots/botmgr.h b/src/server/game/AI/NpcBots/botmgr.h
 new file mode 100644
-index 00000000..e11c1638
+index 00000000..487627d6
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.h
-@@ -0,0 +1,225 @@
+@@ -0,0 +1,226 @@
 +#ifndef _BOTMGR_H
 +#define _BOTMGR_H
 +
@@ -60546,6 +60550,7 @@ index 00000000..e11c1638
 +        static float GetBotDamageModPhysical();
 +        static float GetBotDamageModSpell();
 +        static float GetBotHealingMod();
++        static float GetBotHPMod();
 +
 +        void Update(uint32 diff);
 +
@@ -72541,10 +72546,10 @@ index 0bdd8900..1665c94a 100644
  #define CLASSMASK_WAND_USERS ((1<<(CLASS_PRIEST-1))|(1<<(CLASS_MAGE-1))|(1<<(CLASS_WARLOCK-1)))
  
 diff --git a/src/server/worldserver/worldserver.conf.dist b/src/server/worldserver/worldserver.conf.dist
-index 442681e6..f121626c 100644
+index 442681e6..43c0e84b 100644
 --- a/src/server/worldserver/worldserver.conf.dist
 +++ b/src/server/worldserver/worldserver.conf.dist
-@@ -4147,3 +4147,288 @@ Metric.OverallStatusInterval = 1
+@@ -4147,3 +4147,290 @@ Metric.OverallStatusInterval = 1
  
  #
  ###################################################################################################
@@ -72636,7 +72641,8 @@ index 442681e6..f121626c 100644
 +#    NpcBot.Mult.Damage.Physical
 +#    NpcBot.Mult.Damage.Spell
 +#    NpcBot.Mult.Healing
-+#        Description: Multipliers for bots' damage and healing. Allows to balance bots vs players.
++#    NpcBot.Mult.HP
++#        Description: Multipliers for bots' damage, healing, etc. Allows to balance bots vs players.
 +#        Default:     1.0
 +#        Minimum:     0.1
 +#        Maximum:    10.0
@@ -72644,6 +72650,7 @@ index 442681e6..f121626c 100644
 +NpcBot.Mult.Damage.Physical = 1.0
 +NpcBot.Mult.Damage.Spell    = 1.0
 +NpcBot.Mult.Healing         = 1.0
++NpcBot.Mult.HP              = 1.0
 +
 +#
 +#    NpcBot.Enable.Dungeon
