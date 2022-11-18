@@ -129,6 +129,7 @@
  src/server/game/Entities/Vehicle/Vehicle.h         |     6 +
  src/server/game/Globals/ObjectMgr.cpp              |    81 +
  src/server/game/Globals/ObjectMgr.h                |    21 +
+ src/server/game/Grids/Notifiers/GridNotifiers.cpp  |     5 +
  src/server/game/Grids/Notifiers/GridNotifiers.h    |     4 +
  src/server/game/Groups/Group.cpp                   |    72 +
  src/server/game/Groups/Group.h                     |     4 +
@@ -163,7 +164,7 @@
  src/server/scripts/Spells/spell_rogue.cpp          |    52 +
  src/server/scripts/Spells/spell_shaman.cpp         |    10 +
  src/server/shared/SharedDefines.h                  |    23 +
- 165 files changed, 71251 insertions(+), 11 deletions(-)
+ 166 files changed, 71256 insertions(+), 11 deletions(-)
  create mode 100644 data/sql/Bots/1_world_bot_appearance.sql
  create mode 100644 data/sql/Bots/2_world_bot_extras.sql
  create mode 100644 data/sql/Bots/3_world_bots.sql
@@ -7023,7 +7024,7 @@ index 000000000..8495be82e
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..7a384d1a9
+index 000000000..7803d3c1f
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
 @@ -0,0 +1,18601 @@
@@ -22485,7 +22486,7 @@ index 000000000..7a384d1a9
 +        {
 +            if (master->GetTransport())
 +            {
-+                if (me->GetDistance2d(master) < 20.f && !master->GetTransport()->IsStaticTransport())
++                if (me->GetDistance2d(master) < 20.f)
 +                {
 +                    master->GetTransport()->AddPassenger(me, true);
 +                    me->m_movementInfo.transport.pos.Relocate(master->GetTransOffset());
@@ -23056,7 +23057,7 @@ index 000000000..7a384d1a9
 +    }
 +
 +    me->SetMap(map);
-+    if (master->GetTransport() && !master->GetTransport()->IsStaticTransport())
++    if (master->GetTransport())
 +    {
 +        master->GetTransport()->AddPassenger(me, true);
 +        me->m_movementInfo.transport.pos.Relocate(master->GetTransOffset());
@@ -62648,7 +62649,7 @@ index 000000000..213b0f77c
 +#endif //_BOTSPELL_H
 diff --git a/src/server/game/AI/NpcBots/bpet_ai.cpp b/src/server/game/AI/NpcBots/bpet_ai.cpp
 new file mode 100644
-index 000000000..32163109f
+index 000000000..d5fc718cf
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_ai.cpp
 @@ -0,0 +1,2445 @@
@@ -64928,7 +64929,7 @@ index 000000000..32163109f
 +        {
 +            if (petOwner->GetBotOwner()->GetTransport())
 +            {
-+                if (me->GetDistance2d(petOwner->GetBotOwner()) < 20.f && !petOwner->GetBotOwner()->GetTransport()->IsStaticTransport())
++                if (me->GetDistance2d(petOwner->GetBotOwner()) < 20.f)
 +                {
 +                    petOwner->GetBotOwner()->GetTransport()->AddPassenger(me, true);
 +                    me->m_movementInfo.transport.pos.Relocate(petOwner->GetBotOwner()->GetTransOffset());
@@ -70491,7 +70492,7 @@ index 18c07d9c8..d1c777b6e 100644
      float totalPct         = addTotalPct ? GetModifierValue(unitMod, TOTAL_PCT) : 1.0f;
      float dmgMultiplier    = GetCreatureTemplate()->DamageModifier; // = DamageModifier * _GetDamageMod(rank);
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index 11a61f90a..2921e4556 100644
+index 11a61f90a..0bb64211c 100644
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
 @@ -72,6 +72,10 @@
@@ -71548,7 +71549,7 @@ index 11a61f90a..2921e4556 100644
  
 +    //npcbot - bots are always visible for owner
 +    if (Creature const* bot = ToCreature())
-+        if (bot->GetBotAI() && seer->GetGUID() == bot->GetBotOwner()->GetGUID())
++        if ((bot->GetBotAI() || bot->GetBotPetAI()) && seer->GetGUID() == bot->GetBotOwner()->GetGUID())
 +            return true;
 +    //end npcbot
 +
@@ -72543,6 +72544,22 @@ index 72e8488a0..b4ba0fb32 100644
  private:
      void LoadScripts(ScriptsType type);
      void LoadQuestRelationsHelper(QuestRelations& map, std::string const& table, bool starter, bool go);
+diff --git a/src/server/game/Grids/Notifiers/GridNotifiers.cpp b/src/server/game/Grids/Notifiers/GridNotifiers.cpp
+index a85a7285a..55fbb32a9 100644
+--- a/src/server/game/Grids/Notifiers/GridNotifiers.cpp
++++ b/src/server/game/Grids/Notifiers/GridNotifiers.cpp
+@@ -78,6 +78,11 @@ void VisibleNotifier::SendToSelf()
+         {
+             if (i_largeOnly != obj->IsVisibilityOverridden())
+                 continue;
++            //npcbot:
++            if (obj->GetTypeId() == TYPEID_UNIT && obj->ToCreature()->IsNPCBotOrPet() &&
++                i_player.GetDistance2d(obj) < i_player.GetVisibilityRange() && i_player.CanSeeOrDetect(obj, false, true))
++                continue;
++            //end npcbot
+         }
+ 
+         // pussywizard: static transports are removed only in RemovePlayerFromMap and here if can no longer detect (eg. phase changed)
 diff --git a/src/server/game/Grids/Notifiers/GridNotifiers.h b/src/server/game/Grids/Notifiers/GridNotifiers.h
 index d14d20479..19584a4f6 100644
 --- a/src/server/game/Grids/Notifiers/GridNotifiers.h
