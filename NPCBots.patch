@@ -91,15 +91,15 @@
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2259 +++
  src/server/game/AI/NpcBots/botcommands.cpp         |  1945 ++
  src/server/game/AI/NpcBots/botcommon.h             |  1067 ++
- src/server/game/AI/NpcBots/botdatamgr.cpp          |   627 +
- src/server/game/AI/NpcBots/botdatamgr.h            |   154 +
+ src/server/game/AI/NpcBots/botdatamgr.cpp          |   640 +
+ src/server/game/AI/NpcBots/botdatamgr.h            |   156 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   133 +
  src/server/game/AI/NpcBots/botdpstracker.h         |    42 +
  src/server/game/AI/NpcBots/botdump.cpp             |  1019 +
  src/server/game/AI/NpcBots/botdump.h               |    51 +
  src/server/game/AI/NpcBots/botgiver.cpp            |   270 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  1674 ++
- src/server/game/AI/NpcBots/botmgr.h                |   231 +
+ src/server/game/AI/NpcBots/botmgr.cpp              |  1698 ++
+ src/server/game/AI/NpcBots/botmgr.h                |   232 +
  src/server/game/AI/NpcBots/botspell.h              |   246 +
  src/server/game/AI/NpcBots/bpet_ai.cpp             |  2445 +++
  src/server/game/AI/NpcBots/bpet_ai.h               |   176 +
@@ -117,6 +117,8 @@
  src/server/game/AI/NpcBots/bpet_warlock.cpp        |   409 +
  src/server/game/AI/SmartScripts/SmartScript.cpp    |     3 +
  src/server/game/Accounts/RBAC.h                    |    38 +
+ src/server/game/Battlegrounds/Battleground.cpp     |    35 +
+ .../game/Battlegrounds/BattlegroundQueue.cpp       |    51 +
  src/server/game/Combat/CombatManager.cpp           |    37 +
  src/server/game/Combat/ThreatManager.cpp           |    14 +
  src/server/game/Conditions/ConditionMgr.cpp        |    49 +
@@ -131,7 +133,7 @@
  .../Entities/Creature/enuminfo_CreatureData.cpp    |    12 +-
  src/server/game/Entities/Object/Object.cpp         |    85 +-
  src/server/game/Entities/Player/KillRewarder.cpp   |    15 +
- src/server/game/Entities/Player/Player.cpp         |   161 +
+ src/server/game/Entities/Player/Player.cpp         |   176 +
  src/server/game/Entities/Player/Player.h           |    25 +
  src/server/game/Entities/Totem/Totem.cpp           |    26 +
  src/server/game/Entities/Unit/StatSystem.cpp       |    46 +-
@@ -143,6 +145,7 @@
  src/server/game/Grids/Notifiers/GridNotifiers.h    |     4 +
  src/server/game/Groups/Group.cpp                   |    65 +
  src/server/game/Groups/Group.h                     |     4 +
+ src/server/game/Handlers/BattleGroundHandler.cpp   |    20 +
  src/server/game/Handlers/ItemHandler.cpp           |    13 +
  src/server/game/Handlers/SpellHandler.cpp          |   109 +
  src/server/game/Instances/InstanceScript.cpp       |    40 +
@@ -180,7 +183,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   314 +
- 182 files changed, 70468 insertions(+), 76 deletions(-)
+ 185 files changed, 70629 insertions(+), 76 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -57465,10 +57468,10 @@ index 00000000..65cd368b
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.cpp b/src/server/game/AI/NpcBots/botdatamgr.cpp
 new file mode 100644
-index 00000000..d2d3c4cf
+index 00000000..f16e033f
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.cpp
-@@ -0,0 +1,627 @@
+@@ -0,0 +1,640 @@
 +#include "botdatamgr.h"
 +#include "Creature.h"
 +#include "DatabaseEnv.h"
@@ -58096,12 +58099,25 @@ index 00000000..d2d3c4cf
 +{
 +    return _existingBots;
 +}
++
++void BotDataMgr::GetNPCBotGuidsByOwner(std::vector<ObjectGuid> &guids_vec, ObjectGuid owner_guid)
++{
++    ASSERT(AllBotsLoaded());
++
++    std::shared_lock<std::shared_mutex> lock(*GetLock());
++
++    for (NpcBotRegistry::const_iterator ci = _existingBots.begin(); ci != _existingBots.end(); ++ci)
++    {
++        if (_botsData[(*ci)->GetEntry()]->owner == owner_guid.GetCounter())
++            guids_vec.push_back((*ci)->GetGUID());
++    }
++}
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.h b/src/server/game/AI/NpcBots/botdatamgr.h
 new file mode 100644
-index 00000000..56067b66
+index 00000000..625ed449
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.h
-@@ -0,0 +1,154 @@
+@@ -0,0 +1,156 @@
 +#ifndef _BOTDATAMGR_H
 +#define _BOTDATAMGR_H
 +
@@ -58109,6 +58125,7 @@ index 00000000..56067b66
 +
 +#include <set>
 +#include <shared_mutex>
++#include <vector>
 +
 +class Creature;
 +
@@ -58247,6 +58264,7 @@ index 00000000..56067b66
 +        static void UnregisterBot(Creature const* bot);
 +        static Creature const* FindBot(uint32 entry);
 +        static NpcBotRegistry const& GetExistingNPCBots();
++        static void GetNPCBotGuidsByOwner(std::vector<ObjectGuid> &guids_vec, ObjectGuid owner_guid);
 +
 +        static std::shared_mutex* GetLock();
 +
@@ -59803,10 +59821,12 @@ index 00000000..89cda63d
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 00000000..72ba9651
+index 00000000..a48a2a91
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,1674 @@
+@@ -0,0 +1,1698 @@
++#include "Battleground.h"
++#include "BattlegroundMgr.h"
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "botdatamgr.h"
@@ -60317,6 +60337,9 @@ index 00000000..72ba9651
 +
 +bool BotMgr::LimitBots(Map const* map)
 +{
++    if (map->IsBattlegroundOrArena())
++        return true;
++
 +    if (_limitNpcBotsDungeons && map->IsNonRaidDungeon())
 +        return true;
 +    if (_limitNpcBotsRaids && map->IsRaid())
@@ -60446,8 +60469,15 @@ index 00000000..72ba9651
 +            if (!_owner->GetGroup() || !_owner->GetGroup()->IsMember(bot->GetGUID()))
 +                return true;
 +
-+        InstanceMap const* map = currMap->ToInstanceMap();
-+        if (map->GetPlayersCountExceptGMs() + uint32(add) > map->GetMaxPlayers())
++        uint32 max_players = 0;
++        if (currMap->IsDungeon())
++            max_players = currMap->ToInstanceMap()->GetMaxPlayers();
++        else if (currMap->IsBattleground())
++            max_players = _owner->GetBattleground()->GetMaxPlayersPerTeam();
++        else if (currMap->IsBattleArena())
++            max_players = _owner->GetBattleground()->GetArenaType();
++
++        if (max_players && currMap->GetPlayersCountExceptGMs() + uint32(add) > max_players)
 +            return true;
 +    }
 +
@@ -60714,6 +60744,7 @@ index 00000000..72ba9651
 +    if (bot->GetVehicle())
 +        bot->ExitVehicle();
 +
++    RemoveBotFromBGQueue(bot);
 +    RemoveBotFromGroup(bot);
 +
 +    //remove any summons
@@ -60945,6 +60976,15 @@ index 00000000..72ba9651
 +    return false;
 +}
 +
++void BotMgr::RemoveBotFromBGQueue(Creature const* bot)
++{
++    for (uint8 i = 0; i < PLAYER_MAX_BATTLEGROUND_QUEUES; ++i)
++    {
++        if (BattlegroundQueueTypeId bgQueueTypeId = _owner->GetBattlegroundQueueTypeId(i))
++            sBattlegroundMgr->GetBattlegroundQueue(bgQueueTypeId).RemovePlayer(bot->GetGUID(), true);
++    }
++}
++
 +bool BotMgr::RemoveBotFromGroup(Creature* bot)
 +{
 +    ASSERT(GetBot(bot->GetGUID()));
@@ -60952,6 +60992,8 @@ index 00000000..72ba9651
 +    Group* gr = _owner->GetGroup();
 +    if (!gr || !gr->IsMember(bot->GetGUID()))
 +        return false;
++
++    RemoveBotFromBGQueue(bot);
 +
 +    if (bot->GetBotAI()->HasRole(BOT_ROLE_PARTY) && !_owner->GetSession()->PlayerLogout())
 +        bot->GetBotAI()->ToggleRole(BOT_ROLE_PARTY, true);
@@ -61483,10 +61525,10 @@ index 00000000..72ba9651
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.h b/src/server/game/AI/NpcBots/botmgr.h
 new file mode 100644
-index 00000000..9999eb3d
+index 00000000..e6d4f469
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.h
-@@ -0,0 +1,231 @@
+@@ -0,0 +1,232 @@
 +#ifndef _BOTMGR_H
 +#define _BOTMGR_H
 +
@@ -61652,6 +61694,7 @@ index 00000000..9999eb3d
 +        void RemoveBot(ObjectGuid guid, uint8 removetype = BOT_REMOVE_LOGOUT);
 +        BotAddResult AddBot(Creature* bot, bool takeMoney);
 +        bool AddBotToGroup(Creature* bot);
++        void RemoveBotFromBGQueue(Creature const* bot);
 +        bool RemoveBotFromGroup(Creature* bot);
 +        bool RemoveAllBotsFromGroup();
 +
@@ -67986,6 +68029,149 @@ index cdca7255..caf02416 100644
      RBAC_PERM_MAX
  };
  
+diff --git a/src/server/game/Battlegrounds/Battleground.cpp b/src/server/game/Battlegrounds/Battleground.cpp
+index 234148b0..8a17f1fa 100644
+--- a/src/server/game/Battlegrounds/Battleground.cpp
++++ b/src/server/game/Battlegrounds/Battleground.cpp
+@@ -41,6 +41,10 @@
+ #include "WorldStatePackets.h"
+ #include <cstdarg>
+ 
++//npcbot
++#include "botmgr.h"
++//end npcbot
++
+ void BattlegroundScore::AppendToPacket(WorldPacket& data)
+ {
+     data << uint64(PlayerGuid);
+@@ -895,6 +899,22 @@ void Battleground::RemovePlayerAtLeave(ObjectGuid guid, bool Transport, bool Sen
+         // remove from raid group if player is member
+         if (Group* group = GetBgRaid(team))
+         {
++            //npcbot
++            if (player && player->HaveBot())
++            {
++                BotMap const* map = player->GetBotMgr()->GetBotMap();
++                for (BotMap::const_iterator itr = map->begin(); itr != map->end(); ++itr)
++                {
++                    Creature const* bot = itr->second;
++                    if (!bot || !group->IsMember(bot->GetGUID()))
++                        continue;
++
++                    group->RemoveMember(bot->GetGUID());
++                    UpdatePlayersCountByTeam(team, true);
++                    DecreaseInvitedCount(team);
++                }
++            }
++            //end npcbot
+             if (!group->RemoveMember(guid))                // group was disbanded
+                 SetBgRaid(team, nullptr);
+         }
+@@ -998,6 +1018,21 @@ void Battleground::AddPlayer(Player* player)
+     if (!isInBattleground)
+         UpdatePlayersCountByTeam(team, false);                  // +1 player
+ 
++    //npcbot
++    if (player->GetGroup() && player->HaveBot())
++    {
++        BotMap const* map = player->GetBotMgr()->GetBotMap();
++        for (BotMap::const_iterator itr = map->begin(); itr != map->end(); ++itr)
++        {
++            Creature const* bot = itr->second;
++            if (!bot || !player->GetGroup()->IsMember(bot->GetGUID()))
++                continue;
++
++            UpdatePlayersCountByTeam(team, false);
++        }
++    }
++    //end npcbot
++
+     WorldPacket data;
+     sBattlegroundMgr->BuildPlayerJoinedBattlegroundPacket(&data, player);
+     SendPacketToTeam(team, &data, player, false);
+diff --git a/src/server/game/Battlegrounds/BattlegroundQueue.cpp b/src/server/game/Battlegrounds/BattlegroundQueue.cpp
+index a49ea023..973da343 100644
+--- a/src/server/game/Battlegrounds/BattlegroundQueue.cpp
++++ b/src/server/game/Battlegrounds/BattlegroundQueue.cpp
+@@ -30,6 +30,11 @@
+ #include "Player.h"
+ #include "World.h"
+ 
++//npcbot
++#include "botmgr.h"
++#include "botdatamgr.h"
++//end npcbot
++
+ /*********************************************************/
+ /***            BATTLEGROUND QUEUE SYSTEM              ***/
+ /*********************************************************/
+@@ -183,6 +188,24 @@ GroupQueueInfo* BattlegroundQueue::AddGroup(Player* leader, Group* grp, Battlegr
+             pl_info.GroupInfo        = ginfo;
+             // add the pinfo to ginfo's list
+             ginfo->Players[member->GetGUID()]  = &pl_info;
++
++            //npcbot: queue bots (bg only)
++            if (arenateamid || !member->HaveBot())
++                continue;
++
++            BotMap const* map = member->GetBotMgr()->GetBotMap();
++            for (BotMap::const_iterator itr = map->begin(); itr != map->end(); ++itr)
++            {
++                Creature const* bot = itr->second;
++                if (!bot || !grp->IsMember(bot->GetGUID()))
++                    continue;
++
++                PlayerQueueInfo& pl_info = m_QueuedPlayers[bot->GetGUID()];
++                pl_info.LastOnlineTime   = lastOnlineTime;
++                pl_info.GroupInfo        = ginfo;
++                ginfo->Players[bot->GetGUID()]  = &pl_info;
++            }
++            //end npcbot
+         }
+     }
+     else
+@@ -375,6 +398,24 @@ void BattlegroundQueue::RemovePlayer(ObjectGuid guid, bool decreaseInvitedCount)
+         }
+     }
+ 
++    //npcbot: removing bot: return
++    if (!guid.IsPlayer())
++        return;
++
++    //npcbot: remove player's bots if queued
++    if (!group->Players.empty())
++    {
++        std::vector<ObjectGuid> botguids;
++        botguids.reserve(BotMgr::GetMaxNpcBots() / 2);
++        BotDataMgr::GetNPCBotGuidsByOwner(botguids, guid);
++        for (std::vector<ObjectGuid>::const_iterator ci = botguids.begin(); ci != botguids.end() && !group->Players.empty(); ++ci)
++        {
++            if (m_QueuedPlayers.find(*ci) != m_QueuedPlayers.end())
++                RemovePlayer(*ci, decreaseInvitedCount);
++        }
++    }
++    //end npcbot
++
+     // remove group queue info if needed
+     if (group->Players.empty())
+     {
+@@ -453,6 +494,16 @@ bool BattlegroundQueue::InviteGroupToBG(GroupQueueInfo* ginfo, Battleground* bg,
+         // loop through the players
+         for (std::map<ObjectGuid, PlayerQueueInfo*>::iterator itr = ginfo->Players.begin(); itr != ginfo->Players.end(); ++itr)
+         {
++            //npcbot: invite bots
++            if (itr->first.IsCreature())
++            {
++                bg->IncreaseInvitedCount(ginfo->Team);
++                TC_LOG_DEBUG("bg.battleground", "Battleground: invited NPCBot %s to BG instance %u bgtype %u",
++                    itr->first.ToString().c_str(), bg->GetInstanceID(), bg->GetTypeID());
++                continue;
++            }
++            //end npcbot
++
+             // get the player
+             Player* player = ObjectAccessor::FindConnectedPlayer(itr->first);
+             // if offline, skip him, this should not happen - player is removed from queue when he logs out
 diff --git a/src/server/game/Combat/CombatManager.cpp b/src/server/game/Combat/CombatManager.cpp
 index fa297239..bc5dd2f7 100644
 --- a/src/server/game/Combat/CombatManager.cpp
@@ -69518,7 +69704,7 @@ index 65b9fffc..37c8714c 100644
          player->GiveXP(xp, _victim, _groupRate);
          if (Pet* pet = player->GetPet())
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index 9f7dd645..c712bd32 100644
+index 9f7dd645..d282ad87 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -104,6 +104,11 @@
@@ -69787,6 +69973,28 @@ index 9f7dd645..c712bd32 100644
          if (creature->IsCritter() || creature->IsTotem())
              return false;
      }
+@@ -24268,6 +24429,21 @@ bool Player::inRandomLfgDungeon() const
+ 
+ void Player::SetBattlegroundOrBattlefieldRaid(Group* group, int8 subgroup)
+ {
++    //npcbot: add bots to new group
++    if (HaveBot() && GetGroup())
++    {
++        BotMap const* map = GetBotMgr()->GetBotMap();
++        for (BotMap::const_iterator itr = map->begin(); itr != map->end(); ++itr)
++        {
++            Creature const* bot = itr->second;
++            if (!bot || !GetGroup()->IsMember(bot->GetGUID()))
++                continue;
++
++            ASSERT(group->AddMember((Player*)bot));
++        }
++    }
++    //end npcbot
++
+     //we must move references from m_group to m_originalGroup
+     SetOriginalGroup(GetGroup(), GetSubGroup());
+ 
 diff --git a/src/server/game/Entities/Player/Player.h b/src/server/game/Entities/Player/Player.h
 index 1a884133..30969357 100644
 --- a/src/server/game/Entities/Player/Player.h
@@ -71245,7 +71453,7 @@ index 65fb265c..dc62c023 100644
                  if (!player)
                      return false;
 diff --git a/src/server/game/Groups/Group.cpp b/src/server/game/Groups/Group.cpp
-index 791960fa..d282c8ac 100644
+index 791960fa..1b30ce46 100644
 --- a/src/server/game/Groups/Group.cpp
 +++ b/src/server/game/Groups/Group.cpp
 @@ -163,6 +163,15 @@ bool Group::Create(Player* leader)
@@ -71335,10 +71543,10 @@ index 791960fa..d282c8ac 100644
 +
 +        // do not disband raid group if bot owner logging out within dungeon
 +        // 1-player raid groups will not happen unless player is gm - bots will rejoin at login
-+        if (GetMembersCount() < 2 && isRaidGroup() && GetLeaderGUID())
++        if (GetMembersCount() < 2 && isRaidGroup() && !(isBGGroup() || isBFGroup()) && GetLeaderGUID())
 +        {
-+            Player* player = ObjectAccessor::FindPlayer(GetLeaderGUID());
-+            Map* map = player ? player->FindMap() : nullptr;
++            Player const* player = ObjectAccessor::FindPlayer(GetLeaderGUID());
++            Map const* map = player ? player->FindMap() : nullptr;
 +            if (!(map && map->IsDungeon() && player && player->GetSession()->PlayerLogout()))
 +                Disband();
 +        }
@@ -71377,6 +71585,44 @@ index d316bfea..d4faf8cd 100644
      protected:
          bool _setMembersGroup(ObjectGuid guid, uint8 group);
          void _homebindIfInstance(Player* player);
+diff --git a/src/server/game/Handlers/BattleGroundHandler.cpp b/src/server/game/Handlers/BattleGroundHandler.cpp
+index 840c2187..d779a8d9 100644
+--- a/src/server/game/Handlers/BattleGroundHandler.cpp
++++ b/src/server/game/Handlers/BattleGroundHandler.cpp
+@@ -38,6 +38,10 @@
+ #include "World.h"
+ #include "WorldPacket.h"
+ 
++//npcbot
++#include "botmgr.h"
++//end npcbot
++
+ void WorldSession::HandleBattlemasterHelloOpcode(WorldPacket& recvData)
+ {
+     ObjectGuid guid;
+@@ -254,6 +258,22 @@ void WorldSession::HandleBattlemasterJoinOpcode(WorldPacket& recvData)
+             member->SendDirectMessage(&data);
+             TC_LOG_DEBUG("bg.battleground", "Battleground: player joined queue for bg queue type %u bg type %u: GUID %s, NAME %s",
+                 bgQueueTypeId, bgTypeId, member->GetGUID().ToString().c_str(), member->GetName().c_str());
++
++            //npcbot: list bots
++            if (!member->HaveBot())
++                continue;
++
++            BotMap const* map = member->GetBotMgr()->GetBotMap();
++            for (BotMap::const_iterator itr = map->begin(); itr != map->end(); ++itr)
++            {
++                Creature const* bot = itr->second;
++                if (!bot || !grp->IsMember(bot->GetGUID()))
++                    continue;
++
++                TC_LOG_DEBUG("bg.battleground", "Battleground: NPCBot joined queue for bg queue type %u bg type %u: GUID %s, NAME %s (owner: %s)",
++                    bgQueueTypeId, bgTypeId, bot->GetGUID().ToString().c_str(), bot->GetName().c_str(), member->GetName().c_str());
++            }
++            //end npcbot
+         }
+         TC_LOG_DEBUG("bg.battleground", "Battleground: group end");
+     }
 diff --git a/src/server/game/Handlers/ItemHandler.cpp b/src/server/game/Handlers/ItemHandler.cpp
 index 407f5014..eb3fb6ae 100644
 --- a/src/server/game/Handlers/ItemHandler.cpp
