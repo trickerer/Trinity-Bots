@@ -30,6 +30,7 @@
  .../2021_01_24_characters_npcbot_stats.sql         |    32 +
  .../characters/2021_08_27_characters_npcbot.sql    |     2 +
  .../2022_11_15_characters_npcbot_transmog.SQL      |     9 +
+ .../2022_11_27_characters_npcbot_group_member.sql  |     9 +
  .../2020_07_08_creature_template_npcbot_extras.sql |     2 +
  .../updates/world/2020_09_25_creature_template.sql |     2 +
  .../world/2020_10_14_creature_classlevelstats.sql  |   611 +
@@ -64,8 +65,8 @@
  sql/Bots/updates/world/2022_07_25_00_npc_text.sql  |     7 +
  sql/Bots/updates/world/2022_11_15_00_npc_text.sql  |     7 +
  src/common/Utilities/EventProcessor.h              |     1 +
- .../Database/Implementation/CharacterDatabase.cpp  |    21 +
- .../Database/Implementation/CharacterDatabase.h    |    17 +
+ .../Database/Implementation/CharacterDatabase.cpp  |    24 +
+ .../Database/Implementation/CharacterDatabase.h    |    20 +
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1355 ++
@@ -91,14 +92,14 @@
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2259 +++
  src/server/game/AI/NpcBots/botcommands.cpp         |  1945 ++
  src/server/game/AI/NpcBots/botcommon.h             |  1067 ++
- src/server/game/AI/NpcBots/botdatamgr.cpp          |   640 +
- src/server/game/AI/NpcBots/botdatamgr.h            |   156 +
+ src/server/game/AI/NpcBots/botdatamgr.cpp          |   697 +
+ src/server/game/AI/NpcBots/botdatamgr.h            |   158 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   133 +
  src/server/game/AI/NpcBots/botdpstracker.h         |    42 +
  src/server/game/AI/NpcBots/botdump.cpp             |  1019 +
  src/server/game/AI/NpcBots/botdump.h               |    51 +
  src/server/game/AI/NpcBots/botgiver.cpp            |   270 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  1698 ++
+ src/server/game/AI/NpcBots/botmgr.cpp              |  1700 ++
  src/server/game/AI/NpcBots/botmgr.h                |   232 +
  src/server/game/AI/NpcBots/botspell.h              |   246 +
  src/server/game/AI/NpcBots/bpet_ai.cpp             |  2445 +++
@@ -133,7 +134,7 @@
  .../Entities/Creature/enuminfo_CreatureData.cpp    |    12 +-
  src/server/game/Entities/Object/Object.cpp         |    85 +-
  src/server/game/Entities/Player/KillRewarder.cpp   |    15 +
- src/server/game/Entities/Player/Player.cpp         |   176 +
+ src/server/game/Entities/Player/Player.cpp         |   191 +
  src/server/game/Entities/Player/Player.h           |    25 +
  src/server/game/Entities/Totem/Totem.cpp           |    26 +
  src/server/game/Entities/Unit/StatSystem.cpp       |    46 +-
@@ -143,8 +144,9 @@
  src/server/game/Globals/ObjectMgr.cpp              |    81 +
  src/server/game/Globals/ObjectMgr.h                |    21 +
  src/server/game/Grids/Notifiers/GridNotifiers.h    |     4 +
- src/server/game/Groups/Group.cpp                   |    65 +
- src/server/game/Groups/Group.h                     |     4 +
+ src/server/game/Groups/Group.cpp                   |   133 +
+ src/server/game/Groups/Group.h                     |     7 +
+ src/server/game/Groups/GroupMgr.cpp                |     7 +
  src/server/game/Handlers/BattleGroundHandler.cpp   |    20 +
  src/server/game/Handlers/ItemHandler.cpp           |    13 +
  src/server/game/Handlers/SpellHandler.cpp          |   109 +
@@ -183,7 +185,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   314 +
- 185 files changed, 70629 insertions(+), 76 deletions(-)
+ 187 files changed, 70798 insertions(+), 76 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -214,6 +216,7 @@
  create mode 100644 sql/Bots/updates/characters/2021_01_24_characters_npcbot_stats.sql
  create mode 100644 sql/Bots/updates/characters/2021_08_27_characters_npcbot.sql
  create mode 100644 sql/Bots/updates/characters/2022_11_15_characters_npcbot_transmog.SQL
+ create mode 100644 sql/Bots/updates/characters/2022_11_27_characters_npcbot_group_member.sql
  create mode 100644 sql/Bots/updates/world/2020_07_08_creature_template_npcbot_extras.sql
  create mode 100644 sql/Bots/updates/world/2020_09_25_creature_template.sql
  create mode 100644 sql/Bots/updates/world/2020_10_14_creature_classlevelstats.sql
@@ -3472,6 +3475,21 @@ index 00000000..5e771528
 +  PRIMARY KEY (`entry`,`slot`),
 +  CONSTRAINT `bot_id` FOREIGN KEY (`entry`) REFERENCES `characters_npcbot` (`entry`) ON DELETE CASCADE ON UPDATE CASCADE
 +) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+diff --git a/sql/Bots/updates/characters/2022_11_27_characters_npcbot_group_member.sql b/sql/Bots/updates/characters/2022_11_27_characters_npcbot_group_member.sql
+new file mode 100644
+index 00000000..280dfdb1
+--- /dev/null
++++ b/sql/Bots/updates/characters/2022_11_27_characters_npcbot_group_member.sql
+@@ -0,0 +1,9 @@
++-- 
++CREATE TABLE `characters_npcbot_group_member` (
++  `guid` int(10) unsigned NOT NULL,
++  `entry` int(10) unsigned NOT NULL,
++  `memberFlags` tinyint(3) unsigned NOT NULL DEFAULT '0',
++  `subgroup` tinyint(3) unsigned NOT NULL DEFAULT '0',
++  `roles` tinyint(3) unsigned NOT NULL DEFAULT '0',
++  PRIMARY KEY (`entry`)
++) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 diff --git a/sql/Bots/updates/world/2020_07_08_creature_template_npcbot_extras.sql b/sql/Bots/updates/world/2020_07_08_creature_template_npcbot_extras.sql
 new file mode 100644
 index 00000000..2e67192b
@@ -5054,10 +5072,10 @@ index 2bf68216..0b8261ec 100644
      private:
          void SetAborted();
 diff --git a/src/server/database/Database/Implementation/CharacterDatabase.cpp b/src/server/database/Database/Implementation/CharacterDatabase.cpp
-index 87af6be5..32aad6b6 100644
+index 87af6be5..8cab18ee 100644
 --- a/src/server/database/Database/Implementation/CharacterDatabase.cpp
 +++ b/src/server/database/Database/Implementation/CharacterDatabase.cpp
-@@ -594,6 +594,27 @@ void CharacterDatabaseConnection::DoPrepareStatements()
+@@ -594,6 +594,30 @@ void CharacterDatabaseConnection::DoPrepareStatements()
  
      // DeserterTracker
      PrepareStatement(CHAR_INS_DESERTER_TRACK, "INSERT INTO battleground_deserters (guid, type, datetime) VALUES (?, ?, NOW())", CONNECTION_ASYNC);
@@ -5081,15 +5099,18 @@ index 87af6be5..32aad6b6 100644
 +    PrepareStatement(CHAR_REP_NPCBOT_TRANSMOG, "REPLACE INTO characters_npcbot_transmog (entry, slot, item_id, fake_id) VALUES (?, ?, ?, ?)", CONNECTION_ASYNC);
 +    PrepareStatement(CHAR_DEL_NPCBOT_TRANSMOG, "DELETE FROM characters_npcbot_transmog WHERE entry = ?", CONNECTION_ASYNC);
 +    PrepareStatement(CHAR_DEL_NPCBOT_TRANSMOG_ALL, "DELETE FROM characters_npcbot_transmog WHERE entry IN (SELECT entry FROM characters_npcbot WHERE owner = ?)", CONNECTION_ASYNC);
++    PrepareStatement(CHAR_INS_NPCBOT_GROUP_MEMBER, "INSERT INTO characters_npcbot_group_member (guid, entry, memberFlags, subgroup, roles) VALUES(?, ?, ?, ?, ?)", CONNECTION_ASYNC);
++    PrepareStatement(CHAR_DEL_NPCBOT_GROUP_MEMBER, "DELETE FROM characters_npcbot_group_member WHERE entry = ?", CONNECTION_ASYNC);
++    PrepareStatement(CHAR_UPD_NPCBOT_GROUP_MEMBER_FLAG, "UPDATE characters_npcbot_group_member SET memberFlags = ? WHERE entry = ?", CONNECTION_ASYNC);
 +    // End NPCBots
  }
  
  CharacterDatabaseConnection::CharacterDatabaseConnection(MySQLConnectionInfo& connInfo) : MySQLConnection(connInfo)
 diff --git a/src/server/database/Database/Implementation/CharacterDatabase.h b/src/server/database/Database/Implementation/CharacterDatabase.h
-index 7404a615..dceb2ca2 100644
+index 7404a615..5fea7b1d 100644
 --- a/src/server/database/Database/Implementation/CharacterDatabase.h
 +++ b/src/server/database/Database/Implementation/CharacterDatabase.h
-@@ -510,6 +510,23 @@ enum CharacterDatabaseStatements : uint32
+@@ -510,6 +510,26 @@ enum CharacterDatabaseStatements : uint32
  
      CHAR_INS_DESERTER_TRACK,
  
@@ -5108,6 +5129,9 @@ index 7404a615..dceb2ca2 100644
 +    CHAR_REP_NPCBOT_TRANSMOG,
 +    CHAR_DEL_NPCBOT_TRANSMOG,
 +    CHAR_DEL_NPCBOT_TRANSMOG_ALL,
++    CHAR_INS_NPCBOT_GROUP_MEMBER,
++    CHAR_DEL_NPCBOT_GROUP_MEMBER,
++    CHAR_UPD_NPCBOT_GROUP_MEMBER_FLAG,
 +    // End NPCBot
 +
      MAX_CHARACTERDATABASE_STATEMENTS
@@ -57468,13 +57492,14 @@ index 00000000..65cd368b
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.cpp b/src/server/game/AI/NpcBots/botdatamgr.cpp
 new file mode 100644
-index 00000000..f16e033f
+index 00000000..55c62510
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.cpp
-@@ -0,0 +1,640 @@
+@@ -0,0 +1,697 @@
 +#include "botdatamgr.h"
 +#include "Creature.h"
 +#include "DatabaseEnv.h"
++#include "GroupMgr.h"
 +#include "Item.h"
 +#include "Log.h"
 +#include "Map.h"
@@ -57725,6 +57750,47 @@ index 00000000..f16e033f
 +    TC_LOG_INFO("server.loading", ">> Spawned %u npcbot(s) within %u grid(s) in %u ms", botcounter, uint32(botgrids.size()), GetMSTimeDiffToNow(botoldMSTime));
 +
 +    allBotsLoaded = true;
++}
++
++void BotDataMgr::LoadNpcBotGroupData()
++{
++    TC_LOG_INFO("server.loading", "Loading NPCBot Group members...");
++
++    uint32 oldMSTime = getMSTime();
++
++    CharacterDatabase.DirectExecute("DELETE FROM characters_npcbot_group_member WHERE guid NOT IN (SELECT guid FROM `groups`)");
++    CharacterDatabase.DirectExecute("DELETE FROM characters_npcbot_group_member WHERE entry NOT IN (SELECT entry FROM characters_npcbot)");
++
++    //                                                   0     1      2            3         4
++    QueryResult result = CharacterDatabase.Query("SELECT guid, entry, memberFlags, subgroup, roles FROM characters_npcbot_group_member ORDER BY guid");
++    if (!result)
++    {
++        TC_LOG_INFO("server.loading", ">> Loaded 0 NPCBot group members. DB table `group_member` is empty!");
++        return;
++    }
++
++    uint32 count = 0;
++    do
++    {
++        Field* fields = result->Fetch();
++
++        uint32 creature_id = fields[1].GetUInt32();
++        if (creature_id < BOT_ENTRY_BEGIN || creature_id > BOT_ENTRY_END)
++        {
++            TC_LOG_WARN("server.loading", "Table `characters_npcbot_group_member` contains non-NPCBot creature %u which will not be loaded!", creature_id);
++            continue;
++        }
++
++        if (Group* group = sGroupMgr->GetGroupByDbStoreId(fields[0].GetUInt32()))
++            group->LoadCreatureMemberFromDB(creature_id, fields[2].GetUInt8(), fields[3].GetUInt8(), fields[4].GetUInt8());
++        else
++            TC_LOG_ERROR("misc", "BotDataMgr::LoadNpcBotGroupData: Consistency failed, can't find group (storage id: %u)", fields[0].GetUInt32());
++
++        ++count;
++
++    } while (result->NextRow());
++
++    TC_LOG_INFO("server.loading", ">> Loaded %u NPCBot group members in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
 +}
 +
 +void BotDataMgr::AddNpcBotData(uint32 entry, uint32 roles, uint8 spec, uint32 faction)
@@ -58112,12 +58178,27 @@ index 00000000..f16e033f
 +            guids_vec.push_back((*ci)->GetGUID());
 +    }
 +}
++
++ObjectGuid BotDataMgr::GetNPCBotGuid(uint32 entry)
++{
++    ASSERT(AllBotsLoaded());
++
++    std::shared_lock<std::shared_mutex> lock(*GetLock());
++
++    for (NpcBotRegistry::const_iterator ci = _existingBots.begin(); ci != _existingBots.end(); ++ci)
++    {
++        if ((*ci)->GetEntry() == entry)
++            return (*ci)->GetGUID();
++    }
++
++    return ObjectGuid::Empty;
++}
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.h b/src/server/game/AI/NpcBots/botdatamgr.h
 new file mode 100644
-index 00000000..625ed449
+index 00000000..4d8734f4
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.h
-@@ -0,0 +1,156 @@
+@@ -0,0 +1,158 @@
 +#ifndef _BOTDATAMGR_H
 +#define _BOTDATAMGR_H
 +
@@ -58244,6 +58325,7 @@ index 00000000..625ed449
 +{
 +    public:
 +        static void LoadNpcBots(bool spawn = true);
++        static void LoadNpcBotGroupData();
 +
 +        static void AddNpcBotData(uint32 entry, uint32 roles, uint8 spec, uint32 faction);
 +        static NpcBotData const* SelectNpcBotData(uint32 entry);
@@ -58265,6 +58347,7 @@ index 00000000..625ed449
 +        static Creature const* FindBot(uint32 entry);
 +        static NpcBotRegistry const& GetExistingNPCBots();
 +        static void GetNPCBotGuidsByOwner(std::vector<ObjectGuid> &guids_vec, ObjectGuid owner_guid);
++        static ObjectGuid GetNPCBotGuid(uint32 entry);
 +
 +        static std::shared_mutex* GetLock();
 +
@@ -59821,10 +59904,10 @@ index 00000000..89cda63d
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 00000000..a48a2a91
+index 00000000..2d6b0001
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,1698 @@
+@@ -0,0 +1,1700 @@
 +#include "Battleground.h"
 +#include "BattlegroundMgr.h"
 +#include "bot_ai.h"
@@ -60014,6 +60097,7 @@ index 00000000..a48a2a91
 +        return;
 +
 +    BotDataMgr::LoadNpcBots();
++    BotDataMgr::LoadNpcBotGroupData();
 +}
 +
 +void BotMgr::ReloadConfig()
@@ -60729,7 +60813,7 @@ index 00000000..a48a2a91
 +    _teleportBot(bot, newMap, pos->GetPositionX(), pos->GetPositionY(), pos->GetPositionZ(), pos->GetOrientation(), quick);
 +}
 +
-+void BotMgr::CleanupsBeforeBotDelete(ObjectGuid guid, uint8 /*removetype*/)
++void BotMgr::CleanupsBeforeBotDelete(ObjectGuid guid, uint8 removetype)
 +{
 +    BotMap::const_iterator itr = _bots.find(guid);
 +    ASSERT(itr != _bots.end(), "Trying to remove bot which does not belong to this botmgr(b)!!");
@@ -60745,7 +60829,8 @@ index 00000000..a48a2a91
 +        bot->ExitVehicle();
 +
 +    RemoveBotFromBGQueue(bot);
-+    RemoveBotFromGroup(bot);
++    if (removetype != BOT_REMOVE_LOGOUT)
++        RemoveBotFromGroup(bot);
 +
 +    //remove any summons
 +    bot->GetBotAI()->UnsummonAll();
@@ -69704,7 +69789,7 @@ index 65b9fffc..37c8714c 100644
          player->GiveXP(xp, _victim, _groupRate);
          if (Pet* pet = player->GetPet())
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index 9f7dd645..d282ad87 100644
+index 9f7dd645..1b651e84 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -104,6 +104,11 @@
@@ -69818,7 +69903,7 @@ index 9f7dd645..d282ad87 100644
      UpdateObjectVisibility();
  }
  
-@@ -2497,6 +2552,49 @@ void Player::RemoveFromGroup(Group* group, ObjectGuid guid, RemoveMethod method
+@@ -2497,6 +2552,64 @@ void Player::RemoveFromGroup(Group* group, ObjectGuid guid, RemoveMethod method
      if (!group)
          return;
  
@@ -69840,6 +69925,21 @@ index 9f7dd645..d282ad87 100644
 +            group = player->GetGroup();
 +            if (!group)
 +                return; //group has been disbanded
++        }
++    }
++    //npcbot - deleting player from db: remove bots
++    else if (guid.IsPlayer())
++    {
++        std::vector<ObjectGuid> botguids;
++        botguids.reserve(BotMgr::GetMaxNpcBots() / 2 + 1);
++        BotDataMgr::GetNPCBotGuidsByOwner(botguids, guid);
++        for (std::vector<ObjectGuid>::const_iterator ci = botguids.begin(); ci != botguids.end(); ++ci)
++        {
++            if (group->IsMember(*ci))
++            {
++                if (!group->RemoveMember(*ci, method, kicker, reason))
++                    return;
++            }
 +        }
 +    }
 +    //npcbot - bot is being removed from group - find master and remove bot through botmap
@@ -69868,7 +69968,7 @@ index 9f7dd645..d282ad87 100644
      group->RemoveMember(guid, method, kicker, reason);
  }
  
-@@ -2665,6 +2763,11 @@ void Player::GiveLevel(uint8 level)
+@@ -2665,6 +2778,11 @@ void Player::GiveLevel(uint8 level)
      SendQuestGiverStatusMultiple();
  
      sScriptMgr->OnPlayerLevelChanged(this, oldLevel);
@@ -69880,7 +69980,7 @@ index 9f7dd645..d282ad87 100644
  }
  
  bool Player::IsMaxLevel() const
-@@ -4405,6 +4508,12 @@ void Player::DeleteFromDB(ObjectGuid playerguid, uint32 accountId, bool updateRe
+@@ -4405,6 +4523,12 @@ void Player::DeleteFromDB(ObjectGuid playerguid, uint32 accountId, bool updateRe
              trans->Append(stmt);
  
              Corpse::DeleteFromDB(playerguid, trans);
@@ -69893,7 +69993,7 @@ index 9f7dd645..d282ad87 100644
              break;
          }
          // The character gets unlinked from the account, the name gets freed up and appears as deleted ingame
-@@ -6813,6 +6922,36 @@ bool Player::RewardHonor(Unit* victim, uint32 groupsize, int32 honor, bool pvpto
+@@ -6813,6 +6937,36 @@ bool Player::RewardHonor(Unit* victim, uint32 groupsize, int32 honor, bool pvpto
              UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL, 1, 0, victim);
              UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_SPECIAL_PVP_KILL, 1, 0, victim);
          }
@@ -69930,7 +70030,7 @@ index 9f7dd645..d282ad87 100644
          else
          {
              if (!victim->ToCreature()->IsRacialLeader())
-@@ -21723,6 +21862,18 @@ bool Player::BuyItemFromVendorSlot(ObjectGuid vendorguid, uint32 vendorslot, uin
+@@ -21723,6 +21877,18 @@ bool Player::BuyItemFromVendorSlot(ObjectGuid vendorguid, uint32 vendorslot, uin
          return false;
      }
  
@@ -69949,7 +70049,7 @@ index 9f7dd645..d282ad87 100644
      if (!(pProto->AllowableClass & GetClassMask()) && pProto->Bonding == BIND_WHEN_PICKED_UP && !IsGameMaster())
      {
          SendBuyError(BUY_ERR_CANT_FIND_ITEM, nullptr, item, 0);
-@@ -21996,6 +22147,11 @@ void Player::UpdatePvP(bool state, bool _override)
+@@ -21996,6 +22162,11 @@ void Player::UpdatePvP(bool state, bool _override)
          pvpInfo.EndTimer = GameTime::GetGameTime();
          SetPvP(state);
      }
@@ -69961,7 +70061,7 @@ index 9f7dd645..d282ad87 100644
  }
  
  void Player::UpdatePotionCooldown(Spell* spell)
-@@ -23860,6 +24016,11 @@ bool Player::isHonorOrXPTarget(Unit* victim) const
+@@ -23860,6 +24031,11 @@ bool Player::isHonorOrXPTarget(Unit* victim) const
  
      if (Creature const* creature = victim->ToCreature())
      {
@@ -69973,7 +70073,7 @@ index 9f7dd645..d282ad87 100644
          if (creature->IsCritter() || creature->IsTotem())
              return false;
      }
-@@ -24268,6 +24429,21 @@ bool Player::inRandomLfgDungeon() const
+@@ -24268,6 +24444,21 @@ bool Player::inRandomLfgDungeon() const
  
  void Player::SetBattlegroundOrBattlefieldRaid(Group* group, int8 subgroup)
  {
@@ -71453,10 +71553,21 @@ index 65fb265c..dc62c023 100644
                  if (!player)
                      return false;
 diff --git a/src/server/game/Groups/Group.cpp b/src/server/game/Groups/Group.cpp
-index 791960fa..1b30ce46 100644
+index 791960fa..630726ea 100644
 --- a/src/server/game/Groups/Group.cpp
 +++ b/src/server/game/Groups/Group.cpp
-@@ -163,6 +163,15 @@ bool Group::Create(Player* leader)
+@@ -42,6 +42,10 @@
+ #include "WorldPacket.h"
+ #include "WorldSession.h"
+ 
++//npcbot
++#include "botdatamgr.h"
++//end npcbot
++
+ Roll::Roll(ObjectGuid _guid, LootItem const& li) : itemGUID(_guid), itemid(li.itemid),
+ itemRandomPropId(li.randomPropertyId), itemRandomSuffix(li.randomSuffix), itemCount(li.count),
+ totalPlayersRolling(0), totalNeed(0), totalGreed(0), totalPass(0), itemSlot(0),
+@@ -163,6 +167,15 @@ bool Group::Create(Player* leader)
      if (m_groupType & GROUPTYPE_RAID)
          _initRaidSubGroupsCounter();
  
@@ -71472,29 +71583,80 @@ index 791960fa..1b30ce46 100644
      if (!isLFGGroup())
          m_lootMethod = GROUP_LOOT;
  
-@@ -422,6 +431,11 @@ bool Group::AddMember(Player* player)
+@@ -282,6 +295,37 @@ void Group::LoadMemberFromDB(ObjectGuid::LowType guidLow, uint8 memberFlags, uin
+     sLFGMgr->SetupGroupMember(member.guid, GetGUID());
+ }
+ 
++//npcbot
++void Group::LoadCreatureMemberFromDB(uint32 entry, uint8 memberFlags, uint8 subgroup, uint8 roles)
++{
++    MemberSlot member;
++    member.guid = BotDataMgr::GetNPCBotGuid(entry);
++
++    // skip non-existed bot
++    if (member.guid == ObjectGuid::Empty)
++    {
++        CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_NPCBOT_GROUP_MEMBER);
++        stmt->setUInt32(0, entry);
++        CharacterDatabase.Execute(stmt);
++        return;
++    }
++
++    CreatureTemplate const* ct = sObjectMgr->GetCreatureTemplate(entry);
++    ASSERT(ct);
++
++    member.name = ct->Name;
++    member.group = subgroup;
++    member.flags = memberFlags;
++    member.roles = roles;
++
++    m_memberSlots.push_back(member);
++
++    SubGroupCounterIncrease(subgroup);
++
++    //sLFGMgr->SetupGroupMember(member.guid, GetGUID());
++}
++//end npcbot
++
+ void Group::ConvertToLFG()
+ {
+     m_groupType = GroupType(m_groupType | GROUPTYPE_LFG | GROUPTYPE_LFG_RESTRICTED);
+@@ -422,6 +466,27 @@ bool Group::AddMember(Player* player)
  
      SubGroupCounterIncrease(subGroup);
  
 +    //npcbot - check if trying to add bot
 +    //TC_LOG_ERROR("entities.player", "Group::AddMember(): new member %s", player->GetName().c_str());
-+    if (player->GetGUID().IsPlayer())
++    if (!player->GetGUID().IsPlayer())
++    {
++        // insert into the table if we're not a battleground group
++        if (!isBGGroup() && !isBFGroup())
++        {
++            CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_INS_NPCBOT_GROUP_MEMBER);
++
++            stmt->setUInt32(0, m_dbStoreId);
++            stmt->setUInt32(1, player->GetEntry());
++            stmt->setUInt8(2, member.flags);
++            stmt->setUInt8(3, member.group);
++            stmt->setUInt8(4, member.roles);
++
++            CharacterDatabase.Execute(stmt);
++        }
++    }
++    else
 +    {
 +    //end npcbot
      player->SetGroupInvite(nullptr);
      if (player->GetGroup())
      {
-@@ -435,6 +449,9 @@ bool Group::AddMember(Player* player)
+@@ -455,10 +520,17 @@ bool Group::AddMember(Player* player)
  
-     // if the same group invites the player back, cancel the homebind timer
-     player->m_InstanceValid = player->CheckInstanceValidity(false);
+         CharacterDatabase.Execute(stmt);
+     }
 +    //npcbot
 +    }
 +    //end npcbot
  
-     if (!isRaidGroup())                                      // reset targetIcons for non-raid-groups
-     {
-@@ -459,6 +476,10 @@ bool Group::AddMember(Player* player)
      SendUpdate();
      sScriptMgr->OnGroupAddMember(this, player->GetGUID());
  
@@ -71505,7 +71667,7 @@ index 791960fa..1b30ce46 100644
      if (!IsLeader(player->GetGUID()) && !isBGGroup() && !isBFGroup())
      {
          // reset the new member's instances, unless he is currently in one of them
-@@ -534,6 +555,9 @@ bool Group::AddMember(Player* player)
+@@ -534,6 +606,9 @@ bool Group::AddMember(Player* player)
  
      if (m_maxEnchantingLevel < player->GetSkillValue(SKILL_ENCHANTING))
          m_maxEnchantingLevel = player->GetSkillValue(SKILL_ENCHANTING);
@@ -71515,7 +71677,7 @@ index 791960fa..1b30ce46 100644
  
      return true;
  }
-@@ -564,6 +588,44 @@ bool Group::RemoveMember(ObjectGuid guid, RemoveMethod const& method /*= GROUP_R
+@@ -564,6 +639,47 @@ bool Group::RemoveMember(ObjectGuid guid, RemoveMethod const& method /*= GROUP_R
      if (isLFGGroup() && method == GROUP_REMOVEMETHOD_KICK)
          return !m_memberSlots.empty();
  
@@ -71525,8 +71687,8 @@ index 791960fa..1b30ce46 100644
 +        // Remove bot from group in DB
 +        if (!isBGGroup() && !isBFGroup())
 +        {
-+            CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_GROUP_MEMBER);
-+            stmt->setUInt32(0, guid.GetCounter());
++            CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_NPCBOT_GROUP_MEMBER);
++            stmt->setUInt32(0, guid.GetEntry());
 +            CharacterDatabase.Execute(stmt);
 +            DelinkMember(guid);
 +
@@ -71551,7 +71713,10 @@ index 791960fa..1b30ce46 100644
 +                Disband();
 +        }
 +        else if (GetMembersCount() < 2 && !(isLFGGroup() || isBGGroup() || isBFGroup()))
++        {
 +            Disband();
++            return false;
++        }
 +
 +        return true;
 +    }
@@ -71560,7 +71725,7 @@ index 791960fa..1b30ce46 100644
      // remove member and change leader (if need) only if strong more 2 members _before_ member remove (BG/BF allow 1 member group)
      if (GetMembersCount() > ((isBGGroup() || isLFGGroup() || isBFGroup()) ? 1u : 2u))
      {
-@@ -672,6 +734,9 @@ bool Group::RemoveMember(ObjectGuid guid, RemoveMethod const& method /*= GROUP_R
+@@ -672,6 +788,9 @@ bool Group::RemoveMember(ObjectGuid guid, RemoveMethod const& method /*= GROUP_R
          }
  
          if (m_memberMgr.getSize() < ((isLFGGroup() || isBGGroup()) ? 1u : 2u))
@@ -71570,11 +71735,48 @@ index 791960fa..1b30ce46 100644
              Disband();
  
          return true;
+@@ -2550,12 +2669,26 @@ void Group::SetGroupMemberFlag(ObjectGuid guid, bool apply, GroupMemberFlags fla
+     ToggleGroupMemberFlag(slot, flag, apply);
+ 
+     // Preserve the new setting in the db
++    //npcbot
++    if (!guid.IsPlayer())
++    {
++        CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_NPCBOT_GROUP_MEMBER_FLAG);
++        stmt->setUInt8(0, slot->flags);
++        stmt->setUInt32(1, guid.GetEntry());
++        CharacterDatabase.Execute(stmt);
++    }
++    else
++    {
++    //end npcbot
+     CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_GROUP_MEMBER_FLAG);
+ 
+     stmt->setUInt8(0, slot->flags);
+     stmt->setUInt32(1, guid.GetCounter());
+ 
+     CharacterDatabase.Execute(stmt);
++    //npcbot
++    }
++    //end npcbot
+ 
+     // Broadcast the changes to the group
+     SendUpdate();
 diff --git a/src/server/game/Groups/Group.h b/src/server/game/Groups/Group.h
-index d316bfea..d4faf8cd 100644
+index d316bfea..7a91ab08 100644
 --- a/src/server/game/Groups/Group.h
 +++ b/src/server/game/Groups/Group.h
-@@ -336,6 +336,10 @@ class TC_GAME_API Group
+@@ -190,6 +190,9 @@ class TC_GAME_API Group
+         bool Create(Player* leader);
+         void LoadGroupFromDB(Field* field);
+         void LoadMemberFromDB(ObjectGuid::LowType guidLow, uint8 memberFlags, uint8 subgroup, uint8 roles);
++        //npcbot
++        void LoadCreatureMemberFromDB(uint32 entry, uint8 memberFlags, uint8 subgroup, uint8 roles);
++        //end npcbot
+         bool AddInvite(Player* player);
+         void RemoveInvite(Player* player);
+         void RemoveAllInvites();
+@@ -336,6 +339,10 @@ class TC_GAME_API Group
          // FG: evil hacks
          void BroadcastGroupUpdate(void);
  
@@ -71585,6 +71787,25 @@ index d316bfea..d4faf8cd 100644
      protected:
          bool _setMembersGroup(ObjectGuid guid, uint8 group);
          void _homebindIfInstance(Player* player);
+diff --git a/src/server/game/Groups/GroupMgr.cpp b/src/server/game/Groups/GroupMgr.cpp
+index d7d40913..33f9764e 100644
+--- a/src/server/game/Groups/GroupMgr.cpp
++++ b/src/server/game/Groups/GroupMgr.cpp
+@@ -133,7 +133,14 @@ void GroupMgr::LoadGroups()
+         // Delete all groups whose leader does not exist
+         CharacterDatabase.DirectExecute("DELETE FROM `groups` WHERE leaderGuid NOT IN (SELECT guid FROM characters)");
+         // Delete all groups with less than 2 members
++        //npcbot: adjust this
++        /*
++        //end npcbot
+         CharacterDatabase.DirectExecute("DELETE FROM `groups` WHERE guid NOT IN (SELECT guid FROM group_member GROUP BY guid HAVING COUNT(guid) > 1)");
++        //npcbot
++        */
++        CharacterDatabase.DirectExecute("DELETE FROM `groups` WHERE guid NOT IN (SELECT guid from group_member GROUP BY guid HAVING (SELECT (SELECT COUNT(guid) FROM group_member) + (SELECT COUNT(guid) FROM characters_npcbot_group_member)) > 1)");
++        //end npcbot
+ 
+         //                                                        0              1           2             3                 4      5          6      7         8       9
+         QueryResult result = CharacterDatabase.Query("SELECT g.leaderGuid, g.lootMethod, g.looterGuid, g.lootThreshold, g.icon1, g.icon2, g.icon3, g.icon4, g.icon5, g.icon6"
 diff --git a/src/server/game/Handlers/BattleGroundHandler.cpp b/src/server/game/Handlers/BattleGroundHandler.cpp
 index 840c2187..d779a8d9 100644
 --- a/src/server/game/Handlers/BattleGroundHandler.cpp
