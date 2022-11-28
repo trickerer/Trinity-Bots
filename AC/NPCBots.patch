@@ -61,7 +61,7 @@
  src/server/game/AI/CreatureAI.h                    |     5 +
  src/server/game/AI/NpcBots/bot_Events.h            |    53 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1355 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 18601 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 18610 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   699 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   410 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   950 +
@@ -170,7 +170,7 @@
  src/server/scripts/Spells/spell_rogue.cpp          |    52 +
  src/server/scripts/Spells/spell_shaman.cpp         |    10 +
  src/server/shared/SharedDefines.h                  |    23 +
- 172 files changed, 72021 insertions(+), 11 deletions(-)
+ 172 files changed, 72030 insertions(+), 11 deletions(-)
  create mode 100644 data/sql/Bots/1_world_bot_appearance.sql
  create mode 100644 data/sql/Bots/2_world_bot_extras.sql
  create mode 100644 data/sql/Bots/3_world_bots.sql
@@ -7476,10 +7476,10 @@ index 000000000..8495be82e
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..7803d3c1f
+index 000000000..94f367a59
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,18601 @@
+@@ -0,0 +1,18610 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -22776,22 +22776,31 @@ index 000000000..7803d3c1f
 +    if (me->HasUnitState(UNIT_STATE_CASTING) && !HasBotCommandState(BOT_COMMAND_ISSUED_ORDER) && urand(1,100) <= 75)
 +    {
 +        bool interrupt;
++        Unit const* target;
 +        for (uint8 i = CURRENT_FIRST_NON_MELEE_SPELL; i != CURRENT_MAX_SPELL; ++i)
 +        {
 +            interrupt = false;
-+            Spell const* spell = me->GetCurrentSpell(CurrentSpellTypes(i));
++            Spell* spell = me->GetCurrentSpell(CurrentSpellTypes(i));
 +            if (!spell)
 +                continue;
-+            Unit const* target = spell->m_targets.GetUnitTarget();
-+            if (!target)
-+                continue;
++
 +            SpellInfo const* info = spell->GetSpellInfo();
 +            if (!info->CastTimeEntry)
 +                continue;
++
 +            if (info->Id == SHOOT_WAND && me->isMoving())
-+            {
 +                interrupt = true;
++            else
++            {
++                // not interrupted yet, next checks require target, ensure validity
++                // kidna expensive but prevents invalid targets
++                if (spell->m_targets.GetObjectTargetGUID().IsAnyTypeCreature())
++                    spell->m_targets.Update(me);
++                target = spell->m_targets.GetUnitTarget();
++                if (!target)
++                    continue;
 +            }
++
 +            if (!interrupt && !info->IsPositive())
 +            {
 +                if (!target->IsAlive() && info->Id != SPELL_CORPSE_EXPLOSION && info->Id != SPELL_RAISE_DEAD)
