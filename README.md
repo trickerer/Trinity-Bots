@@ -1,6 +1,6 @@
 ### This mod was last updated:
-### TC: 30 Nov 2022, [4fba0ba231](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/4fba0ba231)
-### AC: 30 Nov 2022, [7d864d90a4](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/7d864d90a4)
+### TC: 01 Dec 2022, [a82bc3f825](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/a82bc3f825)
+### AC: 01 Dec 2022, [812bdaf3cd](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/812bdaf3cd)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 
@@ -260,7 +260,7 @@ _TARGET_ indicates that command is used on a selected unit
         **Example Usage:**  
             - `.npcbot dump load bots_backup` (load from `bots_backup.sql`)  
             - `.npcb du l 1.txt` (load from `1.txt`)  
-- **`createnew <NAME> <CLASS> _RACE_ _GENDER_ _SKIN_ _FACE_ _HEARSTYLE_ _HAIRCOLOR_ _FEATURES_`** -- (Admin command) allows you to create new NPCBots for players to use. Creature ids 70800+ are reserved for that so you can create up to 200 custom NPCBots  
+- **`createnew <NAME> <CLASS> _RACE_ _GENDER_ _SKIN_ _FACE_ _HEARSTYLE_ _HAIRCOLOR_ _FEATURES_`** -- (Admin command) allows you to create new NPCBots for players to use. Creature ids 70800+ are used for that.  
     - NAME = name of created NPCBot. Note that first letter will always be in Upper Case  
     - CLASS = this refers to NPCBot class. Use `.npcbot lookup` comand to list all available classes  
     - _RACE_ = you have to provide a race for your new NPCbot unless you are creating a NPCBot of one of the special classes for whose race is predefined as well as other details  
@@ -832,16 +832,17 @@ NPCBot data is stored in the following locations:
     Also writes into:
         - `item_instance` (item owner assignment)
 - `world` DB
-    - `creature_template` (ids 70000-71000) contains creature base data for bots
-    - `creature_equip_template` (ids 70000-71000) contains bots' standard weapons info
+    - `creature_template` (ids 70000-71000\*) contains creature base data for bots
+    - `creature_equip_template` (ids 70000-71000\*) contains bots' standard weapons info
     - `npc_text` (ids 70000-71000) custom text for bots' gossip and class descriptions
     - `creature_template_outfits` (created by this mod) contains static display information
     - `creature_template_npcbot_appearance` (created by this mod) contains dynamic display information
     - `creature_template_npcbot_extras` (created by this mod) contains race and class info
     - `creature` contains info about spawned creatures in the world
+    - * - max id may be exceeded by custom NPCBots created
 
 If you want to make changes to the static template data used for NPCBots, you make adjustments in the `world` database to those specific ids in the above tables (i.e. npcbot model, outfits, etc.)
-If you need to remove NPCBot mod completely you need to first manually delete every spawned bot in the world (using .npcbot delete command; you need to remove their equipment first, otherwise the items become inaccessible). Then delete `characters_npcbot`, `creature_template_npcbot_extras` and `creature_template_npcbot_appearance` tables and clean all other used tables of entries by id (70000-71000). `creature_template_outfits` can also be deleted if you are not using Npc Dress Mod.
+If you need to remove NPCBot mod completely you need to first manually delete every spawned bot in the world (using .npcbot delete command; you need to remove their equipment first, otherwise the items become inaccessible). Then delete `characters_npcbot`, `creature_template_npcbot_extras` and `creature_template_npcbot_appearance` tables and clean all other used tables of entries by id (70000-71000 + possibly more custom bot entries). `creature_template_outfits` can also be deleted if you are not using Npc Dress Mod.
 
 #### Game World
 Bots are counted as active objects (keep grids loaded like players)

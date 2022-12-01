@@ -82,15 +82,15 @@
  src/server/game/AI/NpcBots/bot_sphynx_ai.cpp       |   597 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  2087 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2260 +++
- src/server/game/AI/NpcBots/botcommands.cpp         |  2011 ++
+ src/server/game/AI/NpcBots/botcommands.cpp         |  2006 ++
  src/server/game/AI/NpcBots/botcommon.h             |  1074 ++
- src/server/game/AI/NpcBots/botdatamgr.cpp          |   699 +
- src/server/game/AI/NpcBots/botdatamgr.h            |   158 +
+ src/server/game/AI/NpcBots/botdatamgr.cpp          |   711 +
+ src/server/game/AI/NpcBots/botdatamgr.h            |   159 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   133 +
  src/server/game/AI/NpcBots/botdpstracker.h         |    42 +
- src/server/game/AI/NpcBots/botdump.cpp             |  1021 +
+ src/server/game/AI/NpcBots/botdump.cpp             |  1019 +
  src/server/game/AI/NpcBots/botdump.h               |    51 +
- src/server/game/AI/NpcBots/botgiver.cpp            |   286 +
+ src/server/game/AI/NpcBots/botgiver.cpp            |   284 +
  src/server/game/AI/NpcBots/botmgr.cpp              |  1709 ++
  src/server/game/AI/NpcBots/botmgr.h                |   234 +
  src/server/game/AI/NpcBots/botspell.h              |   246 +
@@ -172,7 +172,7 @@
  src/server/scripts/Spells/spell_rogue.cpp          |    52 +
  src/server/scripts/Spells/spell_shaman.cpp         |    10 +
  src/server/shared/SharedDefines.h                  |    23 +
- 174 files changed, 72241 insertions(+), 11 deletions(-)
+ 174 files changed, 72245 insertions(+), 11 deletions(-)
  create mode 100644 data/sql/Bots/1_world_bot_appearance.sql
  create mode 100644 data/sql/Bots/2_world_bot_extras.sql
  create mode 100644 data/sql/Bots/3_world_bots.sql
@@ -7508,7 +7508,7 @@ index 000000000..8495be82e
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..db3ef8bf4
+index 000000000..fe404fa5b
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
 @@ -0,0 +1,18667 @@
@@ -8279,7 +8279,7 @@ index 000000000..db3ef8bf4
 +    }
 +
 +    //spells with cast time
-+    if (me->isMoving() && !HasBotCommandState(BOT_COMMAND_ISSUED_ORDER) &&
++    if (me->isMoving() && !HasBotCommandState(BOT_COMMAND_ISSUED_ORDER) && !HasBotCommandState(BOT_COMMAND_STAY) &&
 +        ((m_botSpellInfo->InterruptFlags & SPELL_INTERRUPT_FLAG_MOVEMENT)
 +        //autorepeat spells missing SPELL_INTERRUPT_FLAG_MOVEMENT
 +        || spellId == SHOOT_WAND
@@ -55642,10 +55642,10 @@ index 000000000..5d1abfab2
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 000000000..6a19a1080
+index 000000000..c0865f84d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
-@@ -0,0 +1,2011 @@
+@@ -0,0 +1,2006 @@
 +#include "bot_ai.h"
 +#include "botdump.h"
 +#include "botmgr.h"
@@ -56740,7 +56740,7 @@ index 000000000..6a19a1080
 +        for (CreatureTemplateContainer::const_iterator itr = ctc->begin(); itr != ctc->end(); ++itr)
 +        {
 +            uint32 id = itr->second.Entry;
-+            if (id < BOT_ENTRY_BEGIN || id > BOT_ENTRY_END || id == BOT_ENTRY_CONVERSING_WITH_THE_DEPTHS_TRIGGER)
++            if (!BotDataMgr::SelectNpcBotExtras(id))
 +                continue;
 +
 +            if (id == BOT_ENTRY_MIRROR_IMAGE_BM)
@@ -57107,21 +57107,16 @@ index 000000000..6a19a1080
 +        }
 +
 +        uint32 newentry = 0;
-+        QueryResult creres = WorldDatabase.Query("SELECT MAX(entry) FROM creature_template WHERE entry >= {} AND entry < {}", BOT_ENTRY_CREATE_BEGIN, BOT_ENTRY_END);
-+        if (creres)
++        QueryResult creres = WorldDatabase.Query("SELECT entry FROM creature_template WHERE entry = {}", BOT_ENTRY_CREATE_BEGIN);
++        if (!creres)
++            newentry = BOT_ENTRY_CREATE_BEGIN;
++        else
 +        {
++            creres = WorldDatabase.Query("SELECT MIN(entry) FROM creature_template WHERE entry >= {} AND entry IN (SELECT entry FROM creature_template) AND entry+1 NOT IN (SELECT entry FROM creature_template)", BOT_ENTRY_CREATE_BEGIN);
++            ASSERT(creres);
 +            Field* field = creres->Fetch();
 +            newentry = field[0].Get<uint32>() + 1;
 +        }
-+        if (newentry < BOT_ENTRY_CREATE_BEGIN)
-+            newentry = BOT_ENTRY_CREATE_BEGIN;
-+
-+        if (newentry >= BOT_ENTRY_END)
-+        {
-+            handler->SendSysMessage("Error: last entry is occupied, assuming no free entries left!");
-+            handler->SetSentErrorMessage(true);
-+            return false;
-+        };
 +
 +        WorldDatabaseTransaction trans = WorldDatabase.BeginTransaction();
 +        trans->Append("DROP TEMPORARY TABLE IF EXISTS creature_template_temp_npcbot_create");
@@ -57659,7 +57654,7 @@ index 000000000..6a19a1080
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommon.h b/src/server/game/AI/NpcBots/botcommon.h
 new file mode 100644
-index 000000000..e5f306e1d
+index 000000000..23db96850
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommon.h
 @@ -0,0 +1,1074 @@
@@ -57687,12 +57682,12 @@ index 000000000..e5f306e1d
 +//MISC
 +    BOT_GIVER_ENTRY                     = 70000,
 +    BOT_ENTRY_BEGIN                     = 70001,
-+    BOT_ENTRY_END                       = 71000,
-+    BOT_ENTRY_CREATE_BEGIN              = 70800, // 70800 - 71000 reserved for bot creation
++    //BOT_ENTRY_END                       = 71000,
++    BOT_ENTRY_CREATE_BEGIN              = 70800, // 70800+ reserved for bot creation
 +    //BOT_PET_ENTRY_BEGIN                 = 70501,
 +    //BOT_PET_ENTRY_END                   = 70550,
 +    BOT_ENTRY_MIRROR_IMAGE_BM           = 70552,
-+    BOT_ENTRY_CONVERSING_WITH_THE_DEPTHS_TRIGGER = 70100,
++    //BOT_ENTRY_CONVERSING_WITH_THE_DEPTHS_TRIGGER = 70100,
 +    BOT_MAX_CHASE_RANGE                 = 120,  //yds
 +    //BOT_EVADE_TIME                      = 3000, //ms
 +//COMMON GAMEOBJECTS
@@ -58739,10 +58734,10 @@ index 000000000..e5f306e1d
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.cpp b/src/server/game/AI/NpcBots/botdatamgr.cpp
 new file mode 100644
-index 000000000..9ffbfd44d
+index 000000000..b7796ce67
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.cpp
-@@ -0,0 +1,699 @@
+@@ -0,0 +1,711 @@
 +#include "botdatamgr.h"
 +#include "Creature.h"
 +#include "DatabaseEnv.h"
@@ -59024,7 +59019,7 @@ index 000000000..9ffbfd44d
 +        Field* fields = result->Fetch();
 +
 +        uint32 creature_id = fields[1].Get<uint32>();
-+        if (creature_id < BOT_ENTRY_BEGIN || creature_id > BOT_ENTRY_END)
++        if (!SelectNpcBotExtras(creature_id))
 +        {
 +            LOG_WARN("server.loading", "Table `characters_npcbot_group_member` contains non-NPCBot creature {} which will not be loaded!", creature_id);
 +            continue;
@@ -59442,12 +59437,24 @@ index 000000000..9ffbfd44d
 +
 +    return ObjectGuid::Empty;
 +}
++
++std::vector<uint32> BotDataMgr::GetExistingNPCBotIds()
++{
++    ASSERT(AllBotsLoaded());
++
++    std::vector<uint32> existing_ids;
++    existing_ids.reserve(_botsData.size());
++    for (decltype(_botsData)::value_type const& bot_data_pair : _botsData)
++        existing_ids.push_back(bot_data_pair.first);
++
++    return existing_ids;
++}
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.h b/src/server/game/AI/NpcBots/botdatamgr.h
 new file mode 100644
-index 000000000..4d8734f41
+index 000000000..7afc825c6
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.h
-@@ -0,0 +1,158 @@
+@@ -0,0 +1,159 @@
 +#ifndef _BOTDATAMGR_H
 +#define _BOTDATAMGR_H
 +
@@ -59597,6 +59604,7 @@ index 000000000..4d8734f41
 +        static NpcBotRegistry const& GetExistingNPCBots();
 +        static void GetNPCBotGuidsByOwner(std::vector<ObjectGuid> &guids_vec, ObjectGuid owner_guid);
 +        static ObjectGuid GetNPCBotGuid(uint32 entry);
++        static std::vector<uint32> GetExistingNPCBotIds();
 +
 +        static std::shared_mutex* GetLock();
 +
@@ -59795,10 +59803,10 @@ index 000000000..a528a8ffb
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botdump.cpp b/src/server/game/AI/NpcBots/botdump.cpp
 new file mode 100644
-index 000000000..3c0a70ec7
+index 000000000..5fa3bfa37
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdump.cpp
-@@ -0,0 +1,1021 @@
+@@ -0,0 +1,1019 @@
 +/*
 + * NpcBots Data Migration System by Trickerer (onlysuffering@gmail.com)
 + *
@@ -60262,7 +60270,7 @@ index 000000000..3c0a70ec7
 +        } while (result->NextRow());
 +    }
 +    //second - join with entries from `creature` table (who knows what you have spawned there before you needed to import bots eh?)
-+    result = WorldDatabase.Query("SELECT `id1` FROM `creature` WHERE `id1` BETWEEN {} AND {} AND `id1` != {}", BOT_ENTRY_BEGIN, BOT_ENTRY_END, BOT_ENTRY_CONVERSING_WITH_THE_DEPTHS_TRIGGER);
++    result = WorldDatabase.Query("SELECT `id1` FROM `creature` WHERE `id1` IN (SELECT `entry` FROM `creature_template_npcbot_extras`) ORDER BY `id1`");
 +    if (result)
 +    {
 +        fields = result->Fetch();
@@ -60533,10 +60541,8 @@ index 000000000..3c0a70ec7
 +
 +    std::set<uint32> valid_ids;
 +    bool integrityChecked = true;
-+    for (uint32 i = BOT_ENTRY_BEGIN; i <= BOT_ENTRY_END; ++i)
++    for (uint32 i : BotDataMgr::GetExistingNPCBotIds())
 +    {
-+        if (i == BOT_ENTRY_CONVERSING_WITH_THE_DEPTHS_TRIGGER)
-+            continue;
 +        BotDataVerificationResult res = VerifyWriteData(i);
 +        if (res == BOT_DATA_INCOMPLETE)
 +        {
@@ -60879,10 +60885,10 @@ index 000000000..16a6440fb
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botgiver.cpp b/src/server/game/AI/NpcBots/botgiver.cpp
 new file mode 100644
-index 000000000..eb948bf08
+index 000000000..b3a7635ee
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botgiver.cpp
-@@ -0,0 +1,286 @@
+@@ -0,0 +1,284 @@
 +#include "bot_ai.h"
 +#include "botcommon.h"
 +#include "botdatamgr.h"
@@ -60901,8 +60907,6 @@ index 000000000..eb948bf08
 +#define HIRE GOSSIP_SENDER_BOTGIVER_HIRE
 +#define HIRE_CLASS GOSSIP_SENDER_BOTGIVER_HIRE_CLASS
 +#define HIRE_ENTRY GOSSIP_SENDER_BOTGIVER_HIRE_ENTRY
-+
-+typedef std::set<Creature const*> NpcBotRegistry;
 +
 +class script_bot_giver : public CreatureScript
 +{
