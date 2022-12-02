@@ -1,6 +1,6 @@
 ### This mod was last updated:
-### TC: 01 Dec 2022, [a82bc3f825](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/a82bc3f825)
-### AC: 02 Dec 2022, [646d2a4610](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/646d2a4610)
+### TC: 02 Dec 2022, [c18e5ddfc4](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/c18e5ddfc4)
+### AC: 02 Dec 2022, [6f427bcff4](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/6f427bcff4)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 
@@ -260,7 +260,7 @@ _TARGET_ indicates that command is used on a selected unit
         **Example Usage:**  
             - `.npcbot dump load bots_backup` (load from `bots_backup.sql`)  
             - `.npcb du l 1.txt` (load from `1.txt`)  
-- **`createnew <NAME> <CLASS> _RACE_ _GENDER_ _SKIN_ _FACE_ _HEARSTYLE_ _HAIRCOLOR_ _FEATURES_`** -- (Admin command) allows you to create new NPCBots for players to use. Creature ids 70800+ are used for that.  
+- **`createnew <NAME> <CLASS> _RACE_ _GENDER_ _SKIN_ _FACE_ _HEARSTYLE_ _HAIRCOLOR_ _FEATURES_ _SOUNDSET_`** -- (Admin command) allows you to create new NPCBots for players to use. Creature ids 70800+ are used for that.  
     - NAME = name of created NPCBot. Note that first letter will always be in Upper Case  
     - CLASS = this refers to NPCBot class. Use `.npcbot lookup` comand to list all available classes  
     - _RACE_ = you have to provide a race for your new NPCbot unless you are creating a NPCBot of one of the special classes for whose race is predefined as well as other details  
@@ -277,7 +277,8 @@ _TARGET_ indicates that command is used on a selected unit
     - _GENDER_ = same as _RACE_, for normal classes you have to select one  
         - 0: Male  
         - 1: Female  
-    - _SKIN_, _FACE_, _HEARSTYLE_, _HAIRCOLOR_, _FEATURES_ - appearance details, 0 and up. Different race/gender combinations have different limits for those, lowest being **0-3** (female Tauren face) and highest **0-23** (female Human hair style)  
+    - _SKIN_, _FACE_, _HEARSTYLE_, _HAIRCOLOR_, _FEATURES_ = appearance details, 0 and up. Different race/gender combinations have different limits for those, lowest being **0-3** (female Tauren face) and highest **0-23** (female Human hair style)  
+    - _SOUNDSET_ = NPC voice variant for bot to use. There are 3 variants for each race, by default the choice is random  
     **Example Usage:**  
         - `.npcbot createnew Selendris 2 10 1 6 4 3 2 4` (creates a female redhead Blood Elf mage npcbot)  
         - `.npcb cre Selendris 2 10 1 6 4 3 2 4` (creates a female redhead Blood Elf mage npcbot)  
