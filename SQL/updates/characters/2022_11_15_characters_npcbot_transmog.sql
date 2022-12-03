@@ -1,4 +1,5 @@
 -- 
+DROP TABLE IF EXISTS `characters_npcbot_transmog`;
 CREATE TABLE `characters_npcbot_transmog` (
   `entry` int(10) unsigned NOT NULL,
   `slot` tinyint(3) unsigned NOT NULL,

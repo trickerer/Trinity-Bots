@@ -31,8 +31,8 @@
  .../characters/2021_01_04_characters_npcbot.sql    |     1 +
  .../2021_01_24_characters_npcbot_stats.sql         |    32 +
  .../characters/2021_08_27_characters_npcbot.sql    |     2 +
- .../2022_11_15_characters_npcbot_transmog.SQL      |     9 +
- .../2022_11_27_characters_npcbot_group_member.sql  |     9 +
+ .../2022_11_15_characters_npcbot_transmog.SQL      |    10 +
+ .../2022_11_27_characters_npcbot_group_member.sql  |    10 +
  .../2020_07_08_creature_template_npcbot_extras.sql |     2 +
  .../updates/world/2020_09_25_creature_template.sql |     2 +
  .../world/2020_10_14_creature_classlevelstats.sql  |   611 +
@@ -188,7 +188,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   314 +
- 190 files changed, 71076 insertions(+), 76 deletions(-)
+ 190 files changed, 71078 insertions(+), 76 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -3494,11 +3494,12 @@ index 00000000..2744dadd
 +UPDATE `characters_npcbot` SET `roles` = (roles & 0x1) | ((roles & ~0x1) << 1);
 diff --git a/sql/Bots/updates/characters/2022_11_15_characters_npcbot_transmog.SQL b/sql/Bots/updates/characters/2022_11_15_characters_npcbot_transmog.SQL
 new file mode 100644
-index 00000000..5e771528
+index 00000000..34d70861
 --- /dev/null
 +++ b/sql/Bots/updates/characters/2022_11_15_characters_npcbot_transmog.SQL
-@@ -0,0 +1,9 @@
+@@ -0,0 +1,10 @@
 +-- 
++DROP TABLE IF EXISTS `characters_npcbot_transmog`;
 +CREATE TABLE `characters_npcbot_transmog` (
 +  `entry` int(10) unsigned NOT NULL,
 +  `slot` tinyint(3) unsigned NOT NULL,
@@ -3509,11 +3510,12 @@ index 00000000..5e771528
 +) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 diff --git a/sql/Bots/updates/characters/2022_11_27_characters_npcbot_group_member.sql b/sql/Bots/updates/characters/2022_11_27_characters_npcbot_group_member.sql
 new file mode 100644
-index 00000000..280dfdb1
+index 00000000..25d11423
 --- /dev/null
 +++ b/sql/Bots/updates/characters/2022_11_27_characters_npcbot_group_member.sql
-@@ -0,0 +1,9 @@
+@@ -0,0 +1,10 @@
 +-- 
++DROP TABLE IF EXISTS `characters_npcbot_group_member`;
 +CREATE TABLE `characters_npcbot_group_member` (
 +  `guid` int(10) unsigned NOT NULL,
 +  `entry` int(10) unsigned NOT NULL,
@@ -57754,7 +57756,7 @@ index 00000000..f0b06507
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.cpp b/src/server/game/AI/NpcBots/botdatamgr.cpp
 new file mode 100644
-index 00000000..e7a269cf
+index 00000000..1172ca13
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.cpp
 @@ -0,0 +1,709 @@
@@ -58027,7 +58029,7 @@ index 00000000..e7a269cf
 +    QueryResult result = CharacterDatabase.Query("SELECT guid, entry, memberFlags, subgroup, roles FROM characters_npcbot_group_member ORDER BY guid");
 +    if (!result)
 +    {
-+        TC_LOG_INFO("server.loading", ">> Loaded 0 NPCBot group members. DB table `group_member` is empty!");
++        TC_LOG_INFO("server.loading", ">> Loaded 0 NPCBot group members. DB table `characters_npcbot_group_member` is empty!");
 +        return;
 +    }
 +
