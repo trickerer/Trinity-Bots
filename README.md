@@ -840,7 +840,7 @@ NPCBot data is stored in the following locations:
     - `creature_template_npcbot_appearance` (created by this mod) contains dynamic display information
     - `creature_template_npcbot_extras` (created by this mod) contains race and class info
     - `creature` contains info about spawned creatures in the world
-    - * - max id may be exceeded by custom NPCBots created
+    - \* \- max id may be exceeded by custom NPCBots created
 
 If you want to make changes to the static template data used for NPCBots, you make adjustments in the `world` database to those specific ids in the above tables (i.e. npcbot model, outfits, etc.)
 If you need to remove NPCBot mod completely you need to first manually delete every spawned bot in the world (using .npcbot delete command; you need to remove their equipment first, otherwise the items become inaccessible). Then delete `characters_npcbot`, `creature_template_npcbot_extras` and `creature_template_npcbot_appearance` tables and clean all other used tables of entries by id (70000-71000 + possibly more custom bot entries). `creature_template_outfits` can also be deleted if you are not using Npc Dress Mod.
