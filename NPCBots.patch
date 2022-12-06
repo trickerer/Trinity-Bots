@@ -73,7 +73,7 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    72 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1355 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 18666 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 18670 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   707 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   391 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   929 +
@@ -169,9 +169,11 @@
  src/server/game/Spells/Spell.h                     |     3 +
  src/server/game/Spells/SpellEffects.cpp            |   159 +
  src/server/game/Spells/SpellInfo.cpp               |    51 +
+ src/server/game/Spells/SpellMgr.cpp                |    12 +
  src/server/scripts/Commands/cs_npc.cpp             |    31 +
  .../CavernsOfTime/BattleForMountHyjal/hyjalAI.cpp  |     5 +
  .../BattleForMountHyjal/hyjal_trash.cpp            |     8 +
+ .../boss_icecrown_gunship_battle.cpp               |    28 +
  .../IcecrownCitadel/instance_icecrown_citadel.cpp  |    21 +
  .../Northrend/Naxxramas/boss_four_horsemen.cpp     |     4 +-
  .../Outland/BlackTemple/boss_warlord_najentus.cpp  |    17 +
@@ -189,7 +191,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   314 +
- 191 files changed, 71303 insertions(+), 76 deletions(-)
+ 193 files changed, 71347 insertions(+), 76 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -6638,10 +6640,10 @@ index 00000000..1f81a6c1
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 00000000..d74c999e
+index 00000000..609609e4
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,18666 @@
+@@ -0,0 +1,18670 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -20490,6 +20492,15 @@ index 00000000..d74c999e
 +    KillEvents(false);
 +    CancelAllOrders();
 +
++    if (me->GetVehicle())
++        me->ExitVehicle();
++
++    if (me->GetTransport())
++    {
++        me->ClearUnitState(UNIT_STATE_IGNORE_PATHFINDING);
++        me->GetTransport()->RemovePassenger(me);
++    }
++
 +    if (IsTempBot())
 +    {
 +        //TC_LOG_ERROR("entities.player", "Unsummoning temp bot %s (%s), owner: %s (%s)...",
@@ -22976,19 +22987,14 @@ index 00000000..d74c999e
 +void bot_ai::OnBotOwnerExitVehicle(Vehicle const* /*vehicle*/)
 +{
 +    shouldEnterVehicle = false;
-+    /*
 +    if (me->GetVehicle())
 +    {
-+        //if (VehicleSeatEntry const* seat = me->GetVehicle()->GetSeatForPassenger(me))
-+        //{
-+            //if (seat->CanEnterOrExit())
-+                me->ExitVehicle();
-+                me->BotStopMovement();
-+        //}
-+        return;
++        if (me->GetMapId() == 631) // Icecrown Citadel
++        {
++            me->ExitVehicle();
++            me->BotStopMovement();
++        }
 +    }
-+    */
-+    //TC_LOG_ERROR("scripts", "OnBotOwnerExitVehicle: no vehicle or no seat for bot %s!", me->GetName().c_str());
 +}
 +
 +Unit* bot_ai::SpawnVehicle(uint32 creEntry, uint32 vehEntry)
@@ -73666,6 +73672,29 @@ index cabad3bd..9ca42cbd 100644
      // PCT mod from user auras by school
      powerCost = int32(powerCost * (1.0f + unitCaster->GetFloatValue(UNIT_FIELD_POWER_COST_MULTIPLIER + school)));
      if (powerCost < 0)
+diff --git a/src/server/game/Spells/SpellMgr.cpp b/src/server/game/Spells/SpellMgr.cpp
+index ebcab322..8fa27435 100644
+--- a/src/server/game/Spells/SpellMgr.cpp
++++ b/src/server/game/Spells/SpellMgr.cpp
+@@ -2984,6 +2984,18 @@ void SpellMgr::LoadSpellInfoCorrections()
+ {
+     uint32 oldMSTime = getMSTime();
+ 
++    //npcbot: corrections for Gunship Battle Shoot: should be able to target creatures (Hurl Axe can)
++    ApplySpellFix({
++        70162,  // Shoot 10N
++        72566,  // Shoot 25N
++        72567,  // Shoot 10H
++        72568   // Shoot 25H
++        }, [](SpellInfo* spellInfo)
++    {
++        spellInfo->AttributesEx3 &= ~SPELL_ATTR3_ONLY_TARGET_PLAYERS;
++        spellInfo->TargetAuraSpell = 0;
++    });
++
+     // Some spells have no amplitude set
+     {
+         ApplySpellFix({
 diff --git a/src/server/scripts/Commands/cs_npc.cpp b/src/server/scripts/Commands/cs_npc.cpp
 index e4ee87db..c320e7b4 100644
 --- a/src/server/scripts/Commands/cs_npc.cpp
@@ -73757,6 +73786,66 @@ index 38511e9e..0baa1fd4 100644
      if (!done_by || done_by->GetTypeId() == TYPEID_PLAYER || done_by->IsPet())
      {
          damageTaken += damage;
+diff --git a/src/server/scripts/Northrend/IcecrownCitadel/boss_icecrown_gunship_battle.cpp b/src/server/scripts/Northrend/IcecrownCitadel/boss_icecrown_gunship_battle.cpp
+index 36324199..05429cf4 100644
+--- a/src/server/scripts/Northrend/IcecrownCitadel/boss_icecrown_gunship_battle.cpp
++++ b/src/server/scripts/Northrend/IcecrownCitadel/boss_icecrown_gunship_battle.cpp
+@@ -38,6 +38,10 @@
+ #include "Vehicle.h"
+ #include <G3D/Vector3.h>
+ 
++//npcbot
++#include "botmgr.h"
++//end npcbot
++
+ enum Texts
+ {
+     // High Overlord Saurfang
+@@ -614,6 +618,10 @@ struct gunship_npc_AI : public ScriptedAI
+     {
+         if (Instance->GetBossState(DATA_ICECROWN_GUNSHIP_BATTLE) != IN_PROGRESS)
+             return false;
++        //npcbot: allow to attack bots whereever they are
++        if (target->GetTypeId() == TYPEID_UNIT && target->ToCreature()->IsNPCBotOrPet())
++            return true;
++        //end npcbot
+         return target->HasAura(Instance->GetData(DATA_TEAM_IN_INSTANCE) == HORDE ? SPELL_ON_ORGRIMS_HAMMER_DECK : SPELL_ON_SKYBREAKER_DECK);
+     }
+ 
+@@ -744,6 +752,15 @@ class npc_gunship : public CreatureScript
+                     hull->CastSpell(hull, explosionSpell, TRIGGERED_FULL_MASK);
+                 }
+ 
++                //npcbot: kill bots
++                Transport::PassengerSet const& allpassengers = me->GetTransport()->GetPassengers();
++                for (Transport::PassengerSet::const_iterator citr = allpassengers.begin(); citr != allpassengers.end(); ++citr)
++                {
++                    if ((*citr)->GetTypeId() == TYPEID_PLAYER && (*citr)->ToPlayer()->HaveBot())
++                        (*citr)->ToPlayer()->GetBotMgr()->KillAllBots();
++                }
++                //end npcbot
++
+                 creatures.clear();
+                 GetCreatureListWithEntryInGrid(creatures, me, _teamInInstance == HORDE ? NPC_HORDE_GUNSHIP_CANNON : NPC_ALLIANCE_GUNSHIP_CANNON, 200.0f);
+                 for (std::list<Creature*>::iterator itr = creatures.begin(); itr != creatures.end(); ++itr)
+@@ -1511,6 +1528,17 @@ struct npc_gunship_boarding_addAI : public gunship_npc_AI
+             return !me->_IsTargetAcceptable(player) || !me->CanStartAttack(player, true);
+         });
+ 
++        //npcbot: allow bots as targets
++        auto npcbot_check = [this](Creature const* creature) {
++            return creature->IsNPCBotOrPet() && me->_IsTargetAcceptable(creature) && me->CanStartAttack(creature, true);
++        };
++        Creature* anybot = nullptr;
++        Trinity::CreatureSearcher botsearcher(me, anybot, npcbot_check);
++        Cell::VisitWorldObjects(me, botsearcher, 70.0f);
++        if (anybot)
++            return true;
++        //end npcbot
++
+         return !players.empty();
+     }
+ 
 diff --git a/src/server/scripts/Northrend/IcecrownCitadel/instance_icecrown_citadel.cpp b/src/server/scripts/Northrend/IcecrownCitadel/instance_icecrown_citadel.cpp
 index 849d8c8b..e3b7be66 100644
 --- a/src/server/scripts/Northrend/IcecrownCitadel/instance_icecrown_citadel.cpp

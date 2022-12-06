@@ -22,7 +22,7 @@
  src/server/game/AI/CreatureAI.h                    |     5 +
  src/server/game/AI/NpcBots/bot_Events.h            |    72 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1355 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 18693 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 18697 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   707 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   410 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   950 +
@@ -87,7 +87,7 @@
  src/server/game/Entities/Player/Player.h           |    25 +
  src/server/game/Entities/Player/PlayerUpdates.cpp  |    14 +
  src/server/game/Entities/Totem/Totem.cpp           |    26 +
- src/server/game/Entities/Transport/Transport.cpp   |     4 +
+ src/server/game/Entities/Transport/Transport.cpp   |    11 +
  src/server/game/Entities/Unit/StatSystem.cpp       |    50 +
  src/server/game/Entities/Unit/Unit.cpp             |  1039 ++
  src/server/game/Entities/Unit/Unit.h               |    56 +-
@@ -119,10 +119,11 @@
  src/server/game/Spells/Spell.h                     |     3 +
  src/server/game/Spells/SpellEffects.cpp            |   161 +
  src/server/game/Spells/SpellInfo.cpp               |    48 +
- src/server/game/Spells/SpellInfoCorrections.cpp    |    51 +
+ src/server/game/Spells/SpellInfoCorrections.cpp    |    62 +
  src/server/scripts/Commands/cs_npc.cpp             |    30 +
  .../CavernsOfTime/BattleForMountHyjal/hyjalAI.cpp  |     5 +
  .../BattleForMountHyjal/hyjal_trash.cpp            |     8 +
+ .../boss_icecrown_gunship_battle.cpp               |    45 +
  .../Northrend/Naxxramas/boss_four_horsemen.cpp     |     2 +-
  src/server/scripts/Spells/spell_dk.cpp             |    26 +
  src/server/scripts/Spells/spell_druid.cpp          |    64 +
@@ -134,7 +135,7 @@
  src/server/scripts/Spells/spell_rogue.cpp          |    52 +
  src/server/scripts/Spells/spell_shaman.cpp         |    10 +
  src/server/shared/SharedDefines.h                  |    23 +
- 136 files changed, 72085 insertions(+), 12 deletions(-)
+ 137 files changed, 72152 insertions(+), 12 deletions(-)
  create mode 100644 data/sql/Bots/locales/ruRU/npc_text_locale.sql
  create mode 100644 data/sql/Bots/locales/zhCN/npc_text_locale.sql
  create mode 100644 data/sql/Bots/locales/zhTW/npc_text_locale.sql
@@ -6717,10 +6718,10 @@ index 000000000..8495be82e
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..34f2ea1a6
+index 000000000..47f96436a
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,18693 @@
+@@ -0,0 +1,18697 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -20589,6 +20590,15 @@ index 000000000..34f2ea1a6
 +    KillEvents(false);
 +    CancelAllOrders();
 +
++    if (me->GetVehicle())
++        me->ExitVehicle();
++
++    if (me->GetTransport())
++    {
++        me->ClearUnitState(UNIT_STATE_IGNORE_PATHFINDING);
++        me->GetTransport()->RemovePassenger(me, true);
++    }
++
 +    if (IsTempBot())
 +    {
 +        //TC_LOG_ERROR("entities.player", "Unsummoning temp bot %s (%s), owner: %s (%s)...",
@@ -23082,19 +23092,14 @@ index 000000000..34f2ea1a6
 +void bot_ai::OnBotOwnerExitVehicle(Vehicle const* /*vehicle*/)
 +{
 +    shouldEnterVehicle = false;
-+    /*
 +    if (me->GetVehicle())
 +    {
-+        //if (VehicleSeatEntry const* seat = me->GetVehicle()->GetSeatForPassenger(me))
-+        //{
-+            //if (seat->CanEnterOrExit())
-+                me->ExitVehicle();
-+                me->BotStopMovement();
-+        //}
-+        return;
++        if (me->GetMapId() == 631) // Icecrown Citadel
++        {
++            me->ExitVehicle();
++            me->BotStopMovement();
++        }
 +    }
-+    */
-+    //TC_LOG_ERROR("scripts", "OnBotOwnerExitVehicle: no vehicle or no seat for bot %s!", me->GetName().c_str());
 +}
 +
 +Unit* bot_ai::SpawnVehicle(uint32 creEntry, uint32 vehEntry)
@@ -70846,10 +70851,24 @@ index 172cf5fd6..df6450a9f 100644
  }
  
 diff --git a/src/server/game/Entities/Transport/Transport.cpp b/src/server/game/Entities/Transport/Transport.cpp
-index 89e1e329f..228b486cb 100644
+index 89e1e329f..5f95e3b58 100644
 --- a/src/server/game/Entities/Transport/Transport.cpp
 +++ b/src/server/game/Entities/Transport/Transport.cpp
-@@ -556,6 +556,10 @@ void MotionTransport::DelayedTeleportTransport()
+@@ -446,6 +446,13 @@ void MotionTransport::UnloadNonStaticPassengers()
+             ++itr;
+             continue;
+         }
++        //npcbot: do not unload bots
++        if ((*itr)->GetTypeId() == TYPEID_UNIT && (*itr)->ToCreature()->IsNPCBotOrPet())
++        {
++            ++itr;
++            continue;
++        }
++        //end npcbot
+         PassengerSet::iterator itr2 = itr++;
+         (*itr2)->AddObjectToRemoveList();
+     }
+@@ -556,6 +563,10 @@ void MotionTransport::DelayedTeleportTransport()
          switch (obj->GetTypeId())
          {
              case TYPEID_UNIT:
@@ -74613,10 +74632,10 @@ index a9a73f07c..1135edd8e 100644
      powerCost = int32(powerCost * (1.0f + caster->GetFloatValue(static_cast<uint16>(UNIT_FIELD_POWER_COST_MULTIPLIER) + school)));
      if (powerCost < 0)
 diff --git a/src/server/game/Spells/SpellInfoCorrections.cpp b/src/server/game/Spells/SpellInfoCorrections.cpp
-index 94f633bad..ec9cb3e6a 100644
+index 94f633bad..7a192dcd4 100644
 --- a/src/server/game/Spells/SpellInfoCorrections.cpp
 +++ b/src/server/game/Spells/SpellInfoCorrections.cpp
-@@ -40,6 +40,57 @@ void SpellMgr::LoadSpellInfoCorrections()
+@@ -40,6 +40,68 @@ void SpellMgr::LoadSpellInfoCorrections()
  {
      uint32 oldMSTime = getMSTime();
  
@@ -74668,6 +74687,17 @@ index 94f633bad..ec9cb3e6a 100644
 +        spellInfo->SpellLevel = 80;
 +        spellInfo->BaseLevel = 80;
 +        spellInfo->MaxLevel = 90;
++    });
++    //npcbot: corrections for Gunship Battle Shoot: should be able to target creatures (Hurl Axe can)
++    ApplySpellFix({
++        70162,  // Shoot 10N
++        72566,  // Shoot 25N
++        72567,  // Shoot 10H
++        72568   // Shoot 25H
++        }, [](SpellInfo* spellInfo)
++    {
++        spellInfo->AttributesEx3 &= ~SPELL_ATTR3_ONLY_ON_PLAYER;
++        spellInfo->TargetAuraSpell = 0;
 +    });
 +    //end npcbot
 +
@@ -74764,6 +74794,83 @@ index 55926a3a7..fa9c126b9 100644
      if (done_by && (done_by->GetTypeId() == TYPEID_PLAYER || done_by->IsPet()))
      {
          damageTaken += damage;
+diff --git a/src/server/scripts/Northrend/IcecrownCitadel/boss_icecrown_gunship_battle.cpp b/src/server/scripts/Northrend/IcecrownCitadel/boss_icecrown_gunship_battle.cpp
+index 44f572f0f..e3bc7c535 100644
+--- a/src/server/scripts/Northrend/IcecrownCitadel/boss_icecrown_gunship_battle.cpp
++++ b/src/server/scripts/Northrend/IcecrownCitadel/boss_icecrown_gunship_battle.cpp
+@@ -26,6 +26,10 @@
+ #include "Vehicle.h"
+ #include "icecrown_citadel.h"
+ 
++//npcbot
++#include "botmgr.h"
++//end npcbot
++
+ enum Texts
+ {
+     // High Overlord Saurfang
+@@ -603,6 +607,15 @@ public:
+                         continue;
+                     (*itr)->ToCreature()->CastSpell((*itr)->ToCreature(), explosionSpell, true);
+                 }
++
++                //npcbot: kill bots
++                Transport::PassengerSet const& allpassengers = t->GetPassengers();
++                for (Transport::PassengerSet::const_iterator citr = allpassengers.begin(); citr != allpassengers.end(); ++citr)
++                {
++                    if ((*citr)->GetTypeId() == TYPEID_PLAYER && (*citr)->ToPlayer()->HaveBot())
++                        (*citr)->ToPlayer()->GetBotMgr()->KillAllBots();
++                }
++                //end npcbot
+             }
+ 
+             uint32 cannonEntry = _teamIdInInstance == TEAM_HORDE ? NPC_HORDE_GUNSHIP_CANNON : NPC_ALLIANCE_GUNSHIP_CANNON;
+@@ -1622,6 +1635,22 @@ struct npc_gunship_boarding_addAI : public ScriptedAI
+                         p->SetInCombatWith(me);
+                         me->AddThreat(p, 0.0f);
+                     }
++                    //npcbot: check bots
++                    else if (p->HaveBot())
++                    {
++                        BotMap const* bmap = p->GetBotMgr()->GetBotMap();
++                        for (BotMap::const_iterator citr = bmap->begin(); citr != bmap->end(); ++citr)
++                        {
++                            if (citr->second && CanAIAttack(citr->second) && me->IsValidAttackTarget(citr->second))
++                            {
++                                anyValid = true;
++                                me->SetInCombatWith(citr->second);
++                                citr->second->SetInCombatWith(me);
++                                me->AddThreat(citr->second, 0.0f);
++                            }
++                        }
++                    }
++                    //end npcbot
+         }
+         else
+             checkTimer -= diff;
+@@ -1864,6 +1893,22 @@ public:
+                             p->SetInCombatWith(me);
+                             me->AddThreat(p, 0.0f);
+                         }
++                        //npcbot: check bots
++                        else if (p->HaveBot())
++                        {
++                            BotMap const* bmap = p->GetBotMgr()->GetBotMap();
++                            for (BotMap::const_iterator citr = bmap->begin(); citr != bmap->end(); ++citr)
++                            {
++                                if (citr->second && CanAIAttack(citr->second) && me->IsValidAttackTarget(citr->second))
++                                {
++                                    anyValid = true;
++                                    me->SetInCombatWith(citr->second);
++                                    citr->second->SetInCombatWith(me);
++                                    me->AddThreat(citr->second, 0.0f);
++                                }
++                            }
++                        }
++                        //end npcbot
+             }
+             else
+                 checkTimer -= diff;
 diff --git a/src/server/scripts/Northrend/Naxxramas/boss_four_horsemen.cpp b/src/server/scripts/Northrend/Naxxramas/boss_four_horsemen.cpp
 index 6a2951841..891852769 100644
 --- a/src/server/scripts/Northrend/Naxxramas/boss_four_horsemen.cpp
