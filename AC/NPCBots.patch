@@ -117,7 +117,7 @@
  src/server/game/Spells/Auras/SpellAuras.cpp        |    22 +
  src/server/game/Spells/Spell.cpp                   |   152 +
  src/server/game/Spells/Spell.h                     |     3 +
- src/server/game/Spells/SpellEffects.cpp            |   161 +
+ src/server/game/Spells/SpellEffects.cpp            |   181 +
  src/server/game/Spells/SpellInfo.cpp               |    48 +
  src/server/game/Spells/SpellInfoCorrections.cpp    |    62 +
  src/server/scripts/Commands/cs_npc.cpp             |    30 +
@@ -135,7 +135,7 @@
  src/server/scripts/Spells/spell_rogue.cpp          |    52 +
  src/server/scripts/Spells/spell_shaman.cpp         |    10 +
  src/server/shared/SharedDefines.h                  |    23 +
- 137 files changed, 72152 insertions(+), 12 deletions(-)
+ 137 files changed, 72172 insertions(+), 12 deletions(-)
  create mode 100644 data/sql/Bots/locales/ruRU/npc_text_locale.sql
  create mode 100644 data/sql/Bots/locales/zhCN/npc_text_locale.sql
  create mode 100644 data/sql/Bots/locales/zhTW/npc_text_locale.sql
@@ -74324,7 +74324,7 @@ index f28361b88..28d8842e2 100644
      bool IsAutoRepeat() const { return m_autoRepeat; }
      void SetAutoRepeat(bool rep) { m_autoRepeat = rep; }
 diff --git a/src/server/game/Spells/SpellEffects.cpp b/src/server/game/Spells/SpellEffects.cpp
-index 5ae18f79c..e2373b27b 100644
+index 5ae18f79c..719580a04 100644
 --- a/src/server/game/Spells/SpellEffects.cpp
 +++ b/src/server/game/Spells/SpellEffects.cpp
 @@ -485,6 +485,17 @@ void Spell::EffectSchoolDMG(SpellEffIndex effIndex)
@@ -74447,7 +74447,34 @@ index 5ae18f79c..e2373b27b 100644
                      }
                      break;
                  }
-@@ -804,6 +896,62 @@ void Spell::EffectTriggerSpell(SpellEffIndex effIndex)
+@@ -636,6 +728,26 @@ void Spell::EffectSchoolDMG(SpellEffIndex effIndex)
+                             int32 count = m_caster->CalculateSpellDamage(unitTarget, m_spellInfo, EFFECT_2);
+                             damage += count * int32(average * IN_MILLISECONDS) / m_caster->GetAttackTime(BASE_ATTACK);
+                         }
++                        //npcbot: creature weaoin damage
++                        else if (m_caster->GetTypeId() == TYPEID_UNIT && m_caster->ToCreature()->IsNPCBot())
++                        {
++                            float minTotal = 0.f;
++                            float maxTotal = 0.f;
++
++                            float tmpMin, tmpMax;
++                            for (uint8 i = 0; i < MAX_ITEM_PROTO_DAMAGES; ++i)
++                            {
++                                m_caster->ToCreature()->CalculateMinMaxDamage(BASE_ATTACK, false, false, tmpMin, tmpMax, i);
++                                minTotal += tmpMin;
++                                maxTotal += tmpMax;
++                            }
++
++                            float average = (minTotal + maxTotal) / 2;
++                            // Add main hand dps * effect[2] amount
++                            int32 count = m_caster->CalculateSpellDamage(unitTarget, m_spellInfo, EFFECT_2);
++                            damage += count * int32(average * IN_MILLISECONDS) / m_caster->GetAttackTime(BASE_ATTACK);
++                        }
++                        //end npcbot
+                         break;
+                     }
+                     // Shield of Righteousness
+@@ -804,6 +916,62 @@ void Spell::EffectTriggerSpell(SpellEffIndex effIndex)
          // special cases
          switch (triggered_spell_id)
          {
@@ -74510,7 +74537,7 @@ index 5ae18f79c..e2373b27b 100644
              // Mirror Image
              case 58832:
                  {
-@@ -1378,6 +1526,11 @@ void Spell::EffectPowerDrain(SpellEffIndex effIndex)
+@@ -1378,6 +1546,11 @@ void Spell::EffectPowerDrain(SpellEffIndex effIndex)
      if (PowerType == POWER_MANA)
          power -= unitTarget->GetSpellCritDamageReduction(power);
  
@@ -74522,7 +74549,7 @@ index 5ae18f79c..e2373b27b 100644
      int32 newDamage = -(unitTarget->ModifyPower(PowerType, -int32(power)));
  
      float gainMultiplier = 0.0f;
-@@ -3408,6 +3561,14 @@ void Spell::EffectWeaponDmg(SpellEffIndex effIndex)
+@@ -3408,6 +3581,14 @@ void Spell::EffectWeaponDmg(SpellEffIndex effIndex)
                          if (Item* item = m_caster->ToPlayer()->GetWeaponForAttack(m_attackType, true))
                              if (item->GetTemplate()->SubClass == ITEM_SUBCLASS_WEAPON_DAGGER)
                                  AddPct(totalDamagePercentMod, 50.0f);
