@@ -5202,7 +5202,7 @@ index 53b86d5c7a..c5a27d2e28 100644
 +#
 +###################################################################################################
 diff --git a/src/server/database/Database/Implementation/CharacterDatabase.cpp b/src/server/database/Database/Implementation/CharacterDatabase.cpp
-index 3e537d2da9..9d1440bd20 100644
+index 749f460562..57a3bf9e75 100644
 --- a/src/server/database/Database/Implementation/CharacterDatabase.cpp
 +++ b/src/server/database/Database/Implementation/CharacterDatabase.cpp
 @@ -608,6 +608,30 @@ void CharacterDatabaseConnection::DoPrepareStatements()
@@ -5268,10 +5268,10 @@ index 939f1d863f..e25704c522 100644
  };
  
 diff --git a/src/server/game/AI/CoreAI/UnitAI.h b/src/server/game/AI/CoreAI/UnitAI.h
-index 1070a2ba50..e0404f8602 100644
+index d5288c4e4c..7bfaa61558 100644
 --- a/src/server/game/AI/CoreAI/UnitAI.h
 +++ b/src/server/game/AI/CoreAI/UnitAI.h
-@@ -61,6 +61,9 @@ struct DefaultTargetSelector : public Acore::unary_function<Unit*, bool>
+@@ -66,6 +66,9 @@ struct DefaultTargetSelector : public Acore::unary_function<Unit*, bool>
              return false;
  
          if (m_playerOnly && (target->GetTypeId() != TYPEID_PLAYER))
@@ -6791,7 +6791,7 @@ index 0000000000..4e7070befe
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000000..84b7634199
+index 0000000000..a1c4adf8e0
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
 @@ -0,0 +1,18694 @@
@@ -16826,7 +16826,7 @@ index 0000000000..84b7634199
 +            continue;
 +        }
 +
-+        if (_canLootItemForPlayer(player, creature, slot - 1) && i->AllowedForPlayer(player))
++        if (_canLootItemForPlayer(player, creature, slot - 1) && i->AllowedForPlayer(player, creature->GetGUID()))
 +        {
 +            canLoot = true;
 +            break;
@@ -16870,7 +16870,7 @@ index 0000000000..84b7634199
 +
 +                uint8 qslot = uint8(creature->loot.items.size() + (qi - q_list->begin()));
 +
-+                if (_canLootItemForPlayer(player, creature, qslot) && i->AllowedForPlayer(player))
++                if (_canLootItemForPlayer(player, creature, qslot) && i->AllowedForPlayer(player, creature->GetGUID()))
 +                {
 +                    canLoot = true;
 +                    break;
@@ -17047,7 +17047,7 @@ index 0000000000..84b7634199
 +        if (!((1 << itemProto->Quality) & lootQualityMask))
 +            continue;
 +
-+        if (_canLootItemForPlayer(receiver, creature, slot - 1) && i->AllowedForPlayer(receiver))
++        if (_canLootItemForPlayer(receiver, creature, slot - 1) && i->AllowedForPlayer(receiver, creature->GetGUID()))
 +        {
 +            //TC_LOG_ERROR("scripts", "looting %s (%u), quality %u, threshold %u",
 +            //    itemProto->Name1.c_str(), itemProto->ItemId, itemProto->Quality, lootThreshold);
@@ -17087,7 +17087,7 @@ index 0000000000..84b7634199
 +
 +            uint8 qslot = uint8(creature->loot.items.size() + (qi - q_list->begin()));
 +
-+            if (_canLootItemForPlayer(receiver, creature, qslot) && i->AllowedForPlayer(receiver))
++            if (_canLootItemForPlayer(receiver, creature, qslot) && i->AllowedForPlayer(receiver, creature->GetGUID()))
 +                receiver->StoreLootItem(qslot, &creature->loot);
 +        }
 +    }
@@ -69104,7 +69104,7 @@ index 0000000000..32b3b06e1e
 +
 +#endif
 diff --git a/src/server/game/AI/SmartScripts/SmartScript.cpp b/src/server/game/AI/SmartScripts/SmartScript.cpp
-index f575ca3f4b..05e704f4d4 100644
+index edc439a65f..12469cf02b 100644
 --- a/src/server/game/AI/SmartScripts/SmartScript.cpp
 +++ b/src/server/game/AI/SmartScripts/SmartScript.cpp
 @@ -150,6 +150,9 @@ void SmartScript::ProcessAction(SmartScriptHolder& e, Unit* unit, uint32 var0, u
@@ -69273,7 +69273,7 @@ index ebb4ad8ecd..1cd2d188dc 100644
          Player* player = ObjectAccessor::FindConnectedPlayer(itr);
          if (!player)
 diff --git a/src/server/game/Conditions/ConditionMgr.cpp b/src/server/game/Conditions/ConditionMgr.cpp
-index c6e79b5bcd..7496c5d32a 100644
+index e246d2a30f..e308249b19 100644
 --- a/src/server/game/Conditions/ConditionMgr.cpp
 +++ b/src/server/game/Conditions/ConditionMgr.cpp
 @@ -29,6 +29,10 @@
@@ -70550,7 +70550,7 @@ index e6e79e7554..2ca08b47ec 100644
          case CREATURE_FLAG_EXTRA_IGNORE_PATHFINDING: return 29;
          case CREATURE_FLAG_EXTRA_IMMUNITY_KNOCKBACK: return 30;
 diff --git a/src/server/game/Entities/Object/Object.cpp b/src/server/game/Entities/Object/Object.cpp
-index 45f0016303..86c8ea9514 100644
+index d44f10f2dc..d630c21da3 100644
 --- a/src/server/game/Entities/Object/Object.cpp
 +++ b/src/server/game/Entities/Object/Object.cpp
 @@ -1090,6 +1090,11 @@ void WorldObject::setActive(bool on)
@@ -70565,7 +70565,7 @@ index 45f0016303..86c8ea9514 100644
      m_isActive = on;
  
      if (on && !IsInWorld())
-@@ -1865,6 +1870,9 @@ bool WorldObject::CanDetect(WorldObject const* obj, bool ignoreStealth, bool che
+@@ -1868,6 +1873,9 @@ bool WorldObject::CanDetect(WorldObject const* obj, bool ignoreStealth, bool che
  {
      WorldObject const* seer = this;
  
@@ -70575,7 +70575,7 @@ index 45f0016303..86c8ea9514 100644
      // Pets don't have detection, they use the detection of their masters
      if (Unit const* thisUnit = ToUnit())
          if (Unit* controller = thisUnit->GetCharmerOrOwner())
-@@ -2180,6 +2188,11 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
+@@ -2183,6 +2191,11 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
              summon = new Puppet(properties, summoner ? summoner->GetGUID() : ObjectGuid::Empty);
              break;
          case UNIT_MASK_TOTEM:
@@ -70587,7 +70587,7 @@ index 45f0016303..86c8ea9514 100644
              summon = new Totem(properties, summoner ? summoner->GetGUID() : ObjectGuid::Empty);
              break;
          case UNIT_MASK_MINION:
-@@ -2196,6 +2209,22 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
+@@ -2199,6 +2212,22 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
          return nullptr;
      }
  
@@ -70610,7 +70610,7 @@ index 45f0016303..86c8ea9514 100644
      summon->SetUInt32Value(UNIT_CREATED_BY_SPELL, spellId);
  
      summon->SetHomePosition(pos);
-@@ -2209,6 +2238,11 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
+@@ -2212,6 +2241,11 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
  
      summon->InitSummon();
  
@@ -71200,7 +71200,7 @@ index 18c07d9c80..d1c777b6e2 100644
      float totalPct         = addTotalPct ? GetModifierValue(unitMod, TOTAL_PCT) : 1.0f;
      float dmgMultiplier    = GetCreatureTemplate()->DamageModifier; // = DamageModifier * _GetDamageMod(rank);
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index b0ba39521e..6ff3279640 100644
+index ab8a0b2b35..c479b75538 100644
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
 @@ -72,6 +72,10 @@
@@ -71336,7 +71336,7 @@ index b0ba39521e..6ff3279640 100644
 @@ -1032,6 +1106,9 @@ uint32 Unit::DealDamage(Unit* attacker, Unit* victim, uint32 damage, CleanDamage
          {
              uint32 unDamage = health < damage ? health : damage;
-             bool damagedByPlayer = unDamage && attacker && attacker->m_movedByPlayer != nullptr;
+             bool damagedByPlayer = unDamage && attacker && (attacker->IsPlayer() || attacker->m_movedByPlayer != nullptr);
 +            //npcbot: npcbots' damage allways counts towards damage requirement
 +            damagedByPlayer |= attacker && attacker->GetTypeId() == TYPEID_UNIT && attacker->ToCreature()->IsNPCBotOrPet();
 +            //end npcbot
@@ -74033,7 +74033,7 @@ index 3adf5264d2..682981c5e1 100644
  /*
      TODO: Add more script type classes.
 diff --git a/src/server/game/Server/WorldSession.cpp b/src/server/game/Server/WorldSession.cpp
-index a4453e5e1f..23460a9121 100644
+index b0b0d7df79..13ed23568e 100644
 --- a/src/server/game/Server/WorldSession.cpp
 +++ b/src/server/game/Server/WorldSession.cpp
 @@ -52,6 +52,10 @@
@@ -74060,7 +74060,7 @@ index a4453e5e1f..23460a9121 100644
      if (_player)
      {
          if (ObjectGuid lguid = _player->GetLootGUID())
-@@ -1596,6 +1606,17 @@ uint32 WorldSession::DosProtection::GetMaxPacketCounterAllowed(uint16 opcode) co
+@@ -1591,6 +1601,17 @@ uint32 WorldSession::DosProtection::GetMaxPacketCounterAllowed(uint16 opcode) co
                  break;
              }
  
@@ -74901,7 +74901,7 @@ index a9a73f07c9..1135edd8eb 100644
      powerCost = int32(powerCost * (1.0f + caster->GetFloatValue(static_cast<uint16>(UNIT_FIELD_POWER_COST_MULTIPLIER) + school)));
      if (powerCost < 0)
 diff --git a/src/server/game/Spells/SpellInfoCorrections.cpp b/src/server/game/Spells/SpellInfoCorrections.cpp
-index 94f633bad6..7a192dcd41 100644
+index d62f556e76..e979327174 100644
 --- a/src/server/game/Spells/SpellInfoCorrections.cpp
 +++ b/src/server/game/Spells/SpellInfoCorrections.cpp
 @@ -40,6 +40,68 @@ void SpellMgr::LoadSpellInfoCorrections()
