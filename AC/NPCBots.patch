@@ -23,8 +23,8 @@
  src/server/game/AI/CreatureAI.h                    |     5 +
  src/server/game/AI/NpcBots/bot_Events.h            |    72 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1408 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 18715 +++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |   711 +
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 18738 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |   712 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   412 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   954 +
  src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp  |   627 +
@@ -138,7 +138,7 @@
  src/server/scripts/Spells/spell_rogue.cpp          |    52 +
  src/server/scripts/Spells/spell_shaman.cpp         |    10 +
  src/server/shared/SharedDefines.h                  |    23 +
- 140 files changed, 72604 insertions(+), 12 deletions(-)
+ 140 files changed, 72628 insertions(+), 12 deletions(-)
  create mode 100644 data/sql/Bots/locales/ruRU/npc_text_locale.sql
  create mode 100644 data/sql/Bots/locales/zhCN/npc_text_locale.sql
  create mode 100644 data/sql/Bots/locales/zhTW/npc_text_locale.sql
@@ -6791,10 +6791,10 @@ index 0000000000..4e7070befe
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000000..97bce1e8bb
+index 0000000000..56eb5e6227
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,18715 @@
+@@ -0,0 +1,18738 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -12688,7 +12688,8 @@ index 0000000000..97bce1e8bb
 +
 +    BotSpellMap::const_iterator itr = _spells.find(basespell);
 +    return itr == _spells.end() ? true :
-+        ((itr->second->enabled == true || IAmFree()) && itr->second->spellId != 0 && itr->second->cooldown <= diff);
++        ((itr->second->enabled == true || IAmFree() || IsLastOrder(BOT_ORDER_SPELLCAST, basespell)) &&
++            itr->second->spellId != 0 && itr->second->cooldown <= diff);
 +}
 +//Using first-rank spell as source, sets cooldown for current spell
 +void bot_ai::SetSpellCooldown(uint32 basespell, uint32 msCooldown)
@@ -21211,6 +21212,28 @@ index 0000000000..97bce1e8bb
 +            return;
 +    }
 +}
++bool bot_ai::IsLastOrder(BotOrderTypes order_type, uint32 param1) const
++{
++    if (!_orders.empty())
++    {
++        BotOrder const& order = _orders.front();
++        if (order_type == order._type)
++        {
++            switch (order_type)
++            {
++                case BOT_ORDER_SPELLCAST:
++                    if (order.params.spellCastParams.baseSpell == param1)
++                        return true;
++                    break;
++                default:
++                    LOG_ERROR("scripts", "bot_ai:_ProcessOrders: invalid order type {}!", uint32(order_type));
++                    break;
++            }
++        }
++    }
++
++    return false;
++}
 +//VEHICLES
 +//helpers
 +bool bot_ai::HasAuraTypeWithValueAtLeast(AuraType auratype, int32 minvalue, Unit const* unit) const
@@ -25512,10 +25535,10 @@ index 0000000000..97bce1e8bb
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000000..5bb8b3d17f
+index 0000000000..c571755f5f
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,711 @@
+@@ -0,0 +1,712 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -26213,6 +26236,7 @@ index 0000000000..5bb8b3d17f
 +        };
 +
 +        bool HasOrders() const { return !_orders.empty(); }
++        bool IsLastOrder(BotOrderTypes order_type, uint32 param1) const;
 +        std::size_t GetOrdersCount() const { return _orders.size(); }
 +        bool AddOrder(BotOrder&& order);
 +        void CancelOrder(BotOrder const& order);
