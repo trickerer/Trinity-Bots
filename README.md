@@ -6,7 +6,7 @@
 
 # [ THE NPCBOTS MANUAL ]
 >Compiled by: Trickerer (onlysuffering @ Gmail dot Com)  
->Version 0.19 - 24 Jun 2022  
+>Version 0.20 - 13 Dec 2022  
 >Original version by: Thesawolf (@ Gmail dot Com) Version 0.3 - 20 July 2016 [here](https://github.com/thesawolf/TrinityCore/blob/TrinityCoreLegacy/README_Bots.md)
 
 ---------------------------------------
@@ -118,11 +118,18 @@ _TARGET_ indicates that command is used on a selected unit
 ```
 **COMMAND**: **`.npcbot`**, **`.npcb`** -- (Player command) by itself will list all syntax available  
 
-- **`lookup <CLASS>`** -- (GM command) lookup the NPCBot entries by <CLASS>, returns list of NPCBots as ID, Name and Race  
+- **`lookup <CLASS> [#unspawned_only]`** -- (GM command) lookup the NPCBot entries by <CLASS>, returns list of NPCBots as ID, Name and Race. If `unspawned_only` is set to 1 shows only NPCBots which weren't spawned yet  
     - <CLASS> = class ID (i.e. 1 for WARRIORs). **`.npcbot lookup` (`.npcb loo`)** (without the argument) to list class IDs  
     **Example Usage**:  
         - `.npcbot lookup 7` (to list all Shamans)  
-        - `.npcb loo 11` (to list all Druids)  
+        - `.npcb loo 11 1` (to list all unspawned Druids)  
+- **`list`** -- (GM command)  
+    - **`spawned`** -- Lists all spawned bots in the world, their location and quick status  
+        - **`free`** -- Same as above but only lists **unowned** bots  
+            **Example Usage**:  
+                - `.npcbot list spawned`  
+                - `.npcbot list spawned free`  
+                - `.npcbot list s f`  
 - **`add _TARGET_`** -- (GM command) selected NPCBot becomes yours bypassing the price condition. Only works on NPCBots which have no owner  
     - _TARGET_ = selected NPCBot  
     **Example Usage**:  
@@ -141,20 +148,27 @@ _TARGET_ indicates that command is used on a selected unit
         - `.npcbot spawn 70001` (spawns NPCBot with ID 70001)  
         - `.npcb sp 70002` (spawn NPCBot with ID 70002)  
         - `.npcb sp [Haromm]` (spawn NPCBot by link)  
-- **`spawned`** -- (GM command) Lists all spawned bots in the world, their location and quick status  
-    **Example Usage**:  
-        - `.npcbot spawned`  
 - **`move <ENTRY|LINK|_TARGET_>`** -- (GM command) moves spawned NPCBot to a new location. This command replaces `.npc move` command for bots  
     - <ENTRY> = ID of NPCBot  
     - <LINK> = creature_template link added by Shift-click (obtained from lookup list)  
     - _TARGET_ = selected NPCBot  
     **Example Usage**:  
         - `.npcbot move 70001` (moves NPCBot with ID 70001 to your position)  
-- **`delete _TARGET_`** -- (GM command) deletes NPCBot from world, NPCBot is removed from owner if any and deleted from DB  
-    - _TARGET_ = selected NPCBot  
-    **Example Usage**:  
-        - `.npcbot delete`  
-        - `.npcb del`  
+- **`delete`** -- (GM command)  
+    - **`_TARGET_`** -- deletes NPCBot from world, NPCBot is removed from owner if any and deleted from DB  
+        - _TARGET_ = selected NPCBot  
+        **Example Usage**:  
+            - `.npcbot delete`  
+            - `.npcb del`  
+    - **`id _ID_`** -- deletes NPCBots using creature ID instead of targeting, usable from console  
+        - _ID_ = creature ID (`creature_template`.`entry`)  
+        **Example Usage**:  
+            - `.npcbot delete id 70032`  
+            - `.npcb del id 70032`  
+    - **`free`** -- deletes **ALL** unowned NPCBots, usable from console  
+        **Example Usage**:  
+            - `.npcbot delete free`  
+            - `.npcb del f`  
 - **`set`** (GM command)  
     - **`faction <a|h|m|f|factionID> _TARGET_`** -- sets the faction for selected NPCBot  
         - a = 1802 (alliance team)  
@@ -854,6 +868,8 @@ Bots are being added to world at server loading (after Map System is started)
 ---------------------------------------
 ## Guide Changelog
 
+- **Version 0.20** (_13 Dec 2022_)
+    - Added new commands / cmd parameters
 - **Version 0.19** (_24 Jun 2022_)
     - Added `.npcbot command walk` command
 - **Version 0.18** (_22 Jun 2022_)
