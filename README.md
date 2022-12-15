@@ -234,7 +234,8 @@ _TARGET_ indicates that command is used on a selected unit
     - _TARGET_ = selected NPCBot (move single NPCBot)  
     - _NAMES..._ = NPCBot names (move a group of NPCBots)  
     **Example Usage:**  
-        - `.npcbot recall`  
+        - `.npcbot sendto`  
+        - `.npcb send eva jol eanor harene`  
 - **`recall _TARGET_`** -- (Player command) forces a NPCBot to move directly on your position. Usable while dead. Designed mostly for situations like when you die and your NPCBots are stuck under textures and in combat at the same time  
     - _TARGET_ = selected NPCBot (move single NPCBot)  
     - _TARGET_ = self (move all NPCBots)  
