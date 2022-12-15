@@ -6,7 +6,7 @@
 
 # [ THE NPCBOTS MANUAL ]
 >Compiled by: Trickerer (onlysuffering @ Gmail dot Com)  
->Version 0.20 - 13 Dec 2022  
+>Version 0.21 - 15 Dec 2022  
 >Original version by: Thesawolf (@ Gmail dot Com) Version 0.3 - 20 July 2016 [here](https://github.com/thesawolf/TrinityCore/blob/TrinityCoreLegacy/README_Bots.md)
 
 ---------------------------------------
@@ -230,7 +230,12 @@ _TARGET_ indicates that command is used on a selected unit
     **Example Usage:**  
         - `.npcbot unhide`  
         - `.npcbot show`  
-- **`recall`** -- (Player command) forces a NPCBot to move directly on your position. Usable while dead. Designed mostly for situations like when you die and your NPCBots are stuck under textures and in combat at the same time  
+- **`sendto <_TARGET_ OR _NAME1_ _NAME2_ ... _NAMEN_>`** -- (Player command) for 30 seconds makes NPCBot(s) wait for your signal to move to stationery position. The position must be pointed then by a dest spell (AoE, smoke flare, dynamite, etc.). Stationed bots will stay there indefinetely, use follow command to call them back  
+    - _TARGET_ = selected NPCBot (move single NPCBot)  
+    - _NAMES..._ = NPCBot names (move a group of NPCBots)  
+    **Example Usage:**  
+        - `.npcbot recall`  
+- **`recall _TARGET_`** -- (Player command) forces a NPCBot to move directly on your position. Usable while dead. Designed mostly for situations like when you die and your NPCBots are stuck under textures and in combat at the same time  
     - _TARGET_ = selected NPCBot (move single NPCBot)  
     - _TARGET_ = self (move all NPCBots)  
     **Example Usage:**  
@@ -868,6 +873,8 @@ Bots are being added to world at server loading (after Map System is started)
 ---------------------------------------
 ## Guide Changelog
 
+- **Version 0.21** (_15 Dec 2022_)
+    - Added `.npcbot sendto` command
 - **Version 0.20** (_13 Dec 2022_)
     - Added new commands / cmd parameters
 - **Version 0.19** (_24 Jun 2022_)
