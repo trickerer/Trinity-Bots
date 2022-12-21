@@ -1,6 +1,6 @@
 ### This mod was last updated:
-### TC: 16 Dec 2022, [2cea751ee8](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/2cea751ee8)
-### AC: 16 Dec 2022, [83f6f78ec6](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/83f6f78ec6)
+### TC: 21 Dec 2022, [31f31b2106](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/31f31b2106)
+### AC: 21 Dec 2022, [b2fed1d49d](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/b2fed1d49d)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 
@@ -503,9 +503,9 @@ _Example_: Warrior having Tanking + DPS + Ranged role enabled will constantly tr
 
 It's recommended to only enable 1 or 2 specific roles for that class to minimize them switching tactics around alot. The only exception is Priest which can handle DPS, Heal and Ranged roles just fine (they will preserve some mana for healing and resort to wand)
 
-`Gathering...` roles allows NPCBots to collect different ores, herbs, leather and other trade goods. It does NOT allow to track those goods so good luck with that. It also does NOT allow bots to craft anything. NPCBots have their skill assigned according to their level so level 1 NPCBot for example will not be able to mine Mithril
+`Gathering...` roles allow NPCBots to collect different ores, herbs, leather and other trade goods. It does NOT allow to track those goods so good luck with that. It also does NOT allow bots to craft anything. NPCBots have their skill assigned according to their level so level 1 NPCBot for example will not be able to mine Mithril. Note that bots will only use nodes **you** are very close to
 
-`Looting...` roles allows NPCBots to automatically and quickly collect items from nearby lootable creatures for you and other players in your group. Make sure to chose loot method, quality threshold in your group and looting setting for your looter bot.
+`Looting...` roles allow NPCBots to automatically and quickly collect items from nearby lootable creatures for you and other players in your group. Make sure to chose loot method, quality threshold in your group and looting setting for your looter bot
 
 #### NPCBot Formation
 Some times you just want your NPCBot close.. or as far away as possible. The formation option allows you to adjust your NPCBot's distance from you.

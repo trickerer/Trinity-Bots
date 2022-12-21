@@ -25,7 +25,7 @@
  src/server/game/AI/CreatureAI.h                    |     5 +
  src/server/game/AI/NpcBots/bot_Events.h            |    72 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1408 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 18738 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 18728 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   712 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   412 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   955 +
@@ -47,15 +47,15 @@
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2265 +++
  src/server/game/AI/NpcBots/botcommands.cpp         |  2244 +++
  src/server/game/AI/NpcBots/botcommon.h             |   565 +
- src/server/game/AI/NpcBots/botdatamgr.cpp          |   711 +
- src/server/game/AI/NpcBots/botdatamgr.h            |   159 +
+ src/server/game/AI/NpcBots/botdatamgr.cpp          |   721 +
+ src/server/game/AI/NpcBots/botdatamgr.h            |   160 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   133 +
  src/server/game/AI/NpcBots/botdpstracker.h         |    42 +
  src/server/game/AI/NpcBots/botdump.cpp             |  1019 +
  src/server/game/AI/NpcBots/botdump.h               |    51 +
  src/server/game/AI/NpcBots/botgiver.cpp            |   286 +
  src/server/game/AI/NpcBots/botgossip.h             |   132 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  1771 ++
+ src/server/game/AI/NpcBots/botmgr.cpp              |  1765 ++
  src/server/game/AI/NpcBots/botmgr.h                |   241 +
  src/server/game/AI/NpcBots/botspell.h              |   246 +
  src/server/game/AI/NpcBots/bottext.h               |   397 +
@@ -140,7 +140,7 @@
  src/server/scripts/Spells/spell_rogue.cpp          |    52 +
  src/server/scripts/Spells/spell_shaman.cpp         |    10 +
  src/server/shared/SharedDefines.h                  |    23 +
- 142 files changed, 72667 insertions(+), 12 deletions(-)
+ 142 files changed, 72662 insertions(+), 12 deletions(-)
  create mode 100644 data/sql/Bots/locales/ruRU/npc_text_locale.sql
  create mode 100644 data/sql/Bots/locales/zhCN/npc_text_locale.sql
  create mode 100644 data/sql/Bots/locales/zhTW/npc_text_locale.sql
@@ -6816,10 +6816,10 @@ index 0000000000..4e7070befe
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000000..3665bae4d2
+index 0000000000..e157738485
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,18738 @@
+@@ -0,0 +1,18728 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -6975,7 +6975,6 @@ index 0000000000..3665bae4d2
 +    for (uint8 i = BOT_SLOT_MAINHAND; i != BOT_INVENTORY_SIZE; ++i)
 +        _equips[i] = nullptr;
 +
-+    _reviveTimer = 0;
 +    _powersTimer = 0;
 +    _chaseTimer = 0;
 +    _engageTimer = 0;
@@ -7203,8 +7202,7 @@ index 0000000000..3665bae4d2
 +    if (!mgr)
 +        mgr = new BotMgr(newowner);
 +
-+    bool takeMoney = (_ownerGuid != newowner->GetGUID().GetCounter());
-+    if (mgr->AddBot(me, takeMoney) & BOT_ADD_FATAL)
++    if (mgr->AddBot(me) & BOT_ADD_FATAL)
 +    {
 +        //TC_LOG_ERROR("entities.player", "bot_ai::SetBotOwner(): player %s (%s) can't add bot %s (FATAL), removing...",
 +        //    master->GetName().c_str(), master->GetGUID().ToString().c_str(), me->GetName().c_str());
@@ -7356,6 +7354,7 @@ index 0000000000..3665bae4d2
 +
 +    m_botCommandState = BOT_COMMAND_FOLLOW;
 +    _botAwaitState = BOT_AWAIT_NONE;
++    _reviveTimer = 0;
 +
 +    master = reinterpret_cast<Player*>(me);
 +    if (resetType & BOTAI_RESET_MASK_ABANDON_MASTER)
@@ -13559,22 +13558,12 @@ index 0000000000..3665bae4d2
 +                reason = -1;
 +            if (!reason && _ownerGuid)
 +                reason = 1;
-+            if (!reason && player->GetNpcBotsCount() >= BotMgr::GetMaxNpcBots())
++            if (!reason && BotDataMgr::GetOwnedBotsCount(player->GetGUID()) >= BotMgr::GetMaxNpcBots())
 +                reason = 2;
 +            if (!reason && !player->HasEnoughMoney(cost))
 +                reason = 3;
-+
-+            if (!reason && BotMgr::GetMaxClassBots() && player->HaveBot())
-+            {
-+                uint8 count = 0;
-+                BotMap const* map = player->GetBotMgr()->GetBotMap();
-+                for (BotMap::const_iterator itr = map->begin(); itr != map->end(); ++itr)
-+                    if (itr->second->GetBotClass() == _botclass)
-+                        ++count;
-+
-+                if (!reason && count >= BotMgr::GetMaxClassBots())
-+                    reason = 4;
-+            }
++            if (!reason && BotMgr::GetMaxClassBots() && BotDataMgr::GetOwnedBotsCount(player->GetGUID(), me->GetClassMask()) >= BotMgr::GetMaxClassBots())
++                reason = 4;
 +
 +            std::ostringstream message1;
 +            std::ostringstream message2;
@@ -13626,7 +13615,8 @@ index 0000000000..3665bae4d2
 +            AddGossipItemFor(player, GOSSIP_ICON_TALK, LocalizedNpcText(player, BOT_TEXT_MANAGE_ABILITIES), GOSSIP_SENDER_ABILITIES, GOSSIP_ACTION_INFO_DEF + 1);
 +            if (_botclass < BOT_CLASS_EX_START)
 +            {
-+                AddGossipItemFor(player, GOSSIP_ICON_TALK, LocalizedNpcText(player, BOT_TEXT_MANAGE_TALENTS), GOSSIP_SENDER_SPEC, GOSSIP_ACTION_INFO_DEF + 1);
++                if (me->GetLevel() >= 10)
++                    AddGossipItemFor(player, GOSSIP_ICON_TALK, LocalizedNpcText(player, BOT_TEXT_MANAGE_TALENTS), GOSSIP_SENDER_SPEC, GOSSIP_ACTION_INFO_DEF + 1);
 +                AddGossipItemFor(player, GOSSIP_ICON_TALK, LocalizedNpcText(player, BOT_TEXT_GIVE_CONSUMABLE), GOSSIP_SENDER_USEITEM, GOSSIP_ACTION_INFO_DEF + 1);
 +            }
 +
@@ -26696,7 +26686,7 @@ index 0000000000..2380beaabe
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_bm_ai.cpp b/src/server/game/AI/NpcBots/bot_bm_ai.cpp
 new file mode 100644
-index 0000000000..3bf008d9d0
+index 0000000000..b645d8cb58
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_bm_ai.cpp
 @@ -0,0 +1,955 @@
@@ -27211,7 +27201,7 @@ index 0000000000..3bf008d9d0
 +                    continue;
 +
 +                if (!IAmFree())
-+                    master->GetBotMgr()->AddBot(illusion, false);
++                    master->GetBotMgr()->AddBot(illusion);
 +
 +                illusion->SetCreator(master); //TempSummon* Map::SummonCreature()
 +                illusion->SetOwnerGUID(me->GetGUID());
@@ -30962,7 +30952,7 @@ index 0000000000..5aff5d1bb5
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_druid_ai.cpp b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 new file mode 100644
-index 0000000000..5f3c43578a
+index 0000000000..84820d5af0
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 @@ -0,0 +1,2937 @@
@@ -31556,15 +31546,15 @@ index 0000000000..5f3c43578a
 +            else if (me->GetPowerType() == POWER_ENERGY)
 +                getenergy();
 +
-+            CheckHibery(diff);
-+            CheckBarkskin(diff);
-+
 +            if (!GlobalUpdate(diff))
 +                return;
 +
 +            DoVehicleActions(diff);
 +            if (!CanBotAttackOnVehicle())
 +                return;
++
++            CheckHibery(diff);
++            CheckBarkskin(diff);
 +
 +            if (IsPotionReady())
 +            {
@@ -36291,7 +36281,7 @@ index 0000000000..226cce94bc
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_mage_ai.cpp b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 new file mode 100644
-index 0000000000..8a2e400a25
+index 0000000000..95fc91e96e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 @@ -0,0 +1,1843 @@
@@ -36645,10 +36635,6 @@ index 0000000000..8a2e400a25
 +
 +        void UpdateAI(uint32 diff) override
 +        {
-+            CheckPoly(diff);
-+            CheckBlink(diff);
-+            CheckIceBlock(diff);
-+
 +            if (!GlobalUpdate(diff))
 +                return;
 +
@@ -36657,6 +36643,10 @@ index 0000000000..8a2e400a25
 +                return;
 +
 +            CheckPots(diff);
++
++            CheckPoly(diff);
++            CheckBlink(diff);
++            CheckIceBlock(diff);
 +
 +            CheckRacials(diff);
 +
@@ -41721,7 +41711,7 @@ index 0000000000..1264bf86b5
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_priest_ai.cpp b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 new file mode 100644
-index 0000000000..527350fe87
+index 0000000000..4bc0acb53e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_priest_ai.cpp
 @@ -0,0 +1,2118 @@
@@ -42218,14 +42208,14 @@ index 0000000000..527350fe87
 +
 +        void UpdateAI(uint32 diff) override
 +        {
-+            Disperse(diff);
-+
 +            if (!GlobalUpdate(diff))
 +                return;
 +
 +            DoVehicleActions(diff);
 +            if (!CanBotAttackOnVehicle())
 +                return;
++
++            Disperse(diff);
 +
 +            DoDevCheck(diff);
 +            DoShackCheck(diff);
@@ -46688,7 +46678,7 @@ index 0000000000..9615b8f386
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_shaman_ai.cpp b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 new file mode 100644
-index 0000000000..e51a4090e8
+index 0000000000..453412634a
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 @@ -0,0 +1,2834 @@
@@ -47689,15 +47679,15 @@ index 0000000000..e51a4090e8
 +
 +        void UpdateAI(uint32 diff) override
 +        {
-+            CheckShamanisticRage(diff);
-+            CheckThunderStorm(diff);
-+
 +            if (!GlobalUpdate(diff))
 +                return;
 +
 +            DoVehicleActions(diff);
 +            if (!CanBotAttackOnVehicle())
 +                return;
++
++            CheckShamanisticRage(diff);
++            CheckThunderStorm(diff);
 +
 +            CheckHexy(diff);
 +            CheckEarthy(diff);
@@ -55149,7 +55139,7 @@ index 0000000000..65f273b0fe
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 0000000000..05278ac4a6
+index 0000000000..dbf16db6ce
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
 @@ -0,0 +1,2244 @@
@@ -57370,7 +57360,7 @@ index 0000000000..05278ac4a6
 +        if (!mgr)
 +            mgr = new BotMgr(owner);
 +
-+        if (mgr->AddBot(bot, false) == BOT_ADD_SUCCESS)
++        if (mgr->AddBot(bot) == BOT_ADD_SUCCESS)
 +        {
 +            handler->PSendSysMessage("%s is now your npcbot", bot->GetName().c_str());
 +            return true;
@@ -57970,10 +57960,10 @@ index 0000000000..3224e50337
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.cpp b/src/server/game/AI/NpcBots/botdatamgr.cpp
 new file mode 100644
-index 0000000000..ed531fb61f
+index 0000000000..9ff148c31c
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.cpp
-@@ -0,0 +1,711 @@
+@@ -0,0 +1,721 @@
 +#include "botdatamgr.h"
 +#include "Creature.h"
 +#include "DatabaseEnv.h"
@@ -58685,12 +58675,22 @@ index 0000000000..ed531fb61f
 +
 +    return existing_ids;
 +}
++
++uint8 BotDataMgr::GetOwnedBotsCount(ObjectGuid owner_guid, uint32 class_mask)
++{
++    uint8 count = 0;
++    for (decltype(_botsData)::value_type const& bdata : _botsData)
++        if (bdata.second->owner == owner_guid.GetCounter() && (!class_mask || !!(class_mask & (1u << (_botsExtras[bdata.first]->bclass - 1)))))
++            ++count;
++
++    return count;
++}
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.h b/src/server/game/AI/NpcBots/botdatamgr.h
 new file mode 100644
-index 0000000000..7afc825c6e
+index 0000000000..20dc23b530
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.h
-@@ -0,0 +1,159 @@
+@@ -0,0 +1,160 @@
 +#ifndef _BOTDATAMGR_H
 +#define _BOTDATAMGR_H
 +
@@ -58841,6 +58841,7 @@ index 0000000000..7afc825c6e
 +        static void GetNPCBotGuidsByOwner(std::vector<ObjectGuid> &guids_vec, ObjectGuid owner_guid);
 +        static ObjectGuid GetNPCBotGuid(uint32 entry);
 +        static std::vector<uint32> GetExistingNPCBotIds();
++        static uint8 GetOwnedBotsCount(ObjectGuid owner_guid, uint32 class_mask = 0);
 +
 +        static std::shared_mutex* GetLock();
 +
@@ -60551,10 +60552,10 @@ index 0000000000..38c61f3de1
 +#endif //BOTGOSSIP_H
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 0000000000..9add0f9184
+index 0000000000..16b40339e9
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,1771 @@
+@@ -0,0 +1,1765 @@
 +#include "Battleground.h"
 +#include "BattlegroundMgr.h"
 +#include "bot_ai.h"
@@ -61613,12 +61614,14 @@ index 0000000000..9add0f9184
 +    bot->GetBotAI()->canUpdate = true;
 +}
 +
-+BotAddResult BotMgr::AddBot(Creature* bot, bool takeMoney)
++BotAddResult BotMgr::AddBot(Creature* bot)
 +{
 +    ASSERT(bot->IsNPCBot());
 +    ASSERT(bot->GetBotAI() != nullptr);
 +
-+    bool temporary = bot->GetBotAI()->IsTempBot();
++    bool owned = bot->GetBotAI()->IsTempBot() || bot->GetBotAI()->GetBotOwnerGuid() == _owner->GetGUID().GetCounter();
++    uint8 owned_count = BotDataMgr::GetOwnedBotsCount(_owner->GetGUID());
++    uint8 class_count = BotDataMgr::GetOwnedBotsCount(_owner->GetGUID(), bot->GetClassMask());
 +
 +    if (!_enableNpcBots)
 +    {
@@ -61641,25 +61644,17 @@ index 0000000000..9add0f9184
 +        ch.PSendSysMessage(bot_ai::LocalizedNpcText(GetOwner(), BOT_TEXT_BOTADDFAIL_TELEPORTED).c_str(), bot->GetName().c_str());
 +        return BOT_ADD_BUSY;
 +    }
-+    if (!temporary && _owner->GetNpcBotsCount() >= GetMaxNpcBots())
++    if (!owned && owned_count >= GetMaxNpcBots())
 +    {
 +        ChatHandler ch(_owner->GetSession());
 +        ch.PSendSysMessage(bot_ai::LocalizedNpcText(GetOwner(), BOT_TEXT_HIREFAIL_MAXBOTS).c_str(), GetMaxNpcBots());
 +        return BOT_ADD_MAX_EXCEED;
 +    }
-+    if (!temporary && HaveBot() && _maxClassNpcBots)
++    if (!owned && _maxClassNpcBots && class_count >= _maxClassNpcBots)
 +    {
-+        uint8 count = 0;
-+        for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
-+            if (itr->second->GetBotClass() == bot->GetBotClass())
-+                ++count;
-+
-+        if (count >= _maxClassNpcBots)
-+        {
-+            ChatHandler ch(_owner->GetSession());
-+            ch.PSendSysMessage(bot_ai::LocalizedNpcText(GetOwner(), BOT_TEXT_HIREFAIL_MAXCLASSBOTS).c_str(), count, _maxClassNpcBots);
-+            return BOT_ADD_MAX_CLASS_EXCEED;
-+        }
++        ChatHandler ch(_owner->GetSession());
++        ch.PSendSysMessage(bot_ai::LocalizedNpcText(GetOwner(), BOT_TEXT_HIREFAIL_MAXCLASSBOTS).c_str(), class_count, _maxClassNpcBots);
++        return BOT_ADD_MAX_CLASS_EXCEED;
 +    }
 +    //Map* curMap = _owner->GetMap();
 +    //if (!temporary && LimitBots(curMap))
@@ -61673,7 +61668,7 @@ index 0000000000..9add0f9184
 +    //        return BOT_ADD_INSTANCE_LIMIT;
 +    //    }
 +    //}
-+    if (!temporary && takeMoney)
++    if (!owned)
 +    {
 +        uint32 cost = GetNpcBotCost(_owner->GetLevel(), bot->GetBotClass());
 +        if (!_owner->HasEnoughMoney(cost))
@@ -61712,7 +61707,7 @@ index 0000000000..9add0f9184
 +
 +    bot->GetBotAI()->Reset();
 +
-+    if (!temporary)
++    if (!bot->GetBotAI()->IsTempBot())
 +    {
 +        bot->GetBotAI()->SetBotCommandState(BOT_COMMAND_FOLLOW, true);
 +        if (bot->GetBotAI()->HasRole(BOT_ROLE_PARTY))
@@ -62328,7 +62323,7 @@ index 0000000000..9add0f9184
 +}
 diff --git a/src/server/game/AI/NpcBots/botmgr.h b/src/server/game/AI/NpcBots/botmgr.h
 new file mode 100644
-index 0000000000..0646dfaaeb
+index 0000000000..baba12b9b5
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.h
 @@ -0,0 +1,241 @@
@@ -62500,7 +62495,7 @@ index 0000000000..0646dfaaeb
 +        void CleanupsBeforeBotDelete(ObjectGuid guid, uint8 removetype = BOT_REMOVE_LOGOUT);
 +        void RemoveAllBots(uint8 removetype = BOT_REMOVE_LOGOUT);
 +        void RemoveBot(ObjectGuid guid, uint8 removetype = BOT_REMOVE_LOGOUT);
-+        BotAddResult AddBot(Creature* bot, bool takeMoney);
++        BotAddResult AddBot(Creature* bot);
 +        bool AddBotToGroup(Creature* bot);
 +        void RemoveBotFromBGQueue(Creature const* bot);
 +        bool RemoveBotFromGroup(Creature* bot);
