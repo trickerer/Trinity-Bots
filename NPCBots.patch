@@ -141,7 +141,7 @@
  src/server/game/Entities/Creature/CreatureData.h   |     6 +-
  .../game/Entities/Creature/TemporarySummon.cpp     |    32 +
  .../Entities/Creature/enuminfo_CreatureData.cpp    |    12 +-
- src/server/game/Entities/Object/Object.cpp         |    85 +-
+ src/server/game/Entities/Object/Object.cpp         |    91 +-
  src/server/game/Entities/Player/KillRewarder.cpp   |    15 +
  src/server/game/Entities/Player/Player.cpp         |   191 +
  src/server/game/Entities/Player/Player.h           |    25 +
@@ -197,7 +197,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   314 +
- 199 files changed, 71816 insertions(+), 76 deletions(-)
+ 199 files changed, 71822 insertions(+), 76 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -70604,7 +70604,7 @@ index 13fcc0cb5..e5cc13d60 100644
          case CREATURE_FLAG_EXTRA_IGNORE_PATHFINDING: return 29;
          case CREATURE_FLAG_EXTRA_IMMUNITY_KNOCKBACK: return 30;
 diff --git a/src/server/game/Entities/Object/Object.cpp b/src/server/game/Entities/Object/Object.cpp
-index 056ced889..8aa8702a2 100644
+index 056ced889..62bb829ca 100644
 --- a/src/server/game/Entities/Object/Object.cpp
 +++ b/src/server/game/Entities/Object/Object.cpp
 @@ -1001,6 +1001,11 @@ void WorldObject::setActive(bool on)
@@ -70666,7 +70666,20 @@ index 056ced889..8aa8702a2 100644
      // call MoveInLineOfSight for nearby creatures
      Trinity::AIRelocationNotifier notifier(*summon);
      Cell::VisitAllObjects(summon, notifier, GetVisibilityRange());
-@@ -2279,12 +2301,36 @@ float WorldObject::ApplyEffectModifiers(SpellInfo const* spellInfo, uint8 effInd
+@@ -2194,6 +2216,12 @@ Player* WorldObject::GetCharmerOrOwnerPlayerOrPlayerItself() const
+ 
+ Player* WorldObject::GetAffectingPlayer() const
+ {
++    //nocbot: affecting player is creator
++    if (GetTypeId() == TYPEID_UNIT && ToCreature()->IsNPCBotOrPet())
++        if (Unit* creator = ToUnit()->GetCreator())
++            return creator->ToPlayer();
++    //end npcbot
++
+     if (!GetCharmerOrOwnerGUID())
+         return const_cast<WorldObject*>(this)->ToPlayer();
+ 
+@@ -2279,12 +2307,36 @@ float WorldObject::ApplyEffectModifiers(SpellInfo const* spellInfo, uint8 effInd
                  break;
          }
      }
@@ -70703,7 +70716,7 @@ index 056ced889..8aa8702a2 100644
      if (Unit const* unit = ToUnit())
          comboPoints = unit->GetComboPoints();
  
-@@ -2403,6 +2449,11 @@ void WorldObject::ModSpellCastTime(SpellInfo const* spellInfo, int32& castTime,
+@@ -2403,6 +2455,11 @@ void WorldObject::ModSpellCastTime(SpellInfo const* spellInfo, int32& castTime,
      if (Player* modOwner = GetSpellModOwner())
          modOwner->ApplySpellMod(spellInfo->Id, SPELLMOD_CASTING_TIME, castTime, spell);
  
@@ -70715,7 +70728,7 @@ index 056ced889..8aa8702a2 100644
      Unit const* unitCaster = ToUnit();
      if (!unitCaster)
          return;
-@@ -2428,6 +2479,11 @@ void WorldObject::ModSpellDurationTime(SpellInfo const* spellInfo, int32& durati
+@@ -2428,6 +2485,11 @@ void WorldObject::ModSpellDurationTime(SpellInfo const* spellInfo, int32& durati
      if (Player* modOwner = GetSpellModOwner())
          modOwner->ApplySpellMod(spellInfo->Id, SPELLMOD_CASTING_TIME, duration, spell);
  
@@ -70727,7 +70740,7 @@ index 056ced889..8aa8702a2 100644
      Unit const* unitCaster = ToUnit();
      if (!unitCaster)
          return;
-@@ -2496,6 +2552,11 @@ SpellMissInfo WorldObject::MagicSpellHitResult(Unit* victim, SpellInfo const* sp
+@@ -2496,6 +2558,11 @@ SpellMissInfo WorldObject::MagicSpellHitResult(Unit* victim, SpellInfo const* sp
      if (Unit const* unit = ToUnit())
          HitChance += int32(unit->m_modSpellHitChance * 100.0f);
  
@@ -70739,7 +70752,7 @@ index 056ced889..8aa8702a2 100644
      RoundToInterval(HitChance, 0, 10000);
  
      int32 tmp = 10000 - HitChance;
-@@ -2827,6 +2888,15 @@ SpellCastResult WorldObject::CastSpell(CastSpellTargetArg const& targets, uint32
+@@ -2827,6 +2894,15 @@ SpellCastResult WorldObject::CastSpell(CastSpellTargetArg const& targets, uint32
          return SPELL_FAILED_BAD_TARGETS;
      }
  
@@ -70755,7 +70768,7 @@ index 056ced889..8aa8702a2 100644
      Spell* spell = new Spell(this, info, args.TriggerFlags, args.OriginalCaster);
      for (auto const& pair : args.SpellValueOverrides)
          spell->SetSpellValue(pair.first, pair.second);
-@@ -2856,6 +2926,11 @@ bool WorldObject::IsValidAttackTarget(WorldObject const* target, SpellInfo const
+@@ -2856,6 +2932,11 @@ bool WorldObject::IsValidAttackTarget(WorldObject const* target, SpellInfo const
      if (target->GetTypeId() == TYPEID_PLAYER && target->ToPlayer()->IsGameMaster())
          return false;
  
@@ -70767,7 +70780,7 @@ index 056ced889..8aa8702a2 100644
      Unit const* unit = ToUnit();
      // visibility checks (only units)
      if (unit)
-@@ -2907,6 +2982,14 @@ bool WorldObject::IsValidAttackTarget(WorldObject const* target, SpellInfo const
+@@ -2907,6 +2988,14 @@ bool WorldObject::IsValidAttackTarget(WorldObject const* target, SpellInfo const
              return false;
      }
  
