@@ -76,7 +76,7 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    72 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1408 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 18701 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 18702 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   712 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   393 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   934 +
@@ -106,11 +106,11 @@
  src/server/game/AI/NpcBots/botdump.h               |    51 +
  src/server/game/AI/NpcBots/botgiver.cpp            |   285 +
  src/server/game/AI/NpcBots/botgossip.h             |   132 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  1765 ++
+ src/server/game/AI/NpcBots/botmgr.cpp              |  1762 ++
  src/server/game/AI/NpcBots/botmgr.h                |   240 +
  src/server/game/AI/NpcBots/botspell.h              |   246 +
  src/server/game/AI/NpcBots/bottext.h               |   397 +
- src/server/game/AI/NpcBots/bpet_ai.cpp             |  2445 +++
+ src/server/game/AI/NpcBots/bpet_ai.cpp             |  2448 +++
  src/server/game/AI/NpcBots/bpet_ai.h               |   176 +
  src/server/game/AI/NpcBots/bpet_archmage.cpp       |   141 +
  src/server/game/AI/NpcBots/bpet_dark_ranger.cpp    |   214 +
@@ -123,7 +123,7 @@
  src/server/game/AI/NpcBots/bpet_priest.cpp         |   172 +
  src/server/game/AI/NpcBots/bpet_sea_witch.cpp      |   250 +
  src/server/game/AI/NpcBots/bpet_shaman.cpp         |   191 +
- src/server/game/AI/NpcBots/bpet_warlock.cpp        |   409 +
+ src/server/game/AI/NpcBots/bpet_warlock.cpp        |   408 +
  src/server/game/AI/NpcBots/lib/bottraits.h         |   156 +
  src/server/game/AI/SmartScripts/SmartScript.cpp    |     3 +
  src/server/game/Accounts/RBAC.h                    |    39 +
@@ -169,7 +169,7 @@
  src/server/game/Scripting/ScriptMgr.h              |     2 +
  src/server/game/Server/WorldSession.cpp            |    18 +
  src/server/game/Spells/Auras/SpellAuraEffects.cpp  |    72 +
- src/server/game/Spells/Auras/SpellAuras.cpp        |    23 +
+ src/server/game/Spells/Auras/SpellAuras.cpp        |    26 +
  src/server/game/Spells/Spell.cpp                   |   146 +
  src/server/game/Spells/Spell.h                     |     3 +
  src/server/game/Spells/SpellEffects.cpp            |   159 +
@@ -197,7 +197,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   314 +
- 199 files changed, 71822 insertions(+), 76 deletions(-)
+ 199 files changed, 71825 insertions(+), 76 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -6739,10 +6739,10 @@ index 000000000..4a5e00e9e
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..173236dc4
+index 000000000..5cf175972
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,18701 @@
+@@ -0,0 +1,18702 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -7998,8 +7998,9 @@ index 000000000..173236dc4
 +            std::list<Unit*> targets2;
 +            GetNearbyFriendlyTargetsList(targets2, 30);
 +            targets2.remove_if(BOTAI_PRED::BuffTargetExclude());
++            targets2.remove_if([](Unit const* unit) { return unit->GetTypeId() != TYPEID_PLAYER; });
 +            for (std::list<Unit*>::const_iterator itr = targets2.begin(); itr != targets2.end(); ++itr)
-+                if (urand(1,100) <= 30 && BuffTarget(*itr, diff))
++                if (urand(1, 100) <= 30 && BuffTarget(*itr, diff))
 +                    return;
 +        }
 +
@@ -13291,7 +13292,7 @@ index 000000000..173236dc4
 +        return true;
 +
 +    if (IAmFree())
-+        waitTimer = me->IsInCombat() ? 500 : urand(750, 1250);
++        waitTimer = me->IsInCombat() ? 500 : ((__rand + 100) * 50);
 +    else if (!master->GetMap()->IsRaid())
 +        waitTimer = std::min<uint32>(uint32(50 * (master->GetNpcBotsCount() - 1) + __rand), 500);
 +    else
@@ -19595,7 +19596,7 @@ index 000000000..173236dc4
 +                InitSpellMap(RaceSpellForClass(myrace, _botclass), true, false);
 +            break;
 +        case RACE_DRAENEI:
-+            RefreshAura(6562); //Heroic Presence (28878 is not present)
++            RefreshAura(6562, uint8(!IAmFree())); //Heroic Presence (28878 is not present)
 +            RefreshAura(20579); //Shadow Resistance (universal since creatures do not lose cast time on damage anyways)
 +            if (firstspawn)
 +                InitSpellMap(RaceSpellForClass(myrace, _botclass), true, false);
@@ -22049,7 +22050,7 @@ index 000000000..173236dc4
 +//opponent unsafe
 +bool bot_ai::GlobalUpdate(uint32 diff)
 +{
-+    if (BotDataMgr::AllBotsLoaded() == false)
++    if (!BotMgr::IsNpcBotModEnabled() || !BotDataMgr::AllBotsLoaded())
 +        return false;
 +
 +    //db saves with cd
@@ -26164,7 +26165,7 @@ index 000000000..2d42b5140
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_archmage_ai.cpp b/src/server/game/AI/NpcBots/bot_archmage_ai.cpp
 new file mode 100644
-index 000000000..962808e2a
+index 000000000..88e6b243c
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_archmage_ai.cpp
 @@ -0,0 +1,393 @@
@@ -26277,7 +26278,7 @@ index 000000000..962808e2a
 +
 +            checkAuraTimer = 10000;
 +
-+            if (!me->HasAura(BRILLIANCE_AURA, me->GetGUID()))
++            if (!IAmFree() && !me->HasAura(BRILLIANCE_AURA, me->GetGUID()))
 +                RefreshAura(BRILLIANCE_AURA);
 +        }
 +
@@ -28117,7 +28118,7 @@ index 000000000..1ae489247
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_death_knight_ai.cpp b/src/server/game/AI/NpcBots/bot_death_knight_ai.cpp
 new file mode 100644
-index 000000000..351bf66d6
+index 000000000..74f9f634c
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_death_knight_ai.cpp
 @@ -0,0 +1,2112 @@
@@ -28588,7 +28589,7 @@ index 000000000..351bf66d6
 +
 +        void CheckPresence(uint32 diff)
 +        {
-+            if (presencetimer > diff || IsCasting() || Rand() > 30)
++            if (presencetimer > diff || IAmFree() || IsCasting() || Rand() > 30)
 +                return;
 +
 +            uint8 newpresence = IsTank() ? DEATH_KNIGHT_FROST_PRESENCE : DEATH_KNIGHT_BLOOD_PRESENCE;
@@ -28704,7 +28705,7 @@ index 000000000..351bf66d6
 +            Counter(diff);
 +
 +            //HORN OF WINTER
-+            if (IsSpellReady(HORN_OF_WINTER_1, diff) && Rand() < 25 &&
++            if (IsSpellReady(HORN_OF_WINTER_1, diff) && !IAmFree() && Rand() < 25 &&
 +                ((me->IsInCombat() && runicpower <= 900) ||
 +                !me->GetAuraEffect(SPELL_AURA_MOD_STAT, SPELLFAMILY_DEATHKNIGHT, 0x0, 0x40000000, 0x0)))
 +            {
@@ -29961,7 +29962,7 @@ index 000000000..351bf66d6
 +            RefreshAura(BLOODY_VENGEANCE3, isBloo && level >= 62 ? 1 : 0);
 +            RefreshAura(BLOODY_VENGEANCE2, isBloo && level >= 61 && level < 62 ? 1 : 0);
 +            RefreshAura(BLOODY_VENGEANCE1, isBloo && level >= 60 && level < 61 ? 1 : 0);
-+            RefreshAura(ABOMINATIONS_MIGHT, isBloo && level >= 60 ? 1 : 0);
++            RefreshAura(ABOMINATIONS_MIGHT, !IAmFree() && isBloo && level >= 60 ? 1 : 0);
 +            //RefreshAura(BLOODWORMS, isBloo && level >= 61 ? 1 : 0);
 +            RefreshAura(IMPROVED_BLOOD_PRESENCE, isBloo && level >= 61 ? 1 : 0);
 +            RefreshAura(WILL_OF_THE_NECROPOLIS, isBloo && level >= 63 ? 1 : 0);
@@ -29972,7 +29973,7 @@ index 000000000..351bf66d6
 +            RefreshAura(KILLING_MACHINE, isFros && level >= 58 ? 1 : 0);
 +            RefreshAura(CHILL_OF_THE_GRAVE, isFros && level >= 58 ? 1 : 0);
 +            RefreshAura(FRIGID_DREADPLATE, isFros && level >= 59 ? 1 : 0);
-+            RefreshAura(IMPROVED_ICY_TALONS, isFros && level >= 60 ? 1 : 0);
++            RefreshAura(IMPROVED_ICY_TALONS, !IAmFree() && isFros && level >= 60 ? 1 : 0);
 +            RefreshAura(THREAT_OF_THASSARIAN, isFros && level >= 62 ? 1 : 0);
 +            RefreshAura(ACCLIMATION, isFros && level >= 63 ? 1 : 0);
 +
@@ -30235,7 +30236,7 @@ index 000000000..351bf66d6
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_dreadlord_ai.cpp b/src/server/game/AI/NpcBots/bot_dreadlord_ai.cpp
 new file mode 100644
-index 000000000..411e37700
+index 000000000..70f784b99
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_dreadlord_ai.cpp
 @@ -0,0 +1,543 @@
@@ -30405,7 +30406,7 @@ index 000000000..411e37700
 +
 +            checkAuraTimer = 10000;
 +
-+            if (!me->HasAura(VAMPIRIC_AURA, me->GetGUID()))
++            if (!IAmFree() && !me->HasAura(VAMPIRIC_AURA, me->GetGUID()))
 +                RefreshAura(VAMPIRIC_AURA);
 +        }
 +
@@ -30784,7 +30785,7 @@ index 000000000..411e37700
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_druid_ai.cpp b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 new file mode 100644
-index 000000000..133933252
+index 000000000..047c446a5
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 @@ -0,0 +1,2936 @@
@@ -33555,7 +33556,7 @@ index 000000000..133933252
 +            RefreshAura(NATURESGRACE, level >= 20 ? 1 : 0);
 +            RefreshAura(DREAMSTATE, isBala && level >= 35 ? 1 : 0);
 +            RefreshAura(BALANCE_OF_POWER, isBala && level >= 35 ? 1 : 0);
-+            RefreshAura(IMPROVED_MOONKIN_FORM, isBala && level >= 40 ? 1 : 0);
++            RefreshAura(IMPROVED_MOONKIN_FORM, !IAmFree() && isBala && level >= 40 ? 1 : 0);
 +            RefreshAura(ECLIPSE, isBala && level >= 50 ? 1 : 0);
 +            RefreshAura(EARTH_AND_MOON, isBala && level >= 55 ? 1 : 0);
 +
@@ -33726,7 +33727,7 @@ index 000000000..133933252
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_hunter_ai.cpp b/src/server/game/AI/NpcBots/bot_hunter_ai.cpp
 new file mode 100644
-index 000000000..86e868e67
+index 000000000..c315ba614
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_hunter_ai.cpp
 @@ -0,0 +1,2379 @@
@@ -33984,7 +33985,7 @@ index 000000000..86e868e67
 +
 +        void CheckAspects(uint32 diff)
 +        {
-+            if (aspectTimer > diff || me->IsMounted() || Feasting() || IsCasting() || Rand() > 55)
++            if (aspectTimer > diff || IAmFree() || me->IsMounted() || Feasting() || IsCasting() || Rand() > 55)
 +                return;
 +
 +            aspectTimer = urand(5000, 10000);
@@ -34446,7 +34447,7 @@ index 000000000..86e868e67
 +
 +            CheckAspects(diff);
 +
-+            if (IsSpellReady(TRUESHOT_AURA_1, diff) && Rand() < 5 &&
++            if (IsSpellReady(TRUESHOT_AURA_1, diff) && !IAmFree() && Rand() < 5 &&
 +                !me->GetAuraEffect(SPELL_AURA_MOD_RANGED_ATTACK_POWER_PCT, SPELLFAMILY_HUNTER, 0x0, 0x200000, 0x0, me->GetGUID()))
 +            {
 +                if (doCast(me, GetSpell(TRUESHOT_AURA_1)))
@@ -38722,7 +38723,7 @@ index 000000000..76f52cfff
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 new file mode 100644
-index 000000000..6233c9db3
+index 000000000..8b2d0198d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 @@ -0,0 +1,2792 @@
@@ -39868,7 +39869,7 @@ index 000000000..6233c9db3
 +
 +        void CheckAura(uint32 diff)
 +        {
-+            if (checkAuraTimer > diff || GC_Timer > diff || IsCasting() ||
++            if (checkAuraTimer > diff || GC_Timer > diff || IAmFree() || IsCasting() ||
 +                /*me->GetExactDist(master) > 40 || me->IsMounted() || Feasting() || */Rand() > 20)
 +                return;
 +
@@ -41268,14 +41269,14 @@ index 000000000..6233c9db3
 +            RefreshAura(VINDICATION1, isRetr && level >= 20 && level < 25 ? 1 : 0);
 +            RefreshAura(CRUSADE, isRetr && level >= 25 ? 1 : 0);
 +            RefreshAura(TWO_HANDED_WEAPON_SPECIALIZATION, isRetr && level >= 30 ? 1 : 0);
-+            RefreshAura(SANCTIFIED_RETRIBUTION, isRetr && level >= 30 ? 1 : 0);
++            RefreshAura(SANCTIFIED_RETRIBUTION, !IAmFree() && isRetr && level >= 30 ? 1 : 0);
 +            RefreshAura(VENGEANCE3, isRetr && level >= 40 ? 1 : 0);
 +            RefreshAura(VENGEANCE2, isRetr && level >= 37 && level < 40 ? 1 : 0);
 +            RefreshAura(VENGEANCE1, isRetr && level >= 35 && level < 37 ? 1 : 0);
 +            RefreshAura(DIVINE_PURPOSE, isRetr && level >= 35 ? 1 : 0);
 +            RefreshAura(JUDGEMENTS_OF_THE_WISE, isRetr && level >= 40 ? 1 : 0);
 +            RefreshAura(ART_OF_WAR, isRetr && level >= 40 ? 1 : 0);
-+            RefreshAura(SWIFT_RETRIBUTION, isRetr && level >= 50 ? 1 : 0);
++            RefreshAura(SWIFT_RETRIBUTION, !IAmFree() && isRetr && level >= 50 ? 1 : 0);
 +            RefreshAura(SHEATH_OF_LIGHT3, isRetr && level >= 60 ? 1 : 0);
 +            RefreshAura(SHEATH_OF_LIGHT2, isRetr && level >= 55 && level < 60 ? 1 : 0);
 +            RefreshAura(SHEATH_OF_LIGHT1, isRetr && level >= 50 && level < 55 ? 1 : 0);
@@ -43644,7 +43645,7 @@ index 000000000..9778c2f41
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_rogue_ai.cpp b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 new file mode 100644
-index 000000000..66098c50a
+index 000000000..f45f9a93d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_rogue_ai.cpp
 @@ -0,0 +1,2040 @@
@@ -45583,7 +45584,7 @@ index 000000000..66098c50a
 +            RefreshAura(MASTER_OF_SUBTLETY, isSubt && level >= 35 ? 1 : 0);
 +            RefreshAura(CHEAT_DEATH, isSubt && level >= 40 ? 1 : 0);
 +            RefreshAura(ENVELOPING_SHADOWS, isSubt && level >= 40 ? 1 : 0);
-+            RefreshAura(TURN_THE_TABLES, isSubt && level >= 55 ? 1 : 0);
++            RefreshAura(TURN_THE_TABLES, !IAmFree() && isSubt && level >= 55 ? 1 : 0);
 +            //RefreshAura(HONOR_AMONG_THIEVES, isSubt && level >= 55 ? 1 : 0);
 +
 +            RefreshAura(VIGOR_GLADIATOR, level >= 70 ? 1 : 0);
@@ -46467,7 +46468,7 @@ index 000000000..ba6d8cf2c
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_shaman_ai.cpp b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 new file mode 100644
-index 000000000..3d984bc6b
+index 000000000..d4530a1be
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_shaman_ai.cpp
 @@ -0,0 +1,2825 @@
@@ -49013,7 +49014,7 @@ index 000000000..3d984bc6b
 +            RefreshAura(ELEMENTAL_DEVASTATION2, isEnha && level >= 15 && level < 18 ? 1 : 0);
 +            RefreshAura(ELEMENTAL_DEVASTATION1, isEnha && level >= 12 && level < 15 ? 1 : 0);
 +            RefreshAura(ELEMENTAL_FOCUS, isElem && level >= 20 ? 1 : 0);
-+            RefreshAura(ELEMENTAL_OATH, isElem && level >= 40 ? 1 : 0);
++            RefreshAura(ELEMENTAL_OATH, !IAmFree() && isElem && level >= 40 ? 1 : 0);
 +            //RefreshAura(STORM_EARTH_AND_FIRE, isElem && level >= 45 ? 1 : 0);
 +
 +            RefreshAura(TOUGHNESS, level >= 25 ? 1 : 0);
@@ -49023,7 +49024,7 @@ index 000000000..3d984bc6b
 +            RefreshAura(FLURRY2, isEnha && level >= 26 && level < 27 ? 1 : 0);
 +            RefreshAura(FLURRY1, isEnha && level >= 25 && level < 26 ? 1 : 0);
 +            RefreshAura(WEAPON_MASTERY, isEnha && level >= 30 ? 1 : 0);
-+            RefreshAura(UNLEASHED_RAGE, isEnha && level >= 35 ? 1 : 0);
++            RefreshAura(UNLEASHED_RAGE, !IAmFree() && isEnha && level >= 35 ? 1 : 0);
 +            RefreshAura(IMPROVED_STORMSTRIKE, isEnha && level >= 40 ? 1 : 0);
 +            RefreshAura(STATIC_SHOCK, isEnha && level >= 41 ? 1 : 0);
 +            RefreshAura(EARTHEN_POWER, isEnha && level >= 50 ? 1 : 0);
@@ -52627,7 +52628,7 @@ index 000000000..7259d38bf
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_warrior_ai.cpp b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 new file mode 100644
-index 000000000..4a10bfdd9
+index 000000000..d07ae9c57
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_warrior_ai.cpp
 @@ -0,0 +1,2264 @@
@@ -53562,7 +53563,7 @@ index 000000000..4a10bfdd9
 +
 +        void CheckShouts(uint32 diff)
 +        {
-+            if (shoutCheckTimer > diff || GC_Timer > diff || Rand() > 35 || me->IsMounted() || IsCasting() ||
++            if (shoutCheckTimer > diff || GC_Timer > diff || Rand() > 35 || IAmFree() || me->IsMounted() || IsCasting() ||
 +                (rage < rcost(BATTLE_SHOUT_1) && !IsSpellReady(BLOODRAGE_1, diff, false)))
 +                return;
 +
@@ -54758,7 +54759,7 @@ index 000000000..4a10bfdd9
 +            RefreshAura(FLURRY2, isFury && level >= 36 && level < 37 ? 1 : 0);
 +            RefreshAura(FLURRY1, isFury && level >= 35 && level < 36 ? 1 : 0);
 +            RefreshAura(FURIOUS_ATTACKS, isFury && level >= 45 ? 1 : 0);
-+            RefreshAura(RAMPAGE, isFury && level >= 50 ? 1 : 0);
++            RefreshAura(RAMPAGE, !IAmFree() && isFury && level >= 50 ? 1 : 0);
 +            RefreshAura(BLOODSURGE, isFury && level >= 50 ? 1 : 0);
 +
 +            RefreshAura(SHIELD_SPECIALIZATION, isProt && level >= 10 ? 1 : 0);
@@ -60277,10 +60278,10 @@ index 000000000..38c61f3de
 +#endif //BOTGOSSIP_H
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 000000000..156b3dca4
+index 000000000..a549b5e53
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,1765 @@
+@@ -0,0 +1,1762 @@
 +#include "Battleground.h"
 +#include "BattlegroundMgr.h"
 +#include "bot_ai.h"
@@ -60467,9 +60468,6 @@ index 000000000..156b3dca4
 +void BotMgr::Initialize()
 +{
 +    LoadConfig();
-+
-+    if (!_enableNpcBots)
-+        return;
 +
 +    BotDataMgr::LoadNpcBots();
 +    BotDataMgr::LoadNpcBotGroupData();
@@ -62949,10 +62947,10 @@ index 000000000..ac72c09d4
 +#endif //BOTTEXT_H
 diff --git a/src/server/game/AI/NpcBots/bpet_ai.cpp b/src/server/game/AI/NpcBots/bpet_ai.cpp
 new file mode 100644
-index 000000000..ec1051517
+index 000000000..c3ec9301f
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_ai.cpp
-@@ -0,0 +1,2445 @@
+@@ -0,0 +1,2448 @@
 +#include "bpet_ai.h"
 +#include "bot_GridNotifiers.h"
 +#include "botmgr.h"
@@ -64929,7 +64927,7 @@ index 000000000..ec1051517
 +        return true;
 +
 +    if (IAmFree())
-+        waitTimer = me->IsInCombat() ? 500 : urand(750, 1250);
++        waitTimer = me->IsInCombat() ? 500 : ((__rand + 100) * 50);
 +    else if (!me->GetMap()->IsRaid())
 +        waitTimer = std::min<uint32>(uint32(50 * (petOwner->GetBotOwner()->GetNpcBotsCount() - 1) + __rand + __rand), 500);
 +    else
@@ -65124,6 +65122,9 @@ index 000000000..ec1051517
 +        TC_LOG_ERROR("entities.unit", "botpet:GlobalUpdate(): no owner!");
 +        return false;
 +    }
++
++    if (!BotMgr::IsNpcBotModEnabled())
++        return false;
 +
 +    ReduceCD(diff);
 +
@@ -68487,10 +68488,10 @@ index 000000000..62fcc2eef
 +}
 diff --git a/src/server/game/AI/NpcBots/bpet_warlock.cpp b/src/server/game/AI/NpcBots/bpet_warlock.cpp
 new file mode 100644
-index 000000000..b484561c9
+index 000000000..5d1a70101
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_warlock.cpp
-@@ -0,0 +1,409 @@
+@@ -0,0 +1,408 @@
 +#include "bot_ai.h"
 +#include "bpet_ai.h"
 +#include "botmgr.h"
@@ -68583,7 +68584,7 @@ index 000000000..b484561c9
 +            if (myType == BOT_PET_IMP)
 +            {
 +                //hacked - confilct with soul link due to ownerGuid mismatch
-+                if (IsSpellReady(BLOOD_PACT_1, diff, false) && (!me->HasAuraType(SPELL_AURA_230) ||
++                if (IsSpellReady(BLOOD_PACT_1, diff, false) && !IAmFree() && (!me->HasAuraType(SPELL_AURA_230) ||
 +                    me->GetAuraEffectsByType(SPELL_AURA_230).front()->GetAmount() < sSpellMgr->GetSpellInfo(GetSpell(BLOOD_PACT_1))->_effects[0].CalcValue()))
 +                {
 +                    me->CastSpell(me, GetSpell(BLOOD_PACT_1), false);
@@ -68648,10 +68649,9 @@ index 000000000..b484561c9
 +            else if (myType == BOT_PET_FELHUNTER)
 +            {
 +                //hacked - confilct with soul link due to ownerGuid mismatch
-+                if (IsSpellReady(FEL_INTELLIGENCE_1, diff, false) &&
-+                    (IAmFree() ||
-+                    (!petOwner->GetBotOwner()->GetBotMgr()->HasBotClass(BOT_CLASS_MAGE) &&
-+                    !petOwner->GetBotOwner()->GetBotMgr()->HasBotClass(BOT_CLASS_PRIEST))))
++                if (IsSpellReady(FEL_INTELLIGENCE_1, diff, false) && !IAmFree() &&
++                    !petOwner->GetBotOwner()->GetBotMgr()->HasBotClass(BOT_CLASS_MAGE) &&
++                    !petOwner->GetBotOwner()->GetBotMgr()->HasBotClass(BOT_CLASS_PRIEST))
 +                {
 +                    me->CastSpell(me, GetSpell(FEL_INTELLIGENCE_1), false);
 +                    //CastSpellExtraArgs args(true);
@@ -70604,7 +70604,7 @@ index 13fcc0cb5..e5cc13d60 100644
          case CREATURE_FLAG_EXTRA_IGNORE_PATHFINDING: return 29;
          case CREATURE_FLAG_EXTRA_IMMUNITY_KNOCKBACK: return 30;
 diff --git a/src/server/game/Entities/Object/Object.cpp b/src/server/game/Entities/Object/Object.cpp
-index 056ced889..62bb829ca 100644
+index 056ced889..6e4bb9221 100644
 --- a/src/server/game/Entities/Object/Object.cpp
 +++ b/src/server/game/Entities/Object/Object.cpp
 @@ -1001,6 +1001,11 @@ void WorldObject::setActive(bool on)
@@ -70670,7 +70670,7 @@ index 056ced889..62bb829ca 100644
  
  Player* WorldObject::GetAffectingPlayer() const
  {
-+    //nocbot: affecting player is creator
++    //npcbot: affecting player is creator
 +    if (GetTypeId() == TYPEID_UNIT && ToCreature()->IsNPCBotOrPet())
 +        if (Unit* creator = ToUnit()->GetCreator())
 +            return creator->ToPlayer();
@@ -73513,7 +73513,7 @@ index 0d7f35138..af82eab21 100644
      }
      else
 diff --git a/src/server/game/Spells/Auras/SpellAuras.cpp b/src/server/game/Spells/Auras/SpellAuras.cpp
-index 84b52d86a..c5e60ccb1 100644
+index 84b52d86a..047effce1 100644
 --- a/src/server/game/Spells/Auras/SpellAuras.cpp
 +++ b/src/server/game/Spells/Auras/SpellAuras.cpp
 @@ -572,6 +572,10 @@ void Aura::_ApplyForTarget(Unit* target, Unit* caster, AuraApplication* auraApp)
@@ -73560,6 +73560,16 @@ index 84b52d86a..c5e60ccb1 100644
                          if (caster->GetTypeId() != TYPEID_PLAYER)
                              break;
  
+@@ -1864,6 +1887,9 @@ bool Aura::CanStackWith(Aura const* existingAura) const
+         return false;
+ 
+     // check spell group stack rules
++    //npcbots: do not check stack rules for npcbots
++    if (!(sameCaster && GetOwner()->GetTypeId() == TYPEID_UNIT && GetOwner()->ToCreature()->IsNPCBotOrPet()))
++    //end npcbot
+     switch (sSpellMgr->CheckSpellGroupStackRules(m_spellInfo, existingSpellInfo))
+     {
+         case SPELL_GROUP_STACK_RULE_EXCLUSIVE:
 diff --git a/src/server/game/Spells/Spell.cpp b/src/server/game/Spells/Spell.cpp
 index dfdc492b0..6720144cd 100644
 --- a/src/server/game/Spells/Spell.cpp
