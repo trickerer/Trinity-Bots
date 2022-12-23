@@ -1,6 +1,6 @@
 ### This mod was last updated:
-### TC: 22 Dec 2022, [451a76b982](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/451a76b982)
-### AC: 22 Dec 2022, [97f7618f9e](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/97f7618f9e)
+### TC: 23 Dec 2022, [ce87d17f6b](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/ce87d17f6b)
+### AC: 23 Dec 2022, [3af9ba56da](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/3af9ba56da)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 
@@ -202,19 +202,24 @@ _TARGET_ indicates that command is used on a selected unit
     - (No arguments)  
     **Example Usage:**  
         - `.npcbot reloadconfig  
-- **`command <COMMAND> _TARGET_`** -- (Player command) allows you to manage your NPCBots positioning and movement (by itself will display list of subcommands)  
-    - COMMAND = command string  
-        - follow, f = FOLLOW mode  
-        - standstill, stand = STAY mode  
-        - stopfully, stop = IDLE mode  
-        - walk, w = WALK mode (toggled)  
-    - _TARGET_ = selected (your) NPCBot (command affects this NPCBot)  
-    - _TARGET_ = any other unit or no selection (command affects all your NPCBots)  
+- **`command`** -- (Player command) allows to manage your NPCBots positioning, movement and couple other things (by itself will display list of subcommands)  
+    - **`follow _TARGET_`** -- set NPCBot(s) to FOLLOW mode  
+    - **`standstill _TARGET_`** -- set NPCBot(s) to STAY mode  
+    - **`stopfully _TARGET_`** -- set NPCBot(s) to IDLE mode  
+        - _TARGET_ = selected (your) NPCBot (command affects this NPCBot)  
+        - _TARGET_ = any other unit or no selection (command affects all your NPCBots)  
+    - **`walk`** -- toggle WALK mode for NPCBots  
+    - **`nogossip`** -- toggle GOSSIP availability for NPCBots  
+    - **`unbind <_TARGET_|NAME>`** -- free NPCBot temporarily without dismissing them. Bot will return to home position and wait there until invited back (or server restart)  
+    - **`rebind <_TARGET_|NAME>`** -- call unbound NPCBot back. Use `.npcbot info` to list your unbound NPCBots  
+        - _TARGET_ = selected (your) NPCBot (command affects this NPCBot)  
+        - NAME = case-insensitive NPCBot name (command affects named NPCBot)  
     **Example Usage:**  
         - `.npcbot command standstill` (NPCBot stops moving and will hold position)  
-        - `.npcb c sta` (same as above)  
+        - `.npcb co sta` (same as above)  
         - `.npcbot command stopfully` (NPCBot will interrupt all actions, stop and not react to anything)  
         - `.npcbot command follow` (NPCBot will follow you if not already)  
+        - `.npcb co nog` (you will not be able to open NPCBot gossip menu even out of combat)  
 - **`info _TARGET_`** -- (Player command) shows info on owned bots  
     - _TARGET_ = selected grouped player or self (shows you info on that player)  
     **Example Usage:**  
