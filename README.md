@@ -6,7 +6,7 @@
 
 # [ THE NPCBOTS MANUAL ]
 >Compiled by: Trickerer (onlysuffering @ Gmail dot Com)  
->Version 0.21 - 15 Dec 2022  
+>Version 0.22 - 24 Dec 2022  
 >Original version by: Thesawolf (@ Gmail dot Com) Version 0.3 - 20 July 2016 [here](https://github.com/thesawolf/TrinityCore/blob/TrinityCoreLegacy/README_Bots.md)
 
 ---------------------------------------
@@ -119,7 +119,7 @@ _TARGET_ indicates that command is used on a selected unit
 **COMMAND**: **`.npcbot`**, **`.npcb`** -- (Player command) by itself will list all syntax available  
 
 - **`lookup <CLASS> [#unspawned_only]`** -- (GM command) lookup the NPCBot entries by <CLASS>, returns list of NPCBots as ID, Name and Race. If `unspawned_only` is set to 1 shows only NPCBots which weren't spawned yet  
-    - <CLASS> = class ID (i.e. 1 for WARRIORs). **`.npcbot lookup` (`.npcb loo`)** (without the argument) to list class IDs  
+    - CLASS = class ID (i.e. 1 for WARRIORs). **`.npcbot lookup` (`.npcb loo`)** (without the argument) to list class IDs  
     **Example Usage**:  
         - `.npcbot lookup 7` (to list all Shamans)  
         - `.npcb loo 11 1` (to list all unspawned Druids)  
@@ -142,15 +142,15 @@ _TARGET_ indicates that command is used on a selected unit
         - `.npcbot remove`  
         - `.npcb rem`  
 - **`spawn <ENTRY|LINK>`** -- (GM command) spawns a NPCBot in world, NPCBot is saved in DB. Only works in world maps (not instances). Note that unlike other creatures only one instance of each NPCBot can be spawned, but don't worry: there are many NPCBots to choose from  
-    - <ENTRY> = ID of NPCBot (can be obtained from lookup list)  
-    - <LINK> = creature_template link added by Shift-click (obtained from lookup list)  
+    - ENTRY = ID of NPCBot (can be obtained from lookup list)  
+    - LINK = creature_template link added by Shift-click (obtained from lookup list)  
     **Example Usage**:  
         - `.npcbot spawn 70001` (spawns NPCBot with ID 70001)  
         - `.npcb sp 70002` (spawn NPCBot with ID 70002)  
         - `.npcb sp [Haromm]` (spawn NPCBot by link)  
 - **`move <ENTRY|LINK|_TARGET_>`** -- (GM command) moves spawned NPCBot to a new location. This command replaces `.npc move` command for bots  
-    - <ENTRY> = ID of NPCBot  
-    - <LINK> = creature_template link added by Shift-click (obtained from lookup list)  
+    - ENTRY = ID of NPCBot  
+    - LINK = creature_template link added by Shift-click (obtained from lookup list)  
     - _TARGET_ = selected NPCBot  
     **Example Usage**:  
         - `.npcbot move 70001` (moves NPCBot with ID 70001 to your position)  
@@ -277,12 +277,12 @@ _TARGET_ indicates that command is used on a selected unit
         - `.npcb veh e`  
 - **`dump`** -- (Admin command) allows you to migrate bots data, similar to `pdump` for players (by itself will display list of subcommands)  
     - **`write <FILENAME>`** -- creates a backup file containing info required to move bots to another DB  
-        - FILENAME = name of the file to create, will be saved in server root folder (Windows) or home directory (Linux), if file extension is not provided, **.sql** wil be ommited  
+        - FILENAME = name of the file to create, will be saved in server root folder (Windows) or home directory (Linux), if file extension is not provided, **.sql** wil be used  
         **Example Usage:**  
             - `.npcbot dump write bots_backup` (write to `bots_backup.sql`)  
             - `.npcb du w 1.txt` (write to `1.txt`)  
     - **`load <FILENAME> [#kick_players]`** -- load NPCBots info from a backup file into DB. Requires no players to be playing (use console) and will force a server restart after completion. If `kick_players` parameter is provided, all players will be kicked from server automatically. NPCBots mod must be already installed (all tables present)  
-        - FILENAME = your backup file name, must be stored in server root folder (Windows) or home directory (Linux), if file extension is not provided, **.sql** wil be ommited  
+        - FILENAME = your backup file name, must be stored in server root folder (Windows) or home directory (Linux), if file extension is not provided, **.sql** wil be used  
         **Example Usage:**  
             - `.npcbot dump load bots_backup` (load from `bots_backup.sql`)  
             - `.npcb du l 1.txt` (load from `1.txt`)  
@@ -417,7 +417,7 @@ Down the menu you will find a list of classes of NPCBots. After you select one, 
 Note that conditions you need to meet to hire NPCBots this way are completely the same as you would normally have, the only difference is that you don't need to go around the world to find NPCBots you need.
 
 #### NPCBot Getting Around
-Whether grouped or not, your NPCBot will follow you around, keeping you buffed along the way (if they can buff), healing you when needed (if it is a healer-type NPCBot), attacking things alongside you and even ressurecting you if you die (if they can ressurect, that is). NPCBots are designed to keep up to your run pace and will mount up on their own version of your mount when you do. In the event that they cannot keep up (due to you moving too fast or they being stuck in combat or in something), your NPCBot will eventually teleport to your location (even if you go into another map).  
+Whether grouped or not, your NPCBot will follow you around, keeping you buffed along the way (if they can buff), healing you when needed (if it is a healer-type NPCBot), attacking things alongside you and even ressurecting you if you die (if they can ressurect, that is). NPCBots are designed to keep up to your run pace and will mount up on their own version of your mount when you do. In the event that they cannot keep up (due to you moving too fast or they being stuck in combat or something), your NPCBot will eventually teleport to your location (even if you go into another map).  
 NOTE: NPCBots cannot teleport to you when you are in a dungeon, if they are not part of your group.
 
 For the most part, go somewhere and they will follow. Simple as that.
@@ -434,13 +434,13 @@ If your NPCBot is not targetable or in the immediate vicinity (for selection), y
 - `.npcbot command follow` (`.npcb c f`) to make all your controlled NPCBots FOLLOW
 
 In the event your NPCBot is too far away to path to you, your NPCBot will teleport themself to you.
-You can also use `.npcbot hide` and then `npcbot unhide` commands to force your NPCBots to teleport to you
+You can also use `.npcbot recall teleport` command to force your NPCBots to teleport to you
 
 When you leave the world your NPCBots aren't hanging around outside the dungeon you decided to log out at. Unless you spawned that NPCBot outside that dungeon. When you log out your NPCBots temporarily become normal free NPCBots (but not hireable because they already have an owner - you) and return to their spawn location. If you picked up your NPCBot in Darnassus, it will return there. If you spawned your NPCBot on the road through the Barrens, it will return there. This can be both annoying and good, spawning NPCBots in a good central location (like in cities), will provide you an easy way to hire them (and coincidentally, they like to hang out and buff passerbys).
 
 #### NPCBot Equipment
 NPCBots spawn with some basic equipment and clothes. Some NPCBots however start with some rather powerful weapons but they are only visual and provide no benefits: no damage, no stats. Nothing. They are __purely visual__. In fact, in most cases these weapons are partial to class appearance and will always stay (like Dark Ranger and her trusty bow)  
-NPCBots give you the ability to customize their individual gear pieces to make them more effective in combat. Note that visual changes to NPCBot's equipment are not instant
+NPCBots give you the ability to customize their individual gear pieces to make them more effective in combat. Note that visual changes to NPCBot's equipment are not instant (except weapons)
 
 To make changes to their gear, you need to right-click that NPCBot and choose `Manage equipment...` from their post-hire Gossip Menu. You should then see the following:
 ```
@@ -499,7 +499,7 @@ The roles can be a little tricky to understand:
 
 - "Tanking" role means that NPCBots will try to produce as much threat as possible, use taunt-like abilities to reaggro targets attacking friends and use defensive cooldowns more liberally. This does NOT include attacking anything. "Tanking" bots with no "Off-Tanking" enabled are considered Main Tanks and will always stay on targets pointed by `TankTargetIconMask` (see [Config Settings](#npcbot-config-settings))
 
-- "Off-Tanking" is an addition to "Tanking" role and makes tanking NPCBots prioritize targets pointed by `OffTankTargetIconMask`
+- "Off-Tanking" is an addition to "Tanking" role and makes tanking NPCBots prioritize targets pointed by `OffTankTargetIconMask`. Enabling this role will automatically enable "Tanking" role also
 
 - "DPS" role allows NPCBots to actually deal damage. If this role is disabled NPCBot will not use damaging abilities, not even auto-attack
 
@@ -520,12 +520,15 @@ Some times you just want your NPCBot close.. or as far away as possible. The for
 Select `Manage formation...` from their Gossip Menu to adjust the formation. You will see:
 ```
 - Follow distance (current: XX)
-- BACK
+- DISABLE combat positioning
 - Attack distance...
 - Attack angle...
+- BACK
 ```
-NOTE: you will only see `Attack distance...` if NPCBot has `Ranged` role assigned
+NOTE: you will see `DISABLE combat positioning`, `Attack distance...` and `Attack angle...` only if NPCBot has `Ranged` role assigned  
 Selecting `Follow distance` will open up a popup window that you can enter in an amount. This amount can be anywhere from **0** to **100**. Setting any higher than **100** will default to **100** and any lower than **0** to **0**. Setting the distance to **0** will result in the NPCBot PASSIVELY following you rather closely and not engaging mobs unless you attack
+
+If `DISABLE combat positioning` option is checked your `Ranged` NPCBots will not try to assume attack positions and will instead retain their follow positioning even in combat, only attacking targets in reach
 
 Selecting `Attack distance...` will allow you to set ranged attack distance. You will see:
 ```
@@ -539,7 +542,7 @@ NOTE: if "Exact" mode is set, its text will change to
 - Exact (current: XX)
 ```
 Short range are attacks that are the shortest distance of all ranged attacks for NPCBot's class. For example for paladins it is 10 yards (Judgement range) and for Mages it is 20 yards (Fire Blast range)  
-Long range attacks are the opposit of short range ones. For most classes this range is about 30-35 yards. This mode is useful when attacking something very dangerous to stand close to  
+Long range attacks are the opposite of short range ones. For most classes this range is about 30-35 yards. This mode is useful when attacking something too dangerous to stand close to  
 Selecting `Exact` will open up a popup window that you can enter in an amount. This amount can be anywhere from **0** to **50**. Same rules as for follow distance  
 NOTE: setting exact attack distance to **0** will make NPCBots (and their pets) trying to position themselves on top of their target (ignoring model size)
 
@@ -648,11 +651,11 @@ If some config settings look ambiguous this section may be of help to you
     - This parameter determines formation size and enemy chase cutoff distance
     - Value range: **0-100**
     - Not saved between log-ins  
-    Explanation. Bots group around you in a formation where tanks are in front, melee are on the sides and ranged are in the back. The distance they keep from you is not changed if value of this parameter is 30 or less. Past 30 it is increased linearly up to additional 10 yards between you and a your bots. The distance at which bots start attacking incoming enemies is determined by this parameter as well. This is distance between *you* and the enemy and is about 75% of this paramenter's value. If bot's attack target moves outside of this range bot stops attacking it (unless you attack this target as well) and retreats. **This means** that if this parameter is set low bot actions and chase movement may become erratic. Is this parameter is set to **0** bots will act passively unless you point an attack targets (with your melee attack, only works in combat); this may be useful in case you want bots to attack and retreat, or in situation where blind attack is dangerous and you need bots to attack only targets you want them to
+    Explanation. Bots group around you in a formation where tanks are in front, melee are on the sides and ranged are in the back. The distance they keep from you is not changed if value of this parameter is 30 or less. Past 30 it is increased linearly up to additional 10 yards between you and a your bots. The distance at which bots start attacking incoming enemies is determined by this parameter as well. This is distance between *player* (or *bot*, if stationed) and the enemy and is about 75% of this paramenter's value. If bot's attack target moves outside of this range bot stops attacking it (unless you attack this target as well) and retreats. **This means** that if this parameter is set low bot actions and chase movement may become erratic. If this parameter is set to **0** bots will act passively unless you point an attack targets (with your melee attack, only works in combat); this may be useful in case you want bots to attack and retreat, or in situation where blind attack is dangerous and you need bots to attack only targets you want them to. **Auto-attack spells like Autoshot or Shoot Wand cancel your melee attack**
 - **`NpcBot.XpReduction`**
     - This parameter allows you to set XP gain percent penalty for players using bots during leveling
     - Value range: **0-90**  
-    Explanation. XP amount is reduced by a percentage for every used bot after first one (it doesn't matter if bots are in group with you or not). Two bots are able to do much more damage than one player, especially on low levels. Bots also open great potential for grind. So you may want to punish your players a little. The formula is: **(100 - X \* (Y - 1))%** XP gained, where **X** is XP reduction and **Y** is bots count. *Example: XP reduction is 10, bots count = 4; XP gained: 100 - 10 * (4 - 1) = 70% XP gained*. In any case, overall XP reduction from this parameter will never exceed 90%. **This penalty only applies to bots' owner**
+    Explanation. XP amount is reduced by a percentage for every used bot after first one (it doesn't matter if bots are in group with player or not). Two bots are able to do much more damage than one player, especially at low levels. Bots also open great potential for grind. So you may want to punish your players a little. The formula is: **(100 - X \* (Y - 1))%** XP gained, where **X** is XP reduction and **Y** is bots count. *Example: XP reduction is 10, bots count = 4; XP gained: 100 - 10 * (4 - 1) = 70% XP gained*. In any case, overall XP reduction from this parameter will never exceed 90%. **This penalty only applies to bots' owner**
 - **`NpcBot.HealTargetIconsMask`**
     - This parameter allows players to mark units not under player's control as friends using Target Icons  
     Explanation. Sometimes you need to protect targets other than yourself, escort quests are a good example. With this parameter activated players can set *Raid Icon* on a target they want bots to care about. Bots will treat said target as a member of player's party, heal it if needed and assist it in combat. Parameter itself is a bit mask and consists of a combination of values assigned to each target icon: **Star - 1, Circle - 2, Diamond - 4, Triangle - 8, Moon - 16, Square - 32, Cross - 64, Skull - 128**. *Example: Star, Diamond and Triangle = 1 + 4 + 8 = 13*
@@ -688,7 +691,7 @@ If some config settings look ambiguous this section may be of help to you
     Explanation. The value you set is in copper (1 silver = 100 copper, 1 gold = 100 silver = 10000 copper). Rare and Elite bots cost more (**x2** for Rare and **x5** for Elite)
 - **`NpcBot.Movements.InterruptFood`**
     - This parameter determines if bots should stop eating and drinking if they move  
-    Explanation. By default this parameter is disabled to prevent bots' food and drinks spam since bots try to eat and drink when they have the chance, which is every time they don't do anything even for a fraction of a second
+    Explanation. By default this parameter is disabled to prevent bots' food and drinks spam since bots try to eat and drink whenever they have the chance, which is every time they don't do anything even for a fraction of a second
 - **`NpcBot.EquipmentDisplay.Enable`**
     - This parameter allows bots to display equipped items other than weapons on their model  
     Explanation. Normally, for creatures game client only draws default model determined by model ID. This parameter force feeds clients information about unit model and items in equipment slots which is generated at server side; so instead of default model client draws player model components including skin color, face, facial hair and others including "equipped" items. The only problem players may encounter comes from a game client bug which can cause a crash at game exit (client crash, not server crash) with error \#132. This bug can be reproduced by changing base model of unit having UNIT_FLAG2_MIRROR_IMAGE more than 4 times in a short period of time, so bots being polymorphed or druids shapeshifting have higher chance of causing this problem
@@ -717,7 +720,7 @@ Abilities:
 - Critical Strike (passive). Gives 15% chance to deal critical strike for x2-x4 times normal damage (depends on hero's level)
 - Bladestorm (not implemented)  
 
-**Additional info:** Blademaster stands out as a class with highest single target damage capabilities and ability to almost one-shot most things if geared properly. Unfortunately, due to changes in movement mechanic, Blademaster's critical strike animation can not longer be emulated, and thus this class was disabled in last version  
+**Additional info:** Blademaster stands out as a class with highest single target damage capabilities and ability to almost one-shot most things if geared properly. Unfortunately, due to changes in movement mechanic, Blademaster's critical strike animation can no longer be emulated, and thus this class was disabled in last version  
 
 #### Obsidian Destroyer
 **Rank: Rareelite**  
@@ -726,7 +729,7 @@ Abilities:
 **Equipment affects visual: weapons only**  
 **Number included: 2**  
 **Class specifics:** *Very* high resistances, *negative* mana regeneration which cannot be countered by passive mana regeneration effects (like item mp5 stats), cannot mount, no melee attack, stamina bonus +50%, armor bonus: +50%, all damage taken reduced by 33%, attack power from stats: strength x2, spellpower bonus: 50% attack power + 200% intellect + wands, cannot eat  
-Equippable weapon: wand**s**  
+Equippable weapon: wands **x 2**  
 Equippable armor: mail/plate (no shield), **no jewelry or cape**  
 Abilities:
 
@@ -781,16 +784,16 @@ Abilities:
 **Minimum player level: 20**  
 **Equipment affects visual: no**  
 **Number included: 5**  
-**Class specifics:** All spell damage taken reduced by 75%, armor penalty: -30%, attack power from stats: strength x5, block chance + 90%, spellpower bonus: 200% stength  
+**Class specifics:** All spell damage taken reduced by 75%, armor penalty: -30%, attack power from stats: strength x5, block chance +90%, spellpower bonus: 200% stength  
 Equippable weapon: axes, maces, swords, fist weapons, daggers  
 Equippable armor: mail/plate  
 Abilities:
 
-- Steal Magic. Steals benefical spell from an enemy an transfers it to a nearby ally, or removes a negative spell from an ally and transfers it to a nearby enemy, affects magic and curse effects. Transferred effect duration is limited to a maximum of 5 minutes *and minimum of 5 seconds*
-- Feedback (passive). Melee attacks burn target's mana dealing arcane damage. Amount burned is equal to melee damage dealt increased by spell power. If target is drained, Spell Breaker's melee attacks will do triple damage with increased critical strike chance
+- Steal Magic. Steals benefical spell from an enemy and transfers it to a nearby ally, or removes a negative spell from an ally and transfers it to a nearby enemy, affects magic and curse effects. Transferred effect duration is limited to a maximum of 5 minutes *and minimum of 5 seconds*
+- Feedback (passive). Melee attacks burn target's mana dealing arcane damage. Amount burned is equal to melee damage dealt increased by spell power. If target is drained, Spell Breaker's melee attacks will do triple damage with increased critical strike chance. If target does't have mana then instead of draining Spellbreaker's damage restores his own mana equal to 25% of damage dealt
 - Control Magic (not implemented)  
 
-**Additional info:** Spell Breaker is mostly pure support class incappable of dealing any serious damage, but may also make quick work of some hapless caster, burning all his mana in seconds  
+**Additional info:** Spell Breaker is mostly pure support class incapable of dealing any serious damage, but may also make quick work of some hapless caster, burning all his mana in seconds  
 
 #### Dark Ranger
 **Rank: Rareelite**  
@@ -798,7 +801,7 @@ Abilities:
 **Minimum player level: 40**  
 **Equipment affects visual: no**  
 **Number included: 5**  
-**Class specifics:** Undead, damage generates no threat, sneak mode if not moving, spell damage taken reduced by 35%, attack power from stats: agility x5 + intellect x2, armor penetration bonus: 50%, crit bonus +20%, dodge bonus +30%, spellpower bonus: 50% intellect  
+**Class specifics:** Undead, damage generates no threat, sneak mode if not moving, spell damage taken reduced by 35%, attack power from stats: agility x4 + intellect x2, armor penetration bonus: 50%, crit bonus +20%, dodge bonus +30%, spellpower bonus: 50% intellect  
 Equippable weapon: swords, daggers, bows  
 Equippable armor: cloth/leather (no shield)  
 Abilities:
@@ -819,7 +822,7 @@ Abilities:
 **Equipment affects visual: no**  
 **Number included: 5**  
 **Class specifics:** Spell damage taken reduced by 20%, no melee attack, spellpower bonus: 100% intellect  
-Equippable weapon: staves
+Equippable weapon: staves  
 Equippable armor: cloth (no shield)  
 Abilities:
 
@@ -845,8 +848,8 @@ Abilities:
 
 - Forked Lightning. Calls forth a cone of lightning to damage enemies. Hits from 2 to all targets (depending on Sea Witch's level), stunning them for 2 seconds. This damage generates no threat  
 - Frost Arrows. Imbues arrow with spellfrost for extra damage, slowing target's movement, attack and casting speed by 30% to 70% (depending on Sea Witch's level)  
-- Mana Shield. Creates a shield that absorbs 100% incoming (non-mitigated) damage by using Sea Witch's mana. Absorbs 2 to 10 damage per point of mana (depending on Sea Witch's level)  
-- Tornado. Summons a fierce tornado that damages and slows nearby enemy units, sometimes incapacitating them completely. Tornado grows over time oudoors, increasing damage dealt and area of effect, but shrinks indoors, dissipating quickly. Unlocked at level 60
+- Mana Shield. Creates a shield that absorbs 100% incoming (non-mitigated) damage by using Sea Witch's mana. Absorbs from 1 damage pet 10 points of mana to 10 damage per 1 point of mana (depending on Sea Witch's level)  
+- Tornado. Summons a fierce tornado that damages and slows nearby enemy units, sometimes incapacitating them completely. Tornado grows in size over time outdoors, increasing damage dealt and area of effect, but shrinks indoors, dissipating quickly. Unlocked at level 60
 - Naga (Passive). Swim speed increased by 200%, damage and dodge chance are greatly increased while in water
 
 **Additional info:** Sea Witch is a versatile ranged damage dealer. She is very durable and has some CC capabilities  
@@ -856,31 +859,36 @@ Abilities:
 NPCBot data is stored in the following locations:
 
 - `characters` DB
-    - `characters_npcbot` (created by this mod) contains all information about spawned npcbots  
-    Also writes into:
+    - `characters_npcbot` (created by this mod) contains all information about spawned npcbots
+    - `characters_npcbot_group_member` (created by this mod) contains NPCBot group member records
+    - `characters_npcbot_transmog` (created by this mod) contains transmogrification info for NPCBots  
+    Also writes to:
         - `item_instance` (item owner assignment)
 - `world` DB
-    - `creature_template` (ids 70000-71000\*) contains creature base data for bots
-    - `creature_equip_template` (ids 70000-71000\*) contains bots' standard weapons info
-    - `npc_text` (ids 70000-71000) custom text for bots' gossip and class descriptions
     - `creature_template_outfits` (created by this mod) contains static display information
     - `creature_template_npcbot_appearance` (created by this mod) contains dynamic display information
     - `creature_template_npcbot_extras` (created by this mod) contains race and class info
-    - `creature` contains info about spawned creatures in the world
-    - \* \- max id may be exceeded by custom NPCBots created
+    - `creature_template` (ids 70000-71000\*) contains creature base data for bots
+    - `creature_equip_template` (ids 70000-71000\*) contains bots' standard weapons info
+    - `npc_text` (ids 70000-71000) custom text for bots' gossip and class descriptions
+    - `creature` contains info about spawned creatures in the world  
+    \* \- max id may be exceeded by custom NPCBots created
 
-If you want to make changes to the static template data used for NPCBots, you make adjustments in the `world` database to those specific ids in the above tables (i.e. npcbot model, outfits, etc.)
+If you want to make changes to the static template data used for NPCBots, you make adjustments in the `world` database to those specific ids in the above tables (i.e. npcbot model, outfits, etc.)  
+**Do not** tinker with `characters` DB NPCBot tables, any bug reports containing accidently corrupted NPCBots installation will be discarded without notice  
 If you need to remove NPCBot mod completely you need to first manually delete every spawned bot in the world (using .npcbot delete command; you need to remove their equipment first, otherwise the items become inaccessible). Then delete `characters_npcbot`, `creature_template_npcbot_extras` and `creature_template_npcbot_appearance` tables and clean all other used tables of entries by id (70000-71000 + possibly more custom bot entries). `creature_template_outfits` can also be deleted if you are not using Npc Dress Mod.
 
 #### Game World
-Bots are counted as active objects (keep grids loaded like players)
+Bots are counted as active objects and keep map grids loaded like players
 Bots are being added to world at server loading (after Map System is started)
 
-#### Bots available to spawn: **312**
+#### Total number of bots included in fresh install: **312**
 
 ---------------------------------------
 ## Guide Changelog
 
+- **Version 0.22** (_24 Dec 2022_)
+    - General review with lots of fixes
 - **Version 0.21** (_15 Dec 2022_)
     - Added `.npcbot sendto` command
 - **Version 0.20** (_13 Dec 2022_)
