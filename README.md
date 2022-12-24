@@ -1,6 +1,6 @@
 ### This mod was last updated:
-### TC: 23 Dec 2022, [ce87d17f6b](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/ce87d17f6b)
-### AC: 23 Dec 2022, [3af9ba56da](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/3af9ba56da)
+### TC: 24 Dec 2022, [f2803a93b8](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/f2803a93b8)
+### AC: 24 Dec 2022, [80e22ec301](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/80e22ec301)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 
@@ -208,18 +208,19 @@ _TARGET_ indicates that command is used on a selected unit
     - **`stopfully _TARGET_`** -- set NPCBot(s) to IDLE mode  
         - _TARGET_ = selected (your) NPCBot (command affects this NPCBot)  
         - _TARGET_ = any other unit or no selection (command affects all your NPCBots)  
-    - **`walk`** -- toggle WALK mode for NPCBots  
-    - **`nogossip`** -- toggle GOSSIP availability for NPCBots  
     - **`unbind <_TARGET_|NAME>`** -- free NPCBot temporarily without dismissing them. Bot will return to home position and wait there until invited back (or server restart)  
     - **`rebind <_TARGET_|NAME>`** -- call unbound NPCBot back. Use `.npcbot info` to list your unbound NPCBots  
         - _TARGET_ = selected (your) NPCBot (command affects this NPCBot)  
         - NAME = case-insensitive NPCBot name (command affects named NPCBot)  
+    - **`walk`** -- toggle WALK mode for NPCBots  
+    - **`nogossip`** -- toggle GOSSIP availability for NPCBots  
     **Example Usage:**  
         - `.npcbot command standstill` (NPCBot stops moving and will hold position)  
         - `.npcb co sta` (same as above)  
         - `.npcbot command stopfully` (NPCBot will interrupt all actions, stop and not react to anything)  
         - `.npcbot command follow` (NPCBot will follow you if not already)  
         - `.npcb co nog` (you will not be able to open NPCBot gossip menu even out of combat)  
+        - `.npcb co unb sheal` (temporarily remove druid NPCBot Sheal)  
 - **`info _TARGET_`** -- (Player command) shows info on owned bots  
     - _TARGET_ = selected grouped player or self (shows you info on that player)  
     **Example Usage:**  
@@ -302,11 +303,12 @@ _TARGET_ indicates that command is used on a selected unit
     - _GENDER_ = same as _RACE_, for normal classes you have to select one  
         - 0: Male  
         - 1: Female  
-    - _SKIN_, _FACE_, _HEARSTYLE_, _HAIRCOLOR_, _FEATURES_ = appearance details, 0 and up. Different race/gender combinations have different limits for those, lowest being **0-3** (female Tauren face) and highest **0-23** (female Human hair style)  
+    - _SKIN_, _FACE_, _HEARSTYLE_, _HAIRCOLOR_, _FEATURES_ = appearance details, 0 and up. Different race/gender combinations have different constraints for visuals, use `.npcbot createnew ranges` to see them  
     - _SOUNDSET_ = NPC voice variant for bot to use. There are 3 variants for each race, by default the choice is random  
     **Example Usage:**  
         - `.npcbot createnew Selendris 2 10 1 6 4 3 2 4` (creates a female redhead Blood Elf mage npcbot)  
         - `.npcb cre Selendris 2 10 1 6 4 3 2 4` (creates a female redhead Blood Elf mage npcbot)  
+        - `.npcb createnew ranges` (prints visuals constraints for all races)  
 
 ### NPCBot Control and Usage
 #### NPCBot Getting started

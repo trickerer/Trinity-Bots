@@ -46,7 +46,7 @@
  src/server/game/AI/NpcBots/bot_sphynx_ai.cpp       |   605 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  2105 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2265 +++
- src/server/game/AI/NpcBots/botcommands.cpp         |  2354 +++
+ src/server/game/AI/NpcBots/botcommands.cpp         |  2422 +++
  src/server/game/AI/NpcBots/botcommon.h             |   567 +
  src/server/game/AI/NpcBots/botdatamgr.cpp          |   749 +
  src/server/game/AI/NpcBots/botdatamgr.h            |   161 +
@@ -114,7 +114,7 @@
  src/server/game/Maps/Map.cpp                       |    26 +
  src/server/game/Maps/MapMgr.cpp                    |     8 +
  src/server/game/Movement/MotionMaster.cpp          |    20 +
- .../MovementGenerators/PointMovementGenerator.cpp  |     8 +-
+ .../MovementGenerators/PointMovementGenerator.cpp  |     7 +
  src/server/game/OutdoorPvP/OutdoorPvP.cpp          |    17 +
  src/server/game/Scripting/ScriptMgr.cpp            |     8 +
  src/server/game/Scripting/ScriptMgr.h              |     2 +
@@ -141,7 +141,7 @@
  src/server/scripts/Spells/spell_rogue.cpp          |    52 +
  src/server/scripts/Spells/spell_shaman.cpp         |    10 +
  src/server/shared/SharedDefines.h                  |    23 +
- 143 files changed, 72830 insertions(+), 12 deletions(-)
+ 143 files changed, 72898 insertions(+), 11 deletions(-)
  create mode 100644 data/sql/Bots/locales/ruRU/npc_text_locale.sql
  create mode 100644 data/sql/Bots/locales/zhCN/npc_text_locale.sql
  create mode 100644 data/sql/Bots/locales/zhTW/npc_text_locale.sql
@@ -4919,10 +4919,10 @@ index aaf6481a76..36df59f330 100644
      private:
          void SetAborted();
 diff --git a/src/server/apps/worldserver/worldserver.conf.dist b/src/server/apps/worldserver/worldserver.conf.dist
-index 53b86d5c7a..c5a27d2e28 100644
+index 74889c9e64..87f651a01a 100644
 --- a/src/server/apps/worldserver/worldserver.conf.dist
 +++ b/src/server/apps/worldserver/worldserver.conf.dist
-@@ -4105,3 +4105,317 @@ Metric.OverallStatusInterval = 1
+@@ -4114,3 +4114,317 @@ Metric.OverallStatusInterval = 1
  
  #
  ###################################################################################################
@@ -55135,10 +55135,10 @@ index 0000000000..aade5962d8
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 0000000000..7db1fbe5bc
+index 0000000000..026196f874
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
-@@ -0,0 +1,2354 @@
+@@ -0,0 +1,2422 @@
 +#include "bot_ai.h"
 +#include "botdump.h"
 +#include "botmgr.h"
@@ -55345,6 +55345,116 @@ index 0000000000..7db1fbe5bc
 +        }
 +    }
 +
++    struct PlayerVisuals
++    {
++        struct PlayerVisualsBase{};
++        struct Skins:PlayerVisualsBase{};
++        struct Faces:PlayerVisualsBase{};
++        struct HairStyles:PlayerVisualsBase{};
++        struct HairColors:PlayerVisualsBase{};
++        struct Features:PlayerVisualsBase{};
++    };
++
++    template<typename E, Races R, Gender G>
++    static constexpr uint8 GetMaxVisual()
++    {
++        static_assert(std::is_base_of_v<PlayerVisuals::PlayerVisualsBase, E>, "GetMaxVisual() must check PlayerVisuals enums");
++
++#define MV_PRED9(skinm,skinf,facem,facef,hairm,hairf,hairc,featm,featf) \
++    if      constexpr (std::is_same_v<E, PlayerVisuals::Skins>)      return !F ? skinm : skinf; \
++    else if constexpr (std::is_same_v<E, PlayerVisuals::Faces>)      return !F ? facem : facef; \
++    else if constexpr (std::is_same_v<E, PlayerVisuals::HairStyles>) return !F ? hairm : hairf; \
++    else if constexpr (std::is_same_v<E, PlayerVisuals::HairColors>) return !F ? hairc : hairc; \
++    else if constexpr (std::is_same_v<E, PlayerVisuals::Features>)   return !F ? featm : featf
++
++        constexpr bool F = G == GENDER_FEMALE;
++        if constexpr (R == RACE_HUMAN)         { MV_PRED9(9,9, 11,14, 16,23, 9,  8,6); }
++        if constexpr (R == RACE_DWARF)         { MV_PRED9(8,8,   9,9, 15,18, 9, 10,5); }
++        if constexpr (R == RACE_NIGHTELF)      { MV_PRED9(8,8,   8,8, 11,11, 7,  5,9); }
++        if constexpr (R == RACE_GNOME)         { MV_PRED9(4,4,   6,6, 11,11, 8,  7,6); }
++        if constexpr (R == RACE_DRAENEI)       { MV_PRED9(13,13, 9,9, 13,15, 6,  7,6); }
++        if constexpr (R == RACE_ORC)           { MV_PRED9(8,8,   8,8, 11,12, 7, 10,6); }
++        if constexpr (R == RACE_UNDEAD_PLAYER) { MV_PRED9(5,5,   9,9, 14,14, 9, 16,7); }
++        if constexpr (R == RACE_TAUREN)        { MV_PRED9(18,10, 4,3, 12,11, 2,  6,4); }
++        if constexpr (R == RACE_TROLL)         { MV_PRED9(5,5,   4,5,   9,9, 9, 10,5); }
++        if constexpr (R == RACE_BLOODELF)      { MV_PRED9(9,9,   9,9, 15,18, 9, 9,10); }
++
++#undef MV_PRED9
++        return 0;
++    }
++
++    static bool IsValidVisual(uint8 race, uint8 gender, uint8 skin, uint8 face, uint8 hairs, uint8 hairc, uint8 features)
++    {
++#define VISUALS_PRED1(r) (gender == GENDER_FEMALE) ? ( \
++    skin <= GetMaxVisual<PlayerVisuals::Skins, r, GENDER_FEMALE>() && \
++    face <= GetMaxVisual<PlayerVisuals::Faces, r, GENDER_FEMALE>() && \
++    hairs <= GetMaxVisual<PlayerVisuals::HairStyles, r, GENDER_FEMALE>() && \
++    hairc <= GetMaxVisual<PlayerVisuals::HairColors, r, GENDER_FEMALE>() && \
++    features <= GetMaxVisual<PlayerVisuals::Features, r, GENDER_FEMALE>()) : ( \
++    skin <= GetMaxVisual<PlayerVisuals::Skins, r, GENDER_MALE>() && \
++    face <= GetMaxVisual<PlayerVisuals::Faces, r, GENDER_MALE>() && \
++    hairs <= GetMaxVisual<PlayerVisuals::HairStyles, r, GENDER_MALE>() && \
++    hairc <= GetMaxVisual<PlayerVisuals::HairColors, r, GENDER_MALE>() && \
++    features <= GetMaxVisual<PlayerVisuals::Features, r, GENDER_MALE>())
++
++        switch (race)
++        {
++            case RACE_HUMAN:         return VISUALS_PRED1(RACE_HUMAN);
++            case RACE_DWARF:         return VISUALS_PRED1(RACE_DWARF);
++            case RACE_NIGHTELF:      return VISUALS_PRED1(RACE_NIGHTELF);
++            case RACE_GNOME:         return VISUALS_PRED1(RACE_GNOME);
++            case RACE_DRAENEI:       return VISUALS_PRED1(RACE_DRAENEI);
++            case RACE_ORC:           return VISUALS_PRED1(RACE_ORC);
++            case RACE_UNDEAD_PLAYER: return VISUALS_PRED1(RACE_UNDEAD_PLAYER);
++            case RACE_TAUREN:        return VISUALS_PRED1(RACE_TAUREN);
++            case RACE_TROLL:         return VISUALS_PRED1(RACE_TROLL);
++            case RACE_BLOODELF:      return VISUALS_PRED1(RACE_BLOODELF);
++            default: return false;
++        }
++#undef VISUALS_PRED1
++    }
++
++    static void ReportVisualRanges(ChatHandler* handler)
++    {
++#define FILL_VISUALS_REPORT2(s,r) s \
++    << get_race_name(r) << " Male:" \
++    << " skin 0-" << uint32(GetMaxVisual<PlayerVisuals::Skins, r, GENDER_MALE>()) \
++    << " face 0-" << uint32(GetMaxVisual<PlayerVisuals::Faces, r, GENDER_MALE>()) \
++    << " hairstyle 0-" << uint32(GetMaxVisual<PlayerVisuals::HairStyles, r, GENDER_MALE>()) \
++    << " haircolor 0-" << uint32(GetMaxVisual<PlayerVisuals::HairColors, r, GENDER_MALE>()) \
++    << " features 0-" << uint32(GetMaxVisual<PlayerVisuals::Features, r, GENDER_MALE>()) \
++    << "\n" << get_race_name(r) << " Female:" \
++    << " skin 0-" << uint32(GetMaxVisual<PlayerVisuals::Skins, r, GENDER_FEMALE>()) \
++    << " face 0-" << uint32(GetMaxVisual<PlayerVisuals::Faces, r, GENDER_FEMALE>()) \
++    << " hairstyle 0-" << uint32(GetMaxVisual<PlayerVisuals::HairStyles, r, GENDER_FEMALE>()) \
++    << " haircolor 0-" << uint32(GetMaxVisual<PlayerVisuals::HairColors, r, GENDER_FEMALE>()) \
++    << " features 0-" << uint32(GetMaxVisual<PlayerVisuals::Features, r, GENDER_FEMALE>())
++
++        LocaleConstant loc = handler->GetSessionDbcLocale();
++        handler->SendSysMessage("Ranges:");
++        for (uint8 race : { RACE_HUMAN, RACE_DWARF, RACE_NIGHTELF, RACE_GNOME, RACE_DRAENEI, RACE_ORC, RACE_UNDEAD_PLAYER, RACE_TAUREN, RACE_BLOODELF })
++        {
++            std::ostringstream stream;
++            switch (race)
++            {
++                case RACE_HUMAN:         FILL_VISUALS_REPORT2(stream, RACE_HUMAN);         break;
++                case RACE_DWARF:         FILL_VISUALS_REPORT2(stream, RACE_DWARF);         break;
++                case RACE_NIGHTELF:      FILL_VISUALS_REPORT2(stream, RACE_NIGHTELF);      break;
++                case RACE_GNOME:         FILL_VISUALS_REPORT2(stream, RACE_GNOME);         break;
++                case RACE_DRAENEI:       FILL_VISUALS_REPORT2(stream, RACE_DRAENEI);       break;
++                case RACE_ORC:           FILL_VISUALS_REPORT2(stream, RACE_ORC);           break;
++                case RACE_UNDEAD_PLAYER: FILL_VISUALS_REPORT2(stream, RACE_UNDEAD_PLAYER); break;
++                case RACE_TAUREN:        FILL_VISUALS_REPORT2(stream, RACE_TAUREN);        break;
++                case RACE_TROLL:         FILL_VISUALS_REPORT2(stream, RACE_TROLL);         break;
++                case RACE_BLOODELF:      FILL_VISUALS_REPORT2(stream, RACE_BLOODELF);      break;
++                default:                                                                   break;
++            }
++
++            handler->PSendSysMessage(stream.str().c_str());
++        }
++#undef FILL_VISUALS_REPORT2
++    }
++
 +    struct BotInfo
 +    {
 +            explicit BotInfo(uint32 Id, std::string&& Name, uint8 Race) : id(Id), name(std::move(Name)), race(Race) {}
@@ -55363,6 +55473,43 @@ index 0000000000..7db1fbe5bc
 +    {
 +        return p1.id < p2.id;
 +    }
++
++
++    static char const* get_race_name(uint8 race)
++    {
++        switch (race)
++        {
++            case RACE_HUMAN:        return "Human";
++            case RACE_ORC:          return "Orc";
++            case RACE_DWARF:        return "Dwarf";
++            case RACE_NIGHTELF:     return "Night Elf";
++            case RACE_UNDEAD_PLAYER:return "Undead";
++            case RACE_TAUREN:       return "Tauren";
++            case RACE_GNOME:        return "Gnome";
++            case RACE_TROLL:        return "Troll";
++            case RACE_BLOODELF:     return "Blood Elf";
++            case RACE_DRAENEI:      return "Draenei";
++            default:                return "Non-standard";
++        }
++    };
++
++    static char const* get_class_name(uint8 class_)
++    {
++        switch (class_)
++        {
++            case CLASS_WARRIOR:     return "Warrior";
++            case CLASS_PALADIN:     return "Paladin";
++            case CLASS_HUNTER:      return "Hunter";
++            case CLASS_ROGUE:       return "Rogue";
++            case CLASS_PRIEST:      return "Priest";
++            case CLASS_DEATH_KNIGHT:return "Death Knight";
++            case CLASS_SHAMAN:      return "Shaman";
++            case CLASS_MAGE:        return "Mage";
++            case CLASS_WARLOCK:     return "Warlock";
++            case CLASS_DRUID:       return "Druid";
++            default:                return "Non-standard";
++        }
++    };
 +
 +public:
 +    script_bot_commands() : CommandScript("script_bot_commands") { }
@@ -56660,11 +56807,17 @@ index 0000000000..7db1fbe5bc
 +
 +    static bool HandleNpcBotCreateNewCommand(ChatHandler* handler, Optional<std::string_view> name, Optional<uint8> bclass, Optional<uint8> race, Optional<uint8> gender, Optional<uint8> skin, Optional<uint8> face, Optional<uint8> hairstyle, Optional<uint8> haircolor, Optional<uint8> features, Optional<uint8> soundset)
 +    {
-+        static auto const ret_err = [](ChatHandler* handler) {
-+            handler->SendSysMessage(".npcbot createnew");
-+            handler->SendSysMessage("Creates a new npcbot creature entry");
-+            handler->SendSysMessage("Syntax: .npcbot createnew #name #class ##race ##gender ##skin ##face ##hairstyle ##haircolor ##features ##[sound_variant = {{1,2,3}}]");
-+            handler->SendSysMessage("In case of class that cannot change appearance all extra arguments must be omitted");
++        static auto const ret_err = [](ChatHandler* handler, bool report_ranges = false) {
++            if (report_ranges)
++                ReportVisualRanges(handler);
++            else
++            {
++                handler->SendSysMessage(".npcbot createnew");
++                handler->SendSysMessage("Creates a new npcbot creature entry");
++                handler->SendSysMessage("Syntax: .npcbot createnew #name #class ##race ##gender ##skin ##face ##hairstyle ##haircolor ##features ##[sound_variant = {{1,2,3}}]");
++                handler->SendSysMessage("In case of class that cannot change appearance all extra arguments must be omitted");
++                handler->SendSysMessage("Use '.npcbot createnew ranges' to print visuals constraints for all races");
++            }
 +            handler->SetSentErrorMessage(true);
 +            return false;
 +        };
@@ -56679,42 +56832,8 @@ index 0000000000..7db1fbe5bc
 +            return false;
 +        };
 +
-+        static auto const get_race_name = [](uint8 race) {
-+            switch (race)
-+            {
-+                case RACE_HUMAN:        return "Human";
-+                case RACE_ORC:          return "Orc";
-+                case RACE_DWARF:        return "Dwarf";
-+                case RACE_NIGHTELF:     return "Night Elf";
-+                case RACE_UNDEAD_PLAYER:return "Undead";
-+                case RACE_TAUREN:       return "Tauren";
-+                case RACE_GNOME:        return "Gnome";
-+                case RACE_TROLL:        return "Troll";
-+                case RACE_BLOODELF:     return "Blood Elf";
-+                case RACE_DRAENEI:      return "Draenei";
-+                default:                return "Non-standard";
-+            }
-+        };
-+
-+        static auto const get_class_name = [](uint8 class_) {
-+            switch (class_)
-+            {
-+                case CLASS_WARRIOR:     return "Warrior";
-+                case CLASS_PALADIN:     return "Paladin";
-+                case CLASS_HUNTER:      return "Hunter";
-+                case CLASS_ROGUE:       return "Rogue";
-+                case CLASS_PRIEST:      return "Priest";
-+                case CLASS_DEATH_KNIGHT:return "Death Knight";
-+                case CLASS_SHAMAN:      return "Shaman";
-+                case CLASS_MAGE:        return "Mage";
-+                case CLASS_WARLOCK:     return "Warlock";
-+                case CLASS_DRUID:       return "Druid";
-+                default:                return "Non-standard";
-+            }
-+        };
-+
 +        if (!bclass || !name)
-+            return ret_err(handler);
++            return ret_err(handler, name && *name == "ranges");
 +
 +        bool const can_change_appearance = (*bclass < BOT_CLASS_EX_START || *bclass == BOT_CLASS_ARCHMAGE);
 +
@@ -56745,59 +56864,8 @@ index 0000000000..7db1fbe5bc
 +            (*bclass == BOT_CLASS_ARCHMAGE && *race != RACE_HUMAN))
 +            return ret_err_invalid_args_for(handler, "class", get_class_name(*bclass));
 +
-+#define GENDER_PRED2(male,female) ((male == female || *gender == GENDER_MALE) ? male : female)
-+        if (can_change_appearance)
-+        {
-+            static const auto ret_race_err = [](ChatHandler* handler, uint8 race) {
-+                return ret_err_invalid_args_for(handler, "race", get_race_name(race));
-+            };
-+            switch (*race)
-+            {
-+                case RACE_HUMAN:
-+                    if (*skin > 9 || *face > GENDER_PRED2(11, 14) || *hairstyle > GENDER_PRED2(16, 23) || *haircolor > 9 || *features > GENDER_PRED2(8, 6))
-+                        return ret_race_err(handler, *race);
-+                    break;
-+                case RACE_DWARF:
-+                    if (*skin > 8 || *face > GENDER_PRED2(9,9) || *hairstyle > GENDER_PRED2(15,18) || *haircolor > 9 || *features > GENDER_PRED2(10,5))
-+                        return ret_race_err(handler, *race);
-+                    break;
-+                case RACE_NIGHTELF:
-+                    if (*skin > 8 || *face > GENDER_PRED2(8,8) || *hairstyle > GENDER_PRED2(11,11) || *haircolor > 7 || *features > GENDER_PRED2(5,9))
-+                        return ret_race_err(handler, *race);
-+                    break;
-+                case RACE_GNOME:
-+                    if (*skin > 4 || *face > GENDER_PRED2(6,6) || *hairstyle > GENDER_PRED2(11,11) || *haircolor > 8 || *features > GENDER_PRED2(7,6))
-+                        return ret_race_err(handler, *race);
-+                    break;
-+                case RACE_DRAENEI:
-+                    if (*skin > 13 || *face > GENDER_PRED2(9,9) || *hairstyle > GENDER_PRED2(13,15) || *haircolor > 6 || *features > GENDER_PRED2(7,6))
-+                        return ret_race_err(handler, *race);
-+                    break;
-+                case RACE_ORC:
-+                    if (*skin > 8 || *face > GENDER_PRED2(8,8) || *hairstyle > GENDER_PRED2(11,12) || *haircolor > 7 || *features > GENDER_PRED2(10,6))
-+                        return ret_race_err(handler, *race);
-+                    break;
-+                case RACE_UNDEAD_PLAYER:
-+                    if (*skin > 5 || *face > GENDER_PRED2(9,9) || *hairstyle > GENDER_PRED2(14,14) || *haircolor > 9 || *features > GENDER_PRED2(16,7))
-+                        return ret_race_err(handler, *race);
-+                    break;
-+                case RACE_TAUREN:
-+                    if (*skin > GENDER_PRED2(18,10) || *face > GENDER_PRED2(4,3) || *hairstyle > GENDER_PRED2(12,11) || *haircolor > 2 || *features > GENDER_PRED2(6,4))
-+                        return ret_race_err(handler, *race);
-+                    break;
-+                case RACE_TROLL:
-+                    if (*skin > 5 || *face > GENDER_PRED2(4,5) || *hairstyle > GENDER_PRED2(9,9) || *haircolor > 9 || *features > GENDER_PRED2(10,5))
-+                        return ret_race_err(handler, *race);
-+                    break;
-+                case RACE_BLOODELF:
-+                    if (*skin > 9 || *face > GENDER_PRED2(9,9) || *hairstyle > GENDER_PRED2(15,18) || *haircolor > 9 || *features > GENDER_PRED2(9,10))
-+                        return ret_race_err(handler, *race);
-+                    break;
-+                default:
-+                    return ret_err_invalid_arg(handler, "race", race);
-+            }
-+        }
-+#undef GENDER_PRED2
++        if (can_change_appearance && !IsValidVisual(*race, *gender, *skin, *face, *hairstyle, *haircolor, *features))
++            return ret_err_invalid_args_for(handler, "race", get_race_name(*race));
 +
 +        //here we force races for custom classes
 +        switch (*bclass)
@@ -69503,7 +69571,7 @@ index 0000000000..6e674e8481
 +
 +#endif
 diff --git a/src/server/game/AI/SmartScripts/SmartScript.cpp b/src/server/game/AI/SmartScripts/SmartScript.cpp
-index edc439a65f..12469cf02b 100644
+index 240e0eeabd..ee7752cbff 100644
 --- a/src/server/game/AI/SmartScripts/SmartScript.cpp
 +++ b/src/server/game/AI/SmartScripts/SmartScript.cpp
 @@ -150,6 +150,9 @@ void SmartScript::ProcessAction(SmartScriptHolder& e, Unit* unit, uint32 var0, u
@@ -71069,7 +71137,7 @@ index c3b26ee89f..94761d552a 100644
          player->GiveXP(xp, _victim, _groupRate);
          if (Pet* pet = player->GetPet())
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index 4057ed781d..e082784d10 100644
+index 2e6b965ab0..33451e1185 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -95,6 +95,11 @@
@@ -71249,7 +71317,7 @@ index 4057ed781d..e082784d10 100644
  }
  
  void Player::InitTalentForLevel()
-@@ -4218,6 +4332,11 @@ void Player::DeleteFromDB(ObjectGuid::LowType lowGuid, uint32 accountId, bool up
+@@ -4220,6 +4334,11 @@ void Player::DeleteFromDB(ObjectGuid::LowType lowGuid, uint32 accountId, bool up
  
                  Corpse::DeleteFromDB(playerGuid, trans);
  
@@ -71261,7 +71329,7 @@ index 4057ed781d..e082784d10 100644
                  sScriptMgr->OnDeleteFromDB(trans, lowGuid);
  
                  CharacterDatabase.CommitTransaction(trans);
-@@ -6045,6 +6164,36 @@ bool Player::RewardHonor(Unit* uVictim, uint32 groupsize, int32 honor, bool awar
+@@ -6047,6 +6166,36 @@ bool Player::RewardHonor(Unit* uVictim, uint32 groupsize, int32 honor, bool awar
              UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_SPECIAL_PVP_KILL, 1, 0, victim);
              sScriptMgr->OnVictimRewardAfter(this, victim, killer_title, victim_rank, honor_f);
          }
@@ -71298,7 +71366,7 @@ index 4057ed781d..e082784d10 100644
          else
          {
              if (!uVictim->ToCreature()->IsRacialLeader())
-@@ -10458,6 +10607,18 @@ bool Player::BuyItemFromVendorSlot(ObjectGuid vendorguid, uint32 vendorslot, uin
+@@ -10462,6 +10611,18 @@ bool Player::BuyItemFromVendorSlot(ObjectGuid vendorguid, uint32 vendorslot, uin
          return false;
      }
  
@@ -71317,7 +71385,7 @@ index 4057ed781d..e082784d10 100644
      if (!(pProto->AllowableClass & getClassMask()) && pProto->Bonding == BIND_WHEN_PICKED_UP && !IsGameMaster())
      {
          SendBuyError(BUY_ERR_CANT_FIND_ITEM, nullptr, item, 0);
-@@ -12386,6 +12547,11 @@ bool Player::isHonorOrXPTarget(Unit* victim) const
+@@ -12390,6 +12551,11 @@ bool Player::isHonorOrXPTarget(Unit* victim) const
  
      if (victim->GetTypeId() == TYPEID_UNIT)
      {
@@ -71329,7 +71397,7 @@ index 4057ed781d..e082784d10 100644
          if (victim->IsTotem() ||
                  victim->IsPet() ||
                  victim->ToCreature()->GetCreatureTemplate()->flags_extra & CREATURE_FLAG_EXTRA_NO_XP)
-@@ -12799,6 +12965,21 @@ void Player::SetBattlegroundOrBattlefieldRaid(Group* group, int8 subgroup)
+@@ -12803,6 +12969,21 @@ void Player::SetBattlegroundOrBattlefieldRaid(Group* group, int8 subgroup)
          //ABORT(); // pussywizard: origanal group can never be bf/bg group
      }
  
@@ -71599,7 +71667,7 @@ index 18c07d9c80..d1c777b6e2 100644
      float totalPct         = addTotalPct ? GetModifierValue(unitMod, TOTAL_PCT) : 1.0f;
      float dmgMultiplier    = GetCreatureTemplate()->DamageModifier; // = DamageModifier * _GetDamageMod(rank);
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index ab8a0b2b35..77e5a6b57c 100644
+index 7227ec04d3..c85bbce807 100644
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
 @@ -72,6 +72,10 @@
@@ -72746,7 +72814,7 @@ index ab8a0b2b35..77e5a6b57c 100644
      return false;
  }
  
-@@ -14503,6 +15178,11 @@ bool Unit::CanHaveThreatList() const
+@@ -14506,6 +15181,11 @@ bool Unit::CanHaveThreatList() const
      if (HasUnitTypeMask(UNIT_MASK_MINION | UNIT_MASK_GUARDIAN | UNIT_MASK_CONTROLABLE_GUARDIAN) && ((Pet*)this)->GetOwnerGUID().IsPlayer())
          return false;
  
@@ -72758,7 +72826,7 @@ index ab8a0b2b35..77e5a6b57c 100644
      return true;
  }
  
-@@ -14701,6 +15381,10 @@ float Unit::ApplyEffectModifiers(SpellInfo const* spellProto, uint8 effect_index
+@@ -14704,6 +15384,10 @@ float Unit::ApplyEffectModifiers(SpellInfo const* spellProto, uint8 effect_index
                  break;
          }
      }
@@ -72769,7 +72837,7 @@ index ab8a0b2b35..77e5a6b57c 100644
      return value;
  }
  
-@@ -14714,6 +15398,24 @@ int32 Unit::CalcSpellDuration(SpellInfo const* spellProto)
+@@ -14717,6 +15401,24 @@ int32 Unit::CalcSpellDuration(SpellInfo const* spellProto)
  {
      uint8 comboPoints = GetComboPoints();
  
@@ -72794,7 +72862,7 @@ index ab8a0b2b35..77e5a6b57c 100644
      int32 minduration = spellProto->GetDuration();
      int32 maxduration = spellProto->GetMaxDuration();
  
-@@ -14839,6 +15541,10 @@ void Unit::ModSpellCastTime(SpellInfo const* spellInfo, int32& castTime, Spell*
+@@ -14842,6 +15544,10 @@ void Unit::ModSpellCastTime(SpellInfo const* spellInfo, int32& castTime, Spell*
      if (Player* modOwner = GetSpellModOwner())
          // TODO:(MadAgos) Eventually check and delete the bool argument
          modOwner->ApplySpellMod(spellInfo->Id, SPELLMOD_CASTING_TIME, castTime, spell, bool(modOwner != this && !IsPet()));
@@ -72805,7 +72873,7 @@ index ab8a0b2b35..77e5a6b57c 100644
  
      switch (spellInfo->DmgClass)
      {
-@@ -14921,6 +15627,12 @@ float Unit::ApplyDiminishingToDuration(DiminishingGroup group, int32& duration,
+@@ -14924,6 +15630,12 @@ float Unit::ApplyDiminishingToDuration(DiminishingGroup group, int32& duration,
                  || target->ToCreature()->GetCreatureTemplate()->flags_extra & CREATURE_FLAG_EXTRA_ALL_DIMINISH)
                  && source->GetTypeId() == TYPEID_PLAYER)
              duration = limitduration;
@@ -72818,7 +72886,7 @@ index ab8a0b2b35..77e5a6b57c 100644
      }
  
      float mod = 1.0f;
-@@ -15047,6 +15759,17 @@ uint32 Unit::GetCreatureType() const
+@@ -15050,6 +15762,17 @@ uint32 Unit::GetCreatureType() const
          else
              return CREATURE_TYPE_HUMANOID;
      }
@@ -72836,7 +72904,7 @@ index ab8a0b2b35..77e5a6b57c 100644
      else
          return ToCreature()->GetCreatureTemplate()->type;
  }
-@@ -16213,6 +16936,14 @@ void Unit::ProcDamageAndSpellFor(bool isVictim, Unit* target, uint32 procFlag, u
+@@ -16216,6 +16939,14 @@ void Unit::ProcDamageAndSpellFor(bool isVictim, Unit* target, uint32 procFlag, u
                      ModifyAuraState(AURA_STATE_DEFENSE, true);
                      StartReactiveTimer(REACTIVE_DEFENSE);
                  }
@@ -72851,7 +72919,7 @@ index ab8a0b2b35..77e5a6b57c 100644
              }
              else // For attacker
              {
-@@ -16232,6 +16963,16 @@ void Unit::ProcDamageAndSpellFor(bool isVictim, Unit* target, uint32 procFlag, u
+@@ -16235,6 +16966,16 @@ void Unit::ProcDamageAndSpellFor(bool isVictim, Unit* target, uint32 procFlag, u
                      AddComboPoints(target, 1);
                      StartReactiveTimer(REACTIVE_WOLVERINE_BITE);
                  }
@@ -72868,7 +72936,7 @@ index ab8a0b2b35..77e5a6b57c 100644
              }
          }
      }
-@@ -17003,6 +17744,32 @@ void Unit::ClearComboPointHolders()
+@@ -17020,6 +17761,32 @@ void Unit::ClearComboPointHolders()
      }
  }
  
@@ -72901,7 +72969,7 @@ index ab8a0b2b35..77e5a6b57c 100644
  void Unit::ClearAllReactives()
  {
      for (uint8 i = 0; i < MAX_REACTIVE; ++i)
-@@ -17158,6 +17925,9 @@ uint32 Unit::GetCastingTimeForBonus(SpellInfo const* spellProto, DamageEffectTyp
+@@ -17175,6 +17942,9 @@ uint32 Unit::GetCastingTimeForBonus(SpellInfo const* spellProto, DamageEffectTyp
  {
      // Not apply this to creature casted spells with casttime == 0
      if (CastingTime == 0 && GetTypeId() == TYPEID_UNIT && !IsPet())
@@ -72911,7 +72979,7 @@ index ab8a0b2b35..77e5a6b57c 100644
          return 3500;
  
      if (CastingTime > 7000) CastingTime = 7000;
-@@ -17624,6 +18394,13 @@ bool Unit::IsTriggeredAtSpellProcEvent(Unit* victim, Aura* aura, WeaponAttackTyp
+@@ -17641,6 +18411,13 @@ bool Unit::IsTriggeredAtSpellProcEvent(Unit* victim, Aura* aura, WeaponAttackTyp
          modOwner->ApplySpellMod(spellProto->Id, SPELLMOD_CHANCE_OF_SUCCESS, chance);
      }
  
@@ -72925,7 +72993,7 @@ index ab8a0b2b35..77e5a6b57c 100644
      return roll_chance_f(chance);
  }
  
-@@ -17780,6 +18557,14 @@ void Unit::Kill(Unit* killer, Unit* victim, bool durabilityLoss, WeaponAttackTyp
+@@ -17797,6 +18574,14 @@ void Unit::Kill(Unit* killer, Unit* victim, bool durabilityLoss, WeaponAttackTyp
      Player* player = killer ? killer->GetCharmerOrOwnerPlayerOrPlayerItself() : nullptr;
      Creature* creature = victim->ToCreature();
  
@@ -72940,7 +73008,7 @@ index ab8a0b2b35..77e5a6b57c 100644
      bool isRewardAllowed = true;
      if (creature)
      {
-@@ -17965,6 +18750,12 @@ void Unit::Kill(Unit* killer, Unit* victim, bool durabilityLoss, WeaponAttackTyp
+@@ -17982,6 +18767,12 @@ void Unit::Kill(Unit* killer, Unit* victim, bool durabilityLoss, WeaponAttackTyp
          // at original death (not at SpiritOfRedemtionTalent timeout)
          plrVictim->SetPvPDeath(player != nullptr);
  
@@ -72953,7 +73021,7 @@ index ab8a0b2b35..77e5a6b57c 100644
          // only if not player and not controlled by player pet. And not at BG
          if ((durabilityLoss && !player && !plrVictim->InBattleground()) || (player && sWorld->getBoolConfig(CONFIG_DURABILITY_LOSS_IN_PVP)))
          {
-@@ -18845,6 +19636,16 @@ bool Unit::IsInPartyWith(Unit const* unit) const
+@@ -18862,6 +19653,16 @@ bool Unit::IsInPartyWith(Unit const* unit) const
      else if ((u2->GetTypeId() == TYPEID_PLAYER && u1->GetTypeId() == TYPEID_UNIT && (u1->ToCreature()->GetCreatureTemplate()->type_flags & CREATURE_TYPE_FLAG_TREAT_AS_RAID_UNIT) && u2->ToPlayer()->GetGroup() && !u2->ToPlayer()->GetGroup()->isRaidGroup()) ||
               (u1->GetTypeId() == TYPEID_PLAYER && u2->GetTypeId() == TYPEID_UNIT && (u2->ToCreature()->GetCreatureTemplate()->type_flags & CREATURE_TYPE_FLAG_TREAT_AS_RAID_UNIT) && u1->ToPlayer()->GetGroup() && !u1->ToPlayer()->GetGroup()->isRaidGroup()))
          return true;
@@ -72970,7 +73038,7 @@ index ab8a0b2b35..77e5a6b57c 100644
      else
          return false;
  }
-@@ -18867,6 +19668,16 @@ bool Unit::IsInRaidWith(Unit const* unit) const
+@@ -18884,6 +19685,16 @@ bool Unit::IsInRaidWith(Unit const* unit) const
      else if ((u2->GetTypeId() == TYPEID_PLAYER && u1->GetTypeId() == TYPEID_UNIT && u1->ToCreature()->GetCreatureTemplate()->type_flags & CREATURE_TYPE_FLAG_TREAT_AS_RAID_UNIT) ||
               (u1->GetTypeId() == TYPEID_PLAYER && u2->GetTypeId() == TYPEID_UNIT && u2->ToCreature()->GetCreatureTemplate()->type_flags & CREATURE_TYPE_FLAG_TREAT_AS_RAID_UNIT))
          return true;
@@ -72987,7 +73055,7 @@ index ab8a0b2b35..77e5a6b57c 100644
      else
          return false;
  }
-@@ -18898,6 +19709,19 @@ void Unit::GetPartyMembers(std::list<Unit*>& TagUnitMap)
+@@ -18915,6 +19726,19 @@ void Unit::GetPartyMembers(std::list<Unit*>& TagUnitMap)
                          if (pet->IsGuardian() && pet->IsAlive())
                              TagUnitMap.push_back(pet);
                  }
@@ -73007,7 +73075,7 @@ index ab8a0b2b35..77e5a6b57c 100644
              }
          }
      }
-@@ -18912,6 +19736,18 @@ void Unit::GetPartyMembers(std::list<Unit*>& TagUnitMap)
+@@ -18929,6 +19753,18 @@ void Unit::GetPartyMembers(std::list<Unit*>& TagUnitMap)
                  if (pet->IsGuardian() && pet->IsAlive())
                      TagUnitMap.push_back(pet);
          }
@@ -73026,7 +73094,7 @@ index ab8a0b2b35..77e5a6b57c 100644
      }
  }
  
-@@ -18979,6 +19815,13 @@ void Unit::SendPlaySpellImpact(ObjectGuid guid, uint32 id)
+@@ -18996,6 +19832,13 @@ void Unit::SendPlaySpellImpact(ObjectGuid guid, uint32 id)
      SendMessageToSet(&data, true);
  }
  
@@ -73040,7 +73108,7 @@ index ab8a0b2b35..77e5a6b57c 100644
  void Unit::ApplyResilience(Unit const* victim, float* crit, int32* damage, bool isCrit, CombatRating type)
  {
      // player mounted on multi-passenger mount is also classified as vehicle
-@@ -19051,6 +19894,16 @@ float Unit::MeleeSpellMissChance(Unit const* victim, WeaponAttackType attType, i
+@@ -19068,6 +19911,16 @@ float Unit::MeleeSpellMissChance(Unit const* victim, WeaponAttackType attType, i
      //calculate miss chance
      float missChance = victim->GetUnitMissChance(attType);
  
@@ -73057,7 +73125,7 @@ index ab8a0b2b35..77e5a6b57c 100644
      // Check if dual wielding, add additional miss penalty - when mainhand has on next swing spell, offhand doesnt suffer penalty
      if (!spellId && (attType != RANGED_ATTACK) && haveOffhandWeapon() && (!m_currentSpells[CURRENT_MELEE_SPELL] || !m_currentSpells[CURRENT_MELEE_SPELL]->IsNextMeleeSwingSpell()))
      {
-@@ -19165,6 +20018,11 @@ void Unit::SetPhaseMask(uint32 newPhaseMask, bool update)
+@@ -19182,6 +20035,11 @@ void Unit::SetPhaseMask(uint32 newPhaseMask, bool update)
          }
      }
  
@@ -73069,7 +73137,7 @@ index ab8a0b2b35..77e5a6b57c 100644
      for (uint8 i = 0; i < MAX_SUMMON_SLOT; ++i)
      {
          if (m_SummonSlot[i])
-@@ -19429,6 +20287,183 @@ uint32 Unit::GetModelForForm(ShapeshiftForm form) const
+@@ -19457,6 +20315,183 @@ uint32 Unit::GetModelForForm(ShapeshiftForm form, uint32 spellId) const
                  break;
          }
      }
@@ -73253,7 +73321,7 @@ index ab8a0b2b35..77e5a6b57c 100644
  
      uint32 modelid = 0;
      SpellShapeshiftEntry const* formEntry = sSpellShapeshiftStore.LookupEntry(form);
-@@ -20226,6 +21261,19 @@ void Unit::StopAttackFaction(uint32 faction_id)
+@@ -20254,6 +21289,19 @@ void Unit::StopAttackFaction(uint32 faction_id)
  
      for (ControlSet::const_iterator itr = m_Controlled.begin(); itr != m_Controlled.end(); ++itr)
          (*itr)->StopAttackFaction(faction_id);
@@ -73273,7 +73341,7 @@ index ab8a0b2b35..77e5a6b57c 100644
  }
  
  void Unit::StopAttackingInvalidTarget()
-@@ -21320,6 +22368,52 @@ bool Unit::IsInDisallowedMountForm() const
+@@ -21348,6 +22396,52 @@ bool Unit::IsInDisallowedMountForm() const
      return false;
  }
  
@@ -73327,7 +73395,7 @@ index ab8a0b2b35..77e5a6b57c 100644
  {
      std::stringstream sstr;
 diff --git a/src/server/game/Entities/Unit/Unit.h b/src/server/game/Entities/Unit/Unit.h
-index f7d8bfa33a..09588509fe 100644
+index 739bab5852..e2d1e7f41e 100644
 --- a/src/server/game/Entities/Unit/Unit.h
 +++ b/src/server/game/Entities/Unit/Unit.h
 @@ -399,7 +399,7 @@ enum WeaponAttackType
@@ -74401,7 +74469,7 @@ index b3ade9b5a7..34f652e507 100644
  
  void MapMgr::InitializeVisibilityDistanceInfo()
 diff --git a/src/server/game/Movement/MotionMaster.cpp b/src/server/game/Movement/MotionMaster.cpp
-index 0e052633cd..cfcbc52b9e 100644
+index fe8075ddb5..03cafbb51f 100644
 --- a/src/server/game/Movement/MotionMaster.cpp
 +++ b/src/server/game/Movement/MotionMaster.cpp
 @@ -529,6 +529,26 @@ void MotionMaster::MoveJump(float x, float y, float z, float speedXY, float spee
@@ -74432,20 +74500,20 @@ index 0e052633cd..cfcbc52b9e 100644
      float max_height = -Movement::computeFallElevation(moveTimeHalf, false, -speedZ);
  
 diff --git a/src/server/game/Movement/MovementGenerators/PointMovementGenerator.cpp b/src/server/game/Movement/MovementGenerators/PointMovementGenerator.cpp
-index 36f6cbeb86..856ffef4cc 100644
+index 5e06523fa5..15946f886c 100644
 --- a/src/server/game/Movement/MovementGenerators/PointMovementGenerator.cpp
 +++ b/src/server/game/Movement/MovementGenerators/PointMovementGenerator.cpp
-@@ -80,7 +80,13 @@ void PointMovementGenerator<T>::DoInitialize(T* unit)
-             _y += 0.2f * std::sin(unit->GetOrientation());
+@@ -80,7 +80,14 @@ void PointMovementGenerator<T>::DoInitialize(T* unit)
+             i_y += 0.2f * std::sin(unit->GetOrientation());
          }
  
--        init.MoveTo(_x, _y, _z, true);
 +        //npcbot: fix a bug - spline always generates path, !!_generatePath is False!!
 +        /*
 +        //end npcbot
+         init.MoveTo(i_x, i_y, i_z, true);
 +        //npcbot
 +        */
-+        init.MoveTo(_x, _y, _z, false);
++        init.MoveTo(i_x, i_y, i_z, false);
 +        //end npcbot
      }
      if (speed > 0.0f)
@@ -74505,7 +74573,7 @@ index 244364cc36..e4bb209b0a 100644
          "Script loader callback wasn't registered!");
  
 diff --git a/src/server/game/Scripting/ScriptMgr.h b/src/server/game/Scripting/ScriptMgr.h
-index 3adf5264d2..682981c5e1 100644
+index 8e3545bd36..1266999b78 100644
 --- a/src/server/game/Scripting/ScriptMgr.h
 +++ b/src/server/game/Scripting/ScriptMgr.h
 @@ -93,6 +93,8 @@ namespace Acore::ChatCommands
@@ -74564,7 +74632,7 @@ index b0b0d7df79..13ed23568e 100644
              {
                  maxPacketCounterAllowed = 100;
 diff --git a/src/server/game/Spells/Auras/SpellAuraEffects.cpp b/src/server/game/Spells/Auras/SpellAuraEffects.cpp
-index 1da9359554..b6a9c34105 100644
+index 997e7e5bf2..5499cdebde 100644
 --- a/src/server/game/Spells/Auras/SpellAuraEffects.cpp
 +++ b/src/server/game/Spells/Auras/SpellAuraEffects.cpp
 @@ -945,6 +945,21 @@ void AuraEffect::UpdatePeriodic(Unit* caster)
@@ -75407,7 +75475,7 @@ index a9a73f07c9..1135edd8eb 100644
      powerCost = int32(powerCost * (1.0f + caster->GetFloatValue(static_cast<uint16>(UNIT_FIELD_POWER_COST_MULTIPLIER) + school)));
      if (powerCost < 0)
 diff --git a/src/server/game/Spells/SpellInfoCorrections.cpp b/src/server/game/Spells/SpellInfoCorrections.cpp
-index d62f556e76..e979327174 100644
+index 18fdefb603..4db7440758 100644
 --- a/src/server/game/Spells/SpellInfoCorrections.cpp
 +++ b/src/server/game/Spells/SpellInfoCorrections.cpp
 @@ -40,6 +40,68 @@ void SpellMgr::LoadSpellInfoCorrections()
@@ -75805,10 +75873,10 @@ index d7f697a33f..543e6f1c8a 100644
          {
              targets.clear();
 diff --git a/src/server/scripts/Spells/spell_generic.cpp b/src/server/scripts/Spells/spell_generic.cpp
-index 7e16ae4f60..fb08564aaf 100644
+index 7bbd294ff5..9b0f2dbdda 100644
 --- a/src/server/scripts/Spells/spell_generic.cpp
 +++ b/src/server/scripts/Spells/spell_generic.cpp
-@@ -2357,6 +2357,10 @@ class spell_gen_vehicle_scaling_aura: public AuraScript
+@@ -2363,6 +2363,10 @@ class spell_gen_vehicle_scaling_aura: public AuraScript
  
      bool Load() override
      {
@@ -75819,7 +75887,7 @@ index 7e16ae4f60..fb08564aaf 100644
          return GetCaster() && GetCaster()->GetTypeId() == TYPEID_PLAYER && GetOwner()->GetTypeId() == TYPEID_UNIT;
      }
  
-@@ -2379,7 +2383,19 @@ class spell_gen_vehicle_scaling_aura: public AuraScript
+@@ -2385,7 +2389,19 @@ class spell_gen_vehicle_scaling_aura: public AuraScript
                  break;
          }
  
@@ -75839,7 +75907,7 @@ index 7e16ae4f60..fb08564aaf 100644
          if (avgILvl < baseItemLevel)
              return;                     /// @todo Research possibility of scaling down
  
-@@ -3486,6 +3502,11 @@ class spell_gen_tournament_pennant : public AuraScript
+@@ -3492,6 +3508,11 @@ class spell_gen_tournament_pennant : public AuraScript
  
      bool Load() override
      {
