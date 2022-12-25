@@ -135,7 +135,7 @@ _TARGET_ indicates that command is used on a selected unit
     **Example Usage**:  
         - `.npcbot add`  
         - `.npcb add`  
-- **`remove _TARGET_`** -- (GM command) dismisses the NPCBot(s) from control  
+- **`remove _TARGET_`** -- (GM command) dismisses the NPCBot(s) from player's control. **Any bot removed via this command retains its gear**  
     - _TARGET_ = selected NPCBot (dismisses selected NPCBot)  
     - _TARGET_ = selected player (dismisses ALL NPCBots)  
     **Example Usage**:  
@@ -154,12 +154,11 @@ _TARGET_ indicates that command is used on a selected unit
     - _TARGET_ = selected NPCBot  
     **Example Usage**:  
         - `.npcbot move 70001` (moves NPCBot with ID 70001 to your position)  
-- **`delete`** -- (GM command)  
-    - **`_TARGET_`** -- deletes NPCBot from world, NPCBot is removed from owner if any and deleted from DB  
-        - _TARGET_ = selected NPCBot  
-        **Example Usage**:  
-            - `.npcbot delete`  
-            - `.npcb del`  
+- **`delete _TARGET_`** -- (GM command) deletes NPCBot from world, NPCBot is removed from its owner if any and deleted from DB. **Gear is given back to either the bot's owner (has one) or the player using the command**. If you need bot owner to **not** get the gear back, `.npcbot remove` the bot before deleting  
+    - _TARGET_ = selected NPCBot  
+    **Example Usage**:  
+        - `.npcbot delete`  
+        - `.npcb del`  
     - **`id _ID_`** -- deletes NPCBots using creature ID instead of targeting, usable from console  
         - _ID_ = creature ID (`creature_template`.`entry`)  
         **Example Usage**:  
