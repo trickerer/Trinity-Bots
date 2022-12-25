@@ -154,17 +154,18 @@ _TARGET_ indicates that command is used on a selected unit
     - _TARGET_ = selected NPCBot  
     **Example Usage**:  
         - `.npcbot move 70001` (moves NPCBot with ID 70001 to your position)  
-- **`delete _TARGET_`** -- (GM command) deletes NPCBot from world, NPCBot is removed from its owner if any and deleted from DB. **Gear is given back to either the bot's owner (has one) or the player using the command**. If you need bot owner to **not** get the gear back, `.npcbot remove` the bot before deleting  
-    - _TARGET_ = selected NPCBot  
-    **Example Usage**:  
-        - `.npcbot delete`  
-        - `.npcb del`  
-    - **`id _ID_`** -- deletes NPCBots using creature ID instead of targeting, usable from console  
+- **`delete`** -- (GM command) deletes NPCBot from world, NPCBot is removed from its owner if any and deleted from DB. **Gear is given back to either the bot's owner (if there is one) or the player using the command**. If you need bot owner to **not** get the gear back, `.npcbot remove` the bot before deleting. Command will fail if used from the console on **unowned but geared** NPCBots  
+    - _TARGET_ -- deletes selected NPCBot  
+        - _TARGET_ = selected NPCBot  
+        **Example Usage**:  
+            - `.npcbot delete`  
+            - `.npcb del`  
+    - id _ID_ -- deletes NPCBots using creature ID instead of targeting, usable from the console  
         - _ID_ = creature ID (`creature_template`.`entry`)  
         **Example Usage**:  
             - `.npcbot delete id 70032`  
             - `.npcb del id 70032`  
-    - **`free`** -- deletes **ALL** unowned NPCBots, usable from console  
+    - free -- deletes **ALL** unowned NPCBots, usable from the console  
         **Example Usage**:  
             - `.npcbot delete free`  
             - `.npcb del f`  
