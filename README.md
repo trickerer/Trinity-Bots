@@ -1,6 +1,6 @@
 ### This mod was last updated:
-### TC: 24 Dec 2022, [f2803a93b8](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/f2803a93b8)
-### AC: 24 Dec 2022, [80e22ec301](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/80e22ec301)
+### TC: 28 Dec 2022, [d05d3cf1ff](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/d05d3cf1ff)
+### AC: 28 Dec 2022, [9d255cee66](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/9d255cee66)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 
@@ -876,7 +876,8 @@ NPCBot data is stored in the following locations:
 
 If you want to make changes to the static template data used for NPCBots, you make adjustments in the `world` database to those specific ids in the above tables (i.e. npcbot model, outfits, etc.)  
 **Do not** tinker with `characters` DB NPCBot tables, any bug reports containing accidently corrupted NPCBots installation will be discarded without notice  
-If you need to remove NPCBot mod completely you need to first manually delete every spawned bot in the world (using .npcbot delete command; you need to remove their equipment first, otherwise the items become inaccessible). Then delete `characters_npcbot`, `creature_template_npcbot_extras` and `creature_template_npcbot_appearance` tables and clean all other used tables of entries by id (70000-71000 + possibly more custom bot entries). `creature_template_outfits` can also be deleted if you are not using Npc Dress Mod.
+If you need to delete custom created NPCBot you need to first delete the bot from the world (using `.npcbot delete` command; you need to remove their equipment first, otherwise the items become inaccessible). Then delete by entry (creature id) from `creature_template_npcbot_extras`, `creature_template_npcbot_appearance` and `creature_equip_template` tables, and finally, from `creature_template`  
+If you need to remove NPCBot mod completely you need to first delete every spawned bot in the world (using `.npcbot delete` command). Then delete `characters_npcbot`, `characters_npcbot_group_member`, `characters_npcbot_transmog`, `creature_template_npcbot_extras` and `creature_template_npcbot_appearance` tables and clean all other used tables of entries by id (70000-71000 + possibly more custom bot entries). `creature_template_outfits` can also be deleted if you are not using Npc Dress Mod.
 
 #### Game World
 Bots are counted as active objects and keep map grids loaded like players
