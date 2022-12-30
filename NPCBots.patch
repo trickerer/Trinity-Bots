@@ -97,7 +97,7 @@
  src/server/game/AI/NpcBots/bot_sphynx_ai.cpp       |   605 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  2103 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2264 +++
- src/server/game/AI/NpcBots/botcommands.cpp         |  2395 +++
+ src/server/game/AI/NpcBots/botcommands.cpp         |  2397 +++
  src/server/game/AI/NpcBots/botcommon.h             |   566 +
  src/server/game/AI/NpcBots/botdatamgr.cpp          |   747 +
  src/server/game/AI/NpcBots/botdatamgr.h            |   161 +
@@ -198,7 +198,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   314 +
- 200 files changed, 72060 insertions(+), 76 deletions(-)
+ 200 files changed, 72062 insertions(+), 76 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -54903,10 +54903,10 @@ index 000000000..d07ae9c57
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 000000000..26487797c
+index 000000000..166ee68c8
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
-@@ -0,0 +1,2395 @@
+@@ -0,0 +1,2397 @@
 +#include "bot_ai.h"
 +#include "botdump.h"
 +#include "botmgr.h"
@@ -56843,37 +56843,35 @@ index 000000000..26487797c
 +
 +    static bool HandleNpcBotInfoCommand(ChatHandler* handler)
 +    {
-+        Player* owner = handler->GetSession()->GetPlayer();
-+        if (!owner->GetTarget())
++        Player* player = handler->GetSession()->GetPlayer();
++        if (!player->GetTarget())
 +        {
 +            handler->SendSysMessage(".npcbot info");
 +            handler->SendSysMessage("Lists NpcBots count of each class owned by selected player. You can use this on self and your party members");
 +            handler->SetSentErrorMessage(true);
 +            return false;
 +        }
-+        Player* master = owner->GetSelectedPlayer();
++        Player* master = player->GetSelectedPlayer();
 +        if (!master)
 +        {
 +            handler->SendSysMessage("No player selected");
 +            handler->SetSentErrorMessage(true);
 +            return false;
 +        }
-+        if (handler->HasLowerSecurity(master, ObjectGuid::Empty))
-+        {
-+            handler->SendSysMessage("Invalid target");
-+            handler->SetSentErrorMessage(true);
-+            return false;
-+        }
-+        if (!master->HaveBot())
++        if (BotDataMgr::GetOwnedBotsCount(master->GetGUID()) == 0)
 +        {
 +            handler->PSendSysMessage("%s has no NpcBots!", master->GetName().c_str());
 +            handler->SetSentErrorMessage(true);
 +            return false;
 +        }
 +
++        BotMgr* mgr = master->GetBotMgr();
++        if (!mgr)
++            mgr = new BotMgr(master);
++
 +        std::vector<ObjectGuid> guidvec;
 +        BotDataMgr::GetNPCBotGuidsByOwner(guidvec, master->GetGUID());
-+        BotMap const* map = master->GetBotMgr()->GetBotMap();
++        BotMap const* map = mgr->GetBotMap();
 +        guidvec.erase(std::remove_if(std::begin(guidvec), std::end(guidvec),
 +            [bmap = map](ObjectGuid guid) { return bmap->find(guid) != bmap->end(); }
 +        ), std::end(guidvec));
@@ -57089,7 +57087,7 @@ index 000000000..26487797c
 +    {
 +        Player const* owner = handler->GetSession()->GetPlayer();
 +        Unit const* u = owner->GetSelectedUnit();
-+        if (!owner->HaveBot() || (!u && !botname))
++        if ((!u && !botname) || BotDataMgr::GetOwnedBotsCount(owner->GetGUID()) == 0)
 +        {
 +            handler->SendSysMessage(".npcbot command rebind [#name]");
 +            handler->SendSysMessage("Re-binds selected/named unbound npcbot");
@@ -57097,8 +57095,12 @@ index 000000000..26487797c
 +            return false;
 +        }
 +
++        BotMgr* mgr = owner->GetBotMgr();
++        if (!mgr)
++            mgr = new BotMgr(const_cast<Player*>(owner));
++
 +        Creature const* cre = (u && u->GetTypeId() == TYPEID_UNIT) ? u->ToCreature() : BotDataMgr::FindBot(*botname, owner->GetSession()->GetSessionDbLocaleIndex());
-+        if (!cre || !cre->IsNPCBot() || owner->GetBotMgr()->GetBot(cre->GetGUID()) ||
++        if (!cre || !cre->IsNPCBot() || mgr->GetBot(cre->GetGUID()) ||
 +            !cre->GetBotAI()->HasBotCommandState(BOT_COMMAND_UNBIND) ||
 +            BotDataMgr::SelectNpcBotData(cre->GetEntry())->owner != owner->GetGUID().GetCounter())
 +        {
@@ -57107,7 +57109,7 @@ index 000000000..26487797c
 +            return false;
 +        }
 +
-+        if (owner->GetBotMgr()->RebindBot(const_cast<Creature*>(cre)) != BOT_ADD_SUCCESS)
++        if (mgr->RebindBot(const_cast<Creature*>(cre)) != BOT_ADD_SUCCESS)
 +        {
 +            handler->SendSysMessage("Failed to re-bind bot for some reason!");
 +            handler->SetSentErrorMessage(true);
