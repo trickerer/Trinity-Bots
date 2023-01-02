@@ -1,6 +1,6 @@
 ### This mod was last updated:
-### TC: 02 Jan 2023, [8a3db0bb03](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/8a3db0bb03)
-### AC: 02 Jan 2023, [2cd5887913](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/2cd5887913)
+### TC: 02 Jan 2023, [45d76f711b](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/45d76f711b)
+### AC: 02 Jan 2023, [0702eb823e](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/0702eb823e)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 
@@ -523,9 +523,14 @@ Select `Manage formation...` from their Gossip Menu to adjust the formation. You
 - DISABLE combat positioning
 - Attack distance...
 - Attack angle...
+- Engage behavior...
+- Priority target (Tank)...
+- Priority target (DPS)...
 - BACK
 ```
-NOTE: you will see `DISABLE combat positioning`, `Attack distance...` and `Attack angle...` only if NPCBot has `Ranged` role assigned  
+NOTE1: you will see `DISABLE combat positioning`, `Attack distance...` and `Attack angle...` only if NPCBot has `Ranged` role assigned  
+NOTE2: you will see `Engage behavior` only if NPCBot is not a tank  
+NOTE3: you will see `Priority target (<Role>)...` only if NPCBot has required role(s), you are in group, and at least one target icon belonging to respectful target icon mask is set (see [Config Settings](#npcbot-config-settings)). **Priority targets are set for each NPCBot individually**  
 Selecting `Follow distance` will open up a popup window that you can enter in an amount. This amount can be anywhere from **0** to **100**. Setting any higher than **100** will default to **100** and any lower than **0** to **0**. Setting the distance to **0** will result in the NPCBot PASSIVELY following you rather closely and not engaging mobs unless you attack
 
 If `DISABLE combat positioning` option is checked your `Ranged` NPCBots will not try to assume attack positions and will instead retain their follow positioning even in combat, only attacking targets in reach
@@ -553,6 +558,23 @@ NOTE: setting exact attack distance to **0** will make NPCBots (and their pets) 
 - BACK
 ```
 If you tell your NPCBots to avoid frontal AOE they will try to position themselves in the way that they won't get hit, behing their target and to the either side, but only if you do the same or are already in melee range of the target
+
+`Engage behavior...` submenu is used to manage bots' behaviour when combat is initiated:
+```
+- Delay attack by: X.XXs
+- BACK
+```
+Attack delay is time (in seconds) your `DPS` NPCBots will wait before they start attacking. **This does not apply to Tanks and Healers**
+
+`Priority target (<Role>)...` allows you to set main target for each bot individually and by role:
+```
+- <Icon> <Name>
+- <Icon> <Name>
+- ...
+- <None>
+- BACK
+```
+Here `Icon` is group target icon (skull, cross, etc.), `Name` is marked unit's name. Number of those rows is the number of **active** icons belonging to corresponding role. If marked target is attackable then at engage instead of normal targeting this NPCBot will immediately rush towards this unit. Be aware that priority target is **set by icon** and will persist when icon is set to another unit, this new unit becomes new priority target to all bots who have priority set to this icon. Selecting `None` disables priority target for this NPCBot.
 
 #### NPCBot Abilities
 NPCBots use most of real class spells. Some spells/abilities such as buffs, heals, remove curse/poison, etc. are available through an NPCBot's Abilities menu. Level restrictions apply to NPCBots too, for example Warlock will not be able to use Fear until level 8  
