@@ -72,14 +72,15 @@
  sql/Bots/updates/world/2022_12_17_01_command.sql   |     2 +
  sql/Bots/updates/world/2022_12_23_00_command.sql   |     6 +
  sql/Bots/updates/world/2023_01_02_00_npc_text.sql  |     8 +
+ sql/Bots/updates/world/2023_01_10_00_command.sql   |     4 +
  src/common/Utilities/EventProcessor.h              |     1 +
  .../Database/Implementation/CharacterDatabase.cpp  |    24 +
  .../Database/Implementation/CharacterDatabase.h    |    20 +
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    72 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1408 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 18833 +++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |   713 +
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 18837 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |   715 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   393 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   934 +
  src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp  |   608 +
@@ -98,7 +99,7 @@
  src/server/game/AI/NpcBots/bot_sphynx_ai.cpp       |   605 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  2103 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2264 +++
- src/server/game/AI/NpcBots/botcommands.cpp         |  2397 +++
+ src/server/game/AI/NpcBots/botcommands.cpp         |  2458 +++
  src/server/game/AI/NpcBots/botcommon.h             |   566 +
  src/server/game/AI/NpcBots/botdatamgr.cpp          |   747 +
  src/server/game/AI/NpcBots/botdatamgr.h            |   161 +
@@ -199,7 +200,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   314 +
- 201 files changed, 72343 insertions(+), 76 deletions(-)
+ 202 files changed, 72414 insertions(+), 76 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -272,6 +273,7 @@
  create mode 100644 sql/Bots/updates/world/2022_12_17_01_command.sql
  create mode 100644 sql/Bots/updates/world/2022_12_23_00_command.sql
  create mode 100644 sql/Bots/updates/world/2023_01_02_00_npc_text.sql
+ create mode 100644 sql/Bots/updates/world/2023_01_10_00_command.sql
  create mode 100644 src/server/game/AI/NpcBots/bot_Events.h
  create mode 100644 src/server/game/AI/NpcBots/bot_GridNotifiers.h
  create mode 100644 src/server/game/AI/NpcBots/bot_ai.cpp
@@ -5183,6 +5185,16 @@ index 000000000..44625a44f
 +
 +INSERT INTO `npc_text` (`ID`,`text0_0`,`VerifiedBuild`) VALUES
 +(@BOT_START+0, "Priority target", -1);
+diff --git a/sql/Bots/updates/world/2023_01_10_00_command.sql b/sql/Bots/updates/world/2023_01_10_00_command.sql
+new file mode 100644
+index 000000000..83198f423
+--- /dev/null
++++ b/sql/Bots/updates/world/2023_01_10_00_command.sql
+@@ -0,0 +1,4 @@
++--
++DELETE FROM `command` WHERE `name` = 'npcbot sendto last';
++INSERT INTO `command` (`name`) VALUES
++('npcbot sendto last');
 diff --git a/src/common/Utilities/EventProcessor.h b/src/common/Utilities/EventProcessor.h
 index 2bf682165..0b8261ec0 100644
 --- a/src/common/Utilities/EventProcessor.h
@@ -6769,10 +6781,10 @@ index 000000000..4a5e00e9e
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..edfb11f37
+index 000000000..853c94885
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,18833 @@
+@@ -0,0 +1,18837 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -6990,8 +7002,8 @@ index 000000000..edfb11f37
 +    _pvpKillsCount = 0;
 +    _playerKillsCount = 0;
 +
-+    for (uint8 i = 0; i != 6; ++i)
-+        resistbonus[i] = 0;
++    for (uint8 i = SPELL_SCHOOL_HOLY; i != MAX_SPELL_SCHOOL; ++i)
++        resistbonus[i - 1] = 0;
 +
 +    botPet = nullptr;
 +    canUpdate = true;
@@ -7818,6 +7830,24 @@ index 000000000..edfb11f37
 +        return seat->Flags & VEHICLE_SEAT_FLAG_CAN_CONTROL;
 +
 +    return false;
++}
++void bot_ai::MoveToSendPosition(Position const& mpos)
++{
++    EventRemoveBotAwaitState(BOT_AWAIT_SEND);
++    if (me->GetExactDist(mpos) <= 70.f && me->CanFreeMove())
++    {
++        SetBotCommandState(BOT_COMMAND_STAY);
++        BotMovement(BOT_MOVE_POINT, &mpos, nullptr, false);
++        if (botPet && botPet->CanFreeMove())
++        {
++            botPet->GetBotPetAI()->SetBotCommandState(BOT_COMMAND_STAY);
++            botPet->GetMotionMaster()->MovePoint(me->GetMapId(), mpos, false);
++        }
++        sendlastpos.Relocate(me);
++        BotWhisper("Moving to position!");
++    }
++    else
++        BotWhisper("Position is too far away!");
 +}
 +
 +void bot_ai::SetBotAwaitState(uint8 state)
@@ -20903,22 +20933,8 @@ index 000000000..edfb11f37
 +
 +    if (spell->m_targets.HasDst() && HasBotAwaitState(BOT_AWAIT_SEND) && (me->GetTransport() == master->GetTransport()))
 +    {
-+        EventRemoveBotAwaitState(BOT_AWAIT_SEND);
-+
 +        Position const* spell_dest = spell->m_targets.GetDstPos();
-+        if (me->GetExactDist(spell_dest) <= 70.f)
-+        {
-+            SetBotCommandState(BOT_COMMAND_STAY);
-+            BotMovement(BOT_MOVE_POINT, spell_dest, nullptr, false);
-+            if (botPet)
-+            {
-+                botPet->GetBotPetAI()->SetBotCommandState(BOT_COMMAND_STAY);
-+                botPet->GetMotionMaster()->MovePoint(me->GetMapId(), *spell_dest, false);
-+            }
-+            BotWhisper("Moving to position!");
-+        }
-+        else
-+            BotWhisper("Position is too far away!");
++        MoveToSendPosition(*spell_dest);
 +    }
 +
 +    if (master->GetVehicle() && me->GetVehicle() && !master->HasSpell(spellInfo->Id) && !spell->m_targets.GetGOTargetGUID())
@@ -25608,10 +25624,10 @@ index 000000000..edfb11f37
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 000000000..f43ee5e66
+index 000000000..4ca3fc81d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,713 @@
+@@ -0,0 +1,715 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -25720,6 +25736,8 @@ index 000000000..f43ee5e66
 +        bool CanRespawn() { return IAmFree(); }
 +        void BotMovement(BotMovementType type, Position const* pos, Unit* target = nullptr, bool generatePath = true) const;
 +        bool CanBotMoveVehicle() const;
++        void MoveToSendPosition(Position const& mpos);
++        void MoveToLastSendPosition() { MoveToSendPosition(sendlastpos); }
 +        void SetBotCommandState(uint32 st, bool force = false, Position* newpos = nullptr);
 +        void RemoveBotCommandState(uint32 st);
 +        bool HasBotCommandState(uint32 st) const { return (_botCommandState & st); }
@@ -26209,7 +26227,7 @@ index 000000000..f43ee5e66
 +
 +        PlayerClassLevelInfo* _classinfo;
 +        SpellInfo const* m_botSpellInfo;
-+        Position movepos, attackpos;
++        Position movepos, attackpos, sendlastpos;
 +
 +        uint32 _botCommandState;
 +        uint8 _botAwaitState;
@@ -26217,7 +26235,7 @@ index 000000000..f43ee5e66
 +        //stats
 +        float hit, parry, dodge, block, crit, dmg_taken_phy, dmg_taken_mag, armor_pen;
 +        uint32 expertise, spellpower, spellpen, defense, blockvalue;
-+        int32 haste, resistbonus[6];
++        int32 haste, resistbonus[MAX_SPELL_SCHOOL - 1];
 +
 +        //timers
 +        uint32 _reviveTimer, _powersTimer, _chaseTimer, _engageTimer, _potionTimer;
@@ -55130,10 +55148,10 @@ index 000000000..d07ae9c57
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 000000000..166ee68c8
+index 000000000..5816241b7
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
-@@ -0,0 +1,2397 @@
+@@ -0,0 +1,2458 @@
 +#include "bot_ai.h"
 +#include "botdump.h"
 +#include "botmgr.h"
@@ -55515,6 +55533,11 @@ index 000000000..166ee68c8
 +            { "free",       HandleNpcBotDeleteFreeCommand,          rbac::RBAC_PERM_COMMAND_NPCBOT_DELETE,             Console::Yes },
 +        };
 +
++        static ChatCommandTable npcbotSendToCommandTable =
++        {
++            { "",           HandleNpcBotSendToCommand,              rbac::RBAC_PERM_COMMAND_NPCBOT_SEND,               Console::No  },
++            { "last",       HandleNpcBotSendToLastCommand,          rbac::RBAC_PERM_COMMAND_NPCBOT_SEND,               Console::No  },
++        };
 +        static ChatCommandTable npcbotCommandTable =
 +        {
 +            //{ "debug",      npcbotDebugCommandTable                                                                                 },
@@ -55538,7 +55561,7 @@ index 000000000..166ee68c8
 +            { "recall",     npcbotRecallCommandTable                                                                                },
 +            { "kill",       HandleNpcBotKillCommand,                rbac::RBAC_PERM_COMMAND_NPCBOT_KILL,               Console::No  },
 +            { "suicide",    HandleNpcBotKillCommand,                rbac::RBAC_PERM_COMMAND_NPCBOT_KILL,               Console::No  },
-+            { "sendto",     HandleNpcBotSendToCommand,              rbac::RBAC_PERM_COMMAND_NPCBOT_SEND,               Console::No  },
++            { "sendto",     npcbotSendToCommandTable                                                                                },
 +            { "distance",   npcbotDistanceCommandTable                                                                              },
 +            { "order",      npcbotOrderCommandTable                                                                                 },
 +            { "vehicle",    npcbotVehicleCommandTable                                                                               },
@@ -56170,9 +56193,8 @@ index 000000000..166ee68c8
 +    static bool HandleNpcBotSendToCommand(ChatHandler* handler, Optional<std::vector<std::string_view>> names)
 +    {
 +        static auto return_syntax = [](ChatHandler* chandler) -> bool {
-+            chandler->SendSysMessage("Syntax: .npcbot sendto");
-+            chandler->SendSysMessage("Makes selected bot wait 30 sec for your next DEST spell, assume that position and hold it");
-+            chandler->SendSysMessage("Select self to move ALL bots");
++            chandler->SendSysMessage("Syntax: .npcbot sendto [#names...]");
++            chandler->SendSysMessage("Makes selected/named bot(s) wait 30 sec for your next DEST spell, assume that position and hold it");
 +            chandler->SendSysMessage("Max distance is 70 yds");
 +            chandler->SetSentErrorMessage(true);
 +            return false;
@@ -56211,6 +56233,63 @@ index 000000000..166ee68c8
 +            {
 +                ++count;
 +                bot->GetBotAI()->SetBotAwaitState(BOT_AWAIT_SEND);
++            }
++        }
++
++        if (count == 0)
++        {
++            handler->PSendSysMessage("Unable to send any of %u bots!", uint32(names->size()));
++            handler->SetSentErrorMessage(true);
++            return false;
++        }
++
++        return return_success(handler, { count });
++    }
++
++    static bool HandleNpcBotSendToLastCommand(ChatHandler* handler, Optional<std::vector<std::string_view>> names)
++    {
++        static auto return_syntax = [](ChatHandler* chandler) -> bool {
++            chandler->SendSysMessage("Syntax: .npcbot sendto last [#names...]");
++            chandler->SendSysMessage("Makes selected/named bot(s) assume previous position they were sent from");
++            chandler->SendSysMessage("This will cancel current sendto await state");
++            chandler->SendSysMessage("Max distance is 70 yds");
++            chandler->SetSentErrorMessage(true);
++            return false;
++        };
++
++        static auto return_success = [](ChatHandler* chandler, Variant<std::string_view, uint32> name_or_count) -> bool {
++            if (name_or_count.holds_alternative<uint32>())
++                chandler->PSendSysMessage("Moving %u bot(s) to previous position...", name_or_count.get<uint32>());
++            else
++                chandler->PSendSysMessage("Moving %s to previous position...", name_or_count.get<std::string_view>().data());
++            return true;
++        };
++
++        Player const* owner = handler->GetSession()->GetPlayer();
++
++        if (!owner->HaveBot())
++            return return_syntax(handler);
++
++        if (!names || names->empty())
++        {
++            Unit const* target = handler->getSelectedCreature();
++            Creature const* bot = target ? owner->GetBotMgr()->GetBot(target->GetGUID()) : nullptr;
++            if (bot && bot->IsAlive())
++            {
++                bot->GetBotAI()->MoveToLastSendPosition();
++                return return_success(handler, { bot->GetName() });
++            }
++            return return_syntax(handler);
++        }
++
++        uint32 count = 0;
++        for (decltype(names)::value_type::value_type name : *names)
++        {
++            Creature const* bot = owner->GetBotMgr()->GetBotByName(name);
++            if (bot && bot->IsAlive())
++            {
++                ++count;
++                bot->GetBotAI()->MoveToLastSendPosition();
 +            }
 +        }
 +

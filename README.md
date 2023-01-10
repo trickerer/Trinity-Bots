@@ -1,6 +1,6 @@
 ### This mod was last updated:
-### TC: 07 Jan 2023, [ff4cb2bb27](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/ff4cb2bb27)
-### AC: 07 Jan 2023, [8f2560ac23](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/8f2560ac23)
+### TC: 10 Jan 2023, [374c1c0379](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/374c1c0379)
+### AC: 10 Jan 2023, [0de0c27e4b](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/0de0c27e4b)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 
@@ -237,11 +237,13 @@ _TARGET_ indicates that command is used on a selected unit
         - `.npcbot unhide`  
         - `.npcbot show`  
 - **`sendto <_TARGET_ OR _NAME1_ _NAME2_ ... _NAMEN_>`** -- (Player command) for 30 seconds makes NPCBot(s) wait for your signal to move to stationery position. The position must be pointed then by a dest spell (AoE, smoke flare, dynamite, etc.). Stationed bots will stay there indefinetely, use follow command to call them back  
+    - **`last <_TARGET_ OR _NAME1_ _NAME2_ ... _NAMEN_>`** -- (Player command) same as plain `sendto` but moves NPCBot(s) back to previous position bot was sent **from**, making it stationery  
     - _TARGET_ = selected NPCBot (move single NPCBot)  
-    - _NAMES..._ = NPCBot names (move a group of NPCBots)  
+    - _NAMES..._ = space-separated case-insensitive NPCBot names (move a group of NPCBots)  
     **Example Usage:**  
         - `.npcbot sendto`  
         - `.npcb send eva jol eanor harene`  
+        - `.npcbot sendto last eva jol eanor harene`  
 - **`recall _TARGET_`** -- (Player command) forces a NPCBot to move directly on your position. Usable while dead. Designed mostly for situations like when you die and your NPCBots are stuck under textures and in combat at the same time  
     - _TARGET_ = selected NPCBot (move single NPCBot)  
     - _TARGET_ = self (move all NPCBots)  
