@@ -1,6 +1,6 @@
 ### This mod was last updated:
-### TC: 10 Jan 2023, [374c1c0379](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/374c1c0379)
-### AC: 10 Jan 2023, [0de0c27e4b](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/0de0c27e4b)
+### TC: 11 Jan 2023, [46b2944daf](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/46b2944daf)
+### AC: 11 Jan 2023, [bbfe0abe54](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/bbfe0abe54)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 
@@ -104,22 +104,22 @@ Hint: for fresh installation there are also shell scripts available for you to q
 And after that you are ready to go
 
 ### NPCBot Commands
-First of all, to list your bot's stats, use `/bonk` on them (Warning: big list)  
+First of all, to list your NPCBot's stats, use `/bonk` on them (Warning: big list)  
 
-Note that some commands may not be available to all accounts (depending on their access level and permissions set in the RBAC tables). You may need to change your account permissions to enable usage of some commands
-Most NPCBot commands are divised by persmissions into two groups: player commands and GM commands
+Note that some commands may not be available to all accounts (depending on their access level and permissions set in the RBAC tables (TC) / in the `command` table (AC)). You may need to change your account permissions / security level to enable usage of some commands
+Most NPCBot commands are divised by persmissions into two groups: player commands and GM commands, there are also some Admin-only commands
 ```
 KEY:
-< > (less/greater than) indicates infon or action you need for the command, can be left out to list info  
-[ ] (square brackets) indicates optional command parameter  
- |  (pipe character) indicates parameter options (i.e. this|that  = this OR that)  
- -- (two dashes) indicates information follows about the command  
-_TARGET_ indicates that command is used on a selected unit  
+< >  (angled brackets) indicates essential command argument  
+[ ]  (square brackets) indicates optional command argument  
+ |  (pipe character) indicates argument choices (i.e. this|that  = this OR that)  
+_ARGUMENT_  indicates argument names  
 ```
 **COMMAND**: **`.npcbot`**, **`.npcb`** -- (Player command) by itself will list all syntax available  
 
-- **`lookup <CLASS> [#unspawned_only]`** -- (GM command) lookup the NPCBot entries by <CLASS>, returns list of NPCBots as ID, Name and Race. If `unspawned_only` is set to 1 shows only NPCBots which weren't spawned yet  
-    - CLASS = class ID (i.e. 1 for WARRIORs). **`.npcbot lookup` (`.npcb loo`)** (without the argument) to list class IDs  
+- **`lookup <_CLASS_> [_UNSPAWNED_ONLY_]`** -- (GM command) lookup the NPCBot entries by <CLASS>, returns list of NPCBots as ID, Name and Race  
+    - _CLASS_ = class ID (i.e. 1 for WARRIOR). **`.npcbot lookup` (`.npcb loo`)** (without the argument) to list class IDs  
+    - _UNSPAWNED_ONLY_ = boolean flag, if set to 1 shows only NPCBots which weren't spawned yet  
     **Example Usage**:  
         - `.npcbot lookup 7` (to list all Shamans)  
         - `.npcb loo 11 1` (to list all unspawned Druids)  
@@ -141,16 +141,16 @@ _TARGET_ indicates that command is used on a selected unit
     **Example Usage**:  
         - `.npcbot remove`  
         - `.npcb rem`  
-- **`spawn <ENTRY|LINK>`** -- (GM command) spawns a NPCBot in world, NPCBot is saved in DB. Only works in world maps (not instances). Note that unlike other creatures only one instance of each NPCBot can be spawned, but don't worry: there are many NPCBots to choose from  
-    - ENTRY = ID of NPCBot (can be obtained from lookup list)  
-    - LINK = creature_template link added by Shift-click (obtained from lookup list)  
+- **`spawn <_ENTRY_|_LINK_>`** -- (GM command) spawns a NPCBot in world, NPCBot is saved in DB. Only works in world maps (not instances). Note that unlike other creatures only one instance of each NPCBot can be spawned, but don't worry: there are many NPCBots to choose from  
+    - _ENTRY_ = ID of NPCBot (can be obtained from lookup list)  
+    - _LINK_ = creature_template link added by Shift-click (obtained from lookup list)  
     **Example Usage**:  
         - `.npcbot spawn 70001` (spawns NPCBot with ID 70001)  
         - `.npcb sp 70002` (spawn NPCBot with ID 70002)  
         - `.npcb sp [Haromm]` (spawn NPCBot by link)  
-- **`move <ENTRY|LINK|_TARGET_>`** -- (GM command) moves spawned NPCBot to a new location. This command replaces `.npc move` command for bots  
-    - ENTRY = ID of NPCBot  
-    - LINK = creature_template link added by Shift-click (obtained from lookup list)  
+- **`move <_ENTRY_|_LINK_|_TARGET_>`** -- (GM command) moves spawned NPCBot to a new location. This command replaces `.npc move` command for bots  
+    - _ENTRY_ = ID of NPCBot  
+    - _LINK_ = creature_template link added by Shift-click (obtained from lookup list)  
     - _TARGET_ = selected NPCBot  
     **Example Usage**:  
         - `.npcbot move 70001` (moves NPCBot with ID 70001 to your position)  
@@ -170,25 +170,25 @@ _TARGET_ indicates that command is used on a selected unit
             - `.npcbot delete free`  
             - `.npcb del f`  
 - **`set`** (GM command)  
-    - **`faction <a|h|m|f|factionID> _TARGET_`** -- sets the faction for selected NPCBot  
+    - **`faction <a|h|m|f|_factionID_> _TARGET_`** -- sets the faction for selected NPCBot  
         - a = 1802 (alliance team)  
         - h = 1801 (horde team)  
         - m = 14 (monster, hostile to all)  
         - f = 35 (friendly to all)  
-        - factionID = ID from FactionTemplate.dbc (experts only). It's NOT what you get by using `.lookup faction` command  
+        - _factionID_ = ID from FactionTemplate.dbc (experts only). It's NOT what you get by using `.lookup faction` command  
         - _TARGET_ = selected NPCBot  
         **Example Usage:**  
             - `.npcbot set faction` (by itself will display list of subcommands for faction)  
             - `.npcb s f m` (sets the faction of a selected NPCBot to HostileToAll)  
-    - **`owner <GUID|NAME> _TARGET_`** -- sets ownership of a selected NPCBot to a specific player  
-        - GUID = player DB guid  
-        - NAME = player name  
+    - **`owner <_GUID_|_NAME_> _TARGET_`** -- sets ownership of a selected NPCBot to a specific player  
+        - _GUID_ = player DB guid  
+        - _NAME_ = player name  
         - _TARGET_ = selected NPCBot  
         **Example Usage:**  
             - `.npcbot set owner 312` (sets the selected NPCBot owner to the player with guid 312)  
             - `.npcb s o Myplayer` (sets the selected NPCBot owner to the player by name `Myplayer`)  
-    - **`spec <NUMBER> _TARGET_`** -- forces a spec change for selected NPCBot  
-        - NUMBER = a number from **1** to **30**  
+    - **`spec <_NUMBER_> _TARGET_`** -- forces a spec change for selected NPCBot  
+        - _NUMBER_ = a number from **1** to **30**  
         - _TARGET_ = selected NPCBot  
         **Example Usage:**  
             - `.npcbot set spec 2` (selected NPCBot will instantly respec into Fury talent tree; talents will only apply to a warrior NPCBot)  
@@ -208,10 +208,10 @@ _TARGET_ indicates that command is used on a selected unit
     - **`stopfully _TARGET_`** -- set NPCBot(s) to IDLE mode  
         - _TARGET_ = selected (your) NPCBot (command affects this NPCBot)  
         - _TARGET_ = any other unit or no selection (command affects all your NPCBots)  
-    - **`unbind <_TARGET_|NAME>`** -- free NPCBot temporarily without dismissing them. Bot will return to home position and wait there until invited back (or server restart)  
-    - **`rebind <_TARGET_|NAME>`** -- call unbound NPCBot back. Use `.npcbot info` to list your unbound NPCBots  
+    - **`unbind <_TARGET_|_NAME_>`** -- free NPCBot temporarily without dismissing them. Bot will return to home position and wait there until invited back (or server restart)  
+    - **`rebind <_TARGET_|_NAME_>`** -- call unbound NPCBot back. Use `.npcbot info` to list your unbound NPCBots  
         - _TARGET_ = selected (your) NPCBot (command affects this NPCBot)  
-        - NAME = case-insensitive NPCBot name (command affects named NPCBot)  
+        - _NAME_ = case-insensitive NPCBot name (command affects named NPCBot)  
     - **`walk`** -- toggle WALK mode for NPCBots  
     - **`nogossip`** -- toggle GOSSIP availability for NPCBots  
     **Example Usage:**  
@@ -236,8 +236,11 @@ _TARGET_ indicates that command is used on a selected unit
     **Example Usage:**  
         - `.npcbot unhide`  
         - `.npcbot show`  
-- **`sendto <_TARGET_ OR _NAME1_ _NAME2_ ... _NAMEN_>`** -- (Player command) for 30 seconds makes NPCBot(s) wait for your signal to move to stationery position. The position must be pointed then by a dest spell (AoE, smoke flare, dynamite, etc.). Stationed bots will stay there indefinetely, use follow command to call them back  
-    - **`last <_TARGET_ OR _NAME1_ _NAME2_ ... _NAMEN_>`** -- (Player command) same as plain `sendto` but moves NPCBot(s) back to previous position bot was sent **from**, making it stationery  
+- **`sendto <_TARGET_|_NAMES..._>`** -- (Player command) for 30 seconds makes NPCBot(s) wait for your signal to move to stationery position. The position must be pointed then by a dest spell (AoE, smoke flare, dynamite, etc.). Stationed bots will stay there indefinetely, use follow command to call them back  
+    - **`last <_TARGET_|_NAMES..._>`** -- (Player command) same as plain `sendto` but moves NPCBot(s) back to previous position bot was sent **from**, making it stationery  
+    - **`point <NUMBER> <_TARGET_|_NAMES..._>`** -- (Player command) moves NPCBot(s) to a previously marked station point  
+        - **`set <_NUMBER_> <_TARGET_|_NAMES..._>`** -- (Player command) marks NPCBots' current positions as a station point by the `<_NUMBER_>`  
+    - _NUMBER_ = integer in range `1 ... 5`
     - _TARGET_ = selected NPCBot (move single NPCBot)  
     - _NAMES..._ = space-separated case-insensitive NPCBot names (move a group of NPCBots)  
     **Example Usage:**  
@@ -249,16 +252,16 @@ _TARGET_ indicates that command is used on a selected unit
     - _TARGET_ = self (move all NPCBots)  
     **Example Usage:**  
         - `.npcbot recall`  
-- **`kill`|`suicide`** -- (Player command) forces a NPCBot to die. Designed for troubleshooting in situations like when NPCBots are not acting normally. This can be caused by a rare bug causing creatures to retain Unit States. If this doesn't work, try to `/tickle` them  
+- **`kill _TARGET_`|`suicide _TARGET_`** -- (Player command) forces a NPCBot to die. Designed for troubleshooting in situations like when NPCBots are not acting normally. This can be caused by a rare bug causing creatures to retain Unit States. If this doesn't work, try to `/tickle` them  
     - _TARGET_ = selected NPCBot (kill single NPCBot troublemaker)  
     - _TARGET_ = self (kill all your NPCBots)  
     **Example Usage:**  
         - `.npcbot kill`  
         - `.npcbot suicide`  
 - **`order`** -- (Player command) allows you to issue an order to your NPCBot. Orders take priority over any other action. Each bot can have up to 3 queued orders at a time (by itself will display list of subcommands)  
-    - **`cast <BOT_NAME OR CLASS_NAME> <SPELL_NAME> _TARGET_TOKEN_`** -- cast some spell  
-        - BOT_NAME OR CLASS_NAME = your bot name in client's locale, case insensitive OR bot class name in english, in lower case  
-        - SPELL_NAME = spell name in client's locale. All_spaces_must_be_replaced_with_underscores. Case insensitive  
+    - **`cast <_BOT_NAME_ OR _CLASS_NAME_> <_SPELL_NAME_> [_TARGET_TOKEN_]`** -- cast some spell  
+        - _BOT_NAME_ OR _CLASS_NAME_ = your bot name in client's locale, case insensitive OR bot class name in english, in lower case  
+        - _SPELL_NAME_ = spell name in client's locale. All_spaces_must_be_replaced_with_underscores. Case insensitive  
         - _TARGET_TOKEN_ = optional target identifier string. If left empty bot will target self. Case insensitive. Possible values:  
             - `bot`, `self` = selfcast  
             - `me`, `master` = bot owner (you)  
@@ -267,30 +270,35 @@ _TARGET_ indicates that command is used on a selected unit
     **Example Usage:**  
         - `.npcbot order cast javad lesser_healing_wave me`  
         - `.npcbot order cast javad purge mytarget`  
-- **`distance _ATTACK_ <VALUE>`** -- (Player command) allows you to quickly set bot follow / attack distance (by itself will display full help)  
-    - _ATTACK_ = if skipped you set follow distance (default), if set to `"attack"` you set attack distance  
-    - VALUE = desired value for chosen distance type (within standard distance ranges)  
+- **`distance <_VALUE_>`** -- (Player command) allows you to quickly set bot follow distance (by itself will display full help)  
+    - **`attack <_VALUE_|_SHORT_|_LONG_>`** -- (Player command) sets attack distance
+        - _VALUE_ = desired value for chosen distance type (within standard distance ranges)
+        - _SHORT_, _LONG_ = "short" and "long" exact strings for minimum and maximum available spell range for the class  
     **Example Usage:**  
         - `.npcbot distance 75`  
         - `.npcbot distance attack 20`  
-- **`vehicle eject`** -- (Player command) allows you to kick your NPCBots out of vehicles (bots won't dismount from vehicles automatically while in combat)  
+        - `.npcb dist a short`  
+- **`vehicle eject _TARGET_`** -- (Player command) allows you to kick your NPCBots out of vehicles (bots won't dismount from vehicles automatically while in combat)  
+    - _TARGET_ = selected NPCBot (eject this NPCBot)  
+    - _TARGET_ = self (eject all NPCBots)  
     **Example Usage:**  
         - `.npcbot vehicle eject`  
         - `.npcb veh e`  
 - **`dump`** -- (Admin command) allows you to migrate bots data, similar to `pdump` for players (by itself will display list of subcommands)  
-    - **`write <FILENAME>`** -- creates a backup file containing info required to move bots to another DB  
-        - FILENAME = name of the file to create, will be saved in server root folder (Windows) or home directory (Linux), if file extension is not provided, **.sql** wil be used  
+    - **`write <_FILENAME_>`** -- creates a backup file containing info required to move bots to another DB  
+        - _FILENAME_ = name of the file to create, will be saved in server root folder (Windows) or home directory (Linux), if file extension is not provided, **.sql** wil be used  
         **Example Usage:**  
             - `.npcbot dump write bots_backup` (write to `bots_backup.sql`)  
             - `.npcb du w 1.txt` (write to `1.txt`)  
-    - **`load <FILENAME> [#kick_players]`** -- load NPCBots info from a backup file into DB. Requires no players to be playing (use console) and will force a server restart after completion. If `kick_players` parameter is provided, all players will be kicked from server automatically. NPCBots mod must be already installed (all tables present)  
-        - FILENAME = your backup file name, must be stored in server root folder (Windows) or home directory (Linux), if file extension is not provided, **.sql** wil be used  
+    - **`load <_FILENAME_> [_KICK_PLAYERS_]`** -- load NPCBots info from a backup file into DB. Requires no players to be playing (use console) and will force a server restart after completion. NPCBots mod must be already installed (all tables present)  
+        - _FILENAME_ = your backup file name, must be stored in server root folder (Windows) or home directory (Linux), if file extension is not provided, **.sql** wil be used  
+        - _KICK_PLAYERS_ = boolean flag, if set to 1 all players will be kicked from server automatically  
         **Example Usage:**  
             - `.npcbot dump load bots_backup` (load from `bots_backup.sql`)  
             - `.npcb du l 1.txt` (load from `1.txt`)  
-- **`createnew <NAME> <CLASS> _RACE_ _GENDER_ _SKIN_ _FACE_ _HEARSTYLE_ _HAIRCOLOR_ _FEATURES_ _SOUNDSET_`** -- (Admin command) allows you to create new NPCBots for players to use. Creature ids 70800+ are used for that.  
-    - NAME = name of created NPCBot. Note that first letter will always be in Upper Case  
-    - CLASS = this refers to NPCBot class. Use `.npcbot lookup` comand to list all available classes  
+- **`createnew <_NAME_> <_CLASS_> _RACE_ _GENDER_ _SKIN_ _FACE_ _HEARSTYLE_ _HAIRCOLOR_ _FEATURES_ _SOUNDSET_`** -- (Admin command) allows you to create new NPCBots for players to use. Creature ids 70800+ are used for that.  
+    - _NAME_ = name of created NPCBot. Note that first letter will always be in Upper Case  
+    - _CLASS_ = this refers to NPCBot class. Use `.npcbot lookup` comand to list all available classes  
     - _RACE_ = you have to provide a race for your new NPCbot unless you are creating a NPCBot of one of the special classes for whose race is predefined as well as other details  
         - 1: Human  
         - 2: Orc  
@@ -305,7 +313,7 @@ _TARGET_ indicates that command is used on a selected unit
     - _GENDER_ = same as _RACE_, for normal classes you have to select one  
         - 0: Male  
         - 1: Female  
-    - _SKIN_, _FACE_, _HEARSTYLE_, _HAIRCOLOR_, _FEATURES_ = appearance details, 0 and up. Different race/gender combinations have different constraints for visuals, use `.npcbot createnew ranges` to see them  
+    - _SKIN_, _FACE_, _HEARSTYLE_, _HAIRCOLOR_, _FEATURES_ = appearance details, `0` and up. Different race/gender combinations have different constraints for visuals, use `.npcbot createnew ranges` to see them  
     - _SOUNDSET_ = NPC voice variant for bot to use. There are 3 variants for each race, by default the choice is random  
     **Example Usage:**  
         - `.npcbot createnew Selendris 2 10 1 6 4 3 2 4` (creates a female redhead Blood Elf mage npcbot)  

@@ -28,8 +28,8 @@
  src/server/game/AI/CreatureAI.h                    |     5 +
  src/server/game/AI/NpcBots/bot_Events.h            |    72 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1408 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 18868 +++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |   715 +
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 18880 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |   717 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   412 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   955 +
  src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp  |   627 +
@@ -48,8 +48,8 @@
  src/server/game/AI/NpcBots/bot_sphynx_ai.cpp       |   605 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  2105 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2265 +++
- src/server/game/AI/NpcBots/botcommands.cpp         |  2490 +++
- src/server/game/AI/NpcBots/botcommon.h             |   567 +
+ src/server/game/AI/NpcBots/botcommands.cpp         |  2611 +++
+ src/server/game/AI/NpcBots/botcommon.h             |   569 +
  src/server/game/AI/NpcBots/botdatamgr.cpp          |   749 +
  src/server/game/AI/NpcBots/botdatamgr.h            |   161 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   133 +
@@ -143,7 +143,7 @@
  src/server/scripts/Spells/spell_rogue.cpp          |    52 +
  src/server/scripts/Spells/spell_shaman.cpp         |    10 +
  src/server/shared/SharedDefines.h                  |    23 +
- 145 files changed, 73268 insertions(+), 11 deletions(-)
+ 145 files changed, 73405 insertions(+), 11 deletions(-)
  create mode 100644 data/sql/Bots/locales/ruRU/npc_text_locale.sql
  create mode 100644 data/sql/Bots/locales/zhCN/npc_text_locale.sql
  create mode 100644 data/sql/Bots/locales/zhTW/npc_text_locale.sql
@@ -6856,10 +6856,10 @@ index 0000000000..4e7070befe
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000000..6339319db7
+index 0000000000..1214df9113
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,18868 @@
+@@ -0,0 +1,18880 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -7923,6 +7923,18 @@ index 0000000000..6339319db7
 +    }
 +    else
 +        BotWhisper("Position is too far away!");
++}
++void bot_ai::MoveToSendPosition(uint32 point_id)
++{
++    ASSERT(point_id < MAX_SEND_POINTS);
++
++    MoveToSendPosition(sendpos[point_id]);
++}
++void bot_ai::MarkSendPosition(uint32 point_id)
++{
++    ASSERT(point_id < MAX_SEND_POINTS);
++
++    sendpos[point_id].Relocate(me);
 +}
 +
 +void bot_ai::SetBotAwaitState(uint8 state)
@@ -25730,10 +25742,10 @@ index 0000000000..6339319db7
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000000..902a47b34a
+index 0000000000..7c9fbfa80e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,715 @@
+@@ -0,0 +1,717 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -25842,8 +25854,10 @@ index 0000000000..902a47b34a
 +        bool CanRespawn() { return IAmFree(); }
 +        void BotMovement(BotMovementType type, Position const* pos, Unit* target = nullptr, bool generatePath = true) const;
 +        bool CanBotMoveVehicle() const;
++        void MoveToSendPosition(uint32 point_id);
 +        void MoveToSendPosition(Position const& mpos);
 +        void MoveToLastSendPosition() { MoveToSendPosition(sendlastpos); }
++        void MarkSendPosition(uint32 point_id);
 +        void SetBotCommandState(uint32 st, bool force = false, Position* newpos = nullptr);
 +        void RemoveBotCommandState(uint32 st);
 +        bool HasBotCommandState(uint32 st) const { return (_botCommandState & st); }
@@ -26334,6 +26348,7 @@ index 0000000000..902a47b34a
 +        PlayerClassLevelInfo* _classinfo;
 +        SpellInfo const* m_botSpellInfo;
 +        Position movepos, attackpos, sendlastpos;
++        Position sendpos[MAX_SEND_POINTS];
 +
 +        uint32 _botCommandState;
 +        uint8 _botAwaitState;
@@ -26408,20 +26423,19 @@ index 0000000000..902a47b34a
 +        {
 +            friend class bot_ai;
 +
-+            enum { ORDERS_PARAMS_MAX_SIZE = sizeof(uint64) + sizeof(uint32) };
 +            union
 +            {
-+                char whole[ORDERS_PARAMS_MAX_SIZE];
 +                struct
 +                {
 +                    uint64 targetGuid;
 +                    uint32 baseSpell;
 +                } spellCastParams;
++
 +            } params;
 +
 +            explicit BotOrder(BotOrderTypes order_type) : _type(order_type)
 +            {
-+                memset(params.whole, 0, ORDERS_PARAMS_MAX_SIZE);
++                memset((char*)(&params), 0, sizeof(params));
 +            }
 +            BotOrder(BotOrder&&) noexcept = default;
 +
@@ -55392,10 +55406,10 @@ index 0000000000..aade5962d8
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 0000000000..698bf1ae08
+index 0000000000..249220bb57
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
-@@ -0,0 +1,2490 @@
+@@ -0,0 +1,2611 @@
 +#include "bot_ai.h"
 +#include "botdump.h"
 +#include "botmgr.h"
@@ -55857,11 +55871,19 @@ index 0000000000..698bf1ae08
 +            { "free",       HandleNpcBotDeleteFreeCommand,          rbac::RBAC_PERM_COMMAND_NPCBOT_DELETE,             Console::Yes },
 +        };
 +
++        static ChatCommandTable npcbotSendToPointCommandTable =
++        {
++            { "",           HandleNpcBotSendToPointCommand,         rbac::RBAC_PERM_COMMAND_NPCBOT_SEND,               Console::No  },
++            { "set",        HandleNpcBotSendToPointSetCommand,      rbac::RBAC_PERM_COMMAND_NPCBOT_SEND,               Console::No  },
++        };
++
 +        static ChatCommandTable npcbotSendToCommandTable =
 +        {
 +            { "",           HandleNpcBotSendToCommand,              rbac::RBAC_PERM_COMMAND_NPCBOT_SEND,               Console::No  },
 +            { "last",       HandleNpcBotSendToLastCommand,          rbac::RBAC_PERM_COMMAND_NPCBOT_SEND,               Console::No  },
++            { "point",      npcbotSendToPointCommandTable                                                                           },
 +        };
++
 +        static ChatCommandTable npcbotCommandTable =
 +        {
 +            //{ "debug",      npcbotDebugCommandTable                                                                                 },
@@ -56464,7 +56486,7 @@ index 0000000000..698bf1ae08
 +    static bool HandleNpcBotSendToCommand(ChatHandler* handler, Optional<std::vector<std::string_view>> names)
 +    {
 +        static auto return_syntax = [](ChatHandler* chandler) -> bool {
-+            chandler->SendSysMessage("Syntax: .npcbot sendto [#names...]");
++            chandler->SendSysMessage("Syntax: .npcbot sendto #names...");
 +            chandler->SendSysMessage("Makes selected/named bot(s) wait 30 sec for your next DEST spell, assume that position and hold it");
 +            chandler->SendSysMessage("Max distance is 70 yds");
 +            chandler->SetSentErrorMessage(true);
@@ -56520,7 +56542,7 @@ index 0000000000..698bf1ae08
 +    static bool HandleNpcBotSendToLastCommand(ChatHandler* handler, Optional<std::vector<std::string_view>> names)
 +    {
 +        static auto return_syntax = [](ChatHandler* chandler) -> bool {
-+            chandler->SendSysMessage("Syntax: .npcbot sendto last [#names...]");
++            chandler->SendSysMessage("Syntax: .npcbot sendto last #names...");
 +            chandler->SendSysMessage("Makes selected/named bot(s) assume previous position they were sent from");
 +            chandler->SendSysMessage("This will cancel current sendto await state");
 +            chandler->SendSysMessage("Max distance is 70 yds");
@@ -56561,6 +56583,119 @@ index 0000000000..698bf1ae08
 +            {
 +                ++count;
 +                bot->GetBotAI()->MoveToLastSendPosition();
++            }
++        }
++
++        if (count == 0)
++        {
++            handler->PSendSysMessage("Unable to send any of %u bots!", uint32(names->size()));
++            handler->SetSentErrorMessage(true);
++            return false;
++        }
++
++        return return_success(handler, { count });
++    }
++
++    static bool HandleNpcBotSendToPointSetCommand(ChatHandler* handler, Optional<uint32> point_id, Optional<std::vector<std::string_view>> names)
++    {
++        static auto return_syntax = [](ChatHandler* chandler) -> bool {
++            chandler->SendSysMessage("Syntax: .npcbot sendto point set #number #names...");
++            chandler->SendSysMessage("Marks selected/named bots' current position as send point by #number");
++            chandler->PSendSysMessage("Point number must be in range 1 ... %u", uint32(MAX_SEND_POINTS));
++            chandler->SetSentErrorMessage(true);
++            return false;
++        };
++
++        static auto return_success = [&](ChatHandler* chandler, Variant<std::string_view, uint32> name_or_count) -> bool {
++            if (name_or_count.holds_alternative<uint32>())
++                chandler->PSendSysMessage("Marked send point %u for %u bot(s)", *point_id, name_or_count.get<uint32>());
++            else
++                chandler->PSendSysMessage("Marked send point %u for %s", *point_id, name_or_count.get<std::string_view>().data());
++            return true;
++        };
++
++        Player const* owner = handler->GetSession()->GetPlayer();
++
++        if (!point_id || !*point_id || *point_id > MAX_SEND_POINTS || !owner->HaveBot())
++            return return_syntax(handler);
++
++        if (!names || names->empty())
++        {
++            Unit const* target = handler->getSelectedCreature();
++            Creature const* bot = target ? owner->GetBotMgr()->GetBot(target->GetGUID()) : nullptr;
++            if (bot && bot->IsAlive())
++            {
++                bot->GetBotAI()->MarkSendPosition(*point_id - 1);
++                return return_success(handler, { bot->GetName() });
++            }
++            return return_syntax(handler);
++        }
++
++        uint32 count = 0;
++        for (decltype(names)::value_type::value_type name : *names)
++        {
++            Creature const* bot = owner->GetBotMgr()->GetBotByName(name);
++            if (bot && bot->IsAlive())
++            {
++                ++count;
++                bot->GetBotAI()->MarkSendPosition(*point_id - 1);
++            }
++        }
++
++        if (count == 0)
++        {
++            handler->PSendSysMessage("Unable to mark send point for any of %u bots!", uint32(names->size()));
++            handler->SetSentErrorMessage(true);
++            return false;
++        }
++
++        return return_success(handler, { count });
++    }
++
++    static bool HandleNpcBotSendToPointCommand(ChatHandler* handler, Optional<uint32> point_id, Optional<std::vector<std::string_view>> names)
++    {
++        static auto return_syntax = [](ChatHandler* chandler) -> bool {
++            chandler->SendSysMessage("Syntax: .npcbot sendto point #number #names...");
++            chandler->SendSysMessage("Makes selected/named bot(s) assume previously set point by #number");
++            chandler->SendSysMessage("This will cancel current sendto await state");
++            chandler->SendSysMessage("Max distance is 70 yds");
++            chandler->SetSentErrorMessage(true);
++            return false;
++        };
++
++        static auto return_success = [&](ChatHandler* chandler, Variant<std::string_view, uint32> name_or_count) -> bool {
++            if (name_or_count.holds_alternative<uint32>())
++                chandler->PSendSysMessage("Moving %u bot(s) to point %u...", name_or_count.get<uint32>(), *point_id);
++            else
++                chandler->PSendSysMessage("Moving %s to point %u...", name_or_count.get<std::string_view>().data(), *point_id);
++            return true;
++        };
++
++        Player const* owner = handler->GetSession()->GetPlayer();
++
++        if (!point_id || !*point_id || *point_id > MAX_SEND_POINTS || !owner->HaveBot())
++            return return_syntax(handler);
++
++        if (!names || names->empty())
++        {
++            Unit const* target = handler->getSelectedCreature();
++            Creature const* bot = target ? owner->GetBotMgr()->GetBot(target->GetGUID()) : nullptr;
++            if (bot && bot->IsAlive())
++            {
++                bot->GetBotAI()->MoveToSendPosition(*point_id - 1);
++                return return_success(handler, { bot->GetName() });
++            }
++            return return_syntax(handler);
++        }
++
++        uint32 count = 0;
++        for (decltype(names)::value_type::value_type name : *names)
++        {
++            Creature const* bot = owner->GetBotMgr()->GetBotByName(name);
++            if (bot && bot->IsAlive())
++            {
++                ++count;
++                bot->GetBotAI()->MoveToSendPosition(*point_id - 1);
 +            }
 +        }
 +
@@ -57888,10 +58023,10 @@ index 0000000000..698bf1ae08
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommon.h b/src/server/game/AI/NpcBots/botcommon.h
 new file mode 100644
-index 0000000000..af526d23f6
+index 0000000000..ed53cc29be
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommon.h
-@@ -0,0 +1,567 @@
+@@ -0,0 +1,569 @@
 +#ifndef _BOTCOMMON_H
 +#define _BOTCOMMON_H
 +
@@ -58432,6 +58567,8 @@ index 0000000000..af526d23f6
 +    BOT_AWAIT_SEND                      = 0x01
 +};
 +
++constexpr size_t MAX_SEND_POINTS = 5u;
++
 +#define FROM_ARRAY(arr) arr, arr + sizeof(arr) / sizeof(arr[0])
 +
 +//Only non-persistent types are allowed
@@ -58440,8 +58577,8 @@ index 0000000000..af526d23f6
 +    BOT_ORDER_NONE          = 0,
 +    BOT_ORDER_SPELLCAST     = 1
 +};
-+#define DEBUG_BOT_ORDERS 0
-+#define MAX_BOT_ORDERS_QUEUE_SIZE 3
++constexpr bool DEBUG_BOT_ORDERS = false;
++constexpr size_t MAX_BOT_ORDERS_QUEUE_SIZE = 3u;
 +
 +enum BotVehicleStrats
 +{
