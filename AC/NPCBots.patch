@@ -100,7 +100,7 @@
  src/server/game/Entities/Totem/Totem.cpp           |    26 +
  src/server/game/Entities/Transport/Transport.cpp   |    11 +
  src/server/game/Entities/Unit/StatSystem.cpp       |    50 +
- src/server/game/Entities/Unit/Unit.cpp             |  1109 ++
+ src/server/game/Entities/Unit/Unit.cpp             |  1117 ++
  src/server/game/Entities/Unit/Unit.h               |    58 +-
  src/server/game/Entities/Vehicle/Vehicle.cpp       |    44 +
  src/server/game/Entities/Vehicle/Vehicle.h         |     6 +
@@ -147,7 +147,7 @@
  src/server/scripts/Spells/spell_rogue.cpp          |    52 +
  src/server/scripts/Spells/spell_shaman.cpp         |    10 +
  src/server/shared/SharedDefines.h                  |    23 +
- 149 files changed, 74271 insertions(+), 11 deletions(-)
+ 149 files changed, 74279 insertions(+), 11 deletions(-)
  create mode 100644 data/sql/Bots/locales/esES/npc_text_locale.sql
  create mode 100644 data/sql/Bots/locales/esMX/npc_text_locale.sql
  create mode 100644 data/sql/Bots/locales/ruRU/npc_text_locale.sql
@@ -72955,7 +72955,7 @@ index e9eb7e0b12..37decdf4ef 100644
      float totalPct         = addTotalPct ? GetModifierValue(unitMod, TOTAL_PCT) : 1.0f;
      float dmgMultiplier    = GetCreatureTemplate()->DamageModifier; // = DamageModifier * _GetDamageMod(rank);
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index d9b177cd86..5c9372d1a3 100644
+index d9b177cd86..24a1262874 100644
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
 @@ -72,6 +72,10 @@
@@ -74319,7 +74319,22 @@ index d9b177cd86..5c9372d1a3 100644
          // only if not player and not controlled by player pet. And not at BG
          if ((durabilityLoss && !player && !plrVictim->InBattleground()) || (player && sWorld->getBoolConfig(CONFIG_DURABILITY_LOSS_IN_PVP)))
          {
-@@ -18887,6 +19680,16 @@ bool Unit::IsInPartyWith(Unit const* unit) const
+@@ -18124,6 +18917,14 @@ void Unit::Kill(Unit* killer, Unit* victim, bool durabilityLoss, WeaponAttackTyp
+         {
+             if (Player* killed = victim->ToPlayer())
+                 sScriptMgr->OnPlayerKilledByCreature(killerCre, killed);
++            //npcbot: Creature Kill hook for owner
++            else if (Creature* killedCre = victim->ToCreature())
++            {
++                Unit* killerCreOwner = killerCre->GetCreator();
++                if (killerCre->IsNPCBotOrPet() && killerCreOwner && killerCreOwner->GetTypeId() == TYPEID_PLAYER)
++                    sScriptMgr->OnCreatureKill(killerCreOwner->ToPlayer(), killedCre);
++            }
++            //end npcbot
+         }
+     }
+ }
+@@ -18887,6 +19688,16 @@ bool Unit::IsInPartyWith(Unit const* unit) const
      else if ((u2->GetTypeId() == TYPEID_PLAYER && u1->GetTypeId() == TYPEID_UNIT && (u1->ToCreature()->GetCreatureTemplate()->type_flags & CREATURE_TYPE_FLAG_TREAT_AS_RAID_UNIT) && u2->ToPlayer()->GetGroup() && !u2->ToPlayer()->GetGroup()->isRaidGroup()) ||
               (u1->GetTypeId() == TYPEID_PLAYER && u2->GetTypeId() == TYPEID_UNIT && (u2->ToCreature()->GetCreatureTemplate()->type_flags & CREATURE_TYPE_FLAG_TREAT_AS_RAID_UNIT) && u1->ToPlayer()->GetGroup() && !u1->ToPlayer()->GetGroup()->isRaidGroup()))
          return true;
@@ -74336,7 +74351,7 @@ index d9b177cd86..5c9372d1a3 100644
      else
          return false;
  }
-@@ -18909,6 +19712,16 @@ bool Unit::IsInRaidWith(Unit const* unit) const
+@@ -18909,6 +19720,16 @@ bool Unit::IsInRaidWith(Unit const* unit) const
      else if ((u2->GetTypeId() == TYPEID_PLAYER && u1->GetTypeId() == TYPEID_UNIT && u1->ToCreature()->GetCreatureTemplate()->type_flags & CREATURE_TYPE_FLAG_TREAT_AS_RAID_UNIT) ||
               (u1->GetTypeId() == TYPEID_PLAYER && u2->GetTypeId() == TYPEID_UNIT && u2->ToCreature()->GetCreatureTemplate()->type_flags & CREATURE_TYPE_FLAG_TREAT_AS_RAID_UNIT))
          return true;
@@ -74353,7 +74368,7 @@ index d9b177cd86..5c9372d1a3 100644
      else
          return false;
  }
-@@ -18940,6 +19753,19 @@ void Unit::GetPartyMembers(std::list<Unit*>& TagUnitMap)
+@@ -18940,6 +19761,19 @@ void Unit::GetPartyMembers(std::list<Unit*>& TagUnitMap)
                          if (pet->IsGuardian() && pet->IsAlive())
                              TagUnitMap.push_back(pet);
                  }
@@ -74373,7 +74388,7 @@ index d9b177cd86..5c9372d1a3 100644
              }
          }
      }
-@@ -18954,6 +19780,18 @@ void Unit::GetPartyMembers(std::list<Unit*>& TagUnitMap)
+@@ -18954,6 +19788,18 @@ void Unit::GetPartyMembers(std::list<Unit*>& TagUnitMap)
                  if (pet->IsGuardian() && pet->IsAlive())
                      TagUnitMap.push_back(pet);
          }
@@ -74392,7 +74407,7 @@ index d9b177cd86..5c9372d1a3 100644
      }
  }
  
-@@ -18966,6 +19804,10 @@ Aura* Unit::AddAura(uint32 spellId, Unit* target)
+@@ -18966,6 +19812,10 @@ Aura* Unit::AddAura(uint32 spellId, Unit* target)
      if (!spellInfo)
          return nullptr;
  
@@ -74403,7 +74418,7 @@ index d9b177cd86..5c9372d1a3 100644
      if (!target->IsAlive() && !spellInfo->HasAttribute(SPELL_ATTR0_PASSIVE) && !spellInfo->HasAttribute(SPELL_ATTR2_ALLOW_DEAD_TARGET))
          return nullptr;
  
-@@ -19021,6 +19863,13 @@ void Unit::SendPlaySpellImpact(ObjectGuid guid, uint32 id)
+@@ -19021,6 +19871,13 @@ void Unit::SendPlaySpellImpact(ObjectGuid guid, uint32 id)
      SendMessageToSet(&data, true);
  }
  
@@ -74417,7 +74432,7 @@ index d9b177cd86..5c9372d1a3 100644
  void Unit::ApplyResilience(Unit const* victim, float* crit, int32* damage, bool isCrit, CombatRating type)
  {
      // player mounted on multi-passenger mount is also classified as vehicle
-@@ -19085,6 +19934,11 @@ void Unit::ApplyResilience(Unit const* victim, float* crit, int32* damage, bool
+@@ -19085,6 +19942,11 @@ void Unit::ApplyResilience(Unit const* victim, float* crit, int32* damage, bool
  float Unit::MeleeSpellMissChance(Unit const* victim, WeaponAttackType attType, int32 skillDiff, uint32 spellId) const
  {
      SpellInfo const* spellInfo = spellId ? sSpellMgr->GetSpellInfo(spellId) : nullptr;
@@ -74429,7 +74444,7 @@ index d9b177cd86..5c9372d1a3 100644
      if (spellInfo && spellInfo->HasAttribute(SPELL_ATTR7_NO_ATTACK_MISS))
      {
          return 0.0f;
-@@ -19093,6 +19947,16 @@ float Unit::MeleeSpellMissChance(Unit const* victim, WeaponAttackType attType, i
+@@ -19093,6 +19955,16 @@ float Unit::MeleeSpellMissChance(Unit const* victim, WeaponAttackType attType, i
      //calculate miss chance
      float missChance = victim->GetUnitMissChance(attType);
  
@@ -74446,7 +74461,7 @@ index d9b177cd86..5c9372d1a3 100644
      // Check if dual wielding, add additional miss penalty - when mainhand has on next swing spell, offhand doesnt suffer penalty
      if (!spellId && (attType != RANGED_ATTACK) && haveOffhandWeapon() && (!m_currentSpells[CURRENT_MELEE_SPELL] || !m_currentSpells[CURRENT_MELEE_SPELL]->IsNextMeleeSwingSpell()))
      {
-@@ -19207,6 +20071,11 @@ void Unit::SetPhaseMask(uint32 newPhaseMask, bool update)
+@@ -19207,6 +20079,11 @@ void Unit::SetPhaseMask(uint32 newPhaseMask, bool update)
          }
      }
  
@@ -74458,7 +74473,7 @@ index d9b177cd86..5c9372d1a3 100644
      for (uint8 i = 0; i < MAX_SUMMON_SLOT; ++i)
      {
          if (m_SummonSlot[i])
-@@ -19281,6 +20150,10 @@ float Unit::GetCombatRatingReduction(CombatRating cr) const
+@@ -19281,6 +20158,10 @@ float Unit::GetCombatRatingReduction(CombatRating cr) const
  {
      if (Player const* player = ToPlayer())
          return player->GetRatingBonusValue(cr);
@@ -74469,7 +74484,7 @@ index d9b177cd86..5c9372d1a3 100644
      // Player's pet get resilience from owner
      else if (IsPet() && GetOwner())
          if (Player* owner = GetOwner()->ToPlayer())
-@@ -19482,6 +20355,183 @@ uint32 Unit::GetModelForForm(ShapeshiftForm form, uint32 spellId) const
+@@ -19482,6 +20363,183 @@ uint32 Unit::GetModelForForm(ShapeshiftForm form, uint32 spellId) const
                  break;
          }
      }
@@ -74653,7 +74668,7 @@ index d9b177cd86..5c9372d1a3 100644
  
      uint32 modelid = 0;
      SpellShapeshiftEntry const* formEntry = sSpellShapeshiftStore.LookupEntry(form);
-@@ -20282,6 +21332,19 @@ void Unit::StopAttackFaction(uint32 faction_id)
+@@ -20282,6 +21340,19 @@ void Unit::StopAttackFaction(uint32 faction_id)
  
      for (ControlSet::const_iterator itr = m_Controlled.begin(); itr != m_Controlled.end(); ++itr)
          (*itr)->StopAttackFaction(faction_id);
@@ -74673,7 +74688,7 @@ index d9b177cd86..5c9372d1a3 100644
  }
  
  void Unit::StopAttackingInvalidTarget()
-@@ -21376,6 +22439,52 @@ bool Unit::IsInDisallowedMountForm() const
+@@ -21376,6 +22447,52 @@ bool Unit::IsInDisallowedMountForm() const
      return false;
  }
  

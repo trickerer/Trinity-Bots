@@ -154,7 +154,7 @@
  src/server/game/Entities/Player/Player.h           |    25 +
  src/server/game/Entities/Totem/Totem.cpp           |    26 +
  src/server/game/Entities/Unit/StatSystem.cpp       |    46 +-
- src/server/game/Entities/Unit/Unit.cpp             |   660 +
+ src/server/game/Entities/Unit/Unit.cpp             |   668 +
  src/server/game/Entities/Unit/Unit.h               |    15 +-
  src/server/game/Entities/Vehicle/Vehicle.cpp       |    34 +
  src/server/game/Globals/ObjectMgr.cpp              |    81 +
@@ -205,7 +205,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   314 +
- 207 files changed, 73620 insertions(+), 76 deletions(-)
+ 207 files changed, 73628 insertions(+), 76 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -73017,7 +73017,7 @@ index 142affc27..1309ad38a 100644
      float totalPct         = addTotalPct ? GetPctModifierValue(unitMod, TOTAL_PCT) : 1.0f;
      float dmgMultiplier    = GetCreatureTemplate()->ModDamage; // = ModDamage * _GetDamageMod(rank);
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index a272a405c..ef1f29d75 100644
+index a272a405c..db60e307b 100644
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
 @@ -80,6 +80,10 @@
@@ -73750,7 +73750,22 @@ index a272a405c..ef1f29d75 100644
          // only if not player and not controlled by player pet. And not at BG
          if ((durabilityLoss && !player && !victim->ToPlayer()->InBattleground()) || (player && sWorld->getBoolConfig(CONFIG_DURABILITY_LOSS_IN_PVP)))
          {
-@@ -11896,6 +12288,16 @@ bool Unit::IsInPartyWith(Unit const* unit) const
+@@ -11223,6 +11615,14 @@ bool Unit::InitTamedPet(Pet* pet, uint8 level, uint32 spell_id)
+         {
+             if (Player* killed = victim->ToPlayer())
+                 sScriptMgr->OnPlayerKilledByCreature(killerCre, killed);
++            //npcbot: Creature Kill hook for owner
++            else if (Creature* killedCre = victim->ToCreature())
++            {
++                Unit* killerCreOwner = killerCre->GetCreator();
++                if (killerCre->IsNPCBotOrPet() && killerCreOwner && killerCreOwner->GetTypeId() == TYPEID_PLAYER)
++                    sScriptMgr->OnCreatureKill(killerCreOwner->ToPlayer(), killedCre);
++            }
++            //end npcbot
+         }
+     }
+ }
+@@ -11896,6 +12296,16 @@ bool Unit::IsInPartyWith(Unit const* unit) const
      else if ((u2->GetTypeId() == TYPEID_PLAYER && u1->GetTypeId() == TYPEID_UNIT && u1->ToCreature()->GetCreatureTemplate()->type_flags & CREATURE_TYPE_FLAG_TREAT_AS_RAID_UNIT) ||
          (u1->GetTypeId() == TYPEID_PLAYER && u2->GetTypeId() == TYPEID_UNIT && u2->ToCreature()->GetCreatureTemplate()->type_flags & CREATURE_TYPE_FLAG_TREAT_AS_RAID_UNIT))
          return true;
@@ -73767,7 +73782,7 @@ index a272a405c..ef1f29d75 100644
  
      return u1->GetTypeId() == TYPEID_UNIT && u2->GetTypeId() == TYPEID_UNIT && u1->GetFaction() == u2->GetFaction();
  }
-@@ -11915,6 +12317,16 @@ bool Unit::IsInRaidWith(Unit const* unit) const
+@@ -11915,6 +12325,16 @@ bool Unit::IsInRaidWith(Unit const* unit) const
      else if ((u2->GetTypeId() == TYPEID_PLAYER && u1->GetTypeId() == TYPEID_UNIT && u1->ToCreature()->GetCreatureTemplate()->type_flags & CREATURE_TYPE_FLAG_TREAT_AS_RAID_UNIT) ||
              (u1->GetTypeId() == TYPEID_PLAYER && u2->GetTypeId() == TYPEID_UNIT && u2->ToCreature()->GetCreatureTemplate()->type_flags & CREATURE_TYPE_FLAG_TREAT_AS_RAID_UNIT))
          return true;
@@ -73784,7 +73799,7 @@ index a272a405c..ef1f29d75 100644
  
      return u1->GetTypeId() == TYPEID_UNIT && u2->GetTypeId() == TYPEID_UNIT && u1->GetFaction() == u2->GetFaction();
  }
-@@ -11943,6 +12355,19 @@ void Unit::GetPartyMembers(std::list<Unit*> &TagUnitMap)
+@@ -11943,6 +12363,19 @@ void Unit::GetPartyMembers(std::list<Unit*> &TagUnitMap)
                  if (Guardian* pet = Target->GetGuardianPet())
                      if (pet->IsAlive())
                          TagUnitMap.push_back(pet);
@@ -73804,7 +73819,7 @@ index a272a405c..ef1f29d75 100644
              }
          }
      }
-@@ -11953,6 +12378,18 @@ void Unit::GetPartyMembers(std::list<Unit*> &TagUnitMap)
+@@ -11953,6 +12386,18 @@ void Unit::GetPartyMembers(std::list<Unit*> &TagUnitMap)
          if (Guardian* pet = owner->GetGuardianPet())
              if ((pet == this || IsInMap(pet)) && pet->IsAlive())
                  TagUnitMap.push_back(pet);
@@ -73823,7 +73838,7 @@ index a272a405c..ef1f29d75 100644
      }
  }
  
-@@ -11981,6 +12418,10 @@ Aura* Unit::AddAura(uint32 spellId, Unit* target)
+@@ -11981,6 +12426,10 @@ Aura* Unit::AddAura(uint32 spellId, Unit* target)
      if (!spellInfo)
          return nullptr;
  
@@ -73834,7 +73849,7 @@ index a272a405c..ef1f29d75 100644
      return AddAura(spellInfo, MAX_EFFECT_MASK, target);
  }
  
-@@ -12045,6 +12486,11 @@ void Unit::SendPlaySpellImpact(ObjectGuid guid, uint32 id) const
+@@ -12045,6 +12494,11 @@ void Unit::SendPlaySpellImpact(ObjectGuid guid, uint32 id) const
  
  bool Unit::CanApplyResilience() const
  {
@@ -73846,7 +73861,7 @@ index a272a405c..ef1f29d75 100644
      return !IsVehicle() && GetOwnerGUID().IsPlayer();
  }
  
-@@ -12121,12 +12567,27 @@ int32 Unit::CalculateAOEAvoidance(int32 damage, uint32 schoolMask, ObjectGuid co
+@@ -12121,12 +12575,27 @@ int32 Unit::CalculateAOEAvoidance(int32 damage, uint32 schoolMask, ObjectGuid co
  float Unit::MeleeSpellMissChance(Unit const* victim, WeaponAttackType attType, int32 skillDiff, uint32 spellId) const
  {
      SpellInfo const* spellInfo = spellId ? sSpellMgr->GetSpellInfo(spellId) : nullptr;
@@ -73874,7 +73889,7 @@ index a272a405c..ef1f29d75 100644
      // melee attacks while dual wielding have +19% chance to miss
      if (!spellId && haveOffhandWeapon())
          missChance += 19.0f;
-@@ -12183,6 +12644,11 @@ void Unit::SetPhaseMask(uint32 newPhaseMask, bool update)
+@@ -12183,6 +12652,11 @@ void Unit::SetPhaseMask(uint32 newPhaseMask, bool update)
              if ((*itr)->GetTypeId() == TYPEID_UNIT)
                  (*itr)->SetPhaseMask(newPhaseMask, true);
  
@@ -73886,7 +73901,7 @@ index a272a405c..ef1f29d75 100644
          for (uint8 i = 0; i < MAX_SUMMON_SLOT; ++i)
              if (m_SummonSlot[i])
                  if (Creature* summon = GetMap()->GetCreature(m_SummonSlot[i]))
-@@ -12238,6 +12704,10 @@ float Unit::GetCombatRatingReduction(CombatRating cr) const
+@@ -12238,6 +12712,10 @@ float Unit::GetCombatRatingReduction(CombatRating cr) const
  {
      if (Player const* player = ToPlayer())
          return player->GetRatingBonusValue(cr);
@@ -73897,7 +73912,7 @@ index a272a405c..ef1f29d75 100644
      // Player's pet get resilience from owner
      else if (IsPet() && GetOwner())
          if (Player* owner = GetOwner()->ToPlayer())
-@@ -12437,6 +12907,183 @@ uint32 Unit::GetModelForForm(ShapeshiftForm form, uint32 spellId) const
+@@ -12437,6 +12915,183 @@ uint32 Unit::GetModelForForm(ShapeshiftForm form, uint32 spellId) const
                  break;
          }
      }
@@ -74081,7 +74096,7 @@ index a272a405c..ef1f29d75 100644
  
      uint32 modelid = 0;
      SpellShapeshiftFormEntry const* formEntry = sSpellShapeshiftFormStore.LookupEntry(form);
-@@ -13127,6 +13774,19 @@ void Unit::StopAttackFaction(uint32 faction_id)
+@@ -13127,6 +13782,19 @@ void Unit::StopAttackFaction(uint32 faction_id)
  
      for (Unit* minion : m_Controlled)
          minion->StopAttackFaction(faction_id);
