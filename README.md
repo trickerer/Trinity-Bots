@@ -1,6 +1,6 @@
 ### This mod was last updated:
-### TC: 21 Jan 2023, [248770688b](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/248770688b)
-### AC: 21 Jan 2023, [425827f5be](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/425827f5be)
+### TC: 22 Jan 2023, [33b73b03c1](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/33b73b03c1)
+### AC: 22 Jan 2023, [e0a3758704](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/e0a3758704)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 
@@ -236,11 +236,11 @@ _ARGUMENT_  indicates argument names
     **Example Usage:**  
         - `.npcbot unhide`  
         - `.npcbot show`  
-- **`sendto <_TARGET_|_NAMES..._>`** -- (Player command) for 30 seconds makes NPCBot(s) wait for your signal to move to stationery position. The position must be pointed then by a dest spell (AoE, smoke flare, dynamite, etc.). Stationed bots will stay there indefinetely, use follow command to call them back  
+- **`sendto <_TARGET_|_NAMES..._>`** -- (Player command) for 30 seconds makes NPCBot(s) wait for your signal to move to stationery position. The position must be pointed then by a dest spell (AoE, smoke flare, dynamite, etc.). Stationed bots will stay there indefinetely, use follow command to call them back. Bots in FULLSTOP state can't be moved by this  
     - **`last <_TARGET_|_NAMES..._>`** -- (Player command) same as plain `sendto` but moves NPCBot(s) back to previous position bot was sent **from**, making it stationery  
     - **`point <NUMBER> <_TARGET_|_NAMES..._>`** -- (Player command) moves NPCBot(s) to a previously marked station point  
         - **`set <_NUMBER_> <_TARGET_|_NAMES..._>`** -- (Player command) marks NPCBots' current positions as a station point by the `<_NUMBER_>`  
-    - _NUMBER_ = integer in range `1 ... 5`
+    - _NUMBER_ = integer in range `1 ... 5`  
     - _TARGET_ = selected NPCBot (move single NPCBot)  
     - _NAMES..._ = space-separated case-insensitive NPCBot names (move a group of NPCBots)  
     **Example Usage:**  

@@ -82,7 +82,7 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    72 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1408 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 17361 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 17362 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   715 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   393 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   934 +
@@ -205,7 +205,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   314 +
- 207 files changed, 73628 insertions(+), 76 deletions(-)
+ 207 files changed, 73629 insertions(+), 76 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -7559,10 +7559,10 @@ index 000000000..05caa8298
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..352e423cd
+index 000000000..2d985202d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,17361 @@
+@@ -0,0 +1,17362 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -8334,25 +8334,26 @@ index 000000000..352e423cd
 +    }
 +
 +    //spells with cast time
-+    if (me->isMoving() && !HasBotCommandState(BOT_COMMAND_ISSUED_ORDER) && !HasBotCommandState(BOT_COMMAND_STAY) &&
++    if (me->isMoving() && !(flags & TRIGGERED_CAST_DIRECTLY) && !(m_botSpellInfo->Attributes & SPELL_ATTR0_ON_NEXT_SWING) &&
++        !m_botSpellInfo->IsAutoRepeatRangedSpell() &&
 +        ((m_botSpellInfo->InterruptFlags & SPELL_INTERRUPT_FLAG_MOVEMENT)
 +        //autorepeat spells missing SPELL_INTERRUPT_FLAG_MOVEMENT
 +        || spellId == SHOOT_WAND
 +        //channeled spells missing SPELL_INTERRUPT_FLAG_MOVEMENT
 +        //Mind Flay (Rank 8)
 +        || spellId == 48155) &&
-+        !(m_botSpellInfo->Attributes & SPELL_ATTR0_ON_NEXT_SWING) && !m_botSpellInfo->IsAutoRepeatRangedSpell() &&
-+        !(flags & TRIGGERED_CAST_DIRECTLY) && (m_botSpellInfo->IsChanneled() || m_botSpellInfo->CalcCastTime()))
++        (m_botSpellInfo->IsChanneled() || m_botSpellInfo->CalcCastTime()))
 +    {
-+        if (JumpingOrFalling())
-+            return false;
-+        if (!me->GetVictim() && me->IsInWorld() && (me->GetMap()->IsRaid() || me->GetMap()->IsHeroic()))
-+            return false;
-+        if (!m_botSpellInfo->HasEffect(SPELL_EFFECT_HEAL) && Rand() > (IAmFree() ? 80 : 50))
-+            return false;
++        if (!HasBotCommandState(BOT_COMMAND_ISSUED_ORDER))
++        {
++            if (JumpingOrFalling() || HasBotCommandState(BOT_COMMAND_STAY))
++                return false;
++            if (!me->GetVictim() && me->IsInWorld() && (me->GetMap()->IsRaid() || me->GetMap()->IsHeroic()))
++                return false;
++            if (!m_botSpellInfo->HasEffect(SPELL_EFFECT_HEAL) && Rand() > (IAmFree() ? 80 : 50))
++                return false;
++        }
 +
-+        //if (m_botSpellInfo->IsChanneled())
-+        //    TC_LOG_ERROR("entities.player", "bot_ai::doCast(): spell %u interrupts movement", spellId);
 +        me->BotStopMovement();
 +    }
 +
@@ -54477,7 +54478,7 @@ index 000000000..f9219dda2
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 000000000..400366bb3
+index 000000000..817708810
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
 @@ -0,0 +1,2585 @@
@@ -55554,7 +55555,7 @@ index 000000000..400366bb3
 +        {
 +            Unit const* target = handler->getSelectedCreature();
 +            Creature const* bot = target ? owner->GetBotMgr()->GetBot(target->GetGUID()) : nullptr;
-+            if (bot && bot->IsAlive())
++            if (bot && bot->IsAlive() && !bot->GetBotAI()->HasBotCommandState(BOT_COMMAND_FULLSTOP))
 +            {
 +                bot->GetBotAI()->SetBotAwaitState(BOT_AWAIT_SEND);
 +                return return_success(handler, { bot->GetName() });
@@ -55566,7 +55567,7 @@ index 000000000..400366bb3
 +        for (decltype(names)::value_type::value_type name : *names)
 +        {
 +            Creature const* bot = owner->GetBotMgr()->GetBotByName(name);
-+            if (bot && bot->IsAlive())
++            if (bot && bot->IsAlive() && !bot->GetBotAI()->HasBotCommandState(BOT_COMMAND_FULLSTOP))
 +            {
 +                ++count;
 +                bot->GetBotAI()->SetBotAwaitState(BOT_AWAIT_SEND);
@@ -55611,7 +55612,7 @@ index 000000000..400366bb3
 +        {
 +            Unit const* target = handler->getSelectedCreature();
 +            Creature const* bot = target ? owner->GetBotMgr()->GetBot(target->GetGUID()) : nullptr;
-+            if (bot && bot->IsAlive())
++            if (bot && bot->IsAlive() && !bot->GetBotAI()->HasBotCommandState(BOT_COMMAND_FULLSTOP))
 +            {
 +                bot->GetBotAI()->MoveToLastSendPosition();
 +                return return_success(handler, { bot->GetName() });
@@ -55623,7 +55624,7 @@ index 000000000..400366bb3
 +        for (decltype(names)::value_type::value_type name : *names)
 +        {
 +            Creature const* bot = owner->GetBotMgr()->GetBotByName(name);
-+            if (bot && bot->IsAlive())
++            if (bot && bot->IsAlive() && !bot->GetBotAI()->HasBotCommandState(BOT_COMMAND_FULLSTOP))
 +            {
 +                ++count;
 +                bot->GetBotAI()->MoveToLastSendPosition();
@@ -55724,7 +55725,7 @@ index 000000000..400366bb3
 +        {
 +            Unit const* target = handler->getSelectedCreature();
 +            Creature const* bot = target ? owner->GetBotMgr()->GetBot(target->GetGUID()) : nullptr;
-+            if (bot && bot->IsAlive())
++            if (bot && bot->IsAlive() && !bot->GetBotAI()->HasBotCommandState(BOT_COMMAND_FULLSTOP))
 +            {
 +                bot->GetBotAI()->MoveToSendPosition(*point_id - 1);
 +                return return_success(handler, { bot->GetName() });
@@ -55736,7 +55737,7 @@ index 000000000..400366bb3
 +        for (decltype(names)::value_type::value_type name : *names)
 +        {
 +            Creature const* bot = owner->GetBotMgr()->GetBotByName(name);
-+            if (bot && bot->IsAlive())
++            if (bot && bot->IsAlive() && !bot->GetBotAI()->HasBotCommandState(BOT_COMMAND_FULLSTOP))
 +            {
 +                ++count;
 +                bot->GetBotAI()->MoveToSendPosition(*point_id - 1);
