@@ -171,7 +171,7 @@ INSERT INTO `npc_text` (`ID`,`text0_0`,`VerifiedBuild`) VALUES
 ('70462','I need water','-1'),
 ('70463','I need a refreshment table','-1'),
 ('70464','Help me pick a lock','-1'),
-('70465','I need your your healthstone','-1'),
+('70465','I need your healthstone','-1'),
 ('70466','I need a soulwell','-1'),
 ('70467','I need you to refresh poisons','-1'),
 ('70468','<Choose poison (Main Hand)>','-1'),
