@@ -82,7 +82,7 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    72 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1408 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 17362 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 17366 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   715 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   393 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   934 +
@@ -112,8 +112,8 @@
  src/server/game/AI/NpcBots/botdump.h               |    51 +
  src/server/game/AI/NpcBots/botgiver.cpp            |   285 +
  src/server/game/AI/NpcBots/botgossip.h             |   135 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  1816 ++
- src/server/game/AI/NpcBots/botmgr.h                |   253 +
+ src/server/game/AI/NpcBots/botmgr.cpp              |  1897 ++
+ src/server/game/AI/NpcBots/botmgr.h                |   254 +
  src/server/game/AI/NpcBots/botspell.cpp            |  1657 ++
  src/server/game/AI/NpcBots/botspell.h              |   274 +
  src/server/game/AI/NpcBots/bottext.h               |   398 +
@@ -205,8 +205,8 @@
  src/server/shared/DataStores/DBCStructure.h        |     9 +-
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
- src/server/worldserver/worldserver.conf.dist       |   314 +
- 208 files changed, 73629 insertions(+), 76 deletions(-)
+ src/server/worldserver/worldserver.conf.dist       |   340 +
+ 208 files changed, 73741 insertions(+), 76 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -7560,10 +7560,10 @@ index 000000000..05caa8298
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..1bb6d9360
+index 000000000..f64184e2c
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,17362 @@
+@@ -0,0 +1,17366 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -13464,6 +13464,7 @@ index 000000000..1bb6d9360
 +        TC_LOG_ERROR("entities.player", "bot_ai::InitSpellMap(): No SpellInfo found for base spell %u", basespell);
 +        return; //invalid spell id
 +    }
++    info = info->TryGetSpellInfoOverride(me);
 +
 +    uint8 lvl = me->GetLevel();
 +    uint32 spellId = forceadd ? basespell : 0;
@@ -14230,16 +14231,19 @@ index 000000000..1bb6d9360
 +void bot_ai::ApplyBotDamageMultiplierMelee(uint32& damage, CalcDamageInfo& damageinfo) const
 +{
 +    //WHITE ATTACKS damage bonus
++    damage *= BotMgr::GetBotDamageModByClass(GetBotClass());
 +    ApplyClassDamageMultiplierMelee(damage, damageinfo);
 +}
 +void bot_ai::ApplyBotDamageMultiplierMelee(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool iscrit) const
 +{
 +    //MELEE ABILITIES damage bonus (DMG_CLASS != DMG_CLASS_MAGIC)
++    damage *= BotMgr::GetBotDamageModByClass(GetBotClass());
 +    ApplyClassDamageMultiplierMeleeSpell(damage, damageinfo, spellInfo, attackType, iscrit);
 +}
 +void bot_ai::ApplyBotDamageMultiplierSpell(int32& damage, SpellNonMeleeDamage& damageinfo, SpellInfo const* spellInfo, WeaponAttackType attackType, bool iscrit) const
 +{
 +    //DAMAGE SPELLS damage bonus (DMG_CLASS_MAGIC)
++    damage *= BotMgr::GetBotDamageModByClass(GetBotClass());
 +    ApplyClassDamageMultiplierSpell(damage, damageinfo, spellInfo, attackType, iscrit);
 +}
 +void bot_ai::ApplyBotDamageMultiplierHeal(Unit const* victim, float& heal, SpellInfo const* spellInfo, DamageEffectType damagetype, uint32 stack) const
@@ -60250,10 +60254,10 @@ index 000000000..75f3c0b19
 +#endif //BOTGOSSIP_H
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 000000000..d00f9968f
+index 000000000..b88aca33b
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,1816 @@
+@@ -0,0 +1,1897 @@
 +#include "Battleground.h"
 +#include "BattlegroundMgr.h"
 +#include "bot_ai.h"
@@ -60343,6 +60347,24 @@ index 000000000..d00f9968f
 +float _mult_dmg_spell;
 +float _mult_healing;
 +float _mult_hp;
++float _mult_dmg_warrior;
++float _mult_dmg_paladin;
++float _mult_dmg_hunter;
++float _mult_dmg_rogue;
++float _mult_dmg_priest;
++float _mult_dmg_deathknight;
++float _mult_dmg_shaman;
++float _mult_dmg_mage;
++float _mult_dmg_warlock;
++float _mult_dmg_druid;
++float _mult_dmg_blademaster;
++float _mult_dmg_obsidiandestroyer;
++float _mult_dmg_archmage;
++float _mult_dmg_dreadlord;
++float _mult_dmg_spellbreaker;
++float _mult_dmg_darkranger;
++float _mult_dmg_necromancer;
++float _mult_dmg_seawitch;
 +
 +bool __firstload = true;
 +
@@ -60473,6 +60495,24 @@ index 000000000..d00f9968f
 +    _mult_dmg_spell                 = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Spell", 1.0f);
 +    _mult_healing                   = sConfigMgr->GetFloatDefault("NpcBot.Mult.Healing", 1.0f);
 +    _mult_hp                        = sConfigMgr->GetFloatDefault("NpcBot.Mult.HP", 1.0f);
++    _mult_dmg_warrior               = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Warrior", 1.0f);
++    _mult_dmg_paladin               = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Paladin", 1.0f);
++    _mult_dmg_hunter                = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Hunter", 1.0f);
++    _mult_dmg_rogue                 = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Rogue", 1.0f);
++    _mult_dmg_priest                = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Priest", 1.0f);
++    _mult_dmg_deathknight           = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.DeathKnight", 1.0f);
++    _mult_dmg_shaman                = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Shaman", 1.0f);
++    _mult_dmg_mage                  = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Mage", 1.0f);
++    _mult_dmg_warlock               = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Warlock", 1.0f);
++    _mult_dmg_druid                 = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Druid", 1.0f);
++    _mult_dmg_blademaster           = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Blademaster", 1.0f);
++    _mult_dmg_obsidiandestroyer     = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.ObsidianDestroyer", 1.0f);
++    _mult_dmg_archmage              = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Archmage", 1.0f);
++    _mult_dmg_dreadlord             = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Dreadlord", 1.0f);
++    _mult_dmg_spellbreaker          = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.SpellBreaker", 1.0f);
++    _mult_dmg_darkranger            = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.DarkRanger", 1.0f);
++    _mult_dmg_necromancer           = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.Necromancer", 1.0f);
++    _mult_dmg_seawitch              = sConfigMgr->GetFloatDefault("NpcBot.Mult.Damage.SeaWitch", 1.0f);
 +    _enableNpcBotsDungeons          = sConfigMgr->GetBoolDefault("NpcBot.Enable.Dungeon", true);
 +    _enableNpcBotsRaids             = sConfigMgr->GetBoolDefault("NpcBot.Enable.Raid", false);
 +    _enableNpcBotsBGs               = sConfigMgr->GetBoolDefault("NpcBot.Enable.BG", false);
@@ -62070,12 +62110,57 @@ index 000000000..d00f9968f
 +{
 +    return _mult_hp;
 +}
++
++float BotMgr::GetBotDamageModByClass(uint8 botclass)
++{
++    switch (botclass)
++    {
++        case BOT_CLASS_WARRIOR:
++            return _mult_dmg_warrior;
++        case BOT_CLASS_PALADIN:
++            return _mult_dmg_paladin;
++        case BOT_CLASS_HUNTER:
++            return _mult_dmg_hunter;
++        case BOT_CLASS_ROGUE:
++            return _mult_dmg_rogue;
++        case BOT_CLASS_PRIEST:
++            return _mult_dmg_priest;
++        case BOT_CLASS_DEATH_KNIGHT:
++            return _mult_dmg_deathknight;
++        case BOT_CLASS_SHAMAN:
++            return _mult_dmg_shaman;
++        case BOT_CLASS_MAGE:
++            return _mult_dmg_mage;
++        case BOT_CLASS_WARLOCK:
++            return _mult_dmg_warlock;
++        case BOT_CLASS_DRUID:
++            return _mult_dmg_druid;
++        case BOT_CLASS_BM:
++            return _mult_dmg_blademaster;
++        case BOT_CLASS_SPHYNX:
++            return _mult_dmg_obsidiandestroyer;
++        case BOT_CLASS_ARCHMAGE:
++            return _mult_dmg_archmage;
++        case BOT_CLASS_DREADLORD:
++            return _mult_dmg_dreadlord;
++        case BOT_CLASS_SPELLBREAKER:
++            return _mult_dmg_spellbreaker;
++        case BOT_CLASS_DARK_RANGER:
++            return _mult_dmg_darkranger;
++        case BOT_CLASS_NECROMANCER:
++            return _mult_dmg_necromancer;
++        case BOT_CLASS_SEA_WITCH:
++            return _mult_dmg_seawitch;
++        default:
++            return 1.0;
++    }
++}
 diff --git a/src/server/game/AI/NpcBots/botmgr.h b/src/server/game/AI/NpcBots/botmgr.h
 new file mode 100644
-index 000000000..604bf6158
+index 000000000..308d961ed
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.h
-@@ -0,0 +1,253 @@
+@@ -0,0 +1,254 @@
 +#ifndef _BOTMGR_H
 +#define _BOTMGR_H
 +
@@ -62178,6 +62263,7 @@ index 000000000..604bf6158
 +        static float GetBotDamageModSpell();
 +        static float GetBotHealingMod();
 +        static float GetBotHPMod();
++        static float GetBotDamageModByClass(uint8 botclass);
 +
 +        static void Initialize();
 +        static void ReloadConfig();
@@ -77295,10 +77381,10 @@ index 0bdd89004..1665c94a6 100644
  #define CLASSMASK_WAND_USERS ((1<<(CLASS_PRIEST-1))|(1<<(CLASS_MAGE-1))|(1<<(CLASS_WARLOCK-1)))
  
 diff --git a/src/server/worldserver/worldserver.conf.dist b/src/server/worldserver/worldserver.conf.dist
-index 442681e64..d7df598ea 100644
+index 442681e64..097cdaa2b 100644
 --- a/src/server/worldserver/worldserver.conf.dist
 +++ b/src/server/worldserver/worldserver.conf.dist
-@@ -4147,3 +4147,317 @@ Metric.OverallStatusInterval = 1
+@@ -4147,3 +4147,343 @@ Metric.OverallStatusInterval = 1
  
  #
  ###################################################################################################
@@ -77400,6 +77486,32 @@ index 442681e64..d7df598ea 100644
 +NpcBot.Mult.Damage.Spell    = 1.0
 +NpcBot.Mult.Healing         = 1.0
 +NpcBot.Mult.HP              = 1.0
++
++#
++#    NpcBot.Mult.Damage.<Class>
++#        Description: Multipliers for bots' damage by class. Allows to balance dps between bot classes.
++#        Default:     1.0
++#        Minimum:     0.1
++#        Maximum:    10.0
++
++NpcBot.Mult.Damage.Warrior           = 1.0
++NpcBot.Mult.Damage.Paladin           = 1.0
++NpcBot.Mult.Damage.Hunter            = 1.0
++NpcBot.Mult.Damage.Rogue             = 1.0
++NpcBot.Mult.Damage.Priest            = 1.0
++NpcBot.Mult.Damage.DeathKnight       = 1.0
++NpcBot.Mult.Damage.Shaman            = 1.0
++NpcBot.Mult.Damage.Mage              = 1.0
++NpcBot.Mult.Damage.Warlock           = 1.0
++NpcBot.Mult.Damage.Druid             = 1.0
++NpcBot.Mult.Damage.Blademaster       = 1.0
++NpcBot.Mult.Damage.ObsidianDestroyer = 1.0
++NpcBot.Mult.Damage.Archmage          = 1.0
++NpcBot.Mult.Damage.Dreadlord         = 1.0
++NpcBot.Mult.Damage.SpellBreaker      = 1.0
++NpcBot.Mult.Damage.DarkRanger        = 1.0
++NpcBot.Mult.Damage.Necromancer       = 1.0
++NpcBot.Mult.Damage.SeaWitch          = 1.0
 +
 +#
 +#    NpcBot.Enable.Dungeon
