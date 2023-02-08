@@ -1,12 +1,12 @@
 ### This mod was last updated:
 ### TC: 07 Feb 2023, [d44b5e2610](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/d44b5e2610)
-### AC: 07 Feb 2023, [1c3b644d6a](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/1c3b644d6a)
+### AC: 08 Feb 2023, [462b449798](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/462b449798)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 
 # [ THE NPCBOTS MANUAL ]
 >Compiled by: Trickerer (onlysuffering @ Gmail dot Com)  
->Version 0.22 - 24 Dec 2022  
+>Version 0.23 - 08 Feb 2023
 >Original version by: Thesawolf (@ Gmail dot Com) Version 0.3 - 20 July 2016 [here](https://github.com/thesawolf/TrinityCore/blob/TrinityCoreLegacy/README_Bots.md)
 
 ---------------------------------------
@@ -32,6 +32,7 @@
     - [NPCBot Mod Localization](#npcbot-mod-localization)
     - [NPCBot Extra Classes](#npcbot-extra-classes)
     - [NPCBot Occupations](#npcbot-occupations)
+    - [NPCBot Addons](#npcbot-addons)
 3. [Guide Changelog](#guide-changelog)
 
 ---------------------------------------
@@ -909,7 +910,7 @@ NPCBot data is stored in the following locations:
 If you want to make changes to the static template data used for NPCBots, you make adjustments in the `world` database to those specific ids in the above tables (i.e. npcbot model, outfits, etc.)  
 **Do not** tinker with `characters` DB NPCBot tables, any bug reports containing accidently corrupted NPCBots installation will be discarded without notice  
 If you need to delete custom created NPCBot you need to first delete the bot from the world (using `.npcbot delete` command; you need to remove their equipment first, otherwise the items become inaccessible). Then delete by entry (creature id) from `creature_template_npcbot_extras`, `creature_template_npcbot_appearance` and `creature_equip_template` tables, and finally, from `creature_template`  
-If you need to remove NPCBot mod completely you need to first delete every spawned bot in the world (using `.npcbot delete` command). Then delete `characters_npcbot`, `characters_npcbot_group_member`, `characters_npcbot_transmog`, `creature_template_npcbot_extras` and `creature_template_npcbot_appearance` tables and clean all other used tables of entries by id (70000-71000 + possibly more custom bot entries). `creature_template_outfits` can also be deleted if you are not using Npc Dress Mod.
+If you need to remove NPCBot mod completely you need to first delete every spawned bot in the world (using `.npcbot delete` command). Then delete `characters_npcbot`, `characters_npcbot_group_member`, `characters_npcbot_transmog`, `creature_template_npcbot_extras` and `creature_template_npcbot_appearance` tables and clean all other used tables of entries by id (70000-71000 + possibly more custom bot entries). `creature_template_outfits` can also be deleted if you are not using Npc Dress Mod
 
 #### Game World
 Bots are counted as active objects and keep map grids loaded like players
@@ -917,9 +918,15 @@ Bots are being added to world at server loading (after Map System is started)
 
 #### Total number of bots included in fresh install: **312**
 
+### NPCBot Addons
+Aside from [addons that fix raid frames](#raid-group-frames) there are addons dedicated to NPCBots specifically  
+For current version (3.3.5) there is a [NetherBot](https://github.com/NetherstormX/NetherBot) addon by NetherstormX
+
 ---------------------------------------
 ## Guide Changelog
 
+- **Version 0.23** (_08 Feb 2023_)
+    - Added addons info
 - **Version 0.22** (_24 Dec 2022_)
     - General review with lots of fixes
 - **Version 0.21** (_15 Dec 2022_)

@@ -93,7 +93,7 @@
  src/server/game/Entities/Creature/CreatureData.h   |     6 +-
  .../game/Entities/Creature/TemporarySummon.cpp     |    32 +
  .../Entities/Creature/enuminfo_CreatureData.cpp    |    12 +-
- src/server/game/Entities/Object/Object.cpp         |    34 +
+ src/server/game/Entities/Object/Object.cpp         |    37 +
  src/server/game/Entities/Object/Object.h           |     9 +
  src/server/game/Entities/Player/KillRewarder.cpp   |    15 +
  src/server/game/Entities/Player/Player.cpp         |   181 +
@@ -149,7 +149,7 @@
  src/server/scripts/Spells/spell_rogue.cpp          |    52 +
  src/server/scripts/Spells/spell_shaman.cpp         |    10 +
  src/server/shared/SharedDefines.h                  |    23 +
- 151 files changed, 74465 insertions(+), 94 deletions(-)
+ 151 files changed, 74468 insertions(+), 94 deletions(-)
  create mode 100644 appveyor.yml
  create mode 100644 data/sql/Bots/locales/esES/npc_text_locale.sql
  create mode 100644 data/sql/Bots/locales/esMX/npc_text_locale.sql
@@ -72627,7 +72627,7 @@ index e6e79e7554..2ca08b47ec 100644
          case CREATURE_FLAG_EXTRA_IGNORE_PATHFINDING: return 29;
          case CREATURE_FLAG_EXTRA_IMMUNITY_KNOCKBACK: return 30;
 diff --git a/src/server/game/Entities/Object/Object.cpp b/src/server/game/Entities/Object/Object.cpp
-index 2f1e6bc276..0d83ef33fd 100644
+index 2f1e6bc276..e770e798a5 100644
 --- a/src/server/game/Entities/Object/Object.cpp
 +++ b/src/server/game/Entities/Object/Object.cpp
 @@ -1090,6 +1090,11 @@ void WorldObject::setActive(bool on)
@@ -72664,22 +72664,25 @@ index 2f1e6bc276..0d83ef33fd 100644
              summon = new Totem(properties, summoner ? summoner->GetGUID() : ObjectGuid::Empty);
              break;
          case UNIT_MASK_MINION:
-@@ -2210,6 +2223,22 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
+@@ -2210,6 +2223,25 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
          return nullptr;
      }
  
 +    //npcbot: totem emul step 2
 +    if (summoner && summoner->IsNPCBot())
 +    {
-+        summon->SetFaction(summoner->ToCreature()->GetFaction());
-+        summon->SetPvP(summoner->ToCreature()->IsPvP());
 +        summon->SetCreatorGUID(summoner->GetGUID()); // see TempSummon::InitStats()
-+        //set key flags if needed
-+        if (!summoner->ToCreature()->IsFreeBot())
++        if (mask == UNIT_MASK_TOTEM)
 +        {
-+            summon->SetUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED);
-+            summon->SetOwnerGUID(summoner->ToCreature()->GetBotOwner()->GetGUID());
-+            summon->SetControlledByPlayer(true);
++            summon->SetFaction(summoner->ToCreature()->GetFaction());
++            summon->SetPvP(summoner->ToCreature()->IsPvP());
++            //set key flags if needed
++            if (!summoner->ToCreature()->IsFreeBot())
++            {
++                summon->SetUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED);
++                summon->SetOwnerGUID(summoner->ToCreature()->GetBotOwner()->GetGUID());
++                summon->SetControlledByPlayer(true);
++            }
 +        }
 +    }
 +    //end npcbot
@@ -72687,7 +72690,7 @@ index 2f1e6bc276..0d83ef33fd 100644
      summon->SetUInt32Value(UNIT_CREATED_BY_SPELL, spellId);
  
      summon->SetHomePosition(pos);
-@@ -2226,6 +2255,11 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
+@@ -2226,6 +2258,11 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
  
      summon->InitSummon();
  
