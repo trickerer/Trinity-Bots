@@ -32,7 +32,7 @@
  src/server/game/AI/CreatureAI.h                    |     5 +
  src/server/game/AI/NpcBots/bot_Events.h            |    72 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1408 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 17399 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 17402 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   715 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   412 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   955 +
@@ -137,6 +137,7 @@
  src/server/scripts/Commands/cs_npc.cpp             |    30 +
  .../CavernsOfTime/BattleForMountHyjal/hyjalAI.cpp  |     5 +
  .../BattleForMountHyjal/hyjal_trash.cpp            |     8 +
+ .../TrialOfTheChampion/boss_grand_champions.cpp    |     6 +
  .../boss_icecrown_gunship_battle.cpp               |    45 +
  .../Northrend/Naxxramas/boss_four_horsemen.cpp     |     2 +-
  src/server/scripts/Spells/spell_dk.cpp             |    35 +
@@ -149,7 +150,7 @@
  src/server/scripts/Spells/spell_rogue.cpp          |    52 +
  src/server/scripts/Spells/spell_shaman.cpp         |    10 +
  src/server/shared/SharedDefines.h                  |    23 +
- 151 files changed, 74510 insertions(+), 94 deletions(-)
+ 152 files changed, 74519 insertions(+), 94 deletions(-)
  create mode 100644 appveyor.yml
  create mode 100644 data/sql/Bots/locales/esES/npc_text_locale.sql
  create mode 100644 data/sql/Bots/locales/esMX/npc_text_locale.sql
@@ -7852,10 +7853,10 @@ index 0000000000..27815b4421
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000000..04c9a8b6d9
+index 0000000000..839c32b284
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,17399 @@
+@@ -0,0 +1,17402 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -24423,7 +24424,8 @@ index 0000000000..04c9a8b6d9
 +            //    break;
 +            case CREATURE_TOC5_WARHORSE:
 +            case CREATURE_TOC5_BATTLEWORG:
-+                me->CastSpell(veh, 67830); //Ride Vehicle
++                //me->CastSpell(veh, 67830); //Ride Vehicle
++                me->EnterVehicleUnattackable(veh);
 +                break;
 +            default:
 +                me->EnterVehicle(veh);
@@ -24469,6 +24471,7 @@ index 0000000000..04c9a8b6d9
 +        me->GetClosePoint(x, y, z, me->GetCombatReach());
 +        vc = new TempSummon(nullptr, me->GetGUID(), false);
 +        ASSERT(vc->Create(map->GenerateLowGuid<HighGuid::Unit>(), map, master->GetPhaseMask(), creEntry, vehEntry, x,y,z,o));
++        vc->ClearZoneScript();
 +        vc->SetTempSummonType(TEMPSUMMON_CORPSE_DESPAWN);
 +        vc->InitStats(0);
 +        ASSERT(map->AddToMap(vc->ToCreature()));
@@ -24487,6 +24490,7 @@ index 0000000000..04c9a8b6d9
 +        me->GetTransport()->CalculatePassengerPosition(x, y, z, &o);
 +        vc = new TempSummon(nullptr, me->GetGUID(), false);
 +        ASSERT(vc->Create(map->GenerateLowGuid<HighGuid::Unit>(), map, master->GetPhaseMask(), creEntry, vehEntry, x,y,z,o));
++        vc->ClearZoneScript();
 +
 +        //vc->SetTransport(me->GetTransport());
 +        //vc->AddUnitMovementFlag(MOVEMENTFLAG_ONTRANSPORT);
@@ -77582,6 +77586,25 @@ index 55926a3a75..ede4c8a5df 100644
      if (done_by && (done_by->GetTypeId() == TYPEID_PLAYER || done_by->IsPet()))
      {
          damageTaken += damage;
+diff --git a/src/server/scripts/Northrend/CrusadersColiseum/TrialOfTheChampion/boss_grand_champions.cpp b/src/server/scripts/Northrend/CrusadersColiseum/TrialOfTheChampion/boss_grand_champions.cpp
+index a6088f51e9..c045a45540 100644
+--- a/src/server/scripts/Northrend/CrusadersColiseum/TrialOfTheChampion/boss_grand_champions.cpp
++++ b/src/server/scripts/Northrend/CrusadersColiseum/TrialOfTheChampion/boss_grand_champions.cpp
+@@ -202,8 +202,14 @@ public:
+         {
+             if (m_ConditionsTimer <= diff)
+             {
++                //npcbot: fix a crash where vehicle kit was already removed
++                if (me->GetVehicleKit())
++                //end npcbot
+                 if (!conditions.empty())
+                     if (Unit* passenger = me->GetVehicleKit()->GetPassenger(0))
++                        //npcbot - do not check bots
++                        if (!passenger->IsNPCBot())
++                        //end npcbot
+                         if (!sConditionMgr->IsObjectMeetToConditions(passenger, me, conditions))
+                             passenger->ExitVehicle();
+                 m_ConditionsTimer = VEHICLE_CONDITION_CHECK_TIME;
 diff --git a/src/server/scripts/Northrend/IcecrownCitadel/boss_icecrown_gunship_battle.cpp b/src/server/scripts/Northrend/IcecrownCitadel/boss_icecrown_gunship_battle.cpp
 index 44f572f0fa..e3bc7c535f 100644
 --- a/src/server/scripts/Northrend/IcecrownCitadel/boss_icecrown_gunship_battle.cpp
