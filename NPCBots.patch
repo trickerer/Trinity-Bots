@@ -82,7 +82,7 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    72 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1408 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 17542 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 17539 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   721 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   395 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   936 +
@@ -102,7 +102,7 @@
  src/server/game/AI/NpcBots/bot_sphynx_ai.cpp       |   607 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  2105 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2266 +++
- src/server/game/AI/NpcBots/botcommands.cpp         |  2608 +++
+ src/server/game/AI/NpcBots/botcommands.cpp         |  2702 +++
  src/server/game/AI/NpcBots/botcommon.h             |   550 +
  src/server/game/AI/NpcBots/botdatamgr.cpp          |   750 +
  src/server/game/AI/NpcBots/botdatamgr.h            |   161 +
@@ -206,7 +206,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   340 +
- 208 files changed, 74009 insertions(+), 76 deletions(-)
+ 208 files changed, 74100 insertions(+), 76 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -7560,10 +7560,10 @@ index 000000000..05caa8298
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..15da98e7a
+index 000000000..4239e2b53
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,17542 @@
+@@ -0,0 +1,17539 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -12616,7 +12616,7 @@ index 000000000..15da98e7a
 +
 +    bool aura = me->HasAuraType(SPELL_AURA_MOUNTED);
 +    bool mounted = me->IsMounted() && (_botclass != BOT_CLASS_ARCHMAGE || aura);
-+    bool template_fly = me->GetCreatureTemplate()->Movement.Flight == CreatureFlightMovementType::CanFly;
++    bool template_fly = me->GetCreatureTemplate()->Movement.Flight != CreatureFlightMovementType::None;
 +
 +    //allow dismount
 +    if (!CanMount() && !aura && !mounted)
@@ -12626,11 +12626,10 @@ index 000000000..15da98e7a
 +    {
 +        const_cast<CreatureTemplate*>(me->GetCreatureTemplate())->Movement.Flight = CreatureFlightMovementType::None;
 +        me->SetCanFly(false);
++        me->m_movementInfo.RemoveMovementFlag(MOVEMENTFLAG_HOVER | MOVEMENTFLAG_CAN_FLY);
 +        me->SetDisableGravity(false);
-+        me->m_movementInfo.RemoveMovementFlag(MOVEMENTFLAG_FLYING);
 +        me->RemoveAurasByType(SPELL_AURA_MOUNTED);
 +        me->Dismount();
-+        me->RemoveUnitMovementFlag(MOVEMENTFLAG_FALLING|MOVEMENTFLAG_FALLING_FAR|MOVEMENTFLAG_PITCH_UP|MOVEMENTFLAG_PITCH_DOWN|MOVEMENTFLAG_SPLINE_ELEVATION|MOVEMENTFLAG_FALLING_SLOW);
 +        me->BotStopMovement();
 +        return;
 +    }
@@ -14219,7 +14218,7 @@ index 000000000..15da98e7a
 +                master->HasAuraType(SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED))
 +            {
 +                //TC_LOG_ERROR("entities.unit", "OnSpellHit: modding flight speed");
-+                const_cast<CreatureTemplate*>(me->GetCreatureTemplate())->Movement.Flight = CreatureFlightMovementType::CanFly;
++                const_cast<CreatureTemplate*>(me->GetCreatureTemplate())->Movement.Flight = CreatureFlightMovementType::DisableGravity;
 +                me->SetCanFly(true);
 +                me->SetDisableGravity(true);
 +                if (Aura* mount = me->GetAura(spell->Id))
@@ -14239,7 +14238,6 @@ index 000000000..15da98e7a
 +                }
 +                //me->SetSpeedRate(MOVE_FLIGHT, master->GetSpeedRate(MOVE_FLIGHT) * 1.37f);
 +                //me->SetSpeedRate(MOVE_RUN, master->GetSpeedRate(MOVE_FLIGHT) * 1.37f);
-+                me->m_movementInfo.SetMovementFlags(MOVEMENTFLAG_FLYING);
 +            }
 +            else
 +                me->SetSpeedRate(MOVE_RUN, master->GetSpeedRate(MOVE_RUN) * 1.1f);
@@ -24154,7 +24152,6 @@ index 000000000..15da98e7a
 +                case CREATURE_OCULUS_DRAKE_AMBER:
 +                    vehicle->GetBase()->SetCanFly(true);
 +                    vehicle->GetBase()->SetDisableGravity(true);
-+                    vehicle->GetBase()->m_movementInfo.SetMovementFlags(MOVEMENTFLAG_FLYING);
 +                    break;
 +                default:
 +                    break;
@@ -54701,10 +54698,10 @@ index 000000000..ce16764d6
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 000000000..0e1f547c5
+index 000000000..2c3a991de
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
-@@ -0,0 +1,2608 @@
+@@ -0,0 +1,2702 @@
 +#include "bot_ai.h"
 +#include "botdump.h"
 +#include "botmgr.h"
@@ -55394,7 +55391,7 @@ index 000000000..0e1f547c5
 +        return true;
 +    }
 +
-+    static bool HandleNpcBotOrderCastCommand(ChatHandler* handler, Optional<std::string_view> bot_name, Optional<std::string> spell_name, Optional<std::string_view> target_token)
++    static bool HandleNpcBotOrderCastCommand(ChatHandler* handler, Optional<std::string> bot_name, Optional<std::string> spell_name, Optional<std::string_view> target_token)
 +    {
 +        Player* owner = handler->GetSession()->GetPlayer();
 +        if (!owner->HaveBot() || !bot_name || !spell_name)
@@ -55408,6 +55405,10 @@ index 000000000..0e1f547c5
 +            if ((*spell_name)[i] == '_')
 +                (*spell_name)[i] = ' ';
 +
++        for (std::decay_t<decltype(*bot_name)>::size_type i = 0u; i < bot_name->size(); ++i)
++            if ((*bot_name)[i] == '_')
++                (*bot_name)[i] = ' ';
++
 +        auto canBotUseSpell = [=](Creature const* tbot, uint32 bspell) {
 +            //we ignore GCD for now
 +            return bspell && (tbot->GetBotAI()->GetSpellCooldown(bspell) <= tbot->GetBotAI()->GetLastDiff());
@@ -55419,7 +55420,7 @@ index 000000000..0e1f547c5
 +        {
 +            if (!bot->IsInWorld())
 +            {
-+                handler->PSendSysMessage("Bot %s is not found!", *bot_name);
++                handler->PSendSysMessage("Bot %s is not found!", bot_name->c_str());
 +                return true;
 +            }
 +            if (!bot->IsAlive())
@@ -55452,10 +55453,10 @@ index 000000000..0e1f547c5
 +                }
 +            }
 +
-+            uint8 bot_class = BotMgr::BotClassByClassName(std::string(class_name));
++            uint8 bot_class = BotMgr::BotClassByClassName(class_name);
 +            if (bot_class == BOT_CLASS_NONE)
 +            {
-+                handler->PSendSysMessage("Unknown bot name or class %s!", std::string(class_name).c_str());
++                handler->PSendSysMessage("Unknown bot name or class %s!", class_name.c_str());
 +                return true;
 +            }
 +
@@ -55774,7 +55775,7 @@ index 000000000..0e1f547c5
 +        return false;
 +    }
 +
-+    static bool HandleNpcBotSendToCommand(ChatHandler* handler, Optional<std::vector<std::string_view>> names)
++    static bool HandleNpcBotSendToCommand(ChatHandler* handler, Optional<std::vector<std::string>> names)
 +    {
 +        static auto return_syntax = [](ChatHandler* chandler) -> bool {
 +            chandler->SendSysMessage("Syntax: .npcbot sendto #names...");
@@ -55784,11 +55785,11 @@ index 000000000..0e1f547c5
 +            return false;
 +        };
 +
-+        static auto return_success = [](ChatHandler* chandler, Variant<std::string_view, uint32> name_or_count) -> bool {
++        static auto return_success = [](ChatHandler* chandler, Variant<std::string, uint32> name_or_count) -> bool {
 +            if (name_or_count.holds_alternative<uint32>())
 +                chandler->PSendSysMessage("Your next dest spell will send %u bot(s) to position...", name_or_count.get<uint32>());
 +            else
-+                chandler->PSendSysMessage("Your next dest spell will send %s to position...", name_or_count.get<std::string_view>().data());
++                chandler->PSendSysMessage("Your next dest spell will send %s to position...", name_or_count.get<std::string>().c_str());
 +            return true;
 +        };
 +
@@ -55812,6 +55813,10 @@ index 000000000..0e1f547c5
 +        uint32 count = 0;
 +        for (decltype(names)::value_type::value_type name : *names)
 +        {
++            for (decltype(name)::size_type i = 0u; i < name.size(); ++i)
++                if (name[i] == '_')
++                    name[i] = ' ';
++
 +            Creature const* bot = owner->GetBotMgr()->GetBotByName(name);
 +            if (bot && bot->IsAlive() && !bot->GetBotAI()->HasBotCommandState(BOT_COMMAND_FULLSTOP))
 +            {
@@ -55830,7 +55835,7 @@ index 000000000..0e1f547c5
 +        return return_success(handler, { count });
 +    }
 +
-+    static bool HandleNpcBotSendToLastCommand(ChatHandler* handler, Optional<std::vector<std::string_view>> names)
++    static bool HandleNpcBotSendToLastCommand(ChatHandler* handler, Optional<std::vector<std::string>> names)
 +    {
 +        static auto return_syntax = [](ChatHandler* chandler) -> bool {
 +            chandler->SendSysMessage("Syntax: .npcbot sendto last #names...");
@@ -55841,11 +55846,11 @@ index 000000000..0e1f547c5
 +            return false;
 +        };
 +
-+        static auto return_success = [](ChatHandler* chandler, Variant<std::string_view, uint32> name_or_count) -> bool {
++        static auto return_success = [](ChatHandler* chandler, Variant<std::string, uint32> name_or_count) -> bool {
 +            if (name_or_count.holds_alternative<uint32>())
 +                chandler->PSendSysMessage("Moving %u bot(s) to previous position...", name_or_count.get<uint32>());
 +            else
-+                chandler->PSendSysMessage("Moving %s to previous position...", name_or_count.get<std::string_view>().data());
++                chandler->PSendSysMessage("Moving %s to previous position...", name_or_count.get<std::string>().c_str());
 +            return true;
 +        };
 +
@@ -55869,6 +55874,10 @@ index 000000000..0e1f547c5
 +        uint32 count = 0;
 +        for (decltype(names)::value_type::value_type name : *names)
 +        {
++            for (decltype(name)::size_type i = 0u; i < name.size(); ++i)
++                if (name[i] == '_')
++                    name[i] = ' ';
++
 +            Creature const* bot = owner->GetBotMgr()->GetBotByName(name);
 +            if (bot && bot->IsAlive() && !bot->GetBotAI()->HasBotCommandState(BOT_COMMAND_FULLSTOP))
 +            {
@@ -55887,7 +55896,7 @@ index 000000000..0e1f547c5
 +        return return_success(handler, { count });
 +    }
 +
-+    static bool HandleNpcBotSendToPointSetCommand(ChatHandler* handler, Optional<uint32> point_id, Optional<std::vector<std::string_view>> names)
++    static bool HandleNpcBotSendToPointSetCommand(ChatHandler* handler, Optional<uint32> point_id, Optional<std::vector<std::string>> names)
 +    {
 +        static auto return_syntax = [](ChatHandler* chandler) -> bool {
 +            chandler->SendSysMessage("Syntax: .npcbot sendto point set #number #names...");
@@ -55897,11 +55906,11 @@ index 000000000..0e1f547c5
 +            return false;
 +        };
 +
-+        static auto return_success = [&](ChatHandler* chandler, Variant<std::string_view, uint32> name_or_count) -> bool {
++        static auto return_success = [&](ChatHandler* chandler, Variant<std::string, uint32> name_or_count) -> bool {
 +            if (name_or_count.holds_alternative<uint32>())
 +                chandler->PSendSysMessage("Marked send point %u for %u bot(s)", *point_id, name_or_count.get<uint32>());
 +            else
-+                chandler->PSendSysMessage("Marked send point %u for %s", *point_id, name_or_count.get<std::string_view>().data());
++                chandler->PSendSysMessage("Marked send point %u for %s", *point_id, name_or_count.get<std::string>().c_str());
 +            return true;
 +        };
 +
@@ -55925,6 +55934,10 @@ index 000000000..0e1f547c5
 +        uint32 count = 0;
 +        for (decltype(names)::value_type::value_type name : *names)
 +        {
++            for (decltype(name)::size_type i = 0u; i < name.size(); ++i)
++                if (name[i] == '_')
++                    name[i] = ' ';
++
 +            Creature const* bot = owner->GetBotMgr()->GetBotByName(name);
 +            if (bot && bot->IsAlive())
 +            {
@@ -55943,7 +55956,7 @@ index 000000000..0e1f547c5
 +        return return_success(handler, { count });
 +    }
 +
-+    static bool HandleNpcBotSendToPointCommand(ChatHandler* handler, Optional<uint32> point_id, Optional<std::vector<std::string_view>> names)
++    static bool HandleNpcBotSendToPointCommand(ChatHandler* handler, Optional<uint32> point_id, Optional<std::vector<std::string>> names)
 +    {
 +        static auto return_syntax = [](ChatHandler* chandler) -> bool {
 +            chandler->SendSysMessage("Syntax: .npcbot sendto point #number #names...");
@@ -55954,11 +55967,11 @@ index 000000000..0e1f547c5
 +            return false;
 +        };
 +
-+        static auto return_success = [&](ChatHandler* chandler, Variant<std::string_view, uint32> name_or_count) -> bool {
++        static auto return_success = [&](ChatHandler* chandler, Variant<std::string, uint32> name_or_count) -> bool {
 +            if (name_or_count.holds_alternative<uint32>())
 +                chandler->PSendSysMessage("Moving %u bot(s) to point %u...", name_or_count.get<uint32>(), *point_id);
 +            else
-+                chandler->PSendSysMessage("Moving %s to point %u...", name_or_count.get<std::string_view>().data(), *point_id);
++                chandler->PSendSysMessage("Moving %s to point %u...", name_or_count.get<std::string>().c_str(), *point_id);
 +            return true;
 +        };
 +
@@ -55982,6 +55995,10 @@ index 000000000..0e1f547c5
 +        uint32 count = 0;
 +        for (decltype(names)::value_type::value_type name : *names)
 +        {
++            for (decltype(name)::size_type i = 0u; i < name.size(); ++i)
++                if (name[i] == '_')
++                    name[i] = ' ';
++
 +            Creature const* bot = owner->GetBotMgr()->GetBotByName(name);
 +            if (bot && bot->IsAlive() && !bot->GetBotAI()->HasBotCommandState(BOT_COMMAND_FULLSTOP))
 +            {
@@ -56551,7 +56568,7 @@ index 000000000..0e1f547c5
 +        return true;
 +    }
 +
-+    static bool HandleNpcBotCreateNewCommand(ChatHandler* handler, Optional<std::string_view> name, Optional<uint8> bclass, Optional<uint8> race, Optional<uint8> gender, Optional<uint8> skin, Optional<uint8> face, Optional<uint8> hairstyle, Optional<uint8> haircolor, Optional<uint8> features, Optional<uint8> soundset)
++    static bool HandleNpcBotCreateNewCommand(ChatHandler* handler, Optional<std::string> name, Optional<uint8> bclass, Optional<uint8> race, Optional<uint8> gender, Optional<uint8> skin, Optional<uint8> face, Optional<uint8> hairstyle, Optional<uint8> haircolor, Optional<uint8> features, Optional<uint8> soundset)
 +    {
 +        static auto const ret_err = [](ChatHandler* handler, bool report_ranges = false) {
 +            if (report_ranges)
@@ -56580,6 +56597,10 @@ index 000000000..0e1f547c5
 +
 +        if (!bclass || !name)
 +            return ret_err(handler, name && *name == "ranges");
++
++        for (std::decay_t<decltype(*name)>::size_type i = 0u; i < name->size(); ++i)
++            if ((*name)[i] == '_')
++                (*name)[i] = ' ';
 +
 +        bool const can_change_appearance = (*bclass < BOT_CLASS_EX_START || *bclass == BOT_CLASS_ARCHMAGE);
 +
@@ -57092,67 +57113,137 @@ index 000000000..0e1f547c5
 +        return true;
 +    }
 +
-+    static bool HandleNpcBotCommandReBindCommand(ChatHandler* handler, Optional<std::string_view> botname)
++    static bool HandleNpcBotCommandReBindCommand(ChatHandler* handler, Optional<std::vector<std::string>> names)
 +    {
-+        Player const* owner = handler->GetSession()->GetPlayer();
-+        Unit const* u = owner->GetSelectedUnit();
-+        if ((!u && !botname) || BotDataMgr::GetOwnedBotsCount(owner->GetGUID()) == 0)
-+        {
-+            handler->SendSysMessage(".npcbot command rebind [#name]");
-+            handler->SendSysMessage("Re-binds selected/named unbound npcbot");
-+            handler->SetSentErrorMessage(true);
++        static auto return_syntax = [](ChatHandler* chandler) -> bool {
++            chandler->SendSysMessage(".npcbot command rebind [#names...]");
++            chandler->SendSysMessage("Re-binds selected/named unbound npcbot");
++            chandler->SetSentErrorMessage(true);
 +            return false;
-+        }
++        };
++
++        static auto return_success = [](ChatHandler* chandler, Variant<std::string, uint32> name_or_count) -> bool {
++            if (name_or_count.holds_alternative<uint32>())
++                chandler->PSendSysMessage("Successfully re-bound %u bot(s)", name_or_count.get<uint32>());
++            else
++                chandler->PSendSysMessage("Successfully re-bound %s", name_or_count.get<std::string>().c_str());
++            return true;
++        };
++
++        Player const* owner = handler->GetSession()->GetPlayer();
++
++        if (!owner->HaveBot())
++            return return_syntax(handler);
 +
 +        BotMgr* mgr = owner->GetBotMgr();
 +        if (!mgr)
 +            mgr = new BotMgr(const_cast<Player*>(owner));
 +
-+        Creature const* cre = (u && u->GetTypeId() == TYPEID_UNIT) ? u->ToCreature() : BotDataMgr::FindBot(*botname, owner->GetSession()->GetSessionDbLocaleIndex());
-+        if (!cre || !cre->IsNPCBot() || mgr->GetBot(cre->GetGUID()) ||
-+            !cre->GetBotAI()->HasBotCommandState(BOT_COMMAND_UNBIND) ||
-+            BotDataMgr::SelectNpcBotData(cre->GetEntry())->owner != owner->GetGUID().GetCounter())
++        if (!names || names->empty())
 +        {
-+            handler->SendSysMessage("Must target your unbound npcbot");
++            Creature const* bot = handler->getSelectedCreature();
++            if (bot && bot->IsNPCBot() && !mgr->GetBot(bot->GetGUID()) && bot->GetBotAI()->HasBotCommandState(BOT_COMMAND_UNBIND) &&
++                BotDataMgr::SelectNpcBotData(bot->GetEntry())->owner == owner->GetGUID().GetCounter())
++            {
++                if (mgr->RebindBot(const_cast<Creature*>(bot)) != BOT_ADD_SUCCESS)
++                {
++                    handler->PSendSysMessage("Failed to re-bind %s for some reason!", bot->GetName().c_str());
++                    handler->SetSentErrorMessage(true);
++                    return false;
++                }
++                return return_success(handler, { bot->GetName() });
++            }
++            return return_syntax(handler);
++        }
++
++        uint32 count = 0;
++        for (decltype(names)::value_type::value_type name : *names)
++        {
++            for (decltype(name)::size_type i = 0u; i < name.size(); ++i)
++                if (name[i] == '_')
++                    name[i] = ' ';
++
++            Creature const* bot = BotDataMgr::FindBot(name, owner->GetSession()->GetSessionDbLocaleIndex());
++            if (bot && bot->IsNPCBot() && !mgr->GetBot(bot->GetGUID()) && bot->GetBotAI()->HasBotCommandState(BOT_COMMAND_UNBIND) &&
++                BotDataMgr::SelectNpcBotData(bot->GetEntry())->owner == owner->GetGUID().GetCounter())
++            {
++                if (mgr->RebindBot(const_cast<Creature*>(bot)) != BOT_ADD_SUCCESS)
++                {
++                    handler->PSendSysMessage("Failed to re-bind %s for some reason!", name.c_str());
++                    handler->SetSentErrorMessage(true);
++                    continue;
++                }
++                ++count;
++            }
++        }
++
++        if (count == 0)
++        {
++            handler->PSendSysMessage("Unable to re-bind any of %u bots!", uint32(names->size()));
 +            handler->SetSentErrorMessage(true);
 +            return false;
 +        }
 +
-+        if (mgr->RebindBot(const_cast<Creature*>(cre)) != BOT_ADD_SUCCESS)
-+        {
-+            handler->SendSysMessage("Failed to re-bind bot for some reason!");
-+            handler->SetSentErrorMessage(true);
-+            return false;
-+        }
-+
-+        handler->PSendSysMessage("%s successfully re-bound", cre->GetName().c_str());
-+        return true;
++        return return_success(handler, { count });
 +    }
 +
-+    static bool HandleNpcBotCommandUnBindCommand(ChatHandler* handler, Optional<std::string_view> botname)
++    static bool HandleNpcBotCommandUnBindCommand(ChatHandler* handler, Optional<std::vector<std::string>> names)
 +    {
++        static auto return_syntax = [](ChatHandler* chandler) -> bool {
++            chandler->SendSysMessage(".npcbot command unbind [#names...]");
++            chandler->SendSysMessage("Frees selected/named npcbot(s) temporarily. The bot will return to home location and wait until re-bound");
++            chandler->SetSentErrorMessage(true);
++            return false;
++        };
++
++        static auto return_success = [](ChatHandler* chandler, Variant<std::string, uint32> name_or_count) -> bool {
++            if (name_or_count.holds_alternative<uint32>())
++                chandler->PSendSysMessage("Successfully unbound %u bot(s)", name_or_count.get<uint32>());
++            else
++                chandler->PSendSysMessage("Successfully unbound %s", name_or_count.get<std::string>().c_str());
++            return true;
++        };
++
 +        Player const* owner = handler->GetSession()->GetPlayer();
-+        Unit const* u = owner->GetSelectedUnit();
-+        if (!owner->HaveBot() || (!u && !botname))
++
++        if (!owner->HaveBot())
++            return return_syntax(handler);
++
++        if (!names || names->empty())
 +        {
-+            handler->SendSysMessage(".npcbot command unbind [#name]");
-+            handler->SendSysMessage("Frees selected/named npcbot temporarily. The bot will return to home location and wait until re-bound");
++            Unit const* target = handler->getSelectedCreature();
++            Creature const* bot = target ? owner->GetBotMgr()->GetBot(target->GetGUID()) : nullptr;
++            if (bot && !bot->GetBotAI()->HasBotCommandState(BOT_COMMAND_UNBIND))
++            {
++                owner->GetBotMgr()->UnbindBot(bot->GetGUID());
++                return return_success(handler, { bot->GetName() });
++            }
++            return return_syntax(handler);
++        }
++
++        uint32 count = 0;
++        for (decltype(names)::value_type::value_type name : *names)
++        {
++            for (decltype(name)::size_type i = 0u; i < name.size(); ++i)
++                if (name[i] == '_')
++                    name[i] = ' ';
++
++            Creature const* bot = owner->GetBotMgr()->GetBotByName(name);
++            if (bot && !bot->GetBotAI()->HasBotCommandState(BOT_COMMAND_UNBIND))
++            {
++                ++count;
++                owner->GetBotMgr()->UnbindBot(bot->GetGUID());
++            }
++        }
++
++        if (count == 0)
++        {
++            handler->PSendSysMessage("Unable to unbind any of %u bots!", uint32(names->size()));
 +            handler->SetSentErrorMessage(true);
 +            return false;
 +        }
 +
-+        Creature const* cre = (u && u->GetTypeId() == TYPEID_UNIT) ? u->ToCreature() : owner->GetBotMgr()->GetBotByName(*botname);
-+        if (!cre || !cre->IsNPCBot() || !owner->GetBotMgr()->GetBot(cre->GetGUID()) ||
-+            cre->GetBotAI()->HasBotCommandState(BOT_COMMAND_UNBIND))
-+        {
-+            handler->SendSysMessage("Must target your active npcbot");
-+            handler->SetSentErrorMessage(true);
-+            return false;
-+        }
-+
-+        owner->GetBotMgr()->UnbindBot(cre->GetGUID());
-+        handler->PSendSysMessage("%s successfully unbound", cre->GetName().c_str());
-+        return true;
++        return return_success(handler, { count });
 +    }
 +
 +    static bool HandleNpcBotRemoveCommand(ChatHandler* handler)

@@ -1,6 +1,6 @@
 ### This mod was last updated:
-### TC: 19 Feb 2023, [d44b175229](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/d44b175229)
-### AC: 21 Feb 2023, [1e19770e2f](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/1e19770e2f)
+### TC: 24 Feb 2023, [8493c3eeab](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/8493c3eeab)
+### AC: 24 Feb 2023, [7353c3b63a](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/7353c3b63a)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 
@@ -209,10 +209,10 @@ _ARGUMENT_  indicates argument names
     - **`stopfully _TARGET_`** -- set NPCBot(s) to IDLE mode  
         - _TARGET_ = selected (your) NPCBot (command affects this NPCBot)  
         - _TARGET_ = any other unit or no selection (command affects all your NPCBots)  
-    - **`unbind <_TARGET_|_NAME_>`** -- free NPCBot temporarily without dismissing them. Bot will return to home position and wait there until invited back (or server restart)  
-    - **`rebind <_TARGET_|_NAME_>`** -- call unbound NPCBot back. Use `.npcbot info` to list your unbound NPCBots  
+    - **`unbind <_TARGET_|_NAMES..._>`** -- free NPCBot(s) temporarily without dismissing them. Bot(s) will return to home position and wait there until invited back (or server restart)  
+    - **`rebind <_TARGET_|_NAMES..._>`** -- call unbound NPCBot(s) back. Use `.npcbot info` to list your unbound NPCBots  
         - _TARGET_ = selected (your) NPCBot (command affects this NPCBot)  
-        - _NAME_ = case-insensitive NPCBot name (command affects named NPCBot)  
+        - _NAMES..._ = case-insensitive NPCBot name(s), *name_containing_spaces_must_be_underscored* (command affects named NPCBot(s))  
     - **`walk`** -- toggle WALK mode for NPCBots  
     - **`nogossip`** -- toggle GOSSIP availability for NPCBots  
     **Example Usage:**  
@@ -243,7 +243,7 @@ _ARGUMENT_  indicates argument names
         - **`set <_NUMBER_> <_TARGET_|_NAMES..._>`** -- (Player command) marks NPCBots' current positions as a station point by the `<_NUMBER_>`  
     - _NUMBER_ = integer in range `1 ... 5`  
     - _TARGET_ = selected NPCBot (move single NPCBot)  
-    - _NAMES..._ = space-separated case-insensitive NPCBot names (move a group of NPCBots)  
+    - _NAMES..._ = space-separated case-insensitive NPCBot names, *name_containing_spaces_must_be_underscored* (move a group of NPCBots)  
     **Example Usage:**  
         - `.npcbot sendto`  
         - `.npcb send eva jol eanor harene`  
@@ -261,7 +261,7 @@ _ARGUMENT_  indicates argument names
         - `.npcbot suicide`  
 - **`order`** -- (Player command) allows you to issue an order to your NPCBot. Orders take priority over any other action. Each bot can have up to 3 queued orders at a time (by itself will display list of subcommands)  
     - **`cast <_BOT_NAME_ OR _CLASS_NAME_> <_SPELL_NAME_> [_TARGET_TOKEN_]`** -- cast some spell  
-        - _BOT_NAME_ OR _CLASS_NAME_ = your bot name in client's locale, case insensitive OR bot class name in english, in lower case  
+        - _BOT_NAME_ OR _CLASS_NAME_ = your bot name in client's locale, case insensitive OR bot class name in english, in lower case, *name_containing_spaces_must_be_underscored*  
         - _SPELL_NAME_ = spell name in client's locale. All_spaces_must_be_replaced_with_underscores. Case insensitive  
         - _TARGET_TOKEN_ = optional target identifier string. If left empty bot will target self. Case insensitive. Possible values:  
             - `bot`, `self` = selfcast  
@@ -298,7 +298,7 @@ _ARGUMENT_  indicates argument names
             - `.npcbot dump load bots_backup` (load from `bots_backup.sql`)  
             - `.npcb du l 1.txt` (load from `1.txt`)  
 - **`createnew <_NAME_> <_CLASS_> _RACE_ _GENDER_ _SKIN_ _FACE_ _HEARSTYLE_ _HAIRCOLOR_ _FEATURES_ _SOUNDSET_`** -- (Admin command) allows you to create new NPCBots for players to use. Creature ids 70800+ are used for that.  
-    - _NAME_ = name of created NPCBot. Note that first letter will always be in Upper Case  
+    - _NAME_ = name of created NPCBot. Note that first letter will always be in Upper Case, *name_containing_spaces_must_be_underscored*  
     - _CLASS_ = this refers to NPCBot class. Use `.npcbot lookup` comand to list all available classes  
     - _RACE_ = you have to provide a race for your new NPCbot unless you are creating a NPCBot of one of the special classes for whose race is predefined as well as other details  
         - 1: Human  
