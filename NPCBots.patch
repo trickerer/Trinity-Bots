@@ -82,7 +82,7 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    72 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1408 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 17540 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 17563 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   721 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   395 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   936 +
@@ -178,7 +178,7 @@
  src/server/game/Server/WorldSession.cpp            |    18 +
  src/server/game/Spells/Auras/SpellAuraEffects.cpp  |    88 +
  src/server/game/Spells/Auras/SpellAuras.cpp        |    58 +
- src/server/game/Spells/Spell.cpp                   |   155 +
+ src/server/game/Spells/Spell.cpp                   |   170 +
  src/server/game/Spells/Spell.h                     |     3 +
  src/server/game/Spells/SpellEffects.cpp            |   167 +
  src/server/game/Spells/SpellInfo.cpp               |    58 +
@@ -206,7 +206,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   340 +
- 208 files changed, 74101 insertions(+), 76 deletions(-)
+ 208 files changed, 74139 insertions(+), 76 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -7560,10 +7560,10 @@ index 000000000..05caa8298
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..45341665c
+index 000000000..bab7d9c6d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,17540 @@
+@@ -0,0 +1,17563 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -12114,6 +12114,29 @@ index 000000000..45341665c
 +            spots.push_back(AoeSpotsVec::value_type(*(*ci), radius));
 +        }
 +    }
++
++    //STUB
++    //if (!unit->IsPlayer() || !unit->ToPlayer()->HaveBot())
++    //    return;
++
++    //switch (unit->GetMapId())
++    //{
++    //    case 409: //Molten Core
++    //        break;
++    //    default:
++    //        return;
++    //}
++
++    //BotMap const* bmap = unit->ToPlayer()->GetBotMgr()->GetBotMap();
++    //for (BotMap::const_iterator itr = bmap->begin(); itr != bmap->end(); ++itr)
++    //{
++    //    if (itr->second && itr->second->IsInWorld() && itr->second->IsAlive())
++    //    {
++    //        // Living Bomb
++    //        if (unit->GetMapId() == 409 && !!itr->second->GetAuraEffect(SPELL_AURA_PERIODIC_TRIGGER_SPELL, SPELLFAMILY_GENERIC, 1646, 0))
++    //            spots.push_back(AoeSpotsVec::value_type(itr->second->GetPosition(), 18.0));
++    //    }
++    //}
 +}
 +
 +void bot_ai::CalculateAoeSafeSpots(Unit* target, float maxdist, AoeSafeSpotsVec& safespots) const
@@ -75973,7 +75996,7 @@ index 84b52d86a..15ccba85f 100644
      if (!procEntry)
          return 0;
 diff --git a/src/server/game/Spells/Spell.cpp b/src/server/game/Spells/Spell.cpp
-index dfdc492b0..986242aa0 100644
+index dfdc492b0..694ad5d14 100644
 --- a/src/server/game/Spells/Spell.cpp
 +++ b/src/server/game/Spells/Spell.cpp
 @@ -62,6 +62,10 @@
@@ -76066,7 +76089,19 @@ index dfdc492b0..986242aa0 100644
  
      // GameObjects don't cast traj
      Unit* unitCaster = ASSERT_NOTNULL(m_caster->ToUnit());
-@@ -2554,6 +2593,13 @@ void Spell::TargetInfo::DoDamageAndTriggers(Spell* spell)
+@@ -1794,6 +1833,11 @@ uint32 Spell::GetSearcherTypeMask(SpellTargetObjectTypes objType, ConditionConta
+     }
+ 
+     if (m_spellInfo->HasAttribute(SPELL_ATTR3_ONLY_TARGET_PLAYERS))
++        //npcbot: do not exclude creatures, see WorldObjectSpellNearbyTargetCheck, WorldObjectSpellAreaTargetCheck
++        if (retMask & GRID_MAP_TYPE_MASK_CREATURE)
++            retMask &= GRID_MAP_TYPE_MASK_CORPSE | GRID_MAP_TYPE_MASK_PLAYER | GRID_MAP_TYPE_MASK_CREATURE;
++        else
++        //end npcbot
+         retMask &= GRID_MAP_TYPE_MASK_CORPSE | GRID_MAP_TYPE_MASK_PLAYER;
+     if (m_spellInfo->HasAttribute(SPELL_ATTR3_ONLY_TARGET_GHOSTS))
+         retMask &= GRID_MAP_TYPE_MASK_PLAYER;
+@@ -2554,6 +2598,13 @@ void Spell::TargetInfo::DoDamageAndTriggers(Spell* spell)
                      if (!spell->m_spellInfo->HasAttribute(SPELL_ATTR0_STOP_ATTACK_TARGET) && !spell->m_spellInfo->HasAttribute(SPELL_ATTR4_CANT_TRIGGER_ITEM_SPELLS))
                          caster->ToPlayer()->CastItemCombatSpell(*spellDamageInfo);
              }
@@ -76080,7 +76115,7 @@ index dfdc492b0..986242aa0 100644
          }
  
          // set hitmask for finish procs
-@@ -2590,6 +2636,15 @@ void Spell::TargetInfo::DoDamageAndTriggers(Spell* spell)
+@@ -2590,6 +2641,15 @@ void Spell::TargetInfo::DoDamageAndTriggers(Spell* spell)
          else if (spell->m_caster->GetTypeId() == TYPEID_GAMEOBJECT && spell->m_caster->ToGameObject()->AI())
              spell->m_caster->ToGameObject()->AI()->SpellHitTarget(_spellHitTarget, spell->m_spellInfo);
  
@@ -76096,7 +76131,7 @@ index dfdc492b0..986242aa0 100644
          if (HitAura)
          {
              if (AuraApplication* aurApp = HitAura->GetApplicationOfTarget(_spellHitTarget->GetGUID()))
-@@ -2937,6 +2992,11 @@ bool Spell::UpdateChanneledTargetList()
+@@ -2937,6 +2997,11 @@ bool Spell::UpdateChanneledTargetList()
          if (Player* modOwner = m_caster->GetSpellModOwner())
              modOwner->ApplySpellMod(m_spellInfo->Id, SPELLMOD_RANGE, range, this);
  
@@ -76108,7 +76143,7 @@ index dfdc492b0..986242aa0 100644
          // add little tolerance level
          range += std::min(MAX_SPELL_RANGE_TOLERANCE, range*0.1f); // 10% but no more than MAX_SPELL_RANGE_TOLERANCE
      }
-@@ -3290,6 +3350,11 @@ void Spell::_cast(bool skipCheck)
+@@ -3290,6 +3355,11 @@ void Spell::_cast(bool skipCheck)
              SendCastResult(res, p1, p2);
              SendInterrupted(0);
  
@@ -76120,7 +76155,7 @@ index dfdc492b0..986242aa0 100644
              if (modOwner)
                  modOwner->SetSpellModTakingSpell(this, false);
  
-@@ -3445,6 +3510,17 @@ void Spell::_cast(bool skipCheck)
+@@ -3445,6 +3515,17 @@ void Spell::_cast(bool skipCheck)
          handle_immediate();
      }
  
@@ -76138,7 +76173,7 @@ index dfdc492b0..986242aa0 100644
      CallScriptAfterCastHandlers();
  
      if (std::vector<int32> const* spell_triggered = sSpellMgr->GetSpellLinked(m_spellInfo->Id))
-@@ -3724,6 +3800,11 @@ void Spell::SendSpellCooldown()
+@@ -3724,6 +3805,11 @@ void Spell::SendSpellCooldown()
      if (m_caster->GetTypeId() == TYPEID_GAMEOBJECT)
          return;
  
@@ -76150,7 +76185,7 @@ index dfdc492b0..986242aa0 100644
      m_caster->ToUnit()->GetSpellHistory()->HandleCooldowns(m_spellInfo, m_CastItem, this);
  }
  
-@@ -3901,6 +3982,9 @@ void Spell::finish(bool ok)
+@@ -3901,6 +3987,9 @@ void Spell::finish(bool ok)
  
      // Stop Attack for some spells
      if (m_spellInfo->HasAttribute(SPELL_ATTR0_STOP_ATTACK_TARGET))
@@ -76160,7 +76195,7 @@ index dfdc492b0..986242aa0 100644
          unitCaster->AttackStop();
  }
  
-@@ -4756,9 +4840,39 @@ void Spell::TakePower()
+@@ -4756,9 +4845,39 @@ void Spell::TakePower()
          }
      }
  
@@ -76200,7 +76235,7 @@ index dfdc492b0..986242aa0 100644
          return;
      }
  
-@@ -5115,6 +5229,17 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* param1 /*= nullptr*/, uint
+@@ -5115,6 +5234,17 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* param1 /*= nullptr*/, uint
              else
                  return SPELL_FAILED_NOT_READY;
          }
@@ -76218,7 +76253,7 @@ index dfdc492b0..986242aa0 100644
      }
  
      if (m_spellInfo->HasAttribute(SPELL_ATTR7_IS_CHEAT_SPELL) && m_caster->IsUnit() && !m_caster->ToUnit()->HasUnitFlag2(UNIT_FLAG2_ALLOW_CHEAT_SPELLS))
-@@ -5314,6 +5439,11 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* param1 /*= nullptr*/, uint
+@@ -5314,6 +5444,11 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* param1 /*= nullptr*/, uint
          {
              if (spellEffectInfo.TargetA.GetTarget() == TARGET_UNIT_PET)
              {
@@ -76230,7 +76265,7 @@ index dfdc492b0..986242aa0 100644
                  if (!unitCaster->GetGuardianPet())
                  {
                      if (m_triggeredByAuraSpell)              // not report pet not existence for triggered spells
-@@ -5341,6 +5471,11 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* param1 /*= nullptr*/, uint
+@@ -5341,6 +5476,11 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* param1 /*= nullptr*/, uint
                  return SPELL_FAILED_NOT_IN_ARENA;
  
      // zone check
@@ -76242,7 +76277,7 @@ index dfdc492b0..986242aa0 100644
      if (m_caster->GetTypeId() != TYPEID_PLAYER || !m_caster->ToPlayer()->IsGameMaster())
      {
          uint32 zone, area;
-@@ -6079,6 +6214,14 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* param1 /*= nullptr*/, uint
+@@ -6079,6 +6219,14 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* param1 /*= nullptr*/, uint
      {
          if (Unit* unitCaster = m_caster->ToUnit())
          {
@@ -76257,7 +76292,7 @@ index dfdc492b0..986242aa0 100644
              if (m_spellInfo->NeedsExplicitUnitTarget())
              {
                  if (!unitCaster->GetComboPoints(m_targets.GetUnitTarget()))
-@@ -6418,6 +6561,11 @@ SpellCastResult Spell::CheckRange(bool strict) const
+@@ -6418,6 +6566,11 @@ SpellCastResult Spell::CheckRange(bool strict) const
      float minRange, maxRange;
      std::tie(minRange, maxRange) = GetMinMaxRange(strict);
  
@@ -76269,7 +76304,7 @@ index dfdc492b0..986242aa0 100644
      // dont check max_range to strictly after cast
      if (m_spellInfo->RangeEntry && m_spellInfo->RangeEntry->Flags != SPELL_RANGE_MELEE && !strict)
          maxRange += std::min(MAX_SPELL_RANGE_TOLERANCE, maxRange*0.1f); // 10% but no more than MAX_SPELL_RANGE_TOLERANCE
-@@ -7731,6 +7879,13 @@ SpellCastResult Spell::CanOpenLock(SpellEffectInfo const& spellEffectInfo, uint3
+@@ -7731,6 +7884,13 @@ SpellCastResult Spell::CanOpenLock(SpellEffectInfo const& spellEffectInfo, uint3
                      skillValue = m_CastItem || m_caster->GetTypeId() != TYPEID_PLAYER ?
                          0 : m_caster->ToPlayer()->GetSkillValue(skillId);
  
@@ -76283,6 +76318,30 @@ index dfdc492b0..986242aa0 100644
                      // skill bonus provided by casting spell (mostly item spells)
                      // add the effect base points modifier from the spell cast (cheat lock / skeleton key etc.)
                      if (spellEffectInfo.TargetA.GetTarget() == TARGET_GAMEOBJECT_ITEM_TARGET || spellEffectInfo.TargetB.GetTarget() == TARGET_GAMEOBJECT_ITEM_TARGET)
+@@ -8284,6 +8444,11 @@ WorldObjectSpellNearbyTargetCheck::WorldObjectSpellNearbyTargetCheck(float range
+ 
+ bool WorldObjectSpellNearbyTargetCheck::operator()(WorldObject* target)
+ {
++    //npcbot: custom check 1 for targeting bots by spells with SPELL_ATTR3_ONLY_TARGET_PLAYERS
++    if (_spellInfo->HasAttribute(SPELL_ATTR3_ONLY_TARGET_PLAYERS) && target->GetTypeId() == TYPEID_UNIT && !target->IsNPCBot())
++        return false;
++    //end npcbot
++
+     float dist = target->GetDistance(*_position);
+     if (dist < _range && WorldObjectSpellTargetCheck::operator ()(target))
+     {
+@@ -8308,6 +8473,11 @@ bool WorldObjectSpellAreaTargetCheck::operator()(WorldObject* target) const
+     }
+     else
+     {
++        //npcbot: custom check 2 for targeting bots by spells with SPELL_ATTR3_ONLY_TARGET_PLAYERS
++        if (_spellInfo->HasAttribute(SPELL_ATTR3_ONLY_TARGET_PLAYERS) && target->GetTypeId() == TYPEID_UNIT && !target->IsNPCBot())
++            return false;
++        //end npcbot
++
+         bool isInsideCylinder = target->IsWithinDist2d(_position, _range) && std::abs(target->GetPositionZ() - _position->GetPositionZ()) <= _range;
+         if (!isInsideCylinder)
+             return false;
 diff --git a/src/server/game/Spells/Spell.h b/src/server/game/Spells/Spell.h
 index f71c88291..ab7778348 100644
 --- a/src/server/game/Spells/Spell.h
