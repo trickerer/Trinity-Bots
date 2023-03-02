@@ -128,7 +128,7 @@
  src/server/game/Server/WorldSession.cpp            |    21 +
  src/server/game/Spells/Auras/SpellAuraEffects.cpp  |   101 +
  src/server/game/Spells/Auras/SpellAuras.cpp        |    60 +
- src/server/game/Spells/Spell.cpp                   |   174 +
+ src/server/game/Spells/Spell.cpp                   |   181 +
  src/server/game/Spells/Spell.h                     |     3 +
  src/server/game/Spells/SpellEffects.cpp            |   189 +
  src/server/game/Spells/SpellInfo.cpp               |    55 +
@@ -137,6 +137,7 @@
  src/server/scripts/Commands/cs_npc.cpp             |    30 +
  .../CavernsOfTime/BattleForMountHyjal/hyjalAI.cpp  |     5 +
  .../BattleForMountHyjal/hyjal_trash.cpp            |     8 +
+ .../Kalimdor/TempleOfAhnQiraj/boss_viscidus.cpp    |     8 +
  .../TrialOfTheChampion/boss_grand_champions.cpp    |     6 +
  .../boss_icecrown_gunship_battle.cpp               |    45 +
  .../Northrend/Naxxramas/boss_four_horsemen.cpp     |     2 +-
@@ -150,7 +151,7 @@
  src/server/scripts/Spells/spell_rogue.cpp          |    52 +
  src/server/scripts/Spells/spell_shaman.cpp         |    10 +
  src/server/shared/SharedDefines.h                  |    23 +
- 152 files changed, 74877 insertions(+), 94 deletions(-)
+ 153 files changed, 74892 insertions(+), 94 deletions(-)
  create mode 100644 appveyor.yml
  create mode 100644 data/sql/Bots/locales/esES/npc_text_locale.sql
  create mode 100644 data/sql/Bots/locales/esMX/npc_text_locale.sql
@@ -30879,7 +30880,7 @@ index 0000000000..74c27e4825
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_druid_ai.cpp b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 new file mode 100644
-index 0000000000..8754120dae
+index 0000000000..70a1e98790
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 @@ -0,0 +1,2939 @@
@@ -31074,7 +31075,7 @@ index 0000000000..8754120dae
 +static const uint32 Druid_spells_damage_arr[] =
 +{ FAERIE_FIRE_FERAL_1, CLAW_1, FEROCIOUS_BITE_1, MAIM_1, MANGLE_CAT_1, POUNCE_1, RAKE_1, RAVAGE_1, RIP_1, SHRED_1,
 +SWIPE_CAT_1, LACERATE_1, MANGLE_BEAR_1, MAUL_1,SWIPE_BEAR_1, ENTANGLING_ROOTS_1, HURRICANE_1, INSECT_SWARM_1,
-+MOONFIRE_1, STARFALL_1, STARFIRE_1, TYPHOON_1, THORNS_1 };
++WRATH_1, MOONFIRE_1, STARFALL_1, STARFIRE_1, TYPHOON_1, THORNS_1 };
 +
 +static const uint32 Druid_spells_cc_arr[] =
 +{ BASH_1, CYCLONE_1, ENTANGLING_ROOTS_1, FERAL_CHARGE_BEAR_1, HIBERNATE_1, MAIM_1, POUNCE_1, TYPHOON_1 };
@@ -77042,7 +77043,7 @@ index 6a8bc21094..46f85b24bd 100644
      if (!procEntry)
          return false;
 diff --git a/src/server/game/Spells/Spell.cpp b/src/server/game/Spells/Spell.cpp
-index e22e99eb60..23f06c7b34 100644
+index e22e99eb60..342990594d 100644
 --- a/src/server/game/Spells/Spell.cpp
 +++ b/src/server/game/Spells/Spell.cpp
 @@ -56,6 +56,10 @@
@@ -77327,7 +77328,21 @@ index e22e99eb60..23f06c7b34 100644
      if (m_caster->GetTypeId() == TYPEID_UNIT || !m_caster->ToPlayer()->IsGameMaster())
      {
          uint32 zone, area;
-@@ -6755,6 +6899,14 @@ SpellCastResult Spell::CheckCast(bool strict)
+@@ -6624,6 +6768,13 @@ SpellCastResult Spell::CheckCast(bool strict)
+                         if (target->GetCharmerGUID())
+                             return SPELL_FAILED_CHARMED;
+ 
++                        //npcbot: do not allow to charm owned npcbots
++                        if (target->GetCreatorGUID() && target->GetCreatorGUID().IsPlayer())
++                            return SPELL_FAILED_TARGET_IS_PLAYER_CONTROLLED;
++                        else if (target->IsNPCBotOrPet())
++                            return SPELL_FAILED_CANT_BE_CHARMED;
++                        //end npcbot
++
+                         if (target->GetOwnerGUID() && target->GetOwnerGUID().IsPlayer())
+                             return SPELL_FAILED_TARGET_IS_PLAYER_CONTROLLED;
+ 
+@@ -6755,6 +6906,14 @@ SpellCastResult Spell::CheckCast(bool strict)
      // check if caster has at least 1 combo point on target for spells that require combo points
      if (m_needComboPoints)
      {
@@ -77342,7 +77357,7 @@ index e22e99eb60..23f06c7b34 100644
          if (m_spellInfo->NeedsExplicitUnitTarget())
          {
              if (!m_caster->GetComboPoints(m_targets.GetUnitTarget()))
-@@ -7035,6 +7187,11 @@ SpellCastResult Spell::CheckRange(bool strict)
+@@ -7035,6 +7194,11 @@ SpellCastResult Spell::CheckRange(bool strict)
      float max_range = m_caster->GetSpellMaxRangeForTarget(target, m_spellInfo);
      float min_range = m_caster->GetSpellMinRangeForTarget(target, m_spellInfo);
  
@@ -77354,7 +77369,7 @@ index e22e99eb60..23f06c7b34 100644
      // xinef: hack for npc shooters
      if (min_range && GetCaster()->GetTypeId() == TYPEID_UNIT && !GetCaster()->GetOwnerGUID().IsPlayer() && min_range <= 6.0f)
          range_type = SPELL_RANGE_RANGED;
-@@ -8357,6 +8514,13 @@ SpellCastResult Spell::CanOpenLock(uint32 effIndex, uint32 lockId, SkillType& sk
+@@ -8357,6 +8521,13 @@ SpellCastResult Spell::CanOpenLock(uint32 effIndex, uint32 lockId, SkillType& sk
                          skillValue = m_CastItem || m_caster->GetTypeId() != TYPEID_PLAYER ?
                                       0 : m_caster->ToPlayer()->GetSkillValue(skillId);
  
@@ -77368,7 +77383,7 @@ index e22e99eb60..23f06c7b34 100644
                          // skill bonus provided by casting spell (mostly item spells)
                          // add the effect base points modifier from the spell casted (cheat lock / skeleton key etc.)
                          if ((m_spellInfo->Effects[effIndex].TargetA.GetTarget() == TARGET_GAMEOBJECT_ITEM_TARGET || m_spellInfo->Effects[effIndex].TargetB.GetTarget() == TARGET_GAMEOBJECT_ITEM_TARGET)
-@@ -8987,6 +9151,11 @@ namespace Acore
+@@ -8987,6 +9158,11 @@ namespace Acore
  
      bool WorldObjectSpellNearbyTargetCheck::operator()(WorldObject* target)
      {
@@ -77380,7 +77395,7 @@ index e22e99eb60..23f06c7b34 100644
          float dist = target->GetDistance(*_position);
          if (dist < _range && WorldObjectSpellTargetCheck::operator ()(target))
          {
-@@ -9013,6 +9182,11 @@ namespace Acore
+@@ -9013,6 +9189,11 @@ namespace Acore
              return false;
          else if (target->GetTypeId() == TYPEID_UNIT && target->ToCreature()->IsAvoidingAOE()) // pussywizard
              return false;
@@ -77966,6 +77981,25 @@ index 23f49476ca..98d5205f20 100644
      if (done_by && (done_by->GetTypeId() == TYPEID_PLAYER || done_by->IsPet()))
      {
          damageTaken += damage;
+diff --git a/src/server/scripts/Kalimdor/TempleOfAhnQiraj/boss_viscidus.cpp b/src/server/scripts/Kalimdor/TempleOfAhnQiraj/boss_viscidus.cpp
+index b39a94a8d0..aedb91e673 100644
+--- a/src/server/scripts/Kalimdor/TempleOfAhnQiraj/boss_viscidus.cpp
++++ b/src/server/scripts/Kalimdor/TempleOfAhnQiraj/boss_viscidus.cpp
+@@ -218,6 +218,14 @@ struct boss_viscidus : public BossAI
+         SpellSchoolMask spellSchoolMask = spellInfo->GetSchoolMask();
+         if (spellInfo->EquippedItemClass == ITEM_CLASS_WEAPON && spellInfo->EquippedItemSubClassMask & (1 << ITEM_SUBCLASS_WEAPON_WAND))
+         {
++            //npcbot: get bot's wand
++            if (caster->GetTypeId() == TYPEID_UNIT)
++            {
++                if (Item const* pItem = caster->ToCreature()->GetBotEquips(2/*BOT_SLOT_RANGED*/))
++                    spellSchoolMask = SpellSchoolMask(uint32(spellSchoolMask) | (1ul << pItem->GetTemplate()->Damage[0].DamageType));
++            }
++            else
++            //end npcbot
+             if (Item* pItem = caster->ToPlayer()->GetWeaponForAttack(RANGED_ATTACK))
+             {
+                 spellSchoolMask = SpellSchoolMask(1 << pItem->GetTemplate()->Damage[0].DamageType);
 diff --git a/src/server/scripts/Northrend/CrusadersColiseum/TrialOfTheChampion/boss_grand_champions.cpp b/src/server/scripts/Northrend/CrusadersColiseum/TrialOfTheChampion/boss_grand_champions.cpp
 index 27d3c7b9e7..0cceeefcce 100644
 --- a/src/server/scripts/Northrend/CrusadersColiseum/TrialOfTheChampion/boss_grand_champions.cpp

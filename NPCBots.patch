@@ -178,7 +178,7 @@
  src/server/game/Server/WorldSession.cpp            |    18 +
  src/server/game/Spells/Auras/SpellAuraEffects.cpp  |    88 +
  src/server/game/Spells/Auras/SpellAuras.cpp        |    58 +
- src/server/game/Spells/Spell.cpp                   |   172 +
+ src/server/game/Spells/Spell.cpp                   |   179 +
  src/server/game/Spells/Spell.h                     |     3 +
  src/server/game/Spells/SpellEffects.cpp            |   167 +
  src/server/game/Spells/SpellInfo.cpp               |    58 +
@@ -206,7 +206,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   340 +
- 208 files changed, 74141 insertions(+), 76 deletions(-)
+ 208 files changed, 74148 insertions(+), 76 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -30486,7 +30486,7 @@ index 000000000..bdfe919c4
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_druid_ai.cpp b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 new file mode 100644
-index 000000000..82866a257
+index 000000000..04cf0c1b4
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_druid_ai.cpp
 @@ -0,0 +1,2938 @@
@@ -30681,7 +30681,7 @@ index 000000000..82866a257
 +static const uint32 Druid_spells_damage_arr[] =
 +{ FAERIE_FIRE_FERAL_1, CLAW_1, FEROCIOUS_BITE_1, MAIM_1, MANGLE_CAT_1, POUNCE_1, RAKE_1, RAVAGE_1, RIP_1, SHRED_1,
 +SWIPE_CAT_1, LACERATE_1, MANGLE_BEAR_1, MAUL_1,SWIPE_BEAR_1, ENTANGLING_ROOTS_1, HURRICANE_1, INSECT_SWARM_1,
-+MOONFIRE_1, STARFALL_1, STARFIRE_1, TYPHOON_1, THORNS_1 };
++WRATH_1, MOONFIRE_1, STARFALL_1, STARFIRE_1, TYPHOON_1, THORNS_1 };
 +
 +static const uint32 Druid_spells_cc_arr[] =
 +{ BASH_1, CYCLONE_1, ENTANGLING_ROOTS_1, FERAL_CHARGE_BEAR_1, HIBERNATE_1, MAIM_1, POUNCE_1, TYPHOON_1 };
@@ -75996,7 +75996,7 @@ index 84b52d86a..15ccba85f 100644
      if (!procEntry)
          return 0;
 diff --git a/src/server/game/Spells/Spell.cpp b/src/server/game/Spells/Spell.cpp
-index dfdc492b0..02732a166 100644
+index dfdc492b0..a0ec0914e 100644
 --- a/src/server/game/Spells/Spell.cpp
 +++ b/src/server/game/Spells/Spell.cpp
 @@ -62,6 +62,10 @@
@@ -76280,7 +76280,21 @@ index dfdc492b0..02732a166 100644
      if (m_caster->GetTypeId() != TYPEID_PLAYER || !m_caster->ToPlayer()->IsGameMaster())
      {
          uint32 zone, area;
-@@ -6079,6 +6221,14 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* param1 /*= nullptr*/, uint
+@@ -5965,6 +6107,13 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* param1 /*= nullptr*/, uint
+ 
+                     if (target->GetCharmerGUID())
+                         return SPELL_FAILED_CHARMED;
++ 
++                    //npcbot: do not allow to charm owned npcbots
++                    if (target->GetCreatorGUID() && target->GetCreatorGUID().IsPlayer())
++                        return SPELL_FAILED_TARGET_IS_PLAYER_CONTROLLED;
++                    else if (target->IsNPCBotOrPet())
++                        return SPELL_FAILED_CANT_BE_CHARMED;
++                    //end npcbot
+ 
+                     if (target->GetOwner() && target->GetOwner()->GetTypeId() == TYPEID_PLAYER)
+                         return SPELL_FAILED_TARGET_IS_PLAYER_CONTROLLED;
+@@ -6079,6 +6228,14 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* param1 /*= nullptr*/, uint
      {
          if (Unit* unitCaster = m_caster->ToUnit())
          {
@@ -76295,7 +76309,7 @@ index dfdc492b0..02732a166 100644
              if (m_spellInfo->NeedsExplicitUnitTarget())
              {
                  if (!unitCaster->GetComboPoints(m_targets.GetUnitTarget()))
-@@ -6418,6 +6568,11 @@ SpellCastResult Spell::CheckRange(bool strict) const
+@@ -6418,6 +6575,11 @@ SpellCastResult Spell::CheckRange(bool strict) const
      float minRange, maxRange;
      std::tie(minRange, maxRange) = GetMinMaxRange(strict);
  
@@ -76307,7 +76321,7 @@ index dfdc492b0..02732a166 100644
      // dont check max_range to strictly after cast
      if (m_spellInfo->RangeEntry && m_spellInfo->RangeEntry->Flags != SPELL_RANGE_MELEE && !strict)
          maxRange += std::min(MAX_SPELL_RANGE_TOLERANCE, maxRange*0.1f); // 10% but no more than MAX_SPELL_RANGE_TOLERANCE
-@@ -7731,6 +7886,13 @@ SpellCastResult Spell::CanOpenLock(SpellEffectInfo const& spellEffectInfo, uint3
+@@ -7731,6 +7893,13 @@ SpellCastResult Spell::CanOpenLock(SpellEffectInfo const& spellEffectInfo, uint3
                      skillValue = m_CastItem || m_caster->GetTypeId() != TYPEID_PLAYER ?
                          0 : m_caster->ToPlayer()->GetSkillValue(skillId);
  
@@ -76321,7 +76335,7 @@ index dfdc492b0..02732a166 100644
                      // skill bonus provided by casting spell (mostly item spells)
                      // add the effect base points modifier from the spell cast (cheat lock / skeleton key etc.)
                      if (spellEffectInfo.TargetA.GetTarget() == TARGET_GAMEOBJECT_ITEM_TARGET || spellEffectInfo.TargetB.GetTarget() == TARGET_GAMEOBJECT_ITEM_TARGET)
-@@ -8284,6 +8446,11 @@ WorldObjectSpellNearbyTargetCheck::WorldObjectSpellNearbyTargetCheck(float range
+@@ -8284,6 +8453,11 @@ WorldObjectSpellNearbyTargetCheck::WorldObjectSpellNearbyTargetCheck(float range
  
  bool WorldObjectSpellNearbyTargetCheck::operator()(WorldObject* target)
  {
@@ -76333,7 +76347,7 @@ index dfdc492b0..02732a166 100644
      float dist = target->GetDistance(*_position);
      if (dist < _range && WorldObjectSpellTargetCheck::operator ()(target))
      {
-@@ -8308,6 +8475,11 @@ bool WorldObjectSpellAreaTargetCheck::operator()(WorldObject* target) const
+@@ -8308,6 +8482,11 @@ bool WorldObjectSpellAreaTargetCheck::operator()(WorldObject* target) const
      }
      else
      {
