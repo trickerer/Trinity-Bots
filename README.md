@@ -42,7 +42,7 @@ This manual is created to officially state the purpose and explain the usage of 
 
 ---------------------------------------
 ## NPCBOTS
-NPCBots are hireable pet-like minions. You don't have full control over them, but you can tune their behavior in many ways. Bots will follow you around, buff you, defend you and help you in general. Their main purpose is to support players during their leveling although they can do dungeons and raids, but expect them being stupid in there
+NPCBots are hireable pet-like minions (with some exceptions). You don't have full control over them, but you can tune their behavior in many ways. Bots will follow you around, buff you, defend you and help you in general. Their main purpose is to support players during their leveling although they can do dungeons and raids, but expect them being stupid in there
 
 Features of the NPCBots:  
 
@@ -78,9 +78,9 @@ Features of the NPCBots:
 
 
 ### NPCBot Mod Installation
-NPCBots is a TrinityCore mod (https://github.com/TrinityCore/TrinityCore/), currently only 3.3.5 branch is supported  
+NPCBots is a TrinityCore/AzerothCore mod (https://github.com/TrinityCore/TrinityCore/, https://github.com/azerothcore/azerothcore-wotlk/), only 3.3.5 branch is supported  
 
-**There is a pre-patched repository available [here](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/)**  
+**Pre-patched repository available for TC and AC [here](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/) and [here](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/)**  
 If you still prefer the patch then keep on reading, otherwise clone the patched repo and jump to step 4  
 
 At the very start of this document you can find a link for TrinityCore revision for the last version of NPCBots. There is no guarantee you will be able to apply the mod if you are using other version of TrinityCore  
