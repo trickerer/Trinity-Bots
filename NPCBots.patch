@@ -33,7 +33,7 @@
  .../characters/2021_01_04_characters_npcbot.sql    |     1 +
  .../2021_01_24_characters_npcbot_stats.sql         |    32 +
  .../characters/2021_08_27_characters_npcbot.sql    |     2 +
- .../2022_11_15_characters_npcbot_transmog.SQL      |    10 +
+ .../2022_11_15_characters_npcbot_transmog.sql      |    10 +
  .../2022_11_27_characters_npcbot_group_member.sql  |    10 +
  .../2020_07_08_creature_template_npcbot_extras.sql |     2 +
  .../updates/world/2020_09_25_creature_template.sql |     2 +
@@ -82,7 +82,7 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    72 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1412 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 18146 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 18156 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   743 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   395 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   936 +
@@ -104,8 +104,8 @@
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2266 +++
  src/server/game/AI/NpcBots/botcommands.cpp         |  2828 +++
  src/server/game/AI/NpcBots/botcommon.h             |   550 +
- src/server/game/AI/NpcBots/botdatamgr.cpp          |  1365 ++
- src/server/game/AI/NpcBots/botdatamgr.h            |   178 +
+ src/server/game/AI/NpcBots/botdatamgr.cpp          |  1384 ++
+ src/server/game/AI/NpcBots/botdatamgr.h            |   179 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   133 +
  src/server/game/AI/NpcBots/botdpstracker.h         |    42 +
  src/server/game/AI/NpcBots/botdump.cpp             |  1017 ++
@@ -153,7 +153,7 @@
  src/server/game/Entities/Player/KillRewarder.cpp   |    15 +
  src/server/game/Entities/Player/Player.cpp         |   191 +
  src/server/game/Entities/Player/Player.h           |    25 +
- src/server/game/Entities/Totem/Totem.cpp           |    26 +
+ src/server/game/Entities/Totem/Totem.cpp           |    25 +
  src/server/game/Entities/Unit/StatSystem.cpp       |    46 +-
  src/server/game/Entities/Unit/Unit.cpp             |   671 +
  src/server/game/Entities/Unit/Unit.h               |    15 +-
@@ -206,7 +206,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   351 +
- 208 files changed, 75617 insertions(+), 76 deletions(-)
+ 208 files changed, 75646 insertions(+), 76 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -240,7 +240,7 @@
  create mode 100644 sql/Bots/updates/characters/2021_01_04_characters_npcbot.sql
  create mode 100644 sql/Bots/updates/characters/2021_01_24_characters_npcbot_stats.sql
  create mode 100644 sql/Bots/updates/characters/2021_08_27_characters_npcbot.sql
- create mode 100644 sql/Bots/updates/characters/2022_11_15_characters_npcbot_transmog.SQL
+ create mode 100644 sql/Bots/updates/characters/2022_11_15_characters_npcbot_transmog.sql
  create mode 100644 sql/Bots/updates/characters/2022_11_27_characters_npcbot_group_member.sql
  create mode 100644 sql/Bots/updates/world/2020_07_08_creature_template_npcbot_extras.sql
  create mode 100644 sql/Bots/updates/world/2020_09_25_creature_template.sql
@@ -4281,11 +4281,11 @@ index 000000000..2744daddf
 @@ -0,0 +1,2 @@
 +-- An update for shifted roles
 +UPDATE `characters_npcbot` SET `roles` = (roles & 0x1) | ((roles & ~0x1) << 1);
-diff --git a/sql/Bots/updates/characters/2022_11_15_characters_npcbot_transmog.SQL b/sql/Bots/updates/characters/2022_11_15_characters_npcbot_transmog.SQL
+diff --git a/sql/Bots/updates/characters/2022_11_15_characters_npcbot_transmog.sql b/sql/Bots/updates/characters/2022_11_15_characters_npcbot_transmog.sql
 new file mode 100644
 index 000000000..34d70861c
 --- /dev/null
-+++ b/sql/Bots/updates/characters/2022_11_15_characters_npcbot_transmog.SQL
++++ b/sql/Bots/updates/characters/2022_11_15_characters_npcbot_transmog.sql
 @@ -0,0 +1,10 @@
 +-- 
 +DROP TABLE IF EXISTS `characters_npcbot_transmog`;
@@ -7564,10 +7564,10 @@ index 000000000..f0b68cf53
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..9544fc319
+index 000000000..41392e76f
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,18146 @@
+@@ -0,0 +1,18156 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -9803,27 +9803,18 @@ index 000000000..9544fc319
 +            auto [zonelevelmin, zonelevelmax] = BotDataMgr::GetZoneLevels(me->GetZoneId());
 +            ASSERT(zonelevelmin > 0 && zonelevelmax > 0);
 +            mylevel = std::min<uint8>(urand(std::max<uint8>(zonelevelmin + 2, zonelevelmax), zonelevelmax), zonelevelmax);
++            mylevel += BotDataMgr::GetLevelBonusForBotRank(me->GetCreatureTemplate()->rank);
 +            _baseLevel = mylevel;
 +        }
 +        else
-+            mylevel = std::max<uint8>(mylevel, _baseLevel + std::min<uint8>(uint16(_killsCount / std::max<uint8>(mylevel * 5 / 2, 20)), 80));
-+
-+        mylevel = std::min<uint8>(mylevel, BotDataMgr::GetMaxLevelForMapId(me->GetMap()->GetEntry()->ID));
-+    }
-+
-+    /*TC_LOG_ERROR("entities.player", "*etStats(): Updating bot %s, class: %u, race: %u, level %u, master: %s",
-+        me->GetName().c_str(), myclass, myrace, mylevel, master->GetName().c_str());*/
-+
-+    if (firstspawn)
-+    {
-+        switch (me->GetCreatureTemplate()->rank)
 +        {
-+            case CREATURE_ELITE_RARE:       mylevel += 1;   break;
-+            case CREATURE_ELITE_ELITE:      mylevel += 2;   break;
-+            case CREATURE_ELITE_RAREELITE:  mylevel += 3;   break;
-+            default:                                        break;
++            uint8 mapmaxlevel = std::min<uint8>(mylevel, BotDataMgr::GetMaxLevelForMapId(me->GetMap()->GetEntry()->ID));
++            mapmaxlevel += BotDataMgr::GetLevelBonusForBotRank(me->GetCreatureTemplate()->rank);
++            mylevel = std::max<uint8>(mylevel, _baseLevel + std::min<uint8>(uint16(_killsCount / std::max<uint8>(mylevel * 5 / 2, 20)), mapmaxlevel));
 +        }
 +    }
++    else
++        mylevel += BotDataMgr::GetLevelBonusForBotRank(me->GetCreatureTemplate()->rank);
 +
 +    mylevel = std::min<uint8>(mylevel, 83);
 +
@@ -11759,7 +11750,7 @@ index 000000000..9544fc319
 +    }
 +
 +    bool canAttack = mytar && CanBotAttack(mytar, byspell);
-+    if (mytar && (!IAmFree() || me->GetDistance(mytar) < BOT_MAX_CHASE_RANGE) && CanBotAttack(mytar, byspell) &&/* !InDuel(mytar) &&*/
++    if (mytar && (!IAmFree() || me->GetDistance(mytar) < BOT_MAX_CHASE_RANGE) && canAttack &&/* !InDuel(mytar) &&*/
 +        !(mytar->GetVictim() != nullptr && IsTank() && IsTank(mytar->GetVictim())))
 +    {
 +        //TC_LOG_ERROR("entities.player", "bot %s continues attack its target %s", me->GetName().c_str(), mytar->GetName().c_str());
@@ -11835,7 +11826,7 @@ index 000000000..9544fc319
 +            return { u, u };
 +    }
 +
-+    if (IAmFree() && IsWanderer() && !me->IsInCombat() && (Feasting() || me->GetHealthPct() < 85.f))
++    if (IAmFree() && IsWanderer() && !me->IsInCombat() && me->getAttackers().empty() && (evadeDelayTimer > 4000 || Feasting() || me->GetHealthPct() < 85.f))
 +        return { nullptr, nullptr };
 +
 +    //check targets around
@@ -22133,9 +22124,17 @@ index 000000000..9544fc319
 +    if (JumpingOrFalling())
 +        return false;
 +
++    if (_jumpCount >= 3)
++    {
++        me->AttackStop();
++        Evade();
++        return true;
++    }
++
 +    if (_unreachableCount < 5)
 +    {
-+        if (!(IsRanged() ? me->GetDistance(target) < 40.0f : me->IsWithinMeleeRange(target)))
++        if ((IsRanged() ? me->GetDistance(target) > 40.0f : !me->IsWithinMeleeRange(target)) ||
++            (target->GetTypeId() == TYPEID_UNIT && !me->IsWithinLOSInMap(target)))
 +        {
 +            ++_unreachableCount;
 +            ResetChaseTimer(target);
@@ -22147,16 +22146,13 @@ index 000000000..9544fc319
 +        return true;
 +    }
 +
++    if (target->IsPlayer() && (!me->IsWithinDist(target, HasRole(BOT_ROLE_RANGED) ? 65 : 40) || me->IsWithinDist(target, HasRole(BOT_ROLE_RANGED) ? 35 : 10)))
++        return false;
++
 +    _unreachableCount = 0;
 +
-+    if (_jumpCount >= 3)
-+    {
-+        me->AttackStop();
-+        Evade();
-+        return true;
-+    }
-+
 +    ResetChaseTimer(target);
++
 +    BotJump(target);
 +    return true;
 +}
@@ -24481,6 +24477,7 @@ index 000000000..9544fc319
 +                    //me->CastSpell(targs, SPELL_TELEPORT_LOCAL);
 +                    BotJump(&pos, false);
 +                    _evadeCount = 0;
++                    evadeDelayTimer = 2500;
 +                    return;
 +                }
 +                else
@@ -24538,46 +24535,59 @@ index 000000000..9544fc319
 +void bot_ai::GetNextEvadeMovePoint(Position& pos, bool& need_jump) const
 +{
 +    static const float EVADE_MOVE_DIST = 20.0f;
++    static const float EVADE_SEARCH_ANGLE = float(M_PI * 0.5);
 +    const uint8 evade_jump_threshold = me->HasUnitMovementFlag(MOVEMENTFLAG_SWIMMING) ? 50 : 25;
 +    float dist = frand(EVADE_MOVE_DIST * 1.15f, EVADE_MOVE_DIST * 1.35f);
-+    float angle = me->GetRelativeAngle(pos) + frand(-0.275f * float(M_PI), 0.275f * float(M_PI));
-+    Position fixedpos(me->m_positionX, me->m_positionY, me->m_positionZ, angle);
++    float base_angle = me->GetRelativeAngle(pos);
++    float ground, floor;
 +
-+    me->MovePosition(fixedpos, dist, angle);
-+    pos.Relocate(fixedpos);
++    std::array angles{
++        base_angle - frand(EVADE_SEARCH_ANGLE*0.55f, EVADE_SEARCH_ANGLE*0.75f),
++        base_angle - frand(EVADE_SEARCH_ANGLE*0.25f, EVADE_SEARCH_ANGLE*0.45f),
++        base_angle,
++        base_angle + frand(EVADE_SEARCH_ANGLE*0.25f, EVADE_SEARCH_ANGLE*0.45f),
++        base_angle + frand(EVADE_SEARCH_ANGLE*0.55f, EVADE_SEARCH_ANGLE*0.75f)
++    };
++    std::array<Position, angles.size()> positions{};
 +
-+    float ground = me->GetMapHeight(pos.m_positionX, pos.m_positionY, MAX_HEIGHT, true, MAX_FALL_DISTANCE);
-+    float floor1 = me->GetMapHeight(pos.m_positionX, pos.m_positionY, pos.m_positionZ);
-+    float floor2 = me->GetMapHeight(pos.m_positionX, pos.m_positionY, floor1 - 10.0f);
-+    float floor = std::fabs(floor1 - me->m_positionZ) <= std::fabs(floor2 - me->m_positionZ) ? floor1 : floor2;
-+    float myfloor = std::fabs(ground - me->m_positionZ) <= std::fabs(floor - me->m_positionZ) ? ground : floor;
-+
-+    if (pos.m_positionZ + DEFAULT_COLLISION_HEIGHT < myfloor)
++    uint8 centerAngleIndex = uint8((angles.size() + 1) / 2 - 1);
++    for (uint8 i = 0; i < angles.size(); ++i)
 +    {
-+        pos.m_positionZ = myfloor;
-+        if (std::fabs(me->m_positionZ - pos.m_positionZ) > DEFAULT_COLLISION_HEIGHT * 20.0f)
-+            need_jump = true;
++        Position fixedpos(me->m_positionX, me->m_positionY, me->m_positionZ, angles[i]);
++        me->MovePosition(fixedpos, (i == centerAngleIndex) ? dist : dist * frand(0.25f, 0.75f), angles[i]);
++        ground = me->GetMapHeight(fixedpos.m_positionX, fixedpos.m_positionY, MAX_HEIGHT, true, MAX_FALL_DISTANCE);
++        floor = me->GetMapHeight(fixedpos.m_positionX, fixedpos.m_positionY, fixedpos.m_positionZ);
++        fixedpos.m_positionZ = std::fabs(ground - me->m_positionZ) <= std::fabs(floor - me->m_positionZ) ? ground : floor;
++        positions[i].Relocate(fixedpos);
 +    }
++
++    Position my_pos(positions[centerAngleIndex]);
++    for (uint8 i = 0; i < angles.size() && i != centerAngleIndex; ++i)
++    {
++        if (positions[i].m_positionZ > INVALID_HEIGHT && positions[i].m_positionZ < my_pos.m_positionZ - 4.0f)
++            my_pos.Relocate(positions[i]);
++    }
++
++    pos.Relocate(my_pos);
 +
 +    if (!need_jump && _evadeCount >= evade_jump_threshold &&
 +        (me->GetExactDist2d(pos) > EVADE_MOVE_DIST * 0.5f || std::fabs(me->m_positionZ - pos.m_positionZ) > EVADE_MOVE_DIST * 0.5f))
 +        need_jump = true;
 +
-+    if (!need_jump && std::fabs(pos.m_positionZ - myfloor) < 2.5f && me->GetExactDist2d(pos) < 5.0f && _evadeCount >= evade_jump_threshold)
++    if (!need_jump && std::fabs(pos.m_positionZ - me->m_positionZ) < 7.5f && me->GetExactDist2d(pos) < 5.0f && _evadeCount >= evade_jump_threshold)
 +    {
-+        pos.Relocate(me->m_positionX, me->m_positionY, me->m_positionZ, angle);
-+        pos.m_positionX += dist * std::cos(angle);
-+        pos.m_positionY += dist * std::sin(angle);
++        pos.Relocate(me->m_positionX, me->m_positionY, me->m_positionZ);
++        pos.m_positionX += dist * std::cos(me->ToAbsoluteAngle(base_angle));
++        pos.m_positionY += dist * std::sin(me->ToAbsoluteAngle(base_angle));
 +
 +        ground = me->GetMapHeight(pos.m_positionX, pos.m_positionY, MAX_HEIGHT, true, MAX_FALL_DISTANCE);
-+        floor1 = me->GetMapHeight(pos.m_positionX, pos.m_positionY, pos.m_positionZ);
-+        floor2 = me->GetMapHeight(pos.m_positionX, pos.m_positionY, floor1 - 10.0f);
-+        floor = std::fabs(floor1 - me->m_positionZ) <= std::fabs(floor2 - me->m_positionZ) ? floor1 : floor2;
-+        myfloor = std::fabs(ground - me->m_positionZ) <= std::fabs(floor - me->m_positionZ) ? ground : floor;
-+        pos.m_positionZ = myfloor;
-+
++        floor = me->GetMapHeight(pos.m_positionX, pos.m_positionY, pos.m_positionZ);
++        pos.m_positionZ = std::fabs(ground - me->m_positionZ) <= std::fabs(floor - me->m_positionZ) ? ground : floor;
 +        need_jump = true;
 +    }
++
++    if (pos.m_positionZ <= INVALID_HEIGHT)
++        pos.m_positionZ = me->m_positionZ;
 +}
 +//TeleportHome() ONLY CALLED THROUGH EVENTPROCESSOR
 +void bot_ai::TeleportHome()
@@ -50338,7 +50348,7 @@ index 000000000..6541f17c2
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_sphynx_ai.cpp b/src/server/game/AI/NpcBots/bot_sphynx_ai.cpp
 new file mode 100644
-index 000000000..cb261216e
+index 000000000..a6fa55571
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_sphynx_ai.cpp
 @@ -0,0 +1,607 @@
@@ -50539,7 +50549,7 @@ index 000000000..cb261216e
 +            if (GC_Timer > diff)
 +                return;
 +
-+            if (me->GetDistance(mytar) > 20)
++            if (me->GetDistance(mytar) > 30)
 +                return;
 +
 +            if (me->isMoving() && !me->HasInArc(float(M_PI)/2, mytar))
@@ -58724,10 +58734,10 @@ index 000000000..21925beaf
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.cpp b/src/server/game/AI/NpcBots/botdatamgr.cpp
 new file mode 100644
-index 000000000..dea96aeb0
+index 000000000..3b9bfb5e6
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.cpp
-@@ -0,0 +1,1365 @@
+@@ -0,0 +1,1384 @@
 +#include "bot_ai.h"
 +#include "botdatamgr.h"
 +#include "botmgr.h"
@@ -58778,11 +58788,11 @@ index 000000000..dea96aeb0
 +    "`name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',"
 +    "PRIMARY KEY (`id`)"
 +    ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Bot Wander Map'";
-+static constexpr float NODE_CONNECTION_DIST_MAX = 2000.f;
++static constexpr float NODE_CONNECTION_DIST_MAX = 1800.f;
 +static constexpr float NODE_CONNECTION_DIST_MAX_GEN = 370.f;
 +static constexpr std::array wanderMapIds{ 0u, 1u };
 +
-+bool allBotsLoaded = false;
++static bool allBotsLoaded = false;
 +
 +class BotTravelGraph
 +{
@@ -59153,7 +59163,7 @@ index 000000000..dea96aeb0
 +
 +        if (spawn)
 +        {
-+            for (std::list<uint32>::const_iterator itr = entryList.begin(); itr != entryList.end(); ++itr)
++            for (std::list<uint32>::const_iterator itr = entryList.cbegin(); itr != entryList.cend(); ++itr)
 +            {
 +                uint32 entry = *itr;
 +                proto = sObjectMgr->GetCreatureTemplate(entry);
@@ -59283,18 +59293,33 @@ index 000000000..dea96aeb0
 +
 +    uint32 oldMSTime = getMSTime();
 +
-+    if (int32(_botsExtras.size() - _existingBots.size()) < int32(WANDERING_BOTS_COUNT))
++    std::map<uint8, std::set<uint32>> spareBotIdsPerClassMap;
++    for (uint8 c = BOT_CLASS_WARRIOR; c < BOT_CLASS_END; ++c)
++        if (c != BOT_CLASS_BM && BotMgr::IsClassEnabled(c) && spareBotIdsPerClassMap.find(c) == spareBotIdsPerClassMap.cend())
++            spareBotIdsPerClassMap.insert({ c, {} });
++
++    uint32 maxWanderingBots = 0;
++    for (decltype(_botsExtras)::value_type const& vt : _botsExtras)
 +    {
-+        TC_LOG_FATAL("server.loading", "Trying to generate %u bots but only %i out of %u bots aren't spawned. Create new bots or delete some from world. Aborting!",
-+            WANDERING_BOTS_COUNT, int32(_botsExtras.size() - _existingBots.size()), uint32(_botsExtras.size()));
-+        ASSERT(false);
++        uint8 c = vt.second->bclass;
++        if (c != BOT_CLASS_NONE && c != BOT_CLASS_BM && BotMgr::IsClassEnabled(c) && _botsData.find(vt.first) == _botsData.end())
++        {
++            ASSERT(spareBotIdsPerClassMap.find(c) != spareBotIdsPerClassMap.cend());
++            spareBotIdsPerClassMap.at(c).insert(vt.first);
++            ++maxWanderingBots;
++        }
 +    }
 +
-+    std::vector<uint8> allowed_classes;
-+    allowed_classes.reserve(BOT_CLASS_END);
 +    for (uint8 c = BOT_CLASS_WARRIOR; c < BOT_CLASS_END; ++c)
-+        if (c != BOT_CLASS_BM && BotMgr::IsClassEnabled(c))
-+            allowed_classes.push_back(c);
++        if (spareBotIdsPerClassMap.find(c) != spareBotIdsPerClassMap.cend() && spareBotIdsPerClassMap.at(c).empty())
++            spareBotIdsPerClassMap.erase(c);
++
++    if (maxWanderingBots < WANDERING_BOTS_COUNT)
++    {
++        TC_LOG_FATAL("server.loading", "Only %u out of %u bots of enabled classes aren't spawned. Desired amount of wandering bots (%u) cannot be created. Aborting!",
++            maxWanderingBots, uint32(_botsExtras.size()), WANDERING_BOTS_COUNT);
++        ASSERT(false);
++    }
 +
 +    uint32 bot_id = BOT_ENTRY_CREATE_BEGIN - 1;
 +    QueryResult result = CharacterDatabase.PQuery("SELECT value FROM worldstates WHERE entry = %u", uint32(BOT_GIVER_ENTRY));
@@ -59310,42 +59335,33 @@ index 000000000..dea96aeb0
 +    else
 +        bot_id = result->Fetch()[0].GetUInt32();
 +
-+    decltype(bot_id) bot_id_start = bot_id;
-+    ASSERT(bot_id_start > BOT_ENTRY_BEGIN);
++    ASSERT(bot_id > BOT_ENTRY_BEGIN);
 +
 +    CreatureTemplateContainer const& all_templates = sObjectMgr->GetCreatureTemplates();
-+    std::vector<uint32> clonedIds;
-+    clonedIds.reserve(WANDERING_BOTS_COUNT);
 +
-+    auto find_bot_creature_template_by_botclass = [&clonedIds](uint8 b_class, uint32 max_entry) -> CreatureTemplate const* {
-+        std::vector<CreatureTemplate const*> valid_templates;
-+        for (uint32 i = BOT_ENTRY_BEGIN; i < max_entry; ++i)
-+        {
-+            if (NpcBotExtras const* templateExtras = SelectNpcBotExtras(i))
-+            {
-+                if (templateExtras->bclass == b_class &&
-+                    std::find(std::cbegin(clonedIds), std::cend(clonedIds), i) == clonedIds.cend() &&
-+                    !BotDataMgr::FindBot(i))
-+                    valid_templates.push_back(sObjectMgr->GetCreatureTemplate(i));
-+            }
-+        }
-+        return valid_templates.empty() ? nullptr : Trinity::Containers::SelectRandomContainerElement(valid_templates);
++    auto find_bot_creature_template_by_botclass = [&spareBotIdsPerClassMap](uint8 b_class) -> CreatureTemplate const* {
++        ASSERT(spareBotIdsPerClassMap.find(b_class) != spareBotIdsPerClassMap.cend());
++        auto const& cSet = spareBotIdsPerClassMap.at(b_class);
++        uint32 entry = cSet.size() == 1 ? *cSet.cbegin() : Trinity::Containers::SelectRandomContainerElement(cSet);
++        return sObjectMgr->GetCreatureTemplate(entry);
++    };
++
++    auto remove_bot_orig_entry_from_available = [&spareBotIdsPerClassMap](uint8 bclass, uint32 botId) {
++        ASSERT(spareBotIdsPerClassMap.find(bclass) != spareBotIdsPerClassMap.cend());
++        ASSERT(spareBotIdsPerClassMap.at(bclass).find(botId) != spareBotIdsPerClassMap.at(bclass).cend());
++        spareBotIdsPerClassMap.at(bclass).erase(botId);
++        if (spareBotIdsPerClassMap.at(bclass).empty())
++            spareBotIdsPerClassMap.erase(bclass);
 +    };
 +
 +    std::set<uint32> botgrids;
 +    for (int32 i = 0; i < int32(WANDERING_BOTS_COUNT); ++i) // i is unused as value
 +    {
-+        while (all_templates.find(++bot_id) != all_templates.end()) {}
++        while (all_templates.find(++bot_id) != all_templates.cend()) {}
 +
-+        uint8 bot_class = Trinity::Containers::SelectRandomContainerElement(allowed_classes);
-+        CreatureTemplate const* orig_template = find_bot_creature_template_by_botclass(bot_class, bot_id_start);
-+        if (!orig_template)
-+        {
-+            //try again
-+            --i;
-+            --bot_id;
-+            continue;
-+        }
++        uint8 bot_class = Trinity::Containers::SelectRandomContainerElement(spareBotIdsPerClassMap).first;
++        CreatureTemplate const* orig_template = find_bot_creature_template_by_botclass(bot_class);
++        ASSERT(orig_template);
 +
 +        CreatureTemplate& bot_template = _botsWanderCreatureTemplates[bot_id];
 +        //copy all fields
@@ -59364,7 +59380,6 @@ index 000000000..dea96aeb0
 +        NpcBotData* bot_data = new NpcBotData(bot_ai::DefaultRolesForClass(bot_class), rentry ? rentry->FactionID : 14, bot_ai::DefaultSpecForClass(bot_class));
 +        _botsData[bot_id] = bot_data;
 +        NpcBotExtras* bot_extras = new NpcBotExtras();
-+        ASSERT_NOTNULL(bot_extras);
 +        bot_extras->bclass = bot_class;
 +        bot_extras->race = orig_extras->race;
 +        _botsExtras[bot_id] = bot_extras;
@@ -59382,15 +59397,13 @@ index 000000000..dea96aeb0
 +        int8 beqId = 1;
 +        _botsWanderCreatureEquipmentTemplates[bot_id] = sObjectMgr->GetEquipmentInfo(orig_template->Entry, beqId);
 +
-+        clonedIds.push_back(orig_template->Entry);
-+
 +        //We do not create CreatureData for generated bots
 +
 +        NodeType const* spawnLoc = nullptr;
 +        do
 +        {
 +            auto const& spair = Trinity::Containers::SelectRandomContainerElement(Trinity::Containers::SelectRandomContainerElement(WanderMap.Nodes).second);
-+            if (!(spair.second.maxlevel < GetMinLevelForBotClass(bot_class)))
++            if (spair.second.maxlevel >= GetMinLevelForBotClass(bot_class))
 +                spawnLoc = &spair.second;
 +
 +        } while (spawnLoc == nullptr);
@@ -59421,11 +59434,12 @@ index 000000000..dea96aeb0
 +            TC_LOG_FATAL("server.loading", "Cannot load npcbot from DB!");
 +            ASSERT(false);
 +        }
++
 +        bot->GetBotAI()->SetTravelNodeCur(spawnLoc->id);
 +
-+        botgrids.insert(g.GetId());
++        remove_bot_orig_entry_from_available(bot_class, orig_template->Entry);
 +
-+        //TC_LOG_INFO("server.loading", "Spawned wandering bot %u at: %s", bot_id, bot->ToString().c_str());
++        botgrids.insert(g.GetId());
 +    }
 +
 +    CharacterDatabase.PExecute("UPDATE worldstates SET value = %u WHERE entry = %u", bot_id, uint32(BOT_GIVER_ENTRY));
@@ -59437,7 +59451,7 @@ index 000000000..dea96aeb0
 +CreatureTemplate const* BotDataMgr::GetBotExtraCreatureTemplate(uint32 entry)
 +{
 +    CreatureTemplateContainer::const_iterator cit = _botsWanderCreatureTemplates.find(entry);
-+    return cit == _botsWanderCreatureTemplates.end() ? nullptr : &cit->second;
++    return cit == _botsWanderCreatureTemplates.cend() ? nullptr : &cit->second;
 +}
 +
 +EquipmentInfo const* BotDataMgr::GetBotEquipmentInfo(uint32 entry)
@@ -59477,7 +59491,7 @@ index 000000000..dea96aeb0
 +NpcBotData const* BotDataMgr::SelectNpcBotData(uint32 entry)
 +{
 +    NpcBotDataMap::const_iterator itr = _botsData.find(entry);
-+    return itr != _botsData.end() ? itr->second : nullptr;
++    return itr != _botsData.cend() ? itr->second : nullptr;
 +}
 +void BotDataMgr::UpdateNpcBotData(uint32 entry, NpcBotDataUpdateType updateType, void* data)
 +{
@@ -59712,26 +59726,26 @@ index 000000000..dea96aeb0
 +NpcBotAppearanceData const* BotDataMgr::SelectNpcBotAppearance(uint32 entry)
 +{
 +    NpcBotAppearanceDataMap::const_iterator itr = _botsAppearanceData.find(entry);
-+    return itr != _botsAppearanceData.end() ? itr->second : nullptr;
++    return itr != _botsAppearanceData.cend() ? itr->second : nullptr;
 +}
 +
 +NpcBotExtras const* BotDataMgr::SelectNpcBotExtras(uint32 entry)
 +{
 +    NpcBotExtrasMap::const_iterator itr = _botsExtras.find(entry);
-+    return itr != _botsExtras.end() ? itr->second : nullptr;
++    return itr != _botsExtras.cend() ? itr->second : nullptr;
 +}
 +
 +NpcBotTransmogData const* BotDataMgr::SelectNpcBotTransmogs(uint32 entry)
 +{
 +    NpcBotTransmogDataMap::const_iterator itr = _botsTransmogData.find(entry);
-+    return itr != _botsTransmogData.end() ? itr->second : nullptr;
++    return itr != _botsTransmogData.cend() ? itr->second : nullptr;
 +}
 +void BotDataMgr::UpdateNpcBotTransmogData(uint32 entry, uint8 slot, uint32 item_id, uint32 fake_id, bool update_db)
 +{
 +    ASSERT(slot < BOT_TRANSMOG_INVENTORY_SIZE);
 +
-+    NpcBotTransmogDataMap::iterator itr = _botsTransmogData.find(entry);
-+    if (itr == _botsTransmogData.end())
++    NpcBotTransmogDataMap::const_iterator itr = _botsTransmogData.find(entry);
++    if (itr == _botsTransmogData.cend())
 +        _botsTransmogData[entry] = new NpcBotTransmogData();
 +
 +    _botsTransmogData[entry]->transmogs[slot] = { item_id, fake_id };
@@ -59750,8 +59764,8 @@ index 000000000..dea96aeb0
 +
 +void BotDataMgr::ResetNpcBotTransmogData(uint32 entry, bool update_db)
 +{
-+    NpcBotTransmogDataMap::iterator itr = _botsTransmogData.find(entry);
-+    if (itr == _botsTransmogData.end())
++    NpcBotTransmogDataMap::const_iterator itr = _botsTransmogData.find(entry);
++    if (itr == _botsTransmogData.cend())
 +        return;
 +
 +    if (update_db)
@@ -59811,7 +59825,7 @@ index 000000000..dea96aeb0
 +{
 +    std::shared_lock<std::shared_mutex> lock(*GetLock());
 +
-+    for (NpcBotRegistry::const_iterator ci = _existingBots.begin(); ci != _existingBots.end(); ++ci)
++    for (NpcBotRegistry::const_iterator ci = _existingBots.cbegin(); ci != _existingBots.cend(); ++ci)
 +    {
 +        if ((*ci)->GetEntry() == entry)
 +            return *ci;
@@ -59825,7 +59839,7 @@ index 000000000..dea96aeb0
 +    {
 +        wstrToLower(wname);
 +        std::shared_lock<std::shared_mutex> lock(*GetLock());
-+        for (NpcBotRegistry::const_iterator ci = _existingBots.begin(); ci != _existingBots.end(); ++ci)
++        for (NpcBotRegistry::const_iterator ci = _existingBots.cbegin(); ci != _existingBots.cend(); ++ci)
 +        {
 +            std::string basename = (*ci)->GetName();
 +            if (CreatureLocale const* creatureInfo = sObjectMgr->GetCreatureLocale((*ci)->GetEntry()))
@@ -59858,7 +59872,7 @@ index 000000000..dea96aeb0
 +
 +    std::shared_lock<std::shared_mutex> lock(*GetLock());
 +
-+    for (NpcBotRegistry::const_iterator ci = _existingBots.begin(); ci != _existingBots.end(); ++ci)
++    for (NpcBotRegistry::const_iterator ci = _existingBots.cbegin(); ci != _existingBots.cend(); ++ci)
 +    {
 +        if (_botsData[(*ci)->GetEntry()]->owner == owner_guid.GetCounter())
 +            guids_vec.push_back((*ci)->GetGUID());
@@ -59871,7 +59885,7 @@ index 000000000..dea96aeb0
 +
 +    std::shared_lock<std::shared_mutex> lock(*GetLock());
 +
-+    for (NpcBotRegistry::const_iterator ci = _existingBots.begin(); ci != _existingBots.end(); ++ci)
++    for (NpcBotRegistry::const_iterator ci = _existingBots.cbegin(); ci != _existingBots.cend(); ++ci)
 +    {
 +        if ((*ci)->GetEntry() == entry)
 +            return (*ci)->GetGUID();
@@ -59900,6 +59914,21 @@ index 000000000..dea96aeb0
 +            ++count;
 +
 +    return count;
++}
++
++uint8 BotDataMgr::GetLevelBonusForBotRank(uint32 rank)
++{
++    switch (rank)
++    {
++        case CREATURE_ELITE_RARE:
++            return 1;
++        case CREATURE_ELITE_ELITE:
++            return 2;
++        case CREATURE_ELITE_RAREELITE:
++            return 3;
++        default:
++            return 0;
++    }
 +}
 +
 +uint8 BotDataMgr::GetMaxLevelForMapId(uint32 mapId)
@@ -60095,10 +60124,10 @@ index 000000000..dea96aeb0
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.h b/src/server/game/AI/NpcBots/botdatamgr.h
 new file mode 100644
-index 000000000..c9503ea46
+index 000000000..e62b0e6dd
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.h
-@@ -0,0 +1,178 @@
+@@ -0,0 +1,179 @@
 +#ifndef _BOTDATAMGR_H
 +#define _BOTDATAMGR_H
 +
@@ -60262,6 +60291,7 @@ index 000000000..c9503ea46
 +        static CreatureTemplate const* GetBotExtraCreatureTemplate(uint32 entry);
 +        static EquipmentInfo const* GetBotEquipmentInfo(uint32 entry);
 +
++        static uint8 GetLevelBonusForBotRank(uint32 rank);
 +        static uint8 GetMaxLevelForMapId(uint32 mapId);
 +        static uint8 GetMinLevelForBotClass(uint8 m_class);
 +        static std::pair<uint8, uint8> GetZoneLevels(uint32 zoneId);
@@ -74841,7 +74871,7 @@ index a7d6a5551..9a39ed669 100644
          InventoryResult CanStoreItem_InSpecificSlot(uint8 bag, uint8 slot, ItemPosCountVec& dest, ItemTemplate const* pProto, uint32& count, bool swap, Item* pSrcItem) const;
          InventoryResult CanStoreItem_InBag(uint8 bag, ItemPosCountVec& dest, ItemTemplate const* pProto, uint32& count, bool merge, bool non_specialized, Item* pSrcItem, uint8 skip_bag, uint8 skip_slot) const;
 diff --git a/src/server/game/Entities/Totem/Totem.cpp b/src/server/game/Entities/Totem/Totem.cpp
-index 08cf8ca86..2b3be75d4 100644
+index 08cf8ca86..9ba505827 100644
 --- a/src/server/game/Entities/Totem/Totem.cpp
 +++ b/src/server/game/Entities/Totem/Totem.cpp
 @@ -25,6 +25,11 @@
@@ -74877,15 +74907,14 @@ index 08cf8ca86..2b3be75d4 100644
      if (!GetOwner()->IsAlive() || !IsAlive())
      {
          UnSummon();                                         // remove self
-@@ -152,6 +171,13 @@ void Totem::UnSummon(uint32 msTime)
+@@ -152,6 +171,12 @@ void Totem::UnSummon(uint32 msTime)
      if (IsAlive())
          setDeathState(DEAD);
  
 +    //npcbot: send SummonedCreatureDespawn()
-+    if (GetCreatorGUID() && GetCreatorGUID().IsCreature())
-+        if (Creature* bot = ObjectAccessor::GetCreature(*GetOwner(), GetCreatorGUID()))
-+            if (bot->IsNPCBot())
-+                bot->OnBotDespawn(this);
++    if (Unit* creator = GetCreator())
++        if (creator->IsNPCBot())
++            creator->ToCreature()->OnBotDespawn(this);
 +    //end npcbot
 +
      AddObjectToRemoveList();
