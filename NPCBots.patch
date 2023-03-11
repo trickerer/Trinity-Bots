@@ -76,13 +76,15 @@
  sql/Bots/updates/world/2023_01_02_00_npc_text.sql  |     8 +
  sql/Bots/updates/world/2023_01_10_00_command.sql   |     4 +
  sql/Bots/updates/world/2023_01_11_00_command.sql   |     5 +
+ sql/Bots/updates/world/2023_03_10_00_command.sql   |     4 +
+ sql/Bots/updates/world/2023_03_10_01_command.sql   |     4 +
  src/common/Utilities/EventProcessor.h              |     1 +
  .../Database/Implementation/CharacterDatabase.cpp  |    24 +
  .../Database/Implementation/CharacterDatabase.h    |    20 +
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    72 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1412 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 18156 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 18182 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   743 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   395 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   936 +
@@ -102,8 +104,8 @@
  src/server/game/AI/NpcBots/bot_sphynx_ai.cpp       |   607 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  2105 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2266 +++
- src/server/game/AI/NpcBots/botcommands.cpp         |  2828 +++
- src/server/game/AI/NpcBots/botcommon.h             |   550 +
+ src/server/game/AI/NpcBots/botcommands.cpp         |  2859 +++
+ src/server/game/AI/NpcBots/botcommon.h             |   551 +
  src/server/game/AI/NpcBots/botdatamgr.cpp          |  1384 ++
  src/server/game/AI/NpcBots/botdatamgr.h            |   179 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   133 +
@@ -148,7 +150,7 @@
  src/server/game/Entities/Creature/CreatureData.h   |     6 +-
  .../game/Entities/Creature/TemporarySummon.cpp     |    32 +
  .../Entities/Creature/enuminfo_CreatureData.cpp    |    12 +-
- src/server/game/Entities/Object/Object.cpp         |    85 +-
+ src/server/game/Entities/Object/Object.cpp         |    93 +-
  src/server/game/Entities/Object/Object.h           |     6 +
  src/server/game/Entities/Player/KillRewarder.cpp   |    15 +
  src/server/game/Entities/Player/Player.cpp         |   191 +
@@ -206,7 +208,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   351 +
- 208 files changed, 75646 insertions(+), 76 deletions(-)
+ 210 files changed, 75720 insertions(+), 76 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -283,6 +285,8 @@
  create mode 100644 sql/Bots/updates/world/2023_01_02_00_npc_text.sql
  create mode 100644 sql/Bots/updates/world/2023_01_10_00_command.sql
  create mode 100644 sql/Bots/updates/world/2023_01_11_00_command.sql
+ create mode 100644 sql/Bots/updates/world/2023_03_10_00_command.sql
+ create mode 100644 sql/Bots/updates/world/2023_03_10_01_command.sql
  create mode 100644 src/server/game/AI/NpcBots/bot_Events.h
  create mode 100644 src/server/game/AI/NpcBots/bot_GridNotifiers.h
  create mode 100644 src/server/game/AI/NpcBots/bot_ai.cpp
@@ -5974,6 +5978,26 @@ index 000000000..f72d41fcc
 +INSERT INTO `command` (`name`) VALUES
 +('npcbot sendto point'),
 +('npcbot sendto point set');
+diff --git a/sql/Bots/updates/world/2023_03_10_00_command.sql b/sql/Bots/updates/world/2023_03_10_00_command.sql
+new file mode 100644
+index 000000000..410df3645
+--- /dev/null
++++ b/sql/Bots/updates/world/2023_03_10_00_command.sql
+@@ -0,0 +1,4 @@
++--
++DELETE FROM `command` WHERE `name` = 'npcbot go';
++INSERT INTO `command` (`name`) VALUES
++('npcbot go');
+diff --git a/sql/Bots/updates/world/2023_03_10_01_command.sql b/sql/Bots/updates/world/2023_03_10_01_command.sql
+new file mode 100644
+index 000000000..56e22c9bc
+--- /dev/null
++++ b/sql/Bots/updates/world/2023_03_10_01_command.sql
+@@ -0,0 +1,4 @@
++--
++DELETE FROM `command` WHERE `name` = 'npcbot recall spawns';
++INSERT INTO `command` (`name`) VALUES
++('npcbot recall spawns');
 diff --git a/src/common/Utilities/EventProcessor.h b/src/common/Utilities/EventProcessor.h
 index 2bf682165..0b8261ec0 100644
 --- a/src/common/Utilities/EventProcessor.h
@@ -7564,10 +7588,10 @@ index 000000000..f0b68cf53
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..41392e76f
+index 000000000..16b93e95a
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,18156 @@
+@@ -0,0 +1,18182 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -8141,7 +8165,7 @@ index 000000000..41392e76f
 +    if (spawned)
 +        ReturnHome();
 +
-+    if (!me->IsInWorld())
++    if (!me->IsInWorld() || resetType == BOTAI_RESET_FORCERECALL)
 +    {
 +        AbortTeleport();
 +
@@ -9808,9 +9832,9 @@ index 000000000..41392e76f
 +        }
 +        else
 +        {
-+            uint8 mapmaxlevel = std::min<uint8>(mylevel, BotDataMgr::GetMaxLevelForMapId(me->GetMap()->GetEntry()->ID));
++            uint8 mapmaxlevel = BotDataMgr::GetMaxLevelForMapId(me->GetMap()->GetEntry()->ID);
 +            mapmaxlevel += BotDataMgr::GetLevelBonusForBotRank(me->GetCreatureTemplate()->rank);
-+            mylevel = std::max<uint8>(mylevel, _baseLevel + std::min<uint8>(uint16(_killsCount / std::max<uint8>(mylevel * 5 / 2, 20)), mapmaxlevel));
++            mylevel = std::max<uint8>(mylevel, std::min<uint8>(_baseLevel + uint8(_killsCount / std::max<uint8>(mylevel * 5 / 2, 20)), mapmaxlevel));
 +        }
 +    }
 +    else
@@ -11826,7 +11850,7 @@ index 000000000..41392e76f
 +            return { u, u };
 +    }
 +
-+    if (IAmFree() && IsWanderer() && !me->IsInCombat() && me->getAttackers().empty() && (evadeDelayTimer > 4000 || Feasting() || me->GetHealthPct() < 85.f))
++    if (IAmFree() && IsWanderer() && !me->IsInCombat() && me->getAttackers().empty() && (evadeDelayTimer > 7500 || Feasting() || me->GetHealthPct() < 85.f))
 +        return { nullptr, nullptr };
 +
 +    //check targets around
@@ -19477,7 +19501,7 @@ index 000000000..41392e76f
 +                    Item* newItem = Item::CreateItem(itemId, 1, nullptr);
 +                    if (!newItem)
 +                    {
-+                        TC_LOG_ERROR("scripts", "bot_ai::_generateGear: Failed to create item %u (%s), slot %u!",
++                        TC_LOG_ERROR("npcbots", "bot_ai::_generateGear: Failed to create item %u (%s), slot %u!",
 +                            itemId, proto->Name1.c_str(), uint32(slot));
 +                        return;
 +                    }
@@ -19593,7 +19617,7 @@ index 000000000..41392e76f
 +
 +                    if (!_equip(slot, newItem, ObjectGuid::Empty))
 +                    {
-+                        TC_LOG_ERROR("scripts", "bot_ai::_generateGear: Failed to equip item %u (%s), slot %u!",
++                        TC_LOG_DEBUG("npcbots", "bot_ai::_generateGear: Failed to equip item %u (%s), slot %u!",
 +                            itemId, proto->Name1.c_str(), uint32(slot));
 +                        return;
 +                    }
@@ -19621,7 +19645,7 @@ index 000000000..41392e76f
 +    }
 +
 +    if (_equipsSlotsToGenerate.empty())
-+        TC_LOG_ERROR("scripts", "bot_ai::_generateGear: Bot %s (%u) gear generation complete!", me->GetName().c_str(), me->GetEntry());
++        TC_LOG_DEBUG("npcbots", "bot_ai::_generateGear: Bot %s (%u) gear generation complete!", me->GetName().c_str(), me->GetEntry());
 +}
 +
 +void bot_ai::ApplyItemBonuses(uint8 slot)
@@ -21590,7 +21614,7 @@ index 000000000..41392e76f
 +                gss << " " << uint32(i);
 +            }
 +        }
-+        TC_LOG_ERROR("scripts", gss.str().c_str());
++        TC_LOG_DEBUG("npcbots", gss.str().c_str());
 +    }
 +    else
 +    {
@@ -22212,7 +22236,7 @@ index 000000000..41392e76f
 +    ResetChase(u);
 +}
 +//killer may be NULL
-+void bot_ai::JustDied(Unit*)
++void bot_ai::JustDied(Unit* u)
 +{
 +    AbortTeleport();
 +    AbortAwaitStateRemoval();
@@ -22246,6 +22270,15 @@ index 000000000..41392e76f
 +                gr->SendUpdate();
 +    }
 +
++    if (u && (u->IsPvP() || u->IsControlledByPlayer()))
++    {
++        TC_LOG_DEBUG("npcbots", "%s %s id %u class %u level %u WAS KILLED BY %s %s id %u class %u level %u on their way to %s!",
++            IsWanderer() ? "Wandering bot" : "Bot", me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
++            (u->IsPlayer() ? "player" : u->IsNPCBot() ? u->ToCreature()->GetBotAI()->IsWanderer() ? "wandering bot" : "bot" : u->IsNPCBotPet() ? "botpet" : "creature"),
++            u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
++            BotDataMgr::GetWanderMapNodeName(me->GetMap()->GetEntry()->ID, _travel_node_cur).c_str());
++    }
++
 +    _reviveTimer = IsWanderer() ? 90000 : IAmFree() ? 180000 : 60000; //1.5min/3min/1min
 +    _atHome = false;
 +    _evadeMode = false;
@@ -22259,7 +22292,24 @@ index 000000000..41392e76f
 +{
 +    ++_killsCount;
 +    if (u->IsControlledByPlayer() || u->IsPvP())
++    {
 +        ++_pvpKillsCount;
++        if (IsWanderer())
++        {
++            TC_LOG_DEBUG("npcbots", "Wandering bot %s id %u class %u level %u KILLED %s %s id %u class %u level %u on their way to %s!",
++                me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
++                (u->IsPlayer() ? "player" : u->IsNPCBot() ? u->ToCreature()->GetBotAI()->IsWanderer() ? "wandering bot" : "bot" : u->IsNPCBotPet() ? "botpet" : "creature"),
++                u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
++                BotDataMgr::GetWanderMapNodeName(me->GetMap()->GetEntry()->ID, _travel_node_cur).c_str());
++        }
++        else if (u->IsNPCBot() && u->ToCreature()->GetBotAI()->IsWanderer())
++        {
++            TC_LOG_DEBUG("npcbots", "Bot %s id %u class %u level %u KILLED wandering bot %s id %u class %u level %u on their way to %s!",
++                me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
++                u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
++                BotDataMgr::GetWanderMapNodeName(me->GetMap()->GetEntry()->ID, _travel_node_cur).c_str());
++        }
++    }
 +    if (u->isType(TYPEMASK_PLAYER))
 +        ++_playerKillsCount;
 +    if (IsWanderer())
@@ -24373,7 +24423,7 @@ index 000000000..41392e76f
 +                }
 +
 +                std::string nodeName = BotDataMgr::GetWanderMapNodeName(me->GetMapId(), nextNodeId);
-+                TC_LOG_ERROR("scripts", "Bot %s id %u class %u level %u died on the way from node %u to %u, NEW %u ('%s'), %s, dist %.1f yd!",
++                TC_LOG_DEBUG("npcbots", "Bot %s id %u class %u level %u died on the way from node %u to %u, NEW %u ('%s'), %s, dist %.1f yd!",
 +                    me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()), _travel_node_last, _travel_node_cur,
 +                    nextNodeId, nodeName.c_str(), homepos.ToString().c_str(), me->GetExactDist(homepos));
 +
@@ -24469,7 +24519,7 @@ index 000000000..41392e76f
 +                ASSERT(pos.m_positionZ > INVALID_HEIGHT);
 +                if (need_jump)
 +                {
-+                    //TC_LOG_ERROR("scripts", "Bot %s id %u class %u level %u Jumping to point dist2d %.2f, zdiff %.2f...",
++                    //TC_LOG_DEBUG("npcbots", "Bot %s id %u class %u level %u Jumping to point dist2d %.2f, zdiff %.2f...",
 +                    //    me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
 +                    //    me->GetExactDist2d(pos), std::fabs(me->m_positionZ - pos.m_positionZ));
 +
@@ -24495,14 +24545,14 @@ index 000000000..41392e76f
 +                uint32 nextNodeId = GetNextTravelNode(homepos);
 +                if (!nextNodeId)
 +                {
-+                    TC_LOG_ERROR("scripts", "Bot %s (%u) is unable to get next travel node! cur %u, last %u, position: %s. BOT WAS DISABLED",
++                    TC_LOG_FATAL("npcbots", "Bot %s (%u) is unable to get next travel node! cur %u, last %u, position: %s. BOT WAS DISABLED",
 +                        me->GetName().c_str(), me->GetEntry(), _travel_node_cur, _travel_node_last, me->GetPosition().ToString().c_str());
 +                    canUpdate = false;
 +                    return;
 +                }
 +
 +                std::string nodeName = BotDataMgr::GetWanderMapNodeName(me->GetMapId(), nextNodeId);
-+                TC_LOG_ERROR("scripts", "Bot %s id %u class %u level %u wandered from node %u to %u, next %u ('%s'), %s, dist %.1f yd!",
++                TC_LOG_DEBUG("npcbots", "Bot %s id %u class %u level %u wandered from node %u to %u, next %u ('%s'), %s, dist %.1f yd!",
 +                    me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()), _travel_node_last, _travel_node_cur,
 +                    nextNodeId, nodeName.c_str(), homepos.ToString().c_str(), me->GetExactDist(homepos));
 +
@@ -55344,10 +55394,10 @@ index 000000000..ce16764d6
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 000000000..71e33bda5
+index 000000000..31a191bcf
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
-@@ -0,0 +1,2828 @@
+@@ -0,0 +1,2859 @@
 +#include "bot_ai.h"
 +#include "botdump.h"
 +#include "botmgr.h"
@@ -55712,6 +55762,7 @@ index 000000000..71e33bda5
 +        static ChatCommandTable npcbotRecallCommandTable =
 +        {
 +            { "",           HandleNpcBotRecallCommand,              rbac::RBAC_PERM_COMMAND_NPCBOT_RECALL,             Console::No  },
++            { "spawns",     HandleNpcBotRecallSpawnsCommand,        rbac::RBAC_PERM_COMMAND_NPCBOT_RECALL,             Console::No  },
 +            { "teleport",   HandleNpcBotRecallTeleportCommand,      rbac::RBAC_PERM_COMMAND_NPCBOT_RECALL,             Console::No  },
 +        };
 +
@@ -56792,6 +56843,36 @@ index 000000000..71e33bda5
 +        handler->SendSysMessage("You must select one of your bots or yourself");
 +        handler->SetSentErrorMessage(true);
 +        return false;
++    }
++
++    static bool HandleNpcBotRecallSpawnsCommand(ChatHandler* handler)
++    {
++        Player const* owner = handler->GetSession()->GetPlayer();
++
++        std::vector<ObjectGuid> botvec;
++        BotDataMgr::GetNPCBotGuidsByOwner(botvec, owner->GetGUID());
++        if (owner->HaveBot())
++            botvec.erase(std::remove_if(botvec.begin(), botvec.end(), [=](ObjectGuid botguid) { return owner->GetBotMgr()->GetBot(botguid); }), botvec.end());
++
++        uint32 recalled_count = 0;
++        for (ObjectGuid botguid : botvec)
++        {
++            if (Creature const* bot = BotDataMgr::FindBot(botguid.GetEntry()))
++            {
++                bot->GetBotAI()->ResetBotAI(BOTAI_RESET_FORCERECALL);
++                ++recalled_count;
++            }
++        }
++
++        if (recalled_count == 0)
++        {
++            handler->SendSysMessage(".npcbot recall spawns");
++            handler->SendSysMessage("Forces all your owned inactive npcbots to teleport to their spawn locations immediatelly");
++            handler->SetSentErrorMessage(true);
++            return false;
++        }
++
++        return true;
 +    }
 +
 +    static bool HandleNpcBotRecallTeleportCommand(ChatHandler* handler)
@@ -58178,10 +58259,10 @@ index 000000000..71e33bda5
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommon.h b/src/server/game/AI/NpcBots/botcommon.h
 new file mode 100644
-index 000000000..21925beaf
+index 000000000..8062a056f
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommon.h
-@@ -0,0 +1,550 @@
+@@ -0,0 +1,551 @@
 +#ifndef _BOTCOMMON_H
 +#define _BOTCOMMON_H
 +
@@ -58670,6 +58751,7 @@ index 000000000..21925beaf
 +    BOTAI_RESET_DISMISS                 = 0x02,
 +    BOTAI_RESET_LOST                    = 0x04,
 +    BOTAI_RESET_LOGOUT                  = 0x08,
++    BOTAI_RESET_FORCERECALL             = 0x10,
 +
 +    BOTAI_RESET_MASK_ABANDON_MASTER     = (BOTAI_RESET_INIT | BOTAI_RESET_DISMISS)
 +};
@@ -58734,7 +58816,7 @@ index 000000000..21925beaf
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.cpp b/src/server/game/AI/NpcBots/botdatamgr.cpp
 new file mode 100644
-index 000000000..3b9bfb5e6
+index 000000000..d889fcaee
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.cpp
 @@ -0,0 +1,1384 @@
@@ -59416,7 +59498,7 @@ index 000000000..3b9bfb5e6
 +        map->LoadGrid(spawnLoc->m_positionX, spawnLoc->m_positionY);
 +        ASSERT(!map->Instanceable(), map->GetDebugInfo().c_str());
 +
-+        TC_LOG_INFO("server.loading", "Spawning wandering bot: %s (%u) class %u race %u fac %u, location: mapId %u %s (%s)",
++        TC_LOG_INFO("npcbots", "Spawning wandering bot: %s (%u) class %u race %u fac %u, location: mapId %u %s (%s)",
 +            bot_template.Name.c_str(), bot_id, uint32(bot_extras->bclass), uint32(bot_extras->race), bot_data->faction,
 +            spawnLoc->m_mapId, spawnLoc->ToString().c_str(), spawnLoc->name.c_str());
 +        Position spos;
@@ -74278,7 +74360,7 @@ index 13fcc0cb5..e5cc13d60 100644
          case CREATURE_FLAG_EXTRA_IGNORE_PATHFINDING: return 29;
          case CREATURE_FLAG_EXTRA_IMMUNITY_KNOCKBACK: return 30;
 diff --git a/src/server/game/Entities/Object/Object.cpp b/src/server/game/Entities/Object/Object.cpp
-index 056ced889..9fb280b4f 100644
+index 056ced889..d4748398f 100644
 --- a/src/server/game/Entities/Object/Object.cpp
 +++ b/src/server/game/Entities/Object/Object.cpp
 @@ -1001,6 +1001,11 @@ void WorldObject::setActive(bool on)
@@ -74449,15 +74531,23 @@ index 056ced889..9fb280b4f 100644
      Unit const* unit = ToUnit();
      // visibility checks (only units)
      if (unit)
-@@ -2907,6 +2983,13 @@ bool WorldObject::IsValidAttackTarget(WorldObject const* target, SpellInfo const
+@@ -2907,6 +2983,21 @@ bool WorldObject::IsValidAttackTarget(WorldObject const* target, SpellInfo const
              return false;
      }
  
 +    //npcbot: CvC case fix for bots, still a TODO
-+    if (unit && unitTarget && !unit->HasUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED) &&
-+        !unitTarget->HasUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED) &&
-+        ((IsNPCBotOrPet() && !ToCreature()->IsFreeBot()) || (target->IsNPCBotOrPet() && !target->ToCreature()->IsFreeBot())))
-+        return GetReactionTo(target) <= REP_NEUTRAL || target->GetReactionTo(this) <= REP_NEUTRAL;
++    if (unit && unitTarget &&
++        ((IsNPCBotOrPet() && ToCreature()->IsFreeBot()) || (target->IsNPCBotOrPet() && target->ToCreature()->IsFreeBot())) &&
++        !IsFriendlyTo(unitTarget) && !unitTarget->IsFriendlyTo(this))
++    {
++        auto const* ft1 = sFactionTemplateStore.LookupEntry(unit->GetFaction());
++        auto const* ft2 = sFactionTemplateStore.LookupEntry(unitTarget->GetFaction());
++        auto const* fe1 = ft1 ? sFactionStore.LookupEntry(ft1->Faction) : nullptr;
++        auto const* fe2 = ft2 ? sFactionStore.LookupEntry(ft2->Faction) : nullptr;
++        if ((IsNPCBotOrPet() && fe2 && fe2->CanHaveReputation() && ReputationMgr::ReputationToRank(fe2->ReputationBase[0]) >= REP_NEUTRAL) ||
++            (target->IsNPCBotOrPet() && fe1 && fe1->CanHaveReputation() && ReputationMgr::ReputationToRank(fe1->ReputationBase[0]) >= REP_NEUTRAL))
++            return false;
++    }
 +    //end npcbot
 +
      // CvC case - can attack each other only when one of them is hostile

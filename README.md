@@ -1,6 +1,6 @@
 ### This mod was last updated:
-### TC: 10 Mar 2023, [9d000fefd3](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/9d000fefd3)
-### AC: 10 Mar 2023, [5069e9887a](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/5069e9887a)
+### TC: 11 Mar 2023, [3c2dd65b02](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/3c2dd65b02)
+### AC: 11 Mar 2023, [11f5bc54d8](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/11f5bc54d8)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 
@@ -249,10 +249,13 @@ _ARGUMENT_  indicates argument names
         - `.npcb send eva jol eanor harene`  
         - `.npcbot sendto last eva jol eanor harene`  
 - **`recall _TARGET_`** -- (Player command) forces a NPCBot to move directly on your position. Usable while dead. Designed mostly for situations like when you die and your NPCBots are stuck under textures and in combat at the same time  
+    - **`teleport _TARGET_`** -- (Player command) forces NPCBots to *teleport* to you immediatelly. Cannot be used in PvP  
+    - **`spawns`** -- (Player command) forces your inactive NPCBots to teleport to their spawn locations immediatelly. Use if bots do not join you back after logout  
     - _TARGET_ = selected NPCBot (move single NPCBot)  
     - _TARGET_ = self (move all NPCBots)  
     **Example Usage:**  
         - `.npcbot recall`  
+        - `.npcb rec tele`  
 - **`kill _TARGET_`|`suicide _TARGET_`** -- (Player command) forces a NPCBot to die. Designed for troubleshooting in situations like when NPCBots are not acting normally. This can be caused by a rare bug causing creatures to retain Unit States. If this doesn't work, try to `/tickle` them  
     - _TARGET_ = selected NPCBot (kill single NPCBot troublemaker)  
     - _TARGET_ = self (kill all your NPCBots)  
@@ -285,6 +288,11 @@ _ARGUMENT_  indicates argument names
     **Example Usage:**  
         - `.npcbot vehicle eject`  
         - `.npcb veh e`  
+- **`go _ENTRY_`** -- (Admin command) allows you to teleport to NPCBot's current location, similar to `.appear` command for players. Be careful as this command may occasionally teleport you below ground level due to creature pathing errors  
+    - _ENTRY_ = creature ID  
+    **Example Usage:**  
+        - `.npcbot go 70855` (teleport to NPCBot 70855)  
+        - `.npcb go 70855`  
 - **`dump`** -- (Admin command) allows you to migrate bots data, similar to `pdump` for players (by itself will display list of subcommands)  
     - **`write <_FILENAME_>`** -- creates a backup file containing info required to move bots to another DB  
         - _FILENAME_ = name of the file to create, will be saved in server root folder (Windows) or home directory (Linux), if file extension is not provided, **.sql** wil be used  
