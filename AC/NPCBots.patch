@@ -23,6 +23,8 @@
  data/sql/custom/db_world/2022_12_23_00_command.sql |     6 +
  data/sql/custom/db_world/2022_12_29_00_command.sql |     2 +
  .../sql/custom/db_world/2023_01_02_00_npc_text.sql |     8 +
+ ...12_00_creature_template_npcbot_wander_nodes.sql |    18 +
+ .../2023_03_14_00_creature_wander_nodes.sql        |     2 +
  npcbots_prepatch.log                               |   897 +
  src/common/Utilities/EventProcessor.h              |     1 +
  src/server/apps/worldserver/worldserver.conf.dist  |   351 +
@@ -32,7 +34,7 @@
  src/server/game/AI/CreatureAI.h                    |     5 +
  src/server/game/AI/NpcBots/bot_Events.h            |    72 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1412 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 18216 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 18218 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   743 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   414 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   957 +
@@ -52,9 +54,9 @@
  src/server/game/AI/NpcBots/bot_sphynx_ai.cpp       |   607 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  2107 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2267 +++
- src/server/game/AI/NpcBots/botcommands.cpp         |  2888 +++
+ src/server/game/AI/NpcBots/botcommands.cpp         |  2883 +++
  src/server/game/AI/NpcBots/botcommon.h             |   552 +
- src/server/game/AI/NpcBots/botdatamgr.cpp          |  1387 ++
+ src/server/game/AI/NpcBots/botdatamgr.cpp          |  1400 ++
  src/server/game/AI/NpcBots/botdatamgr.h            |   179 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   133 +
  src/server/game/AI/NpcBots/botdpstracker.h         |    42 +
@@ -62,7 +64,7 @@
  src/server/game/AI/NpcBots/botdump.h               |    51 +
  src/server/game/AI/NpcBots/botgiver.cpp            |   286 +
  src/server/game/AI/NpcBots/botgossip.h             |   135 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  1922 ++
+ src/server/game/AI/NpcBots/botmgr.cpp              |  1927 ++
  src/server/game/AI/NpcBots/botmgr.h                |   259 +
  src/server/game/AI/NpcBots/botspell.cpp            |  1490 ++
  src/server/game/AI/NpcBots/botspell.h              |   283 +
@@ -127,7 +129,7 @@
  src/server/game/Scripting/ScriptMgr.h              |     2 +
  src/server/game/Server/WorldSession.cpp            |    21 +
  src/server/game/Spells/Auras/SpellAuraEffects.cpp  |   101 +
- src/server/game/Spells/Auras/SpellAuras.cpp        |    64 +
+ src/server/game/Spells/Auras/SpellAuras.cpp        |    60 +
  src/server/game/Spells/Spell.cpp                   |   181 +
  src/server/game/Spells/Spell.h                     |     3 +
  src/server/game/Spells/SpellEffects.cpp            |   189 +
@@ -151,7 +153,7 @@
  src/server/scripts/Spells/spell_rogue.cpp          |    52 +
  src/server/scripts/Spells/spell_shaman.cpp         |    10 +
  src/server/shared/SharedDefines.h                  |    23 +
- 153 files changed, 76464 insertions(+), 94 deletions(-)
+ 155 files changed, 76495 insertions(+), 94 deletions(-)
  create mode 100644 appveyor.yml
  create mode 100644 data/sql/Bots/locales/esES/npc_text_locale.sql
  create mode 100644 data/sql/Bots/locales/esMX/npc_text_locale.sql
@@ -176,6 +178,8 @@
  create mode 100644 data/sql/custom/db_world/2022_12_23_00_command.sql
  create mode 100644 data/sql/custom/db_world/2022_12_29_00_command.sql
  create mode 100644 data/sql/custom/db_world/2023_01_02_00_npc_text.sql
+ create mode 100644 data/sql/custom/db_world/2023_03_12_00_creature_template_npcbot_wander_nodes.sql
+ create mode 100644 data/sql/custom/db_world/2023_03_14_00_creature_wander_nodes.sql
  create mode 100644 npcbots_prepatch.log
  create mode 100644 src/server/game/AI/NpcBots/bot_Events.h
  create mode 100644 src/server/game/AI/NpcBots/bot_GridNotifiers.h
@@ -5001,6 +5005,38 @@ index 0000000000..44625a44fe
 +
 +INSERT INTO `npc_text` (`ID`,`text0_0`,`VerifiedBuild`) VALUES
 +(@BOT_START+0, "Priority target", -1);
+diff --git a/data/sql/custom/db_world/2023_03_12_00_creature_template_npcbot_wander_nodes.sql b/data/sql/custom/db_world/2023_03_12_00_creature_template_npcbot_wander_nodes.sql
+new file mode 100644
+index 0000000000..d6589a6e92
+--- /dev/null
++++ b/data/sql/custom/db_world/2023_03_12_00_creature_template_npcbot_wander_nodes.sql
+@@ -0,0 +1,18 @@
++--
++DROP TABLE IF EXISTS `creature_template_npcbot_wander_nodes`;
++CREATE TABLE `creature_template_npcbot_wander_nodes` (
++  `id` int(10) unsigned NOT NULL,
++  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'RENAME_ME',
++  `mapid` smallint(5) unsigned NOT NULL DEFAULT '0',
++  `zoneid` int(10) unsigned NOT NULL DEFAULT '0',
++  `areaid` int(10) unsigned NOT NULL DEFAULT '0',
++  `minlevel` tinyint(3) unsigned NOT NULL DEFAULT '0',
++  `maxlevel` tinyint(3) unsigned NOT NULL DEFAULT '0',
++  `flags` int(10) unsigned NOT NULL DEFAULT '0',
++  `x` float NOT NULL DEFAULT '0',
++  `y` float NOT NULL DEFAULT '0',
++  `z` float NOT NULL DEFAULT '0',
++  `o` float NOT NULL DEFAULT '0',
++  `links` mediumtext COLLATE utf8mb4_unicode_ci,
++  PRIMARY KEY (`id`)
++) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Bot Wander Map';
+diff --git a/data/sql/custom/db_world/2023_03_14_00_creature_wander_nodes.sql b/data/sql/custom/db_world/2023_03_14_00_creature_wander_nodes.sql
+new file mode 100644
+index 0000000000..ebd3093bbb
+--- /dev/null
++++ b/data/sql/custom/db_world/2023_03_14_00_creature_wander_nodes.sql
+@@ -0,0 +1,2 @@
++--
++DROP TABLE IF EXISTS `creature_wander_nodes`;
 diff --git a/npcbots_prepatch.log b/npcbots_prepatch.log
 new file mode 100644
 index 0000000000..4d4784e5da
@@ -7869,10 +7905,10 @@ index 0000000000..352fbaff57
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000000..3e462cdb8f
+index 0000000000..941c040e0e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,18216 @@
+@@ -0,0 +1,18218 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -13352,22 +13388,18 @@ index 0000000000..3e462cdb8f
 +    if (!feast_mana && me->GetMaxPower(POWER_MANA) > 1 && !me->HasAuraType(SPELL_AURA_MOUNTED) && !me->isMoving() && CanDrink() &&
 +        !me->IsInCombat() && !me->GetVehicle() && !IsCasting() && GetManaPCT(me) < 75 && urand(0, 100) < 20)
 +    {
-+        //me->SetStandState(UNIT_STAND_STATE_SIT);
-+        //CastSpellExtraArgs args(TRIGGERED_FULL_MASK);
-+        //me->CastSpell(me, GetRation(true), args);
 +        if (IAmFree())
 +            me->BotStopMovement();
++        me->CastSpell(me, GetRation(true), true);
 +    }
 +
 +    //eat
 +    if (!feast_health && !me->HasAuraType(SPELL_AURA_MOUNTED) && !me->isMoving() && CanEat() &&
 +        !me->IsInCombat() && !me->GetVehicle() && !IsCasting() && GetHealthPCT(me) < 80 && urand(0, 100) < 20)
 +    {
-+        //me->SetStandState(UNIT_STAND_STATE_SIT);
-+        //CastSpellExtraArgs args(TRIGGERED_FULL_MASK);
-+        //me->CastSpell(me, GetRation(false), args);
 +        if (IAmFree())
 +            me->BotStopMovement();
++        me->CastSpell(me, GetRation(false), true);
 +    }
 +}
 +//Health and Powers regeneration
@@ -19760,7 +19792,7 @@ index 0000000000..3e462cdb8f
 +        return itemEntry + 1 + itemEntry % ((myEntry % 20) + 1);
 +    };
 +
-+    uint32 itemId = urand(60u, 45000u);
++    uint32 itemId = urand(20u, 45000u);
 +    for (uint8 n = 0; n < ITEMS_PER_CHECK;)
 +    {
 +        if (ItemTemplate const* proto = sObjectMgr->GetItemTemplate(itemId))
@@ -19768,7 +19800,11 @@ index 0000000000..3e462cdb8f
 +            bool skip1 = false;
 +            switch (proto->Class)
 +            {
-+                case ITEM_CLASS_ARMOR: case ITEM_CLASS_WEAPON:
++                case ITEM_CLASS_ARMOR:
++                    break;
++                case ITEM_CLASS_WEAPON:
++                    if (proto->Damage[0].DamageMin < 1.0f)
++                        skip1 = true;
 +                    break;
 +                default:
 +                    skip1 = true;
@@ -19869,6 +19905,8 @@ index 0000000000..3e462cdb8f
 +                            }
 +                            break;
 +                        case BOT_SLOT_RANGED:
++                            if (proto->Class != ITEM_CLASS_WEAPON)
++                                skip2 = true;
 +                            break;
 +                        case BOT_SLOT_HEAD:
 +                        case BOT_SLOT_SHOULDERS:
@@ -21920,7 +21958,7 @@ index 0000000000..3e462cdb8f
 +                gss << " " << uint32(i);
 +            }
 +        }
-+        LOG_DEBUG("npcbots", gss.str().c_str());
++        LOG_TRACE("npcbots", gss.str().c_str());
 +    }
 +    else
 +    {
@@ -55847,10 +55885,10 @@ index 0000000000..29042ed910
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 0000000000..a63151635d
+index 0000000000..f41e961386
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
-@@ -0,0 +1,2888 @@
+@@ -0,0 +1,2883 @@
 +#include "bot_ai.h"
 +#include "botdump.h"
 +#include "botmgr.h"
@@ -56182,11 +56220,6 @@ index 0000000000..a63151635d
 +            BotInfo(BotInfo const&) = delete;
 +            BotInfo& operator=(BotInfo const&) = delete;
 +    };
-+    static bool sortbots(BotInfo const& p1, BotInfo const& p2)
-+    {
-+        return p1.id < p2.id;
-+    }
-+
 +
 +    static char const* get_race_name(uint8 race)
 +    {
@@ -57667,7 +57700,7 @@ index 0000000000..a63151635d
 +            return false;
 +        }
 +
-+        std::sort(botlist.begin(), botlist.end(), script_bot_commands::sortbots);
++        std::sort(botlist.begin(), botlist.end(), [](BotInfo const& bi1, BotInfo const& bi2) { return bi1.id < bi2.id; });
 +
 +        for (BotList::const_iterator itr = botlist.begin(); itr != botlist.end(); ++itr)
 +        {
@@ -59299,10 +59332,10 @@ index 0000000000..343cf87fed
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.cpp b/src/server/game/AI/NpcBots/botdatamgr.cpp
 new file mode 100644
-index 0000000000..3c17b3f115
+index 0000000000..250e068eb0
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.cpp
-@@ -0,0 +1,1387 @@
+@@ -0,0 +1,1400 @@
 +#include "bot_ai.h"
 +#include "botdatamgr.h"
 +#include "botmgr.h"
@@ -59850,6 +59883,17 @@ index 0000000000..3c17b3f115
 +{
 +    using NodeType = BotTravelGraph::BotTravelNode;
 +
++    const std::map<uint8, uint32> wbot_faction_for_ex_class = {
++        {BOT_CLASS_BM, 2u},
++        {BOT_CLASS_SPHYNX, 14u},
++        {BOT_CLASS_ARCHMAGE, 1u},
++        {BOT_CLASS_DREADLORD, 14u},
++        {BOT_CLASS_SPELLBREAKER, 1610u},
++        {BOT_CLASS_DARK_RANGER, 14u},
++        {BOT_CLASS_NECROMANCER, 14u},
++        {BOT_CLASS_SEA_WITCH, 14u}
++    };
++
 +    const uint32 WANDERING_BOTS_COUNT = BotMgr::GetDesiredWanderingBotsCount();
 +
 +    if (WANDERING_BOTS_COUNT == 0)
@@ -59944,8 +59988,9 @@ index 0000000000..3c17b3f115
 +        NpcBotExtras const* orig_extras = SelectNpcBotExtras(orig_template->Entry);
 +        ASSERT_NOTNULL(orig_extras);
 +        ChrRacesEntry const* rentry = sChrRacesStore.LookupEntry(orig_extras->race);
++        uint32 bot_faction = (bot_class >= BOT_CLASS_EX_START) ? wbot_faction_for_ex_class.find(bot_class)->second : rentry ? rentry->FactionID : 14;
 +
-+        NpcBotData* bot_data = new NpcBotData(bot_ai::DefaultRolesForClass(bot_class), rentry ? rentry->FactionID : 14, bot_ai::DefaultSpecForClass(bot_class));
++        NpcBotData* bot_data = new NpcBotData(bot_ai::DefaultRolesForClass(bot_class), bot_faction, bot_ai::DefaultSpecForClass(bot_class));
 +        _botsData[bot_id] = bot_data;
 +        NpcBotExtras* bot_extras = new NpcBotExtras();
 +        bot_extras->bclass = bot_class;
@@ -60598,6 +60643,7 @@ index 0000000000..3c17b3f115
 +        case 41: // Deadwind Pass
 +            return { 50, 60 };
 +        case 1377: // Silithus
++        case 2017: // Stratholme
 +            return { 53, 60 };
 +        case 139: // Eastern Plaguelands
 +        case 618: // Winterspring
@@ -62577,10 +62623,10 @@ index 0000000000..75f3c0b199
 +#endif //BOTGOSSIP_H
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 0000000000..ef609f9db4
+index 0000000000..a0f586d46c
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,1922 @@
+@@ -0,0 +1,1927 @@
 +#include "Battleground.h"
 +#include "BattlegroundMgr.h"
 +#include "bot_ai.h"
@@ -63205,22 +63251,24 @@ index 0000000000..ef609f9db4
 +        }
 +
 +        if (partyCombat == false)
++        {
 +            ai->UpdateReviveTimer(diff);
 +
-+        //bot->IsAIEnabled = true;
++            //bot->IsAIEnabled = true;
 +
-+        if (ai->GetReviveTimer() <= diff)
-+        {
-+            if (bot->IsInWorld() && !bot->IsAlive() && _owner->IsAlive() && !_owner->IsInCombat() &&
-+                !_owner->IsBeingTeleported() && !_owner->InArena() && !_owner->IsInFlight() &&
-+                !_owner->HasUnitFlag2(UNIT_FLAG2_FEIGN_DEATH) &&
-+                !_owner->HasInvisibilityAura() && !_owner->HasStealthAura())
++            if (ai->GetReviveTimer() <= diff)
 +            {
-+                _reviveBot(bot);
-+                continue;
-+            }
++                if (bot->IsInWorld() && !bot->IsAlive() && _owner->IsAlive() && !_owner->IsInCombat() &&
++                    !_owner->IsBeingTeleported() && !_owner->InArena() && !_owner->IsInFlight() &&
++                    !_owner->HasUnitFlag2(UNIT_FLAG2_FEIGN_DEATH) &&
++                    !_owner->HasInvisibilityAura() && !_owner->HasStealthAura())
++                {
++                    _reviveBot(bot);
++                    continue;
++                }
 +
-+            ai->SetReviveTimer(urand(1000, 5000));
++                ai->SetReviveTimer(urand(1000, 5000));
++            }
 +        }
 +
 +        if (_owner->IsAlive() && (bot->IsAlive() || restrictBots) && !ai->IsTempBot() && !ai->IsDuringTeleport() &&
@@ -63398,10 +63446,13 @@ index 0000000000..ef609f9db4
 +
 +    bot->SetDisplayId(bot->GetNativeDisplayId());
 +    bot->ReplaceAllNpcFlags(NPCFlags(bot->GetCreatureTemplate()->npcflag));
-+    bot->ClearUnitState(uint32(UNIT_STATE_ALL_STATE));
++    bot->ClearUnitState(uint32(UNIT_STATE_ALL_STATE & ~(UNIT_STATE_IGNORE_PATHFINDING | UNIT_STATE_NO_ENVIRONMENT_UPD)));
 +    bot->ReplaceAllUnitFlags(UnitFlags(0));
++    bot->SetLootRecipient(nullptr);
++    bot->ResetPlayerDamageReq();
 +    bot->SetPvP(bot->GetBotOwner()->IsPvP());
 +    bot->SetUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED);
++    bot->Motion_Initialize();
 +    bot->setDeathState(ALIVE);
 +    //bot->GetBotAI()->Reset();
 +    bot->GetBotAI()->SetShouldUpdateStats();
@@ -78512,7 +78563,7 @@ index 197a17fe83..8f129a1b28 100644
          LOG_DEBUG("spells.aura", "AuraEffect::HandleProcTriggerSpellWithValueAuraProc: Triggering spell {} with value {} from aura {} proc", triggeredSpellInfo->Id, basepoints0, GetId());
          triggerCaster->CastCustomSpell(triggerTarget, triggerSpellId, &basepoints0, nullptr, nullptr, true, nullptr, this);
 diff --git a/src/server/game/Spells/Auras/SpellAuras.cpp b/src/server/game/Spells/Auras/SpellAuras.cpp
-index 6a8bc21094..f4a7b60375 100644
+index 6a8bc21094..46f85b24bd 100644
 --- a/src/server/game/Spells/Auras/SpellAuras.cpp
 +++ b/src/server/game/Spells/Auras/SpellAuras.cpp
 @@ -35,6 +35,10 @@
@@ -78638,17 +78689,6 @@ index 6a8bc21094..f4a7b60375 100644
      // only auras with spell proc entry can trigger proc
      if (!procEntry)
          return false;
-@@ -2807,6 +2867,10 @@ void UnitAura::FillTargetMap(std::map<Unit*, uint8>& targets, Unit* caster)
-     {
-         if (!HasEffect(effIndex))
-             continue;
-+        //npcbot
-+        if (!GetUnitOwner()->IsInWorld())
-+            continue;
-+        //end npcbot
-         UnitList targetList;
-         // non-area aura
-         if (GetSpellInfo()->Effects[effIndex].Effect == SPELL_EFFECT_APPLY_AURA)
 diff --git a/src/server/game/Spells/Spell.cpp b/src/server/game/Spells/Spell.cpp
 index e22e99eb60..342990594d 100644
 --- a/src/server/game/Spells/Spell.cpp
