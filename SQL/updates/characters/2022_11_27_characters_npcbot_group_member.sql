@@ -1,4 +1,4 @@
--- 
+--
 DROP TABLE IF EXISTS `characters_npcbot_group_member`;
 CREATE TABLE `characters_npcbot_group_member` (
   `guid` int(10) unsigned NOT NULL,

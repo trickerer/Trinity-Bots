@@ -1,6 +1,6 @@
 ### This mod was last updated:
-### TC: 11 Mar 2023, [3c2dd65b02](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/3c2dd65b02)
-### AC: 15 Mar 2023, [f7861d33d1](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/f7861d33d1)
+### TC: 21 Mar 2023, [98609b182b](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/98609b182b)
+### AC: 21 Mar 2023, [b0d1eac636](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/b0d1eac636)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 
@@ -293,6 +293,22 @@ _ARGUMENT_  indicates argument names
     **Example Usage:**  
         - `.npcbot go 70855` (teleport to NPCBot 70855)  
         - `.npcb go 70855`  
+- **`wp`** -- (Admin command) a set of development commands for manipulating free-roaming bots wander points. If you wish to use them see the code  
+    - **`spawnall`**  
+    - **`move`**  
+    - **`add`**  
+    - **`del`**  
+    - **`list`**  
+    - **`list all`**  
+    - **`go`**  
+    - **`setlevels`**  
+    - **`setlevels z`**  
+    - **`setflags`**  
+    - **`setflags z`**  
+    - **`setname`**  
+    - **`setlinks`**  
+    - **`info`**  
+    - **`links`**  
 - **`dump`** -- (Admin command) allows you to migrate bots data, similar to `pdump` for players (by itself will display list of subcommands)  
     - **`write <_FILENAME_>`** -- creates a backup file containing info required to move bots to another DB  
         - _FILENAME_ = name of the file to create, will be saved in server root folder (Windows) or home directory (Linux), if file extension is not provided, **.sql** wil be used  
