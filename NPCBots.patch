@@ -85,10 +85,10 @@
  .../Database/Implementation/CharacterDatabase.cpp  |    26 +-
  .../Database/Implementation/CharacterDatabase.h    |    20 +
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
- src/server/game/AI/NpcBots/bot_Events.h            |    72 +
+ src/server/game/AI/NpcBots/bot_Events.h            |    74 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1407 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 17999 +++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |   740 +
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 18014 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |   742 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   395 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   936 +
  src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp  |   610 +
@@ -109,7 +109,7 @@
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2266 +++
  src/server/game/AI/NpcBots/botcommands.cpp         |  3597 ++++
  src/server/game/AI/NpcBots/botcommon.h             |   557 +
- src/server/game/AI/NpcBots/botdatamgr.cpp          |  1959 ++
+ src/server/game/AI/NpcBots/botdatamgr.cpp          |  2032 +++
  src/server/game/AI/NpcBots/botdatamgr.h            |   194 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   133 +
  src/server/game/AI/NpcBots/botdpstracker.h         |    42 +
@@ -117,7 +117,7 @@
  src/server/game/AI/NpcBots/botdump.h               |    51 +
  src/server/game/AI/NpcBots/botgiver.cpp            |   285 +
  src/server/game/AI/NpcBots/botgossip.h             |   135 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  1946 ++
+ src/server/game/AI/NpcBots/botmgr.cpp              |  1943 ++
  src/server/game/AI/NpcBots/botmgr.h                |   269 +
  src/server/game/AI/NpcBots/botspell.cpp            |  1677 ++
  src/server/game/AI/NpcBots/botspell.h              |   283 +
@@ -131,7 +131,7 @@
  src/server/game/AI/NpcBots/bpet_death_knight.cpp   |   190 +
  src/server/game/AI/NpcBots/bpet_dreadlord.cpp      |   163 +
  src/server/game/AI/NpcBots/bpet_druid.cpp          |   146 +
- src/server/game/AI/NpcBots/bpet_hunter.cpp         |  1000 ++
+ src/server/game/AI/NpcBots/bpet_hunter.cpp         |  1000 +
  src/server/game/AI/NpcBots/bpet_mage.cpp           |   177 +
  src/server/game/AI/NpcBots/bpet_necromancer.cpp    |   191 +
  src/server/game/AI/NpcBots/bpet_priest.cpp         |   172 +
@@ -216,7 +216,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     4 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   353 +
- 218 files changed, 78343 insertions(+), 94 deletions(-)
+ 218 files changed, 78432 insertions(+), 94 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -7116,10 +7116,10 @@ index 79d847cfe..c311dd823 100644
      if (_dist > 0.0f && !_me->IsWithinCombatRange(target, _dist))
 diff --git a/src/server/game/AI/NpcBots/bot_Events.h b/src/server/game/AI/NpcBots/bot_Events.h
 new file mode 100644
-index 000000000..6e6347754
+index 000000000..961d7b213
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_Events.h
-@@ -0,0 +1,72 @@
+@@ -0,0 +1,74 @@
 +#ifndef _BOT_EVENTS_H
 +#define _BOT_EVENTS_H
 +
@@ -7140,17 +7140,18 @@ index 000000000..6e6347754
 +{
 +    friend class bot_ai;
 +    protected:
-+        TeleportHomeEvent(bot_ai* ai) : _ai(ai) {}
++        TeleportHomeEvent(bot_ai* ai, bool reset) : _ai(ai), _reset(reset) {}
 +        ~TeleportHomeEvent() {}
 +
 +        bool Execute(uint64 /*e_time*/, uint32 /*p_time*/)
 +        {
-+            _ai->TeleportHome();
++            _ai->TeleportHome(_reset);
 +            return true;
 +        }
 +
 +    private:
 +        bot_ai* _ai;
++        bool _reset;
 +};
 +//Delayed teleport finish: adds bot back to world on new location
 +class TeleportFinishEvent : public BasicEvent
@@ -7158,18 +7159,19 @@ index 000000000..6e6347754
 +    friend class bot_ai;
 +    friend class BotMgr;
 +    protected:
-+        TeleportFinishEvent(bot_ai* ai) : _ai(ai) {}
++        TeleportFinishEvent(bot_ai* ai, bool reset) : _ai(ai), _reset(reset) {}
 +        ~TeleportFinishEvent() {}
 +
 +        //Execute is always called while creature is out of world so ai is never deleted
 +        bool Execute(uint64 /*e_time*/, uint32 /*p_time*/)
 +        {
-+            _ai->FinishTeleport();
++            _ai->FinishTeleport(_reset);
 +            return true;
 +        }
 +
 +    private:
 +        bot_ai* _ai;
++        bool _reset;
 +};
 +//Await state removal
 +class AwaitStateRemovalEvent : public BasicEvent
@@ -8607,10 +8609,10 @@ index 000000000..ef7d142bc
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..bee17708f
+index 000000000..9a392916d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,17999 @@
+@@ -0,0 +1,18014 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -9187,15 +9189,7 @@ index 000000000..bee17708f
 +
 +    if (!me->IsInWorld() || resetType == BOTAI_RESET_FORCERECALL)
 +    {
-+        AbortTeleport();
-+
-+        //if no master - will teleport to spawn position
-+        //otherwise - will teleport to master
-+        teleHomeEvent = new TeleportHomeEvent(this);
-+        Events.AddEvent(teleHomeEvent, Events.CalculateTime(std::chrono::milliseconds(0))); //make sure event will be deleted
-+        if (teleHomeEvent->IsActive())
-+            teleHomeEvent->ScheduleAbort(); //make sure event will not be executed twice
-+        teleHomeEvent->Execute(0,0);
++        TeleportHomeStart(resetType != BOTAI_RESET_UNBIND);
 +    }
 +    else
 +    {
@@ -10850,7 +10844,7 @@ index 000000000..bee17708f
 +                ASSERT(minlevel > 0 && minlevel > 0);
 +                mylevel = urand(std::min<uint8>(minlevel + 2, maxlevel), maxlevel);
 +                mylevel += BotDataMgr::GetLevelBonusForBotRank(me->GetCreatureTemplate()->rank);
-+                _baseLevel = mylevel;
++                _baseLevel = std::max<uint8>(mylevel, BotDataMgr::GetMinLevelForBotClass(_botclass));
 +                TC_LOG_DEBUG("npcbots", "Wandering bot %s id %u selected level %u...", me->GetName().c_str(), me->GetEntry(), uint32(_baseLevel));
 +            }
 +        }
@@ -13226,7 +13220,7 @@ index 000000000..bee17708f
 +//POSITION
 +AoeSpotsVec const& bot_ai::GetAoeSpots() const
 +{
-+    return master->GetBotMgr()->GetAoeSpots();
++    return IAmFree() ? _aoeSpots : master->GetBotMgr()->GetAoeSpots();
 +}
 +
 +void bot_ai::CalculateAoeSpots(Unit const* unit, AoeSpotsVec& spots)
@@ -13259,6 +13253,9 @@ index 000000000..bee17708f
 +            spots.push_back(AoeSpotsVec::value_type(*dObj, radius));
 +        }
 +    }
++
++    if (unit->IsNPCBot() && unit->ToCreature()->IsFreeBot())
++        return;
 +
 +    //Additional: aoe coming from spawned npcs
 +
@@ -13336,7 +13333,7 @@ index 000000000..bee17708f
 +
 +void bot_ai::CalculateAoeSafeSpots(Unit* target, float maxdist, AoeSafeSpotsVec& safespots) const
 +{
-+    if (!IAmFree() && !GetAoeSpots().empty())
++    if (!GetAoeSpots().empty())
 +    {
 +        //find 200 safe spots
 +        Position ppos;
@@ -13395,17 +13392,14 @@ index 000000000..bee17708f
 +}
 +bool bot_ai::IsWithinAoERadius(Position const& pos) const
 +{
-+    if (!IAmFree())
++    AoeSpotsVec const& spots = GetAoeSpots();
++    if (!spots.empty())
 +    {
-+        AoeSpotsVec const& spots = GetAoeSpots();
-+        if (!spots.empty())
-+        {
-+            Unit const* mover = me->GetVehicle() ? me->GetVehicleBase() : me;
-+            float cr_diff = mover->GetCombatReach() - DEFAULT_PLAYER_COMBAT_REACH;
-+            for (AoeSpotsVec::const_iterator ci = spots.begin(); ci != spots.end(); ++ci)
-+                if (pos.GetExactDist(&ci->first) - cr_diff < ci->second)
-+                    return true;
-+        }
++        Unit const* mover = me->GetVehicle() ? me->GetVehicleBase() : me;
++        float cr_diff = mover->GetCombatReach() - DEFAULT_PLAYER_COMBAT_REACH;
++        for (AoeSpotsVec::const_iterator ci = spots.begin(); ci != spots.end(); ++ci)
++            if (pos.GetExactDist(&ci->first) - cr_diff < ci->second)
++                return true;
 +    }
 +
 +    return false;
@@ -13532,7 +13526,7 @@ index 000000000..bee17708f
 +        return;
 +    }
 +
-+    AoeSpotsVec const& aoespots = IAmFree() ? AoeSpotsVec() : GetAoeSpots();
++    AoeSpotsVec const& aoespots = GetAoeSpots();
 +
 +    bool toofaraway;
 +
@@ -21880,12 +21874,15 @@ index 000000000..bee17708f
 +    }
 +
 +    //bot needs to be either directly controlled by player of have pvp flag to be a valid assist target (buffs, heals, etc.)
-+    me->SetPvP(master->IsPvP() || IsWanderer());
 +    me->SetUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED);
-+    if (sWorld->IsFFAPvPRealm())
-+        me->SetByteFlag(UNIT_FIELD_BYTES_2, 1, UNIT_BYTE2_FLAG_FFA_PVP);
-+    else if (IAmFree())
-+        me->SetByteFlag(UNIT_FIELD_BYTES_2, 1, 0);
++    if (!IsWanderer())
++    {
++        me->SetPvP(master->IsPvP());
++        if (sWorld->IsFFAPvPRealm())
++            me->SetByteFlag(UNIT_FIELD_BYTES_2, 1, UNIT_BYTE2_FLAG_FFA_PVP);
++        else if (IAmFree())
++            me->SetByteFlag(UNIT_FIELD_BYTES_2, 1, 0);
++    }
 +
 +    InitSpec();
 +    InitRoles();
@@ -22378,6 +22375,12 @@ index 000000000..bee17708f
 +        for (uint8 i = BOT_SLOT_MAINHAND; i < BOT_INVENTORY_SIZE; ++i)
 +        {
 +            if (i == BOT_SLOT_OFFHAND && !_canUseOffHand())
++                continue;
++            if (i == BOT_SLOT_SHOULDERS && me->GetLevel() < 16)
++                continue;
++            if ((i == BOT_SLOT_FINGER1 || i == BOT_SLOT_FINGER2) && me->GetLevel() < 19)
++                continue;
++            if ((i == BOT_SLOT_HEAD || i == BOT_SLOT_TRINKET1 || i == BOT_SLOT_TRINKET2) && me->GetLevel() < 29)
 +                continue;
 +
 +            Item* item = BotDataMgr::GenerateWanderingBotItem(i, _botclass, me->GetLevel(),
@@ -25042,6 +25045,10 @@ index 000000000..bee17708f
 +        {
 +            if (Unit* victim = CanBotAttackOnVehicle() ? me->GetVictim() : mover->GetTarget() ? ObjectAccessor::GetUnit(*mover, mover->GetTarget()) : nullptr)
 +            {
++                _aoeSpots.clear();
++                if (IAmFree())
++                    CalculateAoeSpots(me, _aoeSpots);
++
 +                //TC_LOG_ERROR("scripts", "GetInPos prepare by %s", me->GetName().c_str());
 +                if (!IAmFree() && master->GetBotMgr()->GetBotAttackRangeMode() == BOT_ATTACK_RANGE_EXACT &&
 +                    master->GetBotMgr()->GetBotExactAttackRange() == 0 && !GetVehicleAttackDistanceOverride() &&
@@ -25284,7 +25291,7 @@ index 000000000..bee17708f
 +    {
 +        if (!teleHomeEvent || !teleHomeEvent->IsActive())
 +        {
-+            teleHomeEvent = new TeleportHomeEvent(this);
++            teleHomeEvent = new TeleportHomeEvent(this, false);
 +            Events.AddEvent(teleHomeEvent, Events.CalculateTime(std::chrono::seconds(5)));
 +
 +            //if bot has been removed manually and while in dungeon
@@ -25473,8 +25480,20 @@ index 000000000..bee17708f
 +        mypos.m_positionZ = me->GetPositionZ();
 +    pos.Relocate(mypos);
 +}
++void bot_ai::TeleportHomeStart(bool reset)
++{
++    AbortTeleport();
++
++    //if no master - will teleport to spawn position
++    //otherwise - will teleport to master
++    teleHomeEvent = new TeleportHomeEvent(this, reset);
++    Events.AddEvent(teleHomeEvent, Events.CalculateTime(0ms)); //make sure event will be deleted
++    if (teleHomeEvent->IsActive())
++        teleHomeEvent->ScheduleAbort(); //make sure event will not be executed twice
++    teleHomeEvent->Execute(0,0);
++}
 +//TeleportHome() ONLY CALLED THROUGH EVENTPROCESSOR
-+void bot_ai::TeleportHome()
++void bot_ai::TeleportHome(bool reset)
 +{
 +    ASSERT(teleHomeEvent);
 +    //ASSERT(IAmFree());
@@ -25487,13 +25506,13 @@ index 000000000..bee17708f
 +
 +    Map* map = sMapMgr->CreateBaseMap(mapid);
 +    ASSERT(!map->Instanceable(), map->GetDebugInfo().c_str());
-+    BotMgr::TeleportBot(me, map, &pos);
++    BotMgr::TeleportBot(me, map, &pos, false, reset);
 +
 +    spawned = false;
 +    _evadeCount = 0;
 +}
 +//FinishTeleport(uint32, float, float, float, float) ONLY CALLED THROUGH EVENTPROCESSOR
-+bool bot_ai::FinishTeleport(/*uint32 mapId, uint32 instanceId, float x, float y, float z, float o*/)
++bool bot_ai::FinishTeleport(bool reset)
 +{
 +    ASSERT(teleFinishEvent);
 +    //ASSERT(!IAmFree());
@@ -25504,24 +25523,20 @@ index 000000000..bee17708f
 +    //1) Cannot teleport: master disappeared - return home
 +    if (IAmFree()/* || master->GetSession()->isLogingOut()*/)
 +    {
-+        teleHomeEvent = new TeleportHomeEvent(this);
-+        Events.AddEvent(teleHomeEvent, Events.CalculateTime(std::chrono::milliseconds(0))); //make sure event will be deleted
-+        if (teleHomeEvent->IsActive())
-+            teleHomeEvent->ScheduleAbort(); //make sure event will not be executed twice
-+        teleHomeEvent->Execute(0,0);
++        TeleportHomeStart(true);
 +        _evadeMode = false;
 +
 +        return false;
 +    }
 +
-+    BotMgr::AddDelayedTeleportCallback([this]() {
++    BotMgr::AddDelayedTeleportCallback([this, reset]() {
 +        Map* map = master->FindMap();
 +        //2) Cannot teleport: map not found or forbidden - delay teleport
 +        if (!map || !master->IsAlive() || master->GetBotMgr()->RestrictBots(me, true))
 +        {
 +            //ChatHandler ch(master->GetSession());
 +            //ch.PSendSysMessage("Your bot %s cannot teleport to you. Restricted bot access on this map...", me->GetName().c_str());
-+            teleFinishEvent = new TeleportFinishEvent(this);
++            teleFinishEvent = new TeleportFinishEvent(this, reset);
 +            Events.AddEvent(teleFinishEvent, Events.CalculateTime(std::chrono::seconds(5)));
 +            return;
 +        }
@@ -25543,6 +25558,8 @@ index 000000000..bee17708f
 +
 +        map->AddToMap(me);
 +        me->BotStopMovement();
++        if (reset)
++            this->Reset();
 +        //bot->SetAI(oldAI);
 +        //me->IsAIEnabled = true;
 +        canUpdate = true;
@@ -26612,10 +26629,10 @@ index 000000000..bee17708f
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 000000000..49063403c
+index 000000000..86a0c83c9
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,740 @@
+@@ -0,0 +1,742 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -26786,8 +26803,9 @@ index 000000000..49063403c
 +
 +        static bool CCed(Unit const* target, bool root = false);
 +
-+        void TeleportHome();
-+        bool FinishTeleport(/*uint32 mapId, uint32 instanceId, float x, float y, float z, float o*/);
++        void TeleportHomeStart(bool reset);
++        void TeleportHome(bool reset);
++        bool FinishTeleport(bool reset);
 +
 +        bool IsDuringTeleport() const { return teleFinishEvent || teleHomeEvent; }
 +        void SetTeleportFinishEvent(TeleportFinishEvent* tfevent) { ASSERT(!teleFinishEvent); teleFinishEvent = tfevent; }
@@ -27232,6 +27250,7 @@ index 000000000..49063403c
 +        SpellInfo const* m_botSpellInfo;
 +        Position homepos, movepos, attackpos, sendlastpos;
 +        Position sendpos[MAX_SEND_POINTS];
++        AoeSpotsVec _aoeSpots;
 +
 +        uint32 _botCommandState;
 +        uint8 _botAwaitState;
@@ -59843,7 +59862,7 @@ index 000000000..071d0160c
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botcommon.h b/src/server/game/AI/NpcBots/botcommon.h
 new file mode 100644
-index 000000000..3683da099
+index 000000000..1273293f6
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommon.h
 @@ -0,0 +1,557 @@
@@ -60339,7 +60358,7 @@ index 000000000..3683da099
 +{
 +    BOTAI_RESET_INIT                    = 0x01,
 +    BOTAI_RESET_DISMISS                 = 0x02,
-+    BOTAI_RESET_LOST                    = 0x04,
++    BOTAI_RESET_UNBIND                  = 0x04,
 +    BOTAI_RESET_LOGOUT                  = 0x08,
 +    BOTAI_RESET_FORCERECALL             = 0x10,
 +
@@ -60406,10 +60425,10 @@ index 000000000..3683da099
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.cpp b/src/server/game/AI/NpcBots/botdatamgr.cpp
 new file mode 100644
-index 000000000..0aac40444
+index 000000000..3e33401e7
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.cpp
-@@ -0,0 +1,1959 @@
+@@ -0,0 +1,2032 @@
 +#include "bot_ai.h"
 +#include "botdatamgr.h"
 +#include "botmgr.h"
@@ -60914,7 +60933,7 @@ index 000000000..0aac40444
 +                continue;
 +            }
 +            float lwpdist2d = vt.second.first->GetExactDist2d(lwp);
-+            if (lwpdist2d > MAX_VISIBILITY_DISTANCE * 1.5f)
++            if (lwpdist2d > SIZE_OF_GRIDS * 1.5f)
 +                TC_LOG_WARN("server.loading", "Warning! Link distance between WP %u and %u is too great (%.2f)", vt.first, lid, lwpdist2d);
 +            if (lwpdist2d < VISIBILITY_DISTANCE_NORMAL * 0.5f)
 +                TC_LOG_WARN("server.loading", "Warning! Link distance between WP %u and %u is low (%.2f)", vt.first, lid, lwpdist2d);
@@ -61013,14 +61032,19 @@ index 000000000..0aac40444
 +            spareBotIdsPerClassMap.insert({ c, {} });
 +
 +    uint32 maxWanderingBots = 0;
++    uint32 enabledBotsCount = 0;
 +    for (decltype(_botsExtras)::value_type const& vt : _botsExtras)
 +    {
 +        uint8 c = vt.second->bclass;
-+        if (c != BOT_CLASS_NONE && c != BOT_CLASS_BM && BotMgr::IsClassEnabled(c) && _botsData.find(vt.first) == _botsData.end())
++        if (c != BOT_CLASS_NONE && c != BOT_CLASS_BM && BotMgr::IsClassEnabled(c))
 +        {
-+            ASSERT(spareBotIdsPerClassMap.find(c) != spareBotIdsPerClassMap.cend());
-+            spareBotIdsPerClassMap.at(c).insert(vt.first);
-+            ++maxWanderingBots;
++            ++enabledBotsCount;
++            if (_botsData.find(vt.first) == _botsData.end())
++            {
++                ASSERT(spareBotIdsPerClassMap.find(c) != spareBotIdsPerClassMap.cend());
++                spareBotIdsPerClassMap.at(c).insert(vt.first);
++                ++maxWanderingBots;
++            }
 +        }
 +    }
 +
@@ -61031,7 +61055,7 @@ index 000000000..0aac40444
 +    if (maxWanderingBots < wandering_bots_desired)
 +    {
 +        TC_LOG_FATAL("server.loading", "Only %u out of %u bots of enabled classes aren't spawned. Desired amount of wandering bots (%u) cannot be created. Aborting!",
-+            maxWanderingBots, uint32(_botsExtras.size()), wandering_bots_desired);
++            maxWanderingBots, enabledBotsCount, wandering_bots_desired);
 +        ASSERT(false);
 +    }
 +
@@ -61098,6 +61122,51 @@ index 000000000..0aac40444
 +        ASSERT(false);
 +    }
 +
++    bool found_maxlevel_node_a = false;
++    bool found_maxlevel_node_h = false;
++    bool found_maxlevel_node_rest = false;
++    const uint8 maxof_minclasslvl_nor = GetMinLevelForBotClass(BOT_CLASS_DEATH_KNIGHT); // 55
++    const uint8 maxof_minclasslvl_ex = GetMinLevelForBotClass(BOT_CLASS_DREADLORD); // 60
++    for (WanderNode const* wp : spawns_a)
++    {
++        if (wp->GetLevels().second >= maxof_minclasslvl_nor)
++        {
++            found_maxlevel_node_a = true;
++            break;
++        }
++    }
++    for (WanderNode const* wp : spawns_h)
++    {
++        if (wp->GetLevels().second >= maxof_minclasslvl_nor)
++        {
++            found_maxlevel_node_h = true;
++            break;
++        }
++    }
++    for (WanderNode const* wp : spawns_rest)
++    {
++        if (wp->GetLevels().second >= maxof_minclasslvl_ex)
++        {
++            found_maxlevel_node_rest = true;
++            break;
++        }
++    }
++    if (!found_maxlevel_node_a)
++    {
++        TC_LOG_FATAL("server.loading", "Not a single spawn point exists for Alliance DKs!");
++        ASSERT(false);
++    }
++    if (!found_maxlevel_node_h)
++    {
++        TC_LOG_FATAL("server.loading", "Not a single spawn point exists for Horde DKs!");
++        ASSERT(false);
++    }
++    if (!found_maxlevel_node_rest)
++    {
++        TC_LOG_FATAL("server.loading", "Not a single spawn point exists for extra classes (level 60)!");
++        ASSERT(false);
++    }
++
 +    std::set<uint32> botgrids;
 +    for (uint32 i = 1; i <= wandering_bots_desired; ++i) // i is a counter, NOT used as index or value
 +    {
@@ -61130,8 +61199,7 @@ index 000000000..0aac40444
 +        uint8 myminlevel = GetMinLevelForBotClass(bot_class);
 +        for (WanderNode const* node : *bot_spawn_nodes)
 +        {
-+            auto [minlevel, maxlevel] = node->GetLevels();
-+            if (minlevel >= myminlevel && myminlevel <= maxlevel)
++            if (myminlevel <= node->GetLevels().second)
 +                level_nodes.push_back(node);
 +        }
 +
@@ -61217,10 +61285,28 @@ index 000000000..0aac40444
 +    {
 +        ItemTemplate const& proto = kv.second;
 +
-+        if (!(proto.Quality >= ITEM_QUALITY_UNCOMMON && proto.Quality <= ITEM_QUALITY_EPIC))
++        if (proto.ItemLevel == 0)
 +            continue;
-+        if (!(proto.RequiredLevel >= 2 && proto.RequiredLevel <= DEFAULT_MAX_LEVEL))
-+            continue;
++
++        switch (proto.Quality)
++        {
++            case ITEM_QUALITY_POOR:
++                if (proto.RequiredLevel > 1)
++                    continue;
++                break;
++            case ITEM_QUALITY_NORMAL:
++                if (proto.RequiredLevel > 14)
++                    continue;
++                break;
++            case ITEM_QUALITY_UNCOMMON:
++            case ITEM_QUALITY_RARE:
++            case ITEM_QUALITY_EPIC:
++                if (!(proto.RequiredLevel >= 2 && proto.RequiredLevel <= DEFAULT_MAX_LEVEL))
++                    continue;
++                break;
++            default:
++                continue;
++        }
 +
 +        uint32 itemId = kv.first;
 +        uint8 reqLstep = (proto.RequiredLevel + ITEM_SORTING_LEVEL_STEP - 1) / ITEM_SORTING_LEVEL_STEP;
@@ -61231,6 +61317,8 @@ index 000000000..0aac40444
 +                switch (proto.InventoryType)
 +                {
 +                    case INVTYPE_FINGER:
++                        if (proto.Quality < ITEM_QUALITY_UNCOMMON)
++                            break;
 +                        _botsWanderCreaturesSortedGear[BOT_CLASS_WARRIOR][BOT_SLOT_FINGER1][reqLstep].push_back(itemId);
 +                        _botsWanderCreaturesSortedGear[BOT_CLASS_PALADIN][BOT_SLOT_FINGER1][reqLstep].push_back(itemId);
 +                        _botsWanderCreaturesSortedGear[BOT_CLASS_HUNTER][BOT_SLOT_FINGER1][reqLstep].push_back(itemId);
@@ -61267,6 +61355,8 @@ index 000000000..0aac40444
 +                        _botsWanderCreaturesSortedGear[BOT_CLASS_SEA_WITCH][BOT_SLOT_FINGER2][reqLstep].push_back(itemId);
 +                        break;
 +                    case INVTYPE_TRINKET:
++                        if (proto.Quality < ITEM_QUALITY_UNCOMMON)
++                            break;
 +                        _botsWanderCreaturesSortedGear[BOT_CLASS_WARRIOR][BOT_SLOT_TRINKET1][reqLstep].push_back(itemId);
 +                        _botsWanderCreaturesSortedGear[BOT_CLASS_PALADIN][BOT_SLOT_TRINKET1][reqLstep].push_back(itemId);
 +                        _botsWanderCreaturesSortedGear[BOT_CLASS_HUNTER][BOT_SLOT_TRINKET1][reqLstep].push_back(itemId);
@@ -61322,6 +61412,8 @@ index 000000000..0aac40444
 +                        _botsWanderCreaturesSortedGear[BOT_CLASS_SEA_WITCH][BOT_SLOT_BACK][reqLstep].push_back(itemId);
 +                        break;
 +                    case INVTYPE_HOLDABLE:
++                        if (proto.Quality < ITEM_QUALITY_UNCOMMON)
++                            break;
 +                        _botsWanderCreaturesSortedGear[BOT_CLASS_PRIEST][BOT_SLOT_OFFHAND][reqLstep].push_back(itemId);
 +                        _botsWanderCreaturesSortedGear[BOT_CLASS_SHAMAN][BOT_SLOT_OFFHAND][reqLstep].push_back(itemId);
 +                        _botsWanderCreaturesSortedGear[BOT_CLASS_MAGE][BOT_SLOT_OFFHAND][reqLstep].push_back(itemId);
@@ -64270,10 +64362,10 @@ index 000000000..75f3c0b19
 +#endif //BOTGOSSIP_H
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 000000000..44510b04d
+index 000000000..74b5e7aef
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,1946 @@
+@@ -0,0 +1,1943 @@
 +#include "Battleground.h"
 +#include "BattlegroundMgr.h"
 +#include "bot_ai.h"
@@ -65213,7 +65305,7 @@ index 000000000..44510b04d
 +    }
 +}
 +
-+void BotMgr::_teleportBot(Creature* bot, Map* newMap, float x, float y, float z, float ori, bool quick)
++void BotMgr::_teleportBot(Creature* bot, Map* newMap, float x, float y, float z, float ori, bool quick, bool reset)
 +{
 +    ASSERT(bot->GetBotAI());
 +    bot->GetBotAI()->AbortTeleport();
@@ -65232,7 +65324,7 @@ index 000000000..44510b04d
 +    if (bot->IsInWorld())
 +        bot->CastSpell(bot, COSMETIC_TELEPORT_EFFECT, true);
 +
-+    BotMgr::AddDelayedTeleportCallback([bot, newMap, x, y, z, ori, quick]() {
++    BotMgr::AddDelayedTeleportCallback([bot, newMap, x, y, z, ori, quick, reset]() {
 +        if (Map* mymap = bot->FindMap())
 +        {
 +            bot->BotStopMovement();
@@ -65265,6 +65357,8 @@ index 000000000..44510b04d
 +            bot->Relocate(x, y, z, ori);
 +            bot->SetMap(newMap);
 +            bot->GetMap()->AddToMap(bot);
++            if (reset)
++                bot->GetBotAI()->Reset();
 +            return;
 +        }
 +
@@ -65273,16 +65367,16 @@ index 000000000..44510b04d
 +            if (gr->IsMember(bot->GetGUID()))
 +                gr->SendUpdate();
 +
-+        TeleportFinishEvent* finishEvent = new TeleportFinishEvent(bot->GetBotAI());
++        TeleportFinishEvent* finishEvent = new TeleportFinishEvent(bot->GetBotAI(), reset);
 +        std::chrono::milliseconds delay(quick ? urand(500, 1500) : urand(5000, 8000));
 +        bot->GetBotAI()->GetEvents()->AddEvent(finishEvent, bot->GetBotAI()->GetEvents()->CalculateTime(delay));
 +        bot->GetBotAI()->SetTeleportFinishEvent(finishEvent);
 +    });
 +}
 +
-+void BotMgr::TeleportBot(Creature* bot, Map* newMap, Position* pos, bool quick)
++void BotMgr::TeleportBot(Creature* bot, Map* newMap, Position* pos, bool quick, bool reset)
 +{
-+    _teleportBot(bot, newMap, pos->GetPositionX(), pos->GetPositionY(), pos->GetPositionZ(), pos->GetOrientation(), quick);
++    _teleportBot(bot, newMap, pos->GetPositionX(), pos->GetPositionY(), pos->GetPositionZ(), pos->GetOrientation(), quick, reset);
 +}
 +
 +void BotMgr::CleanupsBeforeBotDelete(ObjectGuid guid, uint8 removetype)
@@ -65371,7 +65465,7 @@ index 000000000..44510b04d
 +    switch (removetype)
 +    {
 +        case BOT_REMOVE_DISMISS: resetType = BOTAI_RESET_DISMISS; break;
-+        case BOT_REMOVE_UNBIND:  resetType = BOTAI_RESET_LOST;    break;
++        case BOT_REMOVE_UNBIND:  resetType = BOTAI_RESET_UNBIND;    break;
 +        default:                 resetType = BOTAI_RESET_LOGOUT;  break;
 +    }
 +    bot->GetBotAI()->ResetBotAI(resetType);
@@ -65385,11 +65479,6 @@ index 000000000..44510b04d
 +        uint32 newOwner = 0;
 +        BotDataMgr::UpdateNpcBotData(bot->GetEntry(), NPCBOT_UPDATE_OWNER, &newOwner);
 +    }
-+
-+    if (removetype != BOT_REMOVE_UNBIND)
-+        bot->GetBotAI()->Reset();
-+
-+    bot->GetBotAI()->canUpdate = true;
 +}
 +
 +void BotMgr::UnbindBot(ObjectGuid guid)
@@ -66222,7 +66311,7 @@ index 000000000..44510b04d
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botmgr.h b/src/server/game/AI/NpcBots/botmgr.h
 new file mode 100644
-index 000000000..ccec483da
+index 000000000..264275838
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.h
 @@ -0,0 +1,269 @@
@@ -66453,7 +66542,7 @@ index 000000000..ccec483da
 +
 +        //TELEPORT BETWEEN MAPS
 +        //CONFIRMEND UNSAFE (charmer,owner)
-+        static void TeleportBot(Creature* bot, Map* newMap, Position* pos, bool quick = false);
++        static void TeleportBot(Creature* bot, Map* newMap, Position* pos, bool quick = false, bool reset = false);
 +
 +        AoeSpotsVec const& GetAoeSpots() const { return _aoespots; }
 +        AoeSpotsVec& GetAoeSpots() { return _aoespots; }
@@ -66465,7 +66554,7 @@ index 000000000..ccec483da
 +        static void HandleDelayedTeleports();
 +
 +    private:
-+        static void _teleportBot(Creature* bot, Map* newMap, float x, float y, float z, float ori = 0.f, bool quick = false);
++        static void _teleportBot(Creature* bot, Map* newMap, float x, float y, float z, float ori, bool quick, bool reset);
 +        static void _reviveBot(Creature* bot, WorldLocation* dest = nullptr);
 +        void _addBotToRemoveList(ObjectGuid guid);
 +        void _setBotExactAttackRange(uint8 exactRange) { _exactAttackRange = exactRange; }
