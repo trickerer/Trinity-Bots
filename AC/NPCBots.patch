@@ -37,8 +37,8 @@
  src/server/game/AI/CreatureAI.h                    |     5 +
  src/server/game/AI/NpcBots/bot_Events.h            |    74 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1407 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 18048 +++++++++++++++++++
- src/server/game/AI/NpcBots/bot_ai.h                |   742 +
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 18077 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.h                |   741 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   414 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   957 +
  src/server/game/AI/NpcBots/bot_dark_ranger_ai.cpp  |   629 +
@@ -57,9 +57,9 @@
  src/server/game/AI/NpcBots/bot_sphynx_ai.cpp       |   607 +
  src/server/game/AI/NpcBots/bot_warlock_ai.cpp      |  2107 +++
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2267 +++
- src/server/game/AI/NpcBots/botcommands.cpp         |  3624 ++++
+ src/server/game/AI/NpcBots/botcommands.cpp         |  3642 ++++
  src/server/game/AI/NpcBots/botcommon.h             |   558 +
- src/server/game/AI/NpcBots/botdatamgr.cpp          |  2036 +++
+ src/server/game/AI/NpcBots/botdatamgr.cpp          |  1994 ++
  src/server/game/AI/NpcBots/botdatamgr.h            |   194 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   133 +
  src/server/game/AI/NpcBots/botdpstracker.h         |    42 +
@@ -67,13 +67,13 @@
  src/server/game/AI/NpcBots/botdump.h               |    51 +
  src/server/game/AI/NpcBots/botgiver.cpp            |   286 +
  src/server/game/AI/NpcBots/botgossip.h             |   135 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  1945 ++
+ src/server/game/AI/NpcBots/botmgr.cpp              |  1947 ++
  src/server/game/AI/NpcBots/botmgr.h                |   270 +
  src/server/game/AI/NpcBots/botspell.cpp            |  1490 ++
- src/server/game/AI/NpcBots/botspell.h              |   283 +
+ src/server/game/AI/NpcBots/botspell.h              |   284 +
  src/server/game/AI/NpcBots/bottext.h               |   398 +
  src/server/game/AI/NpcBots/botwanderful.cpp        |   246 +
- src/server/game/AI/NpcBots/botwanderful.h          |   140 +
+ src/server/game/AI/NpcBots/botwanderful.h          |   142 +
  src/server/game/AI/NpcBots/bpet_ai.cpp             |  2451 +++
  src/server/game/AI/NpcBots/bpet_ai.h               |   183 +
  src/server/game/AI/NpcBots/bpet_archmage.cpp       |   151 +
@@ -160,7 +160,7 @@
  src/server/shared/DataStores/DBCStructure.h        |     6 +-
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |    23 +
- 162 files changed, 79156 insertions(+), 97 deletions(-)
+ 162 files changed, 79165 insertions(+), 97 deletions(-)
  create mode 100644 appveyor.yml
  create mode 100644 data/sql/Bots/locales/esES/npc_text_locale.sql
  create mode 100644 data/sql/Bots/locales/esMX/npc_text_locale.sql
@@ -8936,10 +8936,10 @@ index 0000000000..37f59f6c2f
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000000..76aea04e1a
+index 0000000000..429b537085
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,18048 @@
+@@ -0,0 +1,18077 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -8948,6 +8948,7 @@ index 0000000000..76aea04e1a
 +#include "botgossip.h"
 +#include "botspell.h"
 +#include "bottext.h"
++#include "botwanderful.h"
 +#include "bpet_ai.h"
 +#include "Bag.h"
 +#include "CellImpl.h"
@@ -9180,6 +9181,7 @@ index 0000000000..76aea04e1a
 +
 +    botPet = nullptr;
 +    canUpdate = true;
++    _duringTeleport = false;
 +
 +    teleHomeEvent = nullptr;
 +    teleFinishEvent = nullptr;
@@ -9195,8 +9197,8 @@ index 0000000000..76aea04e1a
 +
 +    _wanderer = false;
 +    _baseLevel = 0;
-+    _travel_node_last = 0;
-+    _travel_node_cur = 0;
++    _travel_node_last = nullptr;
++    _travel_node_cur = nullptr;
 +
 +    opponent = nullptr;
 +    disttarget = nullptr;
@@ -11168,9 +11170,9 @@ index 0000000000..76aea04e1a
 +    {
 +        if (_baseLevel == 0) //this only happens once
 +        {
-+            if (_travel_node_cur > 0)
++            if (_travel_node_cur != nullptr)
 +            {
-+                auto [minlevel, maxlevel] = BotDataMgr::GetWanderMapNodeLevels(me->GetMap()->GetEntry()->MapID, _travel_node_cur);
++                auto [minlevel, maxlevel] = _travel_node_cur->GetLevels();
 +                ASSERT(minlevel > 0 && minlevel > 0);
 +                mylevel = urand(std::min<uint8>(minlevel + 2, maxlevel), maxlevel);
 +                mylevel += BotDataMgr::GetLevelBonusForBotRank(me->GetCreatureTemplate()->rank);
@@ -13787,10 +13789,10 @@ index 0000000000..76aea04e1a
 +    uint8 angleMode = IAmFree() ? uint8(BOT_ATTACK_ANGLE_NORMAL) : master->GetBotMgr()->GetBotAttackAngleMode();
 +    float dist = (rangeMode == BOT_ATTACK_RANGE_EXACT) ? exactRange : GetSpellAttackRange(rangeMode == BOT_ATTACK_RANGE_LONG) - 4.f;
 +    float angle = target->GetAbsoluteAngle(me);
-+    if (_botclass == BOT_CLASS_SPHYNX && target->GetVictim() == me)
++    if (_botclass == BOT_CLASS_SPHYNX && target->GetVictim() == me && me->GetExactDist(target) < 30.0f)
 +        dist = me->GetExactDist(target);
 +    if ((target->m_movementInfo.GetMovementFlags() & MOVEMENTFLAG_FORWARD) && target->HasInArc(float(M_PI)/1.5f, me))
-+        dist = std::min<float>(dist + 10.f, 30.f);
++        dist = std::min<float>(dist + 4.f, 30.f);
 +
 +    //if ranged try to acquire a position in the back (will be ignored if too far away from master)
 +    if (angleMode == BOT_ATTACK_ANGLE_AVOID_FRONTAL_AOE)
@@ -13892,10 +13894,11 @@ index 0000000000..76aea04e1a
 +    CalculateAoeSafeSpots(target, float(followdist), safespots);
 +
 +    bool angle_reset_to_master = false;
++    uint8 collision_dist_max = IAmFree() ? 30 : 38;
 +    for (uint8 i = 0; i < 5; ++i)
 +    {
 +        ppos = target->GetFirstCollisionPosition(dist, Position::NormalizeOrientation(angle - target->GetOrientation()));
-+        toofaraway = master->GetDistance(ppos) > (followdist > 38 ? 38.f : followdist < 20 ? 20.f : float(followdist));
++        toofaraway = master->GetDistance(ppos) > (followdist > collision_dist_max ? float(collision_dist_max) : followdist < 20 ? 20.f : float(followdist));
 +        if (!toofaraway)
 +            break;
 +
@@ -15759,6 +15762,16 @@ index 0000000000..76aea04e1a
 +    {
 +        feast_health = true;
 +        regenTimer = 0;
++    }
++
++    switch (spell->Id)
++    {
++        case WANDERER_HEARTHSTONE:
++            if (IsWanderer())
++                BotMgr::TeleportBot(me, sMapMgr->CreateBaseMap(_travel_node_cur->GetMapId()), _travel_node_cur, true);
++            return;
++        default:
++            break;
 +    }
 +
 +    for (uint8 i = 0; i != MAX_SPELL_EFFECTS; ++i)
@@ -22241,8 +22254,8 @@ index 0000000000..76aea04e1a
 +
 +    if (IsWanderer())
 +    {
-+        _travel_node_cur = BotDataMgr::GetClosestWanderNodeId(me);
-+        ASSERT(_travel_node_cur != 0);
++        _travel_node_cur = BotDataMgr::GetClosestWanderNode(me);
++        ASSERT_NOTNULL(_travel_node_cur);
 +    }
 +
 +    SetStats(true); // Class passives included
@@ -23445,7 +23458,7 @@ index 0000000000..76aea04e1a
 +            IsWanderer() ? "Wandering bot" : "Bot", me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
 +            (u->IsPlayer() ? "player" : u->IsNPCBot() ? u->ToCreature()->GetBotAI()->IsWanderer() ? "wandering bot" : "bot" : u->IsNPCBotPet() ? "botpet" : "creature"),
 +            u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
-+            BotDataMgr::GetWanderMapNodeName(me->GetMap()->GetEntry()->MapID, _travel_node_cur).c_str());
++            _travel_node_cur->GetName().c_str());
 +    }
 +
 +    _reviveTimer = IsWanderer() ? 90000 : IAmFree() ? 180000 : 60000; //1.5min/3min/1min
@@ -23469,14 +23482,14 @@ index 0000000000..76aea04e1a
 +                me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
 +                (u->IsPlayer() ? "player" : u->IsNPCBot() ? u->ToCreature()->GetBotAI()->IsWanderer() ? "wandering bot" : "bot" : u->IsNPCBotPet() ? "botpet" : "creature"),
 +                u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
-+                BotDataMgr::GetWanderMapNodeName(me->GetMap()->GetEntry()->MapID, _travel_node_cur).c_str());
++                _travel_node_cur->GetName().c_str());
 +        }
 +        else if (u->IsNPCBot() && u->ToCreature()->GetBotAI()->IsWanderer())
 +        {
 +            LOG_DEBUG("npcbots", "Bot {} id {} class {} level {} KILLED wandering bot {} id {} class {} level {} on their way to {}!",
 +                me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
 +                u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
-+                BotDataMgr::GetWanderMapNodeName(me->GetMap()->GetEntry()->MapID, _travel_node_cur).c_str());
++                _travel_node_cur->GetName().c_str());
 +        }
 +    }
 +    if (u->isType(TYPEMASK_PLAYER))
@@ -24900,6 +24913,9 @@ index 0000000000..76aea04e1a
 +
 +    ReduceCD(diff);
 +
++    if (IsDuringTeleport())
++        return false;
++
 +    lastdiff = diff;
 +
 +    if (_updateTimerMedium <= diff)
@@ -25573,39 +25589,42 @@ index 0000000000..76aea04e1a
 +    {
 +        if (IAmFree())
 +        {
-+            if (IsWanderer())
-+            {
-+                GraveyardStruct const* gy = sGraveyard->GetClosestGraveyard((Player*)me, me->GetFaction() == 1801 ? TEAM_HORDE : TEAM_ALLIANCE, false);
-+                if (gy)
-+                {
-+                    Position safePos(gy->x, gy->y, gy->z, me->GetOrientation());
-+                    BotMgr::TeleportBot(me, sMapMgr->CreateBaseMap(gy->Map), &safePos);
-+                }
-+            }
-+
 +            BotMgr::ReviveBot(me);
 +
 +            if (IsWanderer())
 +            {
-+                uint32 nextNodeId = GetNextTravelNode(homepos);
-+                if (!nextNodeId)
++                GraveyardStruct const* gy = sGraveyard->GetClosestGraveyard((Player*)me, me->GetFaction() == 1801 ? TEAM_HORDE : TEAM_ALLIANCE, false);
++                Position safePos;
++                if (gy)
 +                {
-+                    LOG_FATAL("scripts", "Bot {} ({}) is unable to get next travel node (1)! cur {}, last {}, position: {}. BOT WAS DISABLED",
-+                        me->GetName().c_str(), me->GetEntry(), _travel_node_cur, _travel_node_last, me->GetPosition().ToString().c_str());
-+                    canUpdate = false;
++                    safePos.Relocate(gy->x, gy->y, gy->z, me->GetOrientation());
++                    BotMgr::TeleportBot(me, sMapMgr->CreateBaseMap(gy->Map), &safePos);
++                }
++                else
++                    safePos.Relocate(me);
++
++                if (safePos.GetExactDist2d(homepos) > MAX_WANDER_NODE_DISTANCE)
++                {
++                    WanderNode const* nextNode = GetNextTravelNode(&safePos);
++                    if (!nextNode)
++                    {
++                        LOG_FATAL("scripts", "Bot {} ({}) is unable to get next travel node (1)! cur {}, last {}, position: {}. BOT WAS DISABLED",
++                            me->GetName().c_str(), me->GetEntry(), _travel_node_cur->GetWPId(), _travel_node_last ? _travel_node_last->GetWPId() : 0, me->GetPosition().ToString().c_str());
++                        canUpdate = false;
++                        return;
++                    }
++
++                    homepos.Relocate(nextNode);
++
++                    LOG_DEBUG("npcbots", "Bot {} id {} class {} level {} died on the way from node {} to {} ('{}'), NEW {} ('{}'), {}, dist {} yd!",
++                        me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()), _travel_node_last ? _travel_node_last->GetWPId() : 0, _travel_node_cur->GetWPId(),
++                        _travel_node_cur->GetName().c_str(), nextNode->GetWPId(), nextNode->GetName().c_str(), homepos.ToString().c_str(), safePos.GetExactDist(homepos));
++
++                    _travel_node_last = _travel_node_cur;
++                    _travel_node_cur = nextNode;
++                    _travelHistory.push_back(std::make_pair(nextNode->GetWPId(), nextNode->GetName()));
 +                    return;
 +                }
-+
-+                std::string nodeNameCur = BotDataMgr::GetWanderMapNodeName(me->GetMapId(), _travel_node_cur);
-+                std::string nodeNameNext = BotDataMgr::GetWanderMapNodeName(me->GetMapId(), nextNodeId);
-+                LOG_DEBUG("npcbots", "Bot {} id {} class {} level {} died on the way from node {} to {} ('{}'), NEW {} ('{}'), {}, dist {} yd!",
-+                    me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()), _travel_node_last, _travel_node_cur,
-+                    nodeNameCur.c_str(), nextNodeId, nodeNameNext.c_str(), homepos.ToString().c_str(), me->GetExactDist(homepos));
-+
-+                _travel_node_last = _travel_node_cur;
-+                _travel_node_cur = nextNodeId;
-+                _travelHistory.push_back(std::make_pair(nextNodeId, nodeNameNext));
-+                return;
 +            }
 +        }
 +        else
@@ -25637,13 +25656,35 @@ index 0000000000..76aea04e1a
 +        return;
 +    }
 +
++    //delay evade
++    if (evadeDelayTimer == 0)
++    {
++        evadeDelayTimer = 5000;
++        return;
++    }
++
 +    uint16 mapid;
 +    Position pos;
 +    GetHomePosition(mapid, &pos);
 +
 +    float dist = me->GetExactDist2d(pos);
 +    float zdiff = fabs(me->GetPositionZ() - pos.GetPositionZ());
-+    if (mapid != me->GetMapId() || (!IsWanderer() && (_evadeCount >= 20 || me->GetDistance(pos) > float(SIZE_OF_GRIDS * 0.5f))))
++
++    if (IsWanderer())
++    {
++        if (mapid != me->GetMap()->GetEntry()->ID || me->GetExactDist2d(pos) > MAX_WANDER_NODE_DISTANCE ||
++            (me->GetExactDist2d(pos) < 20.0f && me->GetExactDist(pos) > 100.0f))
++        {
++            TC_LOG_DEBUG("npcbots", "Bot %s id %u class %u level %u map %u TELEPORTING to node %u ('%s') map %u, %s, dist %.1f yd!",
++                me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()), me->GetMapId(), _travel_node_cur->GetWPId(),
++                _travel_node_cur->GetName().c_str(), uint32(mapid), pos.ToString().c_str(), me->GetExactDist(pos));
++
++            evadeDelayTimer = 15000;
++            me->CastSpell(me, WANDERER_HEARTHSTONE);
++            return;
++        }
++    }
++    else if (mapid != me->GetMapId() || _evadeCount >= 5 || me->GetDistance(pos) > float(SIZE_OF_GRIDS * 0.5f))
 +    {
 +        if (!teleHomeEvent || !teleHomeEvent->IsActive())
 +        {
@@ -25657,18 +25698,6 @@ index 0000000000..76aea04e1a
 +                teleHomeEvent->Execute(0,0);
 +            }
 +        }
-+        if (!IsWanderer())
-+        {
-+            _atHome = true;
-+            _evadeMode = false;
-+        }
-+        return;
-+    }
-+
-+    //delay evade
-+    if (evadeDelayTimer == 0)
-+    {
-+        evadeDelayTimer = 5000;
 +        return;
 +    }
 +
@@ -25681,11 +25710,11 @@ index 0000000000..76aea04e1a
 +    {
 +        _evadeMode = true;
 +
-+        if (!me->isMoving() && ((dist < 20.0f && zdiff > 30.0f) || me->GetExactDist2d(movepos) < 25.0f))
-+            ++_evadeCount;
-+
 +        if (!me->isMoving())
 +        {
++            if ((dist < 20.0f && zdiff > 30.0f) || me->GetExactDist2d(movepos) < 25.0f)
++                ++_evadeCount;
++
 +            if (dist > 15.0f)
 +            {
 +                bool use_path = true;
@@ -25701,23 +25730,24 @@ index 0000000000..76aea04e1a
 +            }
 +            else if (IsWanderer())
 +            {
-+                uint32 nextNodeId = GetNextTravelNode(homepos);
-+                if (!nextNodeId)
++                WanderNode const* nextNode = GetNextTravelNode(&pos);
++                if (!nextNode)
 +                {
 +                    LOG_FATAL("npcbots", "Bot {} ({}) is unable to get next travel node! cur {}, last {}, position: {}. BOT WAS DISABLED",
-+                        me->GetName().c_str(), me->GetEntry(), _travel_node_cur, _travel_node_last, me->GetPosition().ToString().c_str());
++                        me->GetName().c_str(), me->GetEntry(), _travel_node_cur->GetWPId(), _travel_node_last ? _travel_node_last->GetWPId() : 0, me->GetPosition().ToString().c_str());
 +                    canUpdate = false;
 +                    return;
 +                }
 +
-+                std::string nodeName = BotDataMgr::GetWanderMapNodeName(me->GetMapId(), nextNodeId);
++                homepos.Relocate(nextNode);
++
 +                LOG_DEBUG("npcbots", "Bot {} id {} class {} level {} wandered from node {} to {}, next {} ('{}'), {}, dist {} yd!",
-+                    me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()), _travel_node_last, _travel_node_cur,
-+                    nextNodeId, nodeName.c_str(), homepos.ToString().c_str(), me->GetExactDist(homepos));
++                    me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()), _travel_node_last ? _travel_node_last->GetWPId() : 0, _travel_node_cur->GetWPId(),
++                    nextNode->GetWPId(), nextNode->GetName().c_str(), homepos.ToString().c_str(), pos.GetExactDist(homepos));
 +
 +                _travel_node_last = _travel_node_cur;
-+                _travel_node_cur = nextNodeId;
-+                _travelHistory.push_back(std::make_pair(nextNodeId, nodeName));
++                _travel_node_cur = nextNode;
++                _travelHistory.push_back(std::make_pair(nextNode->GetWPId(), nextNode->GetName()));
 +                evadeDelayTimer = urand(7000, 11000);
 +                return;
 +            }
@@ -25805,7 +25835,7 @@ index 0000000000..76aea04e1a
 +            }
 +            //log error and use direct point movement
 +            LOG_DEBUG("npcbots", "Bot {} id {} class {] level {} can't find full path to node {} (res {}) from pos {}, falling back to default PF!",
-+                me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()), _travel_node_cur, uint32(path.GetPathType()),
++                me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()), _travel_node_cur->GetWPId(), uint32(path.GetPathType()),
 +                me->GetPosition().ToString().c_str());
 +        default:
 +            if (me->IsInWater())
@@ -25937,6 +25967,8 @@ index 0000000000..76aea04e1a
 +        //map hooks
 +        if (InstanceScript* iscr = master->GetInstanceScript())
 +            iscr->OnNPCBotEnter(me);
++
++        SetInDuringTeleport(false);
 +    });
 +
 +    return true;
@@ -25963,7 +25995,7 @@ index 0000000000..76aea04e1a
 +{
 +    if (IsWanderer())
 +    {
-+        mapid = me->GetMapId();
++        mapid = _travel_node_cur->GetMapId();
 +        pos->Relocate(homepos);
 +    }
 +    else
@@ -25974,16 +26006,13 @@ index 0000000000..76aea04e1a
 +    }
 +}
 +
-+uint32 bot_ai::GetNextTravelNode(Position& pos) const
++WanderNode const* bot_ai::GetNextTravelNode(Position const* from) const
 +{
 +    ASSERT(IsWanderer());
 +
-+    auto [nodeId, nodePos] = BotDataMgr::GetNextWanderNode(me->GetMapId(), _travel_node_cur, _travel_node_last, me->GetLevel(), me);
-+    if (!nodePos)
-+        return 0;
-+
-+    pos.Relocate(nodePos);
-+    return nodeId;
++    int8 mylevelbonus = BotDataMgr::GetLevelBonusForBotRank(me->GetCreatureTemplate()->rank);
++    uint8 mylevelbase = std::max<int8>(int8(me->GetLevel()) - mylevelbonus, int8(BotDataMgr::GetMinLevelForBotClass(_botclass)));
++    return BotDataMgr::GetNextWanderNode(_travel_node_cur, _travel_node_last, from, me->GetFaction(), mylevelbase);
 +}
 +
 +void bot_ai::SetWanderer()
@@ -26990,10 +27019,10 @@ index 0000000000..76aea04e1a
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
 new file mode 100644
-index 0000000000..2829198e4d
+index 0000000000..e591710aa1
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -0,0 +1,742 @@
+@@ -0,0 +1,741 @@
 +#ifndef _BOT_AI_H
 +#define _BOT_AI_H
 +
@@ -27032,6 +27061,7 @@ index 0000000000..2829198e4d
 +class SpellCastTargets;
 +class Unit;
 +class Vehicle;
++class WanderNode;
 +
 +class bot_ai : public CreatureAI
 +{
@@ -27156,11 +27186,7 @@ index 0000000000..2829198e4d
 +        //wandering bots
 +        bool IsWanderer() const { return _wanderer; }
 +        void SetWanderer();
-+        uint32 GetTravelNodeCur() const { return _travel_node_cur; }
-+        uint32 GetTravelNodeLast() const { return _travel_node_last; }
-+        void SetTravelNodeCur(uint32 nodeId) { _travel_node_cur = nodeId; }
-+        void SetTravelNodeLast(uint32 nodeId) { _travel_node_last = nodeId; }
-+        uint32 GetNextTravelNode(Position& pos) const;
++        WanderNode const* GetNextTravelNode(Position const* from) const;
 +
 +        static bool CCed(Unit const* target, bool root = false);
 +
@@ -27168,9 +27194,10 @@ index 0000000000..2829198e4d
 +        void TeleportHome(bool reset);
 +        bool FinishTeleport(bool reset);
 +
-+        bool IsDuringTeleport() const { return teleFinishEvent || teleHomeEvent; }
++        bool IsDuringTeleport() const { return teleFinishEvent || teleHomeEvent || _duringTeleport; }
 +        void SetTeleportFinishEvent(TeleportFinishEvent* tfevent) { ASSERT(!teleFinishEvent); teleFinishEvent = tfevent; }
 +        void AbortTeleport();
++        void SetInDuringTeleport(bool value) { _duringTeleport = value; }
 +
 +        uint8 GetPlayerClass() const;
 +        uint8 GetPlayerRace() const;
@@ -27644,12 +27671,13 @@ index 0000000000..2829198e4d
 +        bool firstspawn;
 +        bool _evadeMode;
 +        bool _atHome;
++        bool _duringTeleport;
 +
 +        //wandering bots
 +        bool _wanderer;
 +        uint8 _baseLevel;
-+        uint32 _travel_node_last;
-+        uint32 _travel_node_cur;
++        WanderNode const* _travel_node_last;
++        WanderNode const* _travel_node_cur;
 +        std::vector<std::pair<uint32, std::string>> _travelHistory;
 +
 +        float _energyFraction;
@@ -37778,7 +37806,7 @@ index 0000000000..33d7f5dafb
 +}
 diff --git a/src/server/game/AI/NpcBots/bot_mage_ai.cpp b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 new file mode 100644
-index 0000000000..13be159433
+index 0000000000..1938efa929
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_mage_ai.cpp
 @@ -0,0 +1,1856 @@
@@ -38215,7 +38243,7 @@ index 0000000000..13be159433
 +                    return;
 +            }
 +            //ICY VEINS (no GCD)
-+            if (IsSpellReady(ICY_VEINS_1, diff, false) && GetManaPCT(me) > 20 &&
++            if (IsSpellReady(ICY_VEINS_1, diff, false) && me->IsInCombat() && GetManaPCT(me) > 20 &&
 +                (mytar->GetMaxHealth() > master->GetMaxHealth() * 2 ||
 +                (mytar->GetTypeId() == TYPEID_UNIT && mytar->ToCreature()->GetCreatureTemplate()->rank != CREATURE_ELITE_NORMAL)) &&
 +                Rand() < 45)
@@ -38224,7 +38252,7 @@ index 0000000000..13be159433
 +                    return;
 +            }
 +            //ARCANE POWER (no GCD, not with PoM)
-+            if (IsSpellReady(ARCANE_POWER_1, diff, false) && GetManaPCT(me) > 50 &&
++            if (IsSpellReady(ARCANE_POWER_1, diff, false) && me->IsInCombat() && GetManaPCT(me) > 50 &&
 +                (mytar->GetMaxHealth() > master->GetMaxHealth() * 2 ||
 +                (mytar->GetTypeId() == TYPEID_UNIT && mytar->ToCreature()->GetCreatureTemplate()->rank != CREATURE_ELITE_NORMAL)) &&
 +                Rand() < 75 && !me->GetAuraEffect(SPELL_AURA_ADD_PCT_MODIFIER, SPELLFAMILY_MAGE, 0x0, 0x20, 0x0))
@@ -38233,7 +38261,7 @@ index 0000000000..13be159433
 +                    return;
 +            }
 +            //PRESENCE OF MIND (no GCD, not with AP)
-+            if (IsSpellReady(PRESENCE_OF_MIND_1, diff, false) && GetManaPCT(me) > 10 && Rand() < 35 &&
++            if (IsSpellReady(PRESENCE_OF_MIND_1, diff, false) && me->IsInCombat() && GetManaPCT(me) > 10 && Rand() < 35 &&
 +                !me->GetAuraEffect(SPELL_AURA_ADD_PCT_MODIFIER, SPELLFAMILY_MAGE, 0x0, 0x80000, 0x0))
 +            {
 +                if (doCast(me, GetSpell(PRESENCE_OF_MIND_1)))
@@ -56758,10 +56786,10 @@ index 0000000000..6bf5c9236e
 +}
 diff --git a/src/server/game/AI/NpcBots/botcommands.cpp b/src/server/game/AI/NpcBots/botcommands.cpp
 new file mode 100644
-index 0000000000..69bd5ec247
+index 0000000000..5be142013a
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botcommands.cpp
-@@ -0,0 +1,3624 @@
+@@ -0,0 +1,3642 @@
 +#include "bot_ai.h"
 +#include "botdump.h"
 +#include "botmgr.h"
@@ -59225,14 +59253,15 @@ index 0000000000..69bd5ec247
 +        return true;
 +    }
 +
-+    static bool HandleNpcBotLookupCommand(ChatHandler* handler, Optional<uint8> botclass, Optional <bool> unspawned)
++    static bool HandleNpcBotLookupCommand(ChatHandler* handler, Optional<uint8> botclass, Optional <bool> unspawned, Optional<uint8> teamid)
 +    {
 +        //this is just a modified '.lookup creature' command
 +        if (!botclass)
 +        {
-+            handler->SendSysMessage(".npcbot lookup #class #[not_spawned_only]");
++            handler->SendSysMessage(".npcbot lookup #class #[not_spawned_only] #[team_id]");
 +            handler->SendSysMessage("Looks up npcbots by #class, and returns all matches with their creature ID's");
 +            handler->SendSysMessage("If #not_spawned_only is set to 1 shows only bots which don't exist in world");
++            handler->SendSysMessage("If #team_id is provided, will also filter by team: Alliance = 0, Horde = 1, Neutral = 2");
 +            handler->PSendSysMessage("BOT_CLASS_WARRIOR = %u", uint32(BOT_CLASS_WARRIOR));
 +            handler->PSendSysMessage("BOT_CLASS_PALADIN = %u", uint32(BOT_CLASS_PALADIN));
 +            handler->PSendSysMessage("BOT_CLASS_HUNTER = %u", uint32(BOT_CLASS_HUNTER));
@@ -59262,6 +59291,13 @@ index 0000000000..69bd5ec247
 +            return false;
 +        }
 +
++        if (teamid && *teamid > uint8(TEAM_NEUTRAL))
++        {
++            handler->PSendSysMessage("Unknown team %u", uint32(*teamid));
++            handler->SetSentErrorMessage(true);
++            return false;
++        }
++
 +        handler->PSendSysMessage("Looking for bots of class %u...", uint32(*botclass));
 +
 +        uint8 localeIndex = handler->GetSessionDbLocaleIndex();
@@ -59286,6 +59322,16 @@ index 0000000000..69bd5ec247
 +                continue;
 +
 +            uint8 race = _botExtras->race;
++
++            if (teamid)
++            {
++                ChrRacesEntry const* rentry = sChrRacesStore.LookupEntry(race);
++                uint32 faction = rentry ? rentry->FactionID : 14;
++                TeamId team = BotDataMgr::GetTeamForFaction(faction);
++
++                if (*teamid != uint8(team))
++                    continue;
++            }
 +
 +            if (CreatureLocale const* creatureLocale = sObjectMgr->GetCreatureLocale(id))
 +            {
@@ -60952,10 +60998,10 @@ index 0000000000..d6cd810939
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.cpp b/src/server/game/AI/NpcBots/botdatamgr.cpp
 new file mode 100644
-index 0000000000..f32e5eef3e
+index 0000000000..ad11242221
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.cpp
-@@ -0,0 +1,2036 @@
+@@ -0,0 +1,1994 @@
 +#include "bot_ai.h"
 +#include "botdatamgr.h"
 +#include "botmgr.h"
@@ -61464,9 +61510,9 @@ index 0000000000..f32e5eef3e
 +                continue;
 +            }
 +            float lwpdist2d = vt.second.first->GetExactDist2d(lwp);
-+            if (lwpdist2d > SIZE_OF_GRIDS * 1.5f)
++            if (lwpdist2d > MAX_WANDER_NODE_DISTANCE)
 +                LOG_WARN("server.loading", "Warning! Link distance between WP {} and {} is too great ({})", vt.first, lid, lwpdist2d);
-+            if (lwpdist2d < VISIBILITY_DISTANCE_NORMAL * 0.5f)
++            if (lwpdist2d < MIN_WANDER_NODE_DISTANCE)
 +                LOG_WARN("server.loading", "Warning! Link distance between WP {} and {} is low ({})", vt.first, lid, lwpdist2d);
 +
 +            if (!vt.second.first->HasLink(lwp))
@@ -62011,6 +62057,7 @@ index 0000000000..f32e5eef3e
 +                            case ItemSubclassArmor::ITEM_SUBCLASS_ARMOR_PLATE:
 +                                _botsWanderCreaturesSortedGear[BOT_CLASS_WARRIOR][slot][reqLstep].push_back(itemId);
 +                                _botsWanderCreaturesSortedGear[BOT_CLASS_PALADIN][slot][reqLstep].push_back(itemId);
++                                _botsWanderCreaturesSortedGear[BOT_CLASS_DEATH_KNIGHT][slot][reqLstep].push_back(itemId);
 +                                _botsWanderCreaturesSortedGear[BOT_CLASS_BM][slot][reqLstep].push_back(itemId);
 +                                _botsWanderCreaturesSortedGear[BOT_CLASS_SPHYNX][slot][reqLstep].push_back(itemId);
 +                                _botsWanderCreaturesSortedGear[BOT_CLASS_SPELLBREAKER][slot][reqLstep].push_back(itemId);
@@ -62872,121 +62919,78 @@ index 0000000000..f32e5eef3e
 +    switch (GetTeamForFaction(factionTemplateId))
 +    {
 +        case TEAM_ALLIANCE:
-+            return !(wp->GetFlags() & FLAGS_ONLY_H);
++            return !wp->HasFlag(BotWPFlags::BOTWP_FLAG_HORDE_ONLY);
 +        case TEAM_HORDE:
-+            return !(wp->GetFlags() & FLAGS_ONLY_A);
++            return !wp->HasFlag(BotWPFlags::BOTWP_FLAG_ALLIANCE_ONLY);
 +        case TEAM_NEUTRAL:
-+            return !(wp->GetFlags() & FLAGS_ONLY_A_OR_H);
++            return !wp->HasFlag(BotWPFlags::BOTWP_FLAG_ALLIANCE_OR_HORDE_ONLY);
 +        default:
 +            return true;
 +    }
 +}
 +
-+std::pair<uint32, Position const*> BotDataMgr::GetNextWanderNode(uint32 mapId, uint32 curNodeId, uint32 lastNodeId, uint8 lvl, Creature const* bot)
++WanderNode const* BotDataMgr::GetNextWanderNode(WanderNode const* curNode, WanderNode const* lastNode, Position const* curPos, uint32 faction, uint32 lvl)
 +{
-+    WanderNode const* node_cur = WanderNode::FindInMapWPs(curNodeId, mapId);
++    WanderNode const* node_cur = WanderNode::FindInMapWPs(curNode->GetWPId(), curNode->GetMapId());
 +
 +    //Node got deleted! Select closest and go from there
 +    if (!node_cur)
 +    {
 +        float mindist = 50000.0f; // Anywhere
 +        WanderNode const* node_new = nullptr;
-+        WanderNode::DoForAllMapWPs(mapId, [bot = bot, &mindist, &node_new](WanderNode const* wp) {
-+            float dist = bot->GetExactDist2d(wp);
-+            if (IsWanderNodeAvailableForBotFaction(wp, bot->GetFaction()) && dist < mindist)
++        WanderNode::DoForAllMapWPs(curNode->GetMapId(), [fac = faction, pos = curPos, &mindist, &node_new](WanderNode const* wp) {
++            float dist = pos->GetExactDist2d(wp);
++            if (IsWanderNodeAvailableForBotFaction(wp, fac) && dist < mindist)
 +            {
 +                mindist = dist;
 +                node_new = wp;
 +            }
 +        });
 +
-+        if (node_new)
-+            return { node_new->GetWPId(), static_cast<Position const*>(node_new) };
-+
-+        return { 0, nullptr };
++        return node_new;
 +    }
 +
-+    auto linksCopy = node_cur->GetLinks();
++    static auto node_viable = [](WanderNode const* wp, uint8 lvl) {
++        return lvl + 2 >= wp->GetLevels().first && lvl <= wp->GetLevels().second;
++    };
 +
-+    if (linksCopy.size() > 1u)
++    std::list<WanderNode const*> links;
++    for (WanderNode const* wp : node_cur->GetLinks())
 +    {
-+        for (decltype(linksCopy)::const_iterator cit = linksCopy.cbegin(); cit != linksCopy.cend();)
-+        {
-+            if (IsWanderNodeAvailableForBotFaction(*cit, bot->GetFaction()) &&
-+                ((*cit)->GetWPId() == lastNodeId || lvl + 6 >= (*cit)->GetLevels().first ||
-+                (lvl + 2 >= (*cit)->GetLevels().first && lvl <= (*cit)->GetLevels().second)))
-+                ++cit;
-+            else
-+                cit = linksCopy.erase(cit);
-+        }
-+        if (linksCopy.size() > 1u)
-+        {
-+            for (decltype(linksCopy)::const_iterator cit = linksCopy.cbegin(); cit != linksCopy.cend(); ++cit)
-+            {
-+                if ((*cit)->GetWPId() == lastNodeId)
-+                {
-+                    linksCopy.erase(cit);
-+                    break;
-+                }
-+            }
-+            if (linksCopy.size() > 1u)
-+            {
-+                decltype(linksCopy)::size_type normal_nodes_count = 0;
-+                for (decltype(linksCopy)::const_iterator cit = linksCopy.cbegin(); cit != linksCopy.cend(); ++cit)
-+                    if (lvl + 2 >= (*cit)->GetLevels().first && lvl <= (*cit)->GetLevels().second)
-+                        ++normal_nodes_count;
-+                if (normal_nodes_count > 0 && normal_nodes_count < linksCopy.size())
-+                {
-+                    for (decltype(linksCopy)::const_iterator cit = linksCopy.cbegin(); cit != linksCopy.cend();)
-+                    {
-+                        if (lvl + 2 >= (*cit)->GetLevels().first && lvl <= (*cit)->GetLevels().second)
-+                            ++cit;
-+                        else
-+                            cit = linksCopy.erase(cit);
-+                    }
-+                }
-+            }
-+        }
++        if (IsWanderNodeAvailableForBotFaction(wp, faction) && node_viable(wp, lvl))
++            links.push_back(wp);
++    }
++    if (links.size() > 1 && lastNode)
++        links.remove(lastNode);
++
++    //Overleveled or died: no viable nodes in reach, find one for teleport
++    if (links.empty())
++    {
++        //todo: use all wps
++        WanderNode::DoForAllMapWPs(curNode->GetMapId(), [&links, cur = curNode, lvl = lvl, fac = faction](WanderNode const* wp) {
++            if (IsWanderNodeAvailableForBotFaction(wp, fac) && wp->HasFlag(BotWPFlags::BOTWP_FLAG_SPAWN) && node_viable(wp, lvl))
++                links.push_back(wp);
++        });
 +    }
 +
-+    ASSERT(!linksCopy.empty());
-+    WanderNode const* wp = linksCopy.size() == 1u ? linksCopy.front() : Acore::Containers::SelectRandomContainerElement(linksCopy);
-+
-+    return std::make_pair(wp->GetWPId(), static_cast<Position const*>(wp));
++    ASSERT(!links.empty());
++    return links.size() == 1u ? links.front() : Trinity::Containers::SelectRandomContainerElement(links);
 +}
 +
-+uint32 BotDataMgr::GetClosestWanderNodeId(WorldLocation const* loc)
++WanderNode const* BotDataMgr::GetClosestWanderNode(WorldLocation const* loc)
 +{
 +    float mindist = 50000.0f;
-+    uint32 closestNodeId = 0;
-+    WanderNode::DoForAllMapWPs(loc->GetMapId(), [&mindist, &closestNodeId, loc = loc](WanderNode const* wp) {
++    WanderNode const* closestNode = nullptr;
++    WanderNode::DoForAllMapWPs(loc->GetMapId(), [&mindist, &closestNode, loc = loc](WanderNode const* wp) {
 +        float dist = wp->GetExactDist2d(loc);
 +        if (dist < mindist)
 +        {
 +            mindist = dist;
-+            closestNodeId = wp->GetWPId();
++            closestNode = wp;
 +        }
 +    });
 +
-+    return closestNodeId;
-+}
-+
-+Position BotDataMgr::GetWanderMapNodePosition(uint32 mapId, uint32 nodeId)
-+{
-+    WanderNode const* node_cur = WanderNode::FindInMapWPs(nodeId, mapId);
-+    return node_cur ? node_cur->GetPosition() : Position{};
-+}
-+
-+std::string BotDataMgr::GetWanderMapNodeName(uint32 mapId, uint32 nodeId)
-+{
-+    WanderNode const* node_cur = WanderNode::FindInMapWPs(nodeId, mapId);
-+    return node_cur ? node_cur->GetName() : std::string{};
-+}
-+
-+std::pair<uint8, uint8> BotDataMgr::GetWanderMapNodeLevels(uint32 mapId, uint32 nodeId)
-+{
-+    WanderNode const* node_cur = WanderNode::FindInMapWPs(nodeId, mapId);
-+    return node_cur ? node_cur->GetLevels() : std::pair<uint8, uint8>{1, 1};
++    return closestNode;
 +}
 +
 +#ifdef _MSC_VER
@@ -62994,7 +62998,7 @@ index 0000000000..f32e5eef3e
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.h b/src/server/game/AI/NpcBots/botdatamgr.h
 new file mode 100644
-index 0000000000..f518922380
+index 0000000000..7260e2251c
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.h
 @@ -0,0 +1,194 @@
@@ -63020,6 +63024,9 @@ index 0000000000..f518922380
 +struct Position;
 +
 +enum LocaleConstant;
++
++constexpr float MIN_WANDER_NODE_DISTANCE = VISIBILITY_DISTANCE_NORMAL * 0.5f;
++constexpr float MAX_WANDER_NODE_DISTANCE = SIZE_OF_GRIDS * 1.5f;
 +
 +enum NpcBotDataUpdateType
 +{
@@ -63178,11 +63185,8 @@ index 0000000000..f518922380
 +        static int32 GetBotBaseReputation(Creature const* bot, FactionEntry const* factionEntry);
 +        static TeamId GetTeamForFaction(uint32 factionTemplateId);
 +        static bool IsWanderNodeAvailableForBotFaction(WanderNode const* wp, uint32 factionTemplateId);
-+        static std::pair<uint32, Position const*> GetNextWanderNode(uint32 mapId, uint32 curNodeId, uint32 lastNodeId, uint8 lvl, Creature const* bot);
-+        static uint32 GetClosestWanderNodeId(WorldLocation const* loc);
-+        static Position GetWanderMapNodePosition(uint32 mapId, uint32 nodeId);
-+        static std::string GetWanderMapNodeName(uint32 mapId, uint32 nodeId);
-+        static std::pair<uint8, uint8> GetWanderMapNodeLevels(uint32 mapId, uint32 nodeId);
++        static WanderNode const* GetNextWanderNode(WanderNode const* curNode, WanderNode const* lastNode, Position const* curPos, uint32 faction, uint32 lvl);
++        static WanderNode const* GetClosestWanderNode(WorldLocation const* loc);
 +
 +        static std::shared_mutex* GetLock();
 +
@@ -64894,10 +64898,10 @@ index 0000000000..75f3c0b199
 +#endif //BOTGOSSIP_H
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 0000000000..6346e76e65
+index 0000000000..3ac54dae3d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,1945 @@
+@@ -0,0 +1,1947 @@
 +#include "Battleground.h"
 +#include "BattlegroundMgr.h"
 +#include "bot_ai.h"
@@ -65843,6 +65847,7 @@ index 0000000000..6346e76e65
 +{
 +    ASSERT(bot->GetBotAI());
 +    bot->GetBotAI()->AbortTeleport();
++    bot->GetBotAI()->SetInDuringTeleport(true);
 +
 +    bot->GetBotAI()->KillEvents(true);
 +
@@ -65893,6 +65898,7 @@ index 0000000000..6346e76e65
 +            bot->GetMap()->AddToMap(bot);
 +            if (reset)
 +                bot->GetBotAI()->Reset();
++            bot->GetBotAI()->SetInDuringTeleport(false);
 +            return;
 +        }
 +
@@ -65908,7 +65914,7 @@ index 0000000000..6346e76e65
 +    });
 +}
 +
-+void BotMgr::TeleportBot(Creature* bot, Map* newMap, Position* pos, bool quick, bool reset)
++void BotMgr::TeleportBot(Creature* bot, Map* newMap, Position const* pos, bool quick, bool reset)
 +{
 +    _teleportBot(bot, newMap, pos->GetPositionX(), pos->GetPositionY(), pos->GetPositionZ(), pos->GetOrientation(), quick, reset);
 +}
@@ -66845,7 +66851,7 @@ index 0000000000..6346e76e65
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botmgr.h b/src/server/game/AI/NpcBots/botmgr.h
 new file mode 100644
-index 0000000000..bf18eab5e7
+index 0000000000..8f33f8409d
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.h
 @@ -0,0 +1,270 @@
@@ -67077,7 +67083,7 @@ index 0000000000..bf18eab5e7
 +
 +        //TELEPORT BETWEEN MAPS
 +        //CONFIRMEND UNSAFE (charmer,owner)
-+        static void TeleportBot(Creature* bot, Map* newMap, Position* pos, bool quick = false, bool reset = false);
++        static void TeleportBot(Creature* bot, Map* newMap, Position const* pos, bool quick = false, bool reset = false);
 +
 +        AoeSpotsVec const& GetAoeSpots() const { return _aoespots; }
 +        AoeSpotsVec& GetAoeSpots() { return _aoespots; }
@@ -68617,10 +68623,10 @@ index 0000000000..764ce1055d
 +}
 diff --git a/src/server/game/AI/NpcBots/botspell.h b/src/server/game/AI/NpcBots/botspell.h
 new file mode 100644
-index 0000000000..70c1ea2fbb
+index 0000000000..ed1a60a24f
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botspell.h
-@@ -0,0 +1,283 @@
+@@ -0,0 +1,284 @@
 +#ifndef _BOTSPELL_H
 +#define _BOTSPELL_H
 +
@@ -68642,6 +68648,7 @@ index 0000000000..70c1ea2fbb
 +    MODEL_TRANSITION                    = 24753,//"Trick" cannot cast or attack
 +    SUMMONING_DISORIENTATION            = 32752,
 +    ACTIVATE_SPEC                       = 63645,//Activate Primary Spec
++    WANDERER_HEARTHSTONE                = 54318,//"Hearthsone" no CD
 +    SHOOT_WAND                          = 5019,
 +///Passives
 +    DAMAGE_REDUCTION                    = 68066,//Vigilance, Blessing of Sanctuary, etc.
@@ -69562,10 +69569,10 @@ index 0000000000..2824210669
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botwanderful.h b/src/server/game/AI/NpcBots/botwanderful.h
 new file mode 100644
-index 0000000000..897fc02279
+index 0000000000..c1cf7064ba
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botwanderful.h
-@@ -0,0 +1,140 @@
+@@ -0,0 +1,142 @@
 +#ifndef BOTWANDERFUL_H_
 +#define BOTWANDERFUL_H_
 +
@@ -69585,12 +69592,14 @@ index 0000000000..897fc02279
 +
 +enum class BotWPFlags : uint32
 +{
-+    BOTWP_FLAG_NONE             = 0x00000000,
-+    BOTWP_FLAG_SPAWN            = 0x00000001,
-+    BOTWP_FLAG_ALLIANCE_ONLY    = 0x00000002,
-+    BOTWP_FLAG_HORDE_ONLY       = 0x00000004,
-+    BOTWP_FLAG_CAN_BACKTRACK_TO = 0x00000008, //unused
-+    BOTWP_FLAG_END              = 0x00000010
++    BOTWP_FLAG_NONE                     = 0x00000000,
++    BOTWP_FLAG_SPAWN                    = 0x00000001,
++    BOTWP_FLAG_ALLIANCE_ONLY            = 0x00000002,
++    BOTWP_FLAG_HORDE_ONLY               = 0x00000004,
++    BOTWP_FLAG_CAN_BACKTRACK_TO         = 0x00000008, //unused
++    BOTWP_FLAG_END                      = 0x00000010,
++
++    BOTWP_FLAG_ALLIANCE_OR_HORDE_ONLY   = BOTWP_FLAG_ALLIANCE_ONLY | BOTWP_FLAG_HORDE_ONLY
 +};
 +
 +class WanderNode : public Position
