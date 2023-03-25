@@ -82,7 +82,7 @@
  .../world/2023_03_14_00_creature_wander_nodes.sql  |     2 +
  ...21_00_creature_template_npcbot_wander_nodes.sql |   964 +
  src/common/Utilities/EventProcessor.h              |     1 +
- .../Database/Implementation/CharacterDatabase.cpp  |    26 +-
+ .../Database/Implementation/CharacterDatabase.cpp  |    24 +
  .../Database/Implementation/CharacterDatabase.h    |    20 +
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    74 +
@@ -158,7 +158,7 @@
  src/server/game/Entities/Object/Object.cpp         |    97 +-
  src/server/game/Entities/Object/Object.h           |     6 +
  src/server/game/Entities/Player/KillRewarder.cpp   |    15 +
- src/server/game/Entities/Player/Player.cpp         |   197 +-
+ src/server/game/Entities/Player/Player.cpp         |   191 +
  src/server/game/Entities/Player/Player.h           |    25 +
  src/server/game/Entities/Totem/Totem.cpp           |    25 +
  src/server/game/Entities/Unit/StatSystem.cpp       |    46 +-
@@ -172,10 +172,7 @@
  src/server/game/Groups/Group.h                     |     7 +
  src/server/game/Groups/GroupMgr.cpp                |     7 +
  src/server/game/Handlers/BattleGroundHandler.cpp   |    20 +
- src/server/game/Handlers/CharacterHandler.cpp      |     8 +
- src/server/game/Handlers/GroupHandler.cpp          |    13 +-
  src/server/game/Handlers/ItemHandler.cpp           |    13 +
- src/server/game/Handlers/MailHandler.cpp           |    13 +-
  src/server/game/Handlers/SpellHandler.cpp          |   109 +
  src/server/game/Instances/InstanceScript.cpp       |    40 +
  src/server/game/Instances/InstanceScript.h         |     7 +
@@ -212,11 +209,11 @@
  src/server/scripts/Spells/spell_rogue.cpp          |    56 +
  src/server/scripts/Spells/spell_shaman.cpp         |   127 +
  src/server/scripts/Spells/spell_warrior.cpp        |     9 +
- src/server/shared/DataStores/DBCStructure.h        |    25 +-
+ src/server/shared/DataStores/DBCStructure.h        |    15 +-
  src/server/shared/DataStores/DBCfmt.h              |     4 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   353 +
- 218 files changed, 78459 insertions(+), 94 deletions(-)
+ 215 files changed, 78422 insertions(+), 79 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -7044,18 +7041,9 @@ index 2bf682165..0b8261ec0 100644
      private:
          void SetAborted();
 diff --git a/src/server/database/Database/Implementation/CharacterDatabase.cpp b/src/server/database/Database/Implementation/CharacterDatabase.cpp
-index 87af6be58..c9278151a 100644
+index b8670cb4c..c9278151a 100644
 --- a/src/server/database/Database/Implementation/CharacterDatabase.cpp
 +++ b/src/server/database/Database/Implementation/CharacterDatabase.cpp
-@@ -420,7 +420,7 @@ void CharacterDatabaseConnection::DoPrepareStatements()
-     PrepareStatement(CHAR_SEL_CHARACTER_AT_LOGIN, "SELECT at_login FROM characters WHERE guid = ?", CONNECTION_SYNCH);
-     PrepareStatement(CHAR_SEL_CHAR_CLASS_LVL_AT_LOGIN, "SELECT class, level, at_login, knownTitles FROM characters WHERE guid = ?", CONNECTION_SYNCH);
-     PrepareStatement(CHAR_SEL_CHAR_CUSTOMIZE_INFO, "SELECT name, race, class, gender, at_login FROM characters WHERE guid = ?", CONNECTION_ASYNC);
--    PrepareStatement(CHAR_SEL_CHAR_RACE_OR_FACTION_CHANGE_INFOS, "SELECT at_login, knownTitles FROM characters WHERE guid = ?", CONNECTION_ASYNC);
-+    PrepareStatement(CHAR_SEL_CHAR_RACE_OR_FACTION_CHANGE_INFOS, "SELECT c.at_login, c.knownTitles, gm.guid FROM characters c LEFT JOIN group_member gm ON c.guid = gm.memberGuid WHERE c.guid = ?", CONNECTION_ASYNC);
-     PrepareStatement(CHAR_SEL_INSTANCE, "SELECT data, completedEncounters FROM instance WHERE map = ? AND id = ?", CONNECTION_SYNCH);
-     PrepareStatement(CHAR_SEL_PERM_BIND_BY_INSTANCE, "SELECT guid FROM character_instance WHERE instance = ? and permanent = 1", CONNECTION_SYNCH);
-     PrepareStatement(CHAR_SEL_CHAR_COD_ITEM_MAIL, "SELECT id, messageType, mailTemplateId, sender, subject, body, money, has_items FROM mail WHERE receiver = ? AND has_items <> 0 AND cod <> 0", CONNECTION_SYNCH);
 @@ -594,6 +594,30 @@ void CharacterDatabaseConnection::DoPrepareStatements()
  
      // DeserterTracker
@@ -77101,7 +77089,7 @@ index 13fcc0cb5..e5cc13d60 100644
          case CREATURE_FLAG_EXTRA_IGNORE_PATHFINDING: return 29;
          case CREATURE_FLAG_EXTRA_IMMUNITY_KNOCKBACK: return 30;
 diff --git a/src/server/game/Entities/Object/Object.cpp b/src/server/game/Entities/Object/Object.cpp
-index 056ced889..7792c312f 100644
+index 55a1436e7..9a4ff3a19 100644
 --- a/src/server/game/Entities/Object/Object.cpp
 +++ b/src/server/game/Entities/Object/Object.cpp
 @@ -51,6 +51,10 @@
@@ -77127,7 +77115,7 @@ index 056ced889..7792c312f 100644
      m_isActive = on;
  
      if (on && !IsInWorld())
-@@ -1645,7 +1654,9 @@ bool WorldObject::CanDetect(WorldObject const* obj, bool ignoreStealth, bool che
+@@ -1645,7 +1654,9 @@ bool WorldObject::CanDetect(WorldObject const* obj, bool implicitDetect, bool ch
  {
      WorldObject const* seer = this;
  
@@ -77306,7 +77294,7 @@ index 056ced889..7792c312f 100644
      if (unit && !unit->HasUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED) && unitTarget && !unitTarget->HasUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED))
          return IsHostileTo(unitTarget) || unitTarget->IsHostileTo(this);
 diff --git a/src/server/game/Entities/Object/Object.h b/src/server/game/Entities/Object/Object.h
-index f1fd3825e..3d81f580a 100644
+index 447fcdb90..a87a057d3 100644
 --- a/src/server/game/Entities/Object/Object.h
 +++ b/src/server/game/Entities/Object/Object.h
 @@ -162,6 +162,12 @@ class TC_GAME_API Object
@@ -77356,7 +77344,7 @@ index 65b9fffc0..37c8714c5 100644
          player->GiveXP(xp, _victim, _groupRate);
          if (Pet* pet = player->GetPet())
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index a6d7c7334..3b395dcab 100644
+index 46af30991..bfcc3b741 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -104,6 +104,11 @@
@@ -77597,20 +77585,7 @@ index a6d7c7334..3b395dcab 100644
          else
          {
              if (!victim->ToCreature()->IsRacialLeader())
-@@ -7624,8 +7778,10 @@ void Player::_ApplyWeaponDamage(uint8 slot, ItemTemplate const* proto, bool appl
-             if (extraDPS)
-             {
-                 float average = extraDPS * proto->Delay / 1000.0f;
--                minDamage = 0.7f * average;
--                maxDamage = 1.3f * average;
-+                float mod = ssv->isTwoHand(proto->ScalingStatValue) ? 0.2f : 0.3f;
-+
-+                minDamage = (1.0f - mod) * average;
-+                maxDamage = (1.0f + mod) * average;
-             }
-         }
- 
-@@ -21723,6 +21879,18 @@ bool Player::BuyItemFromVendorSlot(ObjectGuid vendorguid, uint32 vendorslot, uin
+@@ -21725,6 +21879,18 @@ bool Player::BuyItemFromVendorSlot(ObjectGuid vendorguid, uint32 vendorslot, uin
          return false;
      }
  
@@ -77629,7 +77604,7 @@ index a6d7c7334..3b395dcab 100644
      if (!(pProto->AllowableClass & GetClassMask()) && pProto->Bonding == BIND_WHEN_PICKED_UP && !IsGameMaster())
      {
          SendBuyError(BUY_ERR_CANT_FIND_ITEM, nullptr, item, 0);
-@@ -21996,6 +22164,11 @@ void Player::UpdatePvP(bool state, bool _override)
+@@ -21998,6 +22164,11 @@ void Player::UpdatePvP(bool state, bool _override)
          pvpInfo.EndTimer = GameTime::GetGameTime();
          SetPvP(state);
      }
@@ -77641,7 +77616,7 @@ index a6d7c7334..3b395dcab 100644
  }
  
  void Player::UpdatePotionCooldown(Spell* spell)
-@@ -23859,6 +24032,11 @@ bool Player::isHonorOrXPTarget(Unit* victim) const
+@@ -23861,6 +24032,11 @@ bool Player::isHonorOrXPTarget(Unit* victim) const
  
      if (Creature const* creature = victim->ToCreature())
      {
@@ -77653,7 +77628,7 @@ index a6d7c7334..3b395dcab 100644
          if (creature->IsCritter() || creature->IsTotem())
              return false;
      }
-@@ -24267,6 +24445,21 @@ bool Player::inRandomLfgDungeon() const
+@@ -24269,6 +24445,21 @@ bool Player::inRandomLfgDungeon() const
  
  void Player::SetBattlegroundOrBattlefieldRaid(Group* group, int8 subgroup)
  {
@@ -77676,7 +77651,7 @@ index a6d7c7334..3b395dcab 100644
      SetOriginalGroup(GetGroup(), GetSubGroup());
  
 diff --git a/src/server/game/Entities/Player/Player.h b/src/server/game/Entities/Player/Player.h
-index a7d6a5551..9a39ed669 100644
+index 3aacdbb29..c56bf0096 100644
 --- a/src/server/game/Entities/Player/Player.h
 +++ b/src/server/game/Entities/Player/Player.h
 @@ -81,6 +81,10 @@ enum ItemClass : uint8;
@@ -79591,65 +79566,6 @@ index 840c21874..d779a8d97 100644
          }
          TC_LOG_DEBUG("bg.battleground", "Battleground: group end");
      }
-diff --git a/src/server/game/Handlers/CharacterHandler.cpp b/src/server/game/Handlers/CharacterHandler.cpp
-index f6e51d9ae..e0f8f095e 100644
---- a/src/server/game/Handlers/CharacterHandler.cpp
-+++ b/src/server/game/Handlers/CharacterHandler.cpp
-@@ -27,6 +27,7 @@
- #include "GameTime.h"
- #include "GitRevision.h"
- #include "Group.h"
-+#include "GroupMgr.h"
- #include "Guild.h"
- #include "GuildMgr.h"
- #include "InstanceSaveMgr.h"
-@@ -1673,6 +1674,7 @@ void WorldSession::HandleCharFactionOrRaceChangeCallback(std::shared_ptr<Charact
-     Field* fields              = result->Fetch();
-     uint32 atLoginFlags        = fields[0].GetUInt16();
-     std::string knownTitlesStr = fields[1].GetString();
-+    uint32 groupId             = !fields[2].IsNull() ? fields[2].GetUInt32() : 0;
- 
-     uint32 usedLoginFlag = (factionChangeInfo->FactionChange ? AT_LOGIN_CHANGE_FACTION : AT_LOGIN_CHANGE_RACE);
-     if (!(atLoginFlags & usedLoginFlag))
-@@ -1881,6 +1883,12 @@ void WorldSession::HandleCharFactionOrRaceChangeCallback(std::shared_ptr<Charact
-                 Player::LeaveAllArenaTeams(factionChangeInfo->Guid);
-             }
- 
-+            if (groupId && !sWorld->getBoolConfig(CONFIG_ALLOW_TWO_SIDE_INTERACTION_GROUP))
-+            {
-+                if (Group* group = sGroupMgr->GetGroupByDbStoreId(groupId))
-+                    group->RemoveMember(factionChangeInfo->Guid);
-+            }
-+
-             if (!HasPermission(rbac::RBAC_PERM_TWO_SIDE_ADD_FRIEND))
-             {
-                 // Delete Friend List
-diff --git a/src/server/game/Handlers/GroupHandler.cpp b/src/server/game/Handlers/GroupHandler.cpp
-index d0664b45b..85fabdf25 100644
---- a/src/server/game/Handlers/GroupHandler.cpp
-+++ b/src/server/game/Handlers/GroupHandler.cpp
-@@ -721,14 +721,15 @@ void WorldSession::HandleRaidReadyCheckOpcode(WorldPacket& recvData)
- 
- void WorldSession::HandleRaidReadyCheckFinishedOpcode(WorldPacket & /*recvData*/)
- {
--    //Group* group = GetPlayer()->GetGroup();
--    //if (!group)
--    //    return;
-+    Group* group = GetPlayer()->GetGroup();
-+    if (!group)
-+        return;
- 
--    //if (!group->IsLeader(GetPlayer()->GetGUID()) && !group->IsAssistant(GetPlayer()->GetGUID()))
--    //    return;
-+    if (!group->IsLeader(GetPlayer()->GetGUID()) && !group->IsAssistant(GetPlayer()->GetGUID()))
-+        return;
- 
--    // Is any reaction need?
-+    WorldPacket data(MSG_RAID_READY_CHECK_FINISHED);
-+    group->BroadcastPacket(&data, true, -1);
- }
- 
- void WorldSession::BuildPartyMemberStatsChangedPacket(Player* player, WorldPacket* data)
 diff --git a/src/server/game/Handlers/ItemHandler.cpp b/src/server/game/Handlers/ItemHandler.cpp
 index 407f50143..eb3fb6ae6 100644
 --- a/src/server/game/Handlers/ItemHandler.cpp
@@ -79681,37 +79597,6 @@ index 407f50143..eb3fb6ae6 100644
                  if (!(itemTemplate->AllowableClass & _player->GetClassMask()) && itemTemplate->Bonding == BIND_WHEN_PICKED_UP && !_player->IsGameMaster())
                      continue;
                  // Only display items in vendor lists for the team the
-diff --git a/src/server/game/Handlers/MailHandler.cpp b/src/server/game/Handlers/MailHandler.cpp
-index 224e96434..ce8fcd022 100644
---- a/src/server/game/Handlers/MailHandler.cpp
-+++ b/src/server/game/Handlers/MailHandler.cpp
-@@ -191,6 +191,13 @@ void WorldSession::HandleSendMail(WorldPackets::Mail::SendMail& sendMail)
-                 return;
-             }
- 
-+            // handle empty bag before CanBeTraded, since that func already has that check
-+            if (item->IsNotEmptyBag())
-+            {
-+                player->SendMailResult(0, MAIL_SEND, MAIL_ERR_EQUIP_ERROR, EQUIP_ERR_CAN_ONLY_DO_WITH_EMPTY_BAGS);
-+                return;
-+            }
-+
-             if (!item->CanBeTraded(true))
-             {
-                 player->SendMailResult(0, MAIL_SEND, MAIL_ERR_EQUIP_ERROR, EQUIP_ERR_MAIL_BOUND_ITEM);
-@@ -215,12 +222,6 @@ void WorldSession::HandleSendMail(WorldPackets::Mail::SendMail& sendMail)
-                 return;
-             }
- 
--            if (item->IsNotEmptyBag())
--            {
--                player->SendMailResult(0, MAIL_SEND, MAIL_ERR_EQUIP_ERROR, EQUIP_ERR_CAN_ONLY_DO_WITH_EMPTY_BAGS);
--                return;
--            }
--
-             items.push_back(item);
-         }
- 
 diff --git a/src/server/game/Handlers/SpellHandler.cpp b/src/server/game/Handlers/SpellHandler.cpp
 index 3991676dc..11fb7fa25 100644
 --- a/src/server/game/Handlers/SpellHandler.cpp
@@ -81091,7 +80976,7 @@ index db9b38b52..ebde99d6b 100644
              // Mutilate (for each hand)
              else if (m_spellInfo->SpellFamilyFlags[1] & 0x6)
 diff --git a/src/server/game/Spells/SpellInfo.cpp b/src/server/game/Spells/SpellInfo.cpp
-index b8fc1af89..3652d3ffa 100644
+index 56d8c741c..267e7fe8f 100644
 --- a/src/server/game/Spells/SpellInfo.cpp
 +++ b/src/server/game/Spells/SpellInfo.cpp
 @@ -31,6 +31,11 @@
@@ -82243,7 +82128,7 @@ index 1ea3ca520..a94b19461 100644
      }
  
 diff --git a/src/server/shared/DataStores/DBCStructure.h b/src/server/shared/DataStores/DBCStructure.h
-index 56ea11415..88804e73c 100644
+index e2c12efee..88804e73c 100644
 --- a/src/server/shared/DataStores/DBCStructure.h
 +++ b/src/server/shared/DataStores/DBCStructure.h
 @@ -233,9 +233,11 @@ struct AreaPOIEntry
@@ -82288,23 +82173,6 @@ index 56ea11415..88804e73c 100644
  
  /*
  struct ItemCondExtCostsEntry
-@@ -1292,6 +1295,16 @@ struct ScalingStatValuesEntry
-         return 0;
-     }
- 
-+    bool isTwoHand(uint32 mask) const
-+    {
-+        if (mask & 0x7E00)
-+        {
-+            if (mask & 0x00000400) return true;
-+            if (mask & 0x00001000) return true;
-+        }
-+        return false;
-+    }
-+
-     uint32 getSpellBonus(uint32 mask) const
-     {
-         if (mask & 0x00008000) return SpellPower;
 diff --git a/src/server/shared/DataStores/DBCfmt.h b/src/server/shared/DataStores/DBCfmt.h
 index 69d4e5f8d..dd56cf44a 100644
 --- a/src/server/shared/DataStores/DBCfmt.h
