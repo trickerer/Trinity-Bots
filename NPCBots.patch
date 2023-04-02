@@ -87,7 +87,7 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    74 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1407 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 18038 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 18041 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   741 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   395 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   936 +
@@ -117,7 +117,7 @@
  src/server/game/AI/NpcBots/botdump.h               |    51 +
  src/server/game/AI/NpcBots/botgiver.cpp            |   285 +
  src/server/game/AI/NpcBots/botgossip.h             |   135 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  1947 ++
+ src/server/game/AI/NpcBots/botmgr.cpp              |  1954 ++
  src/server/game/AI/NpcBots/botmgr.h                |   269 +
  src/server/game/AI/NpcBots/botspell.cpp            |  1677 ++
  src/server/game/AI/NpcBots/botspell.h              |   284 +
@@ -213,7 +213,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     4 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   353 +
- 215 files changed, 78428 insertions(+), 79 deletions(-)
+ 215 files changed, 78438 insertions(+), 79 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -8615,10 +8615,10 @@ index 000000000..ef7d142bc
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..709d81129
+index 000000000..029a44327
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,18038 @@
+@@ -0,0 +1,18041 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -15431,7 +15431,10 @@ index 000000000..709d81129
 +    {
 +        case WANDERER_HEARTHSTONE:
 +            if (IsWanderer())
++            {
 +                BotMgr::TeleportBot(me, sMapMgr->CreateBaseMap(_travel_node_cur->GetMapId()), _travel_node_cur, true);
++                _evadeCount = 0;
++            }
 +            return;
 +        default:
 +            break;
@@ -23111,7 +23114,7 @@ index 000000000..709d81129
 +            IsWanderer() ? "Wandering bot" : "Bot", me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
 +            (u->IsPlayer() ? "player" : u->IsNPCBot() ? u->ToCreature()->GetBotAI()->IsWanderer() ? "wandering bot" : "bot" : u->IsNPCBotPet() ? "botpet" : "creature"),
 +            u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
-+            _travel_node_cur->GetName().c_str());
++            IsWanderer() ? _travel_node_cur->GetName().c_str() : "''");
 +    }
 +
 +    _reviveTimer = (IsWanderer() && !(u && u->IsControlledByPlayer())) ? 90000 : IAmFree() ? 180000 : 60000; //1.5min/3min/1min
@@ -23142,7 +23145,7 @@ index 000000000..709d81129
 +            TC_LOG_DEBUG("npcbots", "Bot %s id %u class %u level %u KILLED wandering bot %s id %u class %u level %u on their way to %s!",
 +                me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
 +                u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
-+                _travel_node_cur->GetName().c_str());
++                IsWanderer() ? _travel_node_cur->GetName().c_str() : "''");
 +        }
 +    }
 +    if (u->isType(TYPEMASK_PLAYER))
@@ -64376,10 +64379,10 @@ index 000000000..75f3c0b19
 +#endif //BOTGOSSIP_H
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 000000000..389e63e40
+index 000000000..cd2120805
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,1947 @@
+@@ -0,0 +1,1954 @@
 +#include "Battleground.h"
 +#include "BattlegroundMgr.h"
 +#include "bot_ai.h"
@@ -65920,13 +65923,20 @@ index 000000000..389e63e40
 +
 +void BotMgr::PropagateEngageTimers() const
 +{
++    uint32 delay_dps = GetEngageDelayDPS();
++    uint32 delay_heal = GetEngageDelayHeal();
++
++    if (!delay_dps && !delay_heal)
++        return;
++
 +    for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
 +    {
 +        if (itr->second->GetBotAI()->IsTank())
 +            continue;
 +
-+        uint32 delay = itr->second->GetBotAI()->HasRole(BOT_ROLE_HEAL) ? GetEngageDelayHeal() :
-+            itr->second->GetBotAI()->HasRole(BOT_ROLE_DPS) ? GetEngageDelayDPS() : 0;
++        bool is_heal = itr->second->GetBotAI()->HasRole(BOT_ROLE_HEAL);
++        bool is_dps= itr->second->GetBotAI()->HasRole(BOT_ROLE_DPS);
++        uint32 delay = (is_heal && is_dps) ? std::max<uint32>(delay_dps, delay_heal) : is_heal ? delay_heal : is_dps ? delay_dps : 0;
 +
 +        itr->second->GetBotAI()->ResetEngageTimer(delay);
 +    }
