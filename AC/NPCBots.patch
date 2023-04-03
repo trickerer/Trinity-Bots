@@ -59,7 +59,7 @@
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2267 +++
  src/server/game/AI/NpcBots/botcommands.cpp         |  3644 ++++
  src/server/game/AI/NpcBots/botcommon.h             |   558 +
- src/server/game/AI/NpcBots/botdatamgr.cpp          |  2001 ++
+ src/server/game/AI/NpcBots/botdatamgr.cpp          |  2005 ++
  src/server/game/AI/NpcBots/botdatamgr.h            |   194 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   133 +
  src/server/game/AI/NpcBots/botdpstracker.h         |    42 +
@@ -148,6 +148,7 @@
  .../TrialOfTheChampion/boss_grand_champions.cpp    |     6 +
  .../boss_icecrown_gunship_battle.cpp               |    45 +
  .../Northrend/Naxxramas/boss_four_horsemen.cpp     |     2 +-
+ .../scripts/Northrend/Nexus/Oculus/oculus.cpp      |    14 +
  src/server/scripts/Spells/spell_dk.cpp             |    35 +
  src/server/scripts/Spells/spell_druid.cpp          |    64 +
  src/server/scripts/Spells/spell_generic.cpp        |    21 +
@@ -160,7 +161,7 @@
  src/server/shared/DataStores/DBCStructure.h        |     6 +-
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |    23 +
- 162 files changed, 79192 insertions(+), 97 deletions(-)
+ 163 files changed, 79210 insertions(+), 97 deletions(-)
  create mode 100644 appveyor.yml
  create mode 100644 data/sql/Bots/locales/esES/npc_text_locale.sql
  create mode 100644 data/sql/Bots/locales/esMX/npc_text_locale.sql
@@ -60998,10 +60999,10 @@ index 0000000000..d6cd810939
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.cpp b/src/server/game/AI/NpcBots/botdatamgr.cpp
 new file mode 100644
-index 0000000000..59b64cbeea
+index 0000000000..516260b21a
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.cpp
-@@ -0,0 +1,2001 @@
+@@ -0,0 +1,2005 @@
 +#include "bot_ai.h"
 +#include "botdatamgr.h"
 +#include "botmgr.h"
@@ -62000,6 +62001,7 @@ index 0000000000..59b64cbeea
 +                    case INVTYPE_SHIELD:
 +                        if (proto.Armor == 0)
 +                            break;
++                        _botsWanderCreaturesSortedGear[BOT_CLASS_WARRIOR][BOT_SLOT_OFFHAND][reqLstep].push_back(itemId);
 +                        _botsWanderCreaturesSortedGear[BOT_CLASS_PALADIN][BOT_SLOT_OFFHAND][reqLstep].push_back(itemId);
 +                        _botsWanderCreaturesSortedGear[BOT_CLASS_SHAMAN][BOT_SLOT_OFFHAND][reqLstep].push_back(itemId);
 +                        _botsWanderCreaturesSortedGear[BOT_CLASS_SPELLBREAKER][BOT_SLOT_OFFHAND][reqLstep].push_back(itemId);
@@ -62334,7 +62336,7 @@ index 0000000000..59b64cbeea
 +    if (!itemIdVec.empty())
 +    {
 +        uint32 itemId;
-+        uint32 tries = 0;
++        uint8 tries = 0;
 +        bool can_equip = false;
 +        do
 +        {
@@ -62344,12 +62346,15 @@ index 0000000000..59b64cbeea
 +
 +        } while (!can_equip && tries < 20);
 +
-+        if (Item* newItem = Item::CreateItem(itemId, 1, nullptr))
++        if (can_equip)
 +        {
-+            if (uint32 randomPropertyId = Item::GenerateItemRandomPropertyId(itemId))
-+                newItem->SetItemRandomProperties(randomPropertyId);
++            if (Item* newItem = Item::CreateItem(itemId, 1, nullptr))
++            {
++                if (uint32 randomPropertyId = Item::GenerateItemRandomPropertyId(itemId))
++                    newItem->SetItemRandomProperties(randomPropertyId);
 +
-+            return newItem;
++                return newItem;
++            }
 +        }
 +    }
 +
@@ -82526,6 +82531,38 @@ index 2dfa3eec2e..d13d13affa 100644
                  {
                      if (pTarget && me->IsValidAttackTarget(pTarget))
                      {
+diff --git a/src/server/scripts/Northrend/Nexus/Oculus/oculus.cpp b/src/server/scripts/Northrend/Nexus/Oculus/oculus.cpp
+index 5d931e9c4e..f9be208171 100644
+--- a/src/server/scripts/Northrend/Nexus/Oculus/oculus.cpp
++++ b/src/server/scripts/Northrend/Nexus/Oculus/oculus.cpp
+@@ -392,6 +392,14 @@ public:
+ 
+         void PassengerBoarded(Unit* passenger, int8 /*seatid*/, bool add) override
+         {
++            //npcbot
++            if (passenger->IsNPCBot() && add)
++            {
++                despawnTimer = 0;
++                return;
++            }
++            //end npcbot
++
+             if (passenger->GetTypeId() != TYPEID_PLAYER)
+                 return;
+ 
+@@ -431,6 +439,12 @@ public:
+             if (JustSummoned)
+             {
+                 despawnTimer = 1;
++                //npcbot
++                if (Vehicle const* v = me->GetVehicleKit())
++                    if (Unit const* passenger = v->GetPassenger(0))
++                        if (passenger->IsNPCBot())
++                            despawnTimer = 0;
++                //end npcbot
+                 JustSummoned = false;
+                 if (m_pInstance)
+                 {
 diff --git a/src/server/scripts/Spells/spell_dk.cpp b/src/server/scripts/Spells/spell_dk.cpp
 index a0f3939e93..e5a61d97b6 100644
 --- a/src/server/scripts/Spells/spell_dk.cpp
