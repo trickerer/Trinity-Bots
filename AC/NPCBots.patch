@@ -37,7 +37,7 @@
  src/server/game/AI/CreatureAI.h                    |     5 +
  src/server/game/AI/NpcBots/bot_Events.h            |    74 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1407 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 18075 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 18076 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   741 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   414 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   957 +
@@ -161,7 +161,7 @@
  src/server/shared/DataStores/DBCStructure.h        |     6 +-
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |    23 +
- 163 files changed, 79210 insertions(+), 97 deletions(-)
+ 163 files changed, 79211 insertions(+), 97 deletions(-)
  create mode 100644 appveyor.yml
  create mode 100644 data/sql/Bots/locales/esES/npc_text_locale.sql
  create mode 100644 data/sql/Bots/locales/esMX/npc_text_locale.sql
@@ -8937,10 +8937,10 @@ index 0000000000..37f59f6c2f
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000000..3a3874bb99
+index 0000000000..dca3d1dd1b
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,18075 @@
+@@ -0,0 +1,18076 @@
 +#include "bot_ai.h"
 +#include "bot_Events.h"
 +#include "bot_GridNotifiers.h"
@@ -25596,7 +25596,8 @@ index 0000000000..3a3874bb99
 +
 +            if (IsWanderer())
 +            {
-+                GraveyardStruct const* gy = sGraveyard->GetClosestGraveyard((Player*)me, me->GetFaction() == 1801 ? TEAM_HORDE : TEAM_ALLIANCE, false);
++                TeamId my_team = BotDataMgr::GetTeamForFaction(me->GetFaction());
++                GraveyardStruct const* gy = sGraveyard->GetClosestGraveyard((Player*)me, my_team == TEAM_HORDE ? TEAM_HORDE : TEAM_ALLIANCE, false);
 +                Position safePos;
 +                if (gy)
 +                {
@@ -78025,7 +78026,7 @@ index e9eb7e0b12..37decdf4ef 100644
      float totalPct         = addTotalPct ? GetModifierValue(unitMod, TOTAL_PCT) : 1.0f;
      float dmgMultiplier    = GetCreatureTemplate()->DamageModifier; // = DamageModifier * _GetDamageMod(rank);
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index 8a60470ab8..709efde452 100644
+index 8a60470ab8..642672d662 100644
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
 @@ -73,6 +73,11 @@
@@ -79134,21 +79135,28 @@ index 8a60470ab8..709efde452 100644
      if (GetTypeId() == TYPEID_PLAYER && GetVehicleKit())
      {
          // Send other players that we are no longer a vehicle
-@@ -13711,6 +14361,32 @@ void Unit::SetInCombatState(bool PvP, Unit* enemy, uint32 duration)
-         controlled->SetInCombatState(PvP, enemy, duration);
-     }
+@@ -13660,6 +14310,17 @@ void Unit::SetInCombatState(bool PvP, Unit* enemy, uint32 duration)
+     if (GetTypeId() == TYPEID_UNIT && enemy && IsImmuneToPC() && enemy->GetCharmerOrOwnerPlayerOrPlayerItself())
+         SetImmuneToPC(false); // unit has engaged in combat, remove immunity so players can fight back
  
 +    //npcbot: party combat hook
-+    Player* playerOwner = nullptr;
-+    if (IsPlayer() && ToPlayer()->HaveBot())
-+        playerOwner = ToPlayer();
-+    else if (IsNPCBotOrPet() && !ToCreature()->IsFreeBot())
-+        playerOwner = ToCreature()->GetBotOwner();
++    Player const* playerOwner = nullptr;
++    if (enemy->IsPlayer() && enemy->ToPlayer()->HaveBot())
++        playerOwner = enemy->ToPlayer();
++    else if (enemy->IsNPCBotOrPet() && !enemy->ToCreature()->IsFreeBot())
++        playerOwner = enemy->ToCreature()->GetBotOwner();
 +
 +    if (playerOwner)
 +        BotMgr::OnBotPartyEngage(playerOwner);
 +    //end npcbot
 +
+     if (IsInCombat())
+         return;
+ 
+@@ -13711,6 +14372,21 @@ void Unit::SetInCombatState(bool PvP, Unit* enemy, uint32 duration)
+         controlled->SetInCombatState(PvP, enemy, duration);
+     }
+ 
 +    //npcbot: combatstate for bots
 +    if (GetTypeId() == TYPEID_PLAYER && ToPlayer()->HaveBot())
 +    {
