@@ -1,6 +1,6 @@
 ### This mod was last updated:
-### TC: 05 Apr 2023, [40b7b3fceb](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/40b7b3fceb)
-### AC: 05 Apr 2023, [79f813eac6](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/79f813eac6)
+### TC: 11 Apr 2023, [f2456d0515](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/f2456d0515)
+### AC: 11 Apr 2023, [8d47df05f9](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/8d47df05f9)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 
@@ -28,6 +28,7 @@
             - [Raid Group Frames](#raid-group-frames)
         - [NPCBot Extras](#npcbot-extras)
         - [NPCBots and Vehicles](#npcbots-and-vehicles)
+    - [NPCBot Wander System](#npcbot-wander-system)
     - [NPCBot Config Settings](#npcbot-config-settings)
     - [NPCBot Mod Localization](#npcbot-mod-localization)
     - [NPCBot Extra Classes](#npcbot-extra-classes)
@@ -700,6 +701,11 @@ Lastly, all NPCBots will have the following extra options:
 ```
 `You are dismissed` will remove the NPCBot from your control. They will become pissed off, throw all their gear at you and return back to their spawn location. They will also become enraged for 5 minutes to the point where they will attack anyone attempting to hire them (this can be disabled in config)  
 `Nevermind` will simply close out the Gossip menu
+
+### NPCBot Wander System
+Besides main purpose which is to assist players, NPCBots can also be used as autonomous units. Wandering bots spawn with gear, but are free of player's control and cannot be hired. Here is a list of features supported:  
+1. Wandering bots in open world. Config setting **`NpcBot.WanderingBots.Continents.Count`** controls desired amount of bots roaming world maps. Spawn points are random and level is selected accordingly. These bots give small reward for kill and bonus experience. See the config file for more info.  
+2. Wandering bots generated for Battlegrounds. Enabled by **`NpcBot.WanderingBots.BG.Enable`** setting, this feature allows to generate NPCBots to fill BG queue and partake in BG matches themselves. Bots can't fulfill BG objectives currently. Only Warsong Gulch is implemented currently.  
 
 ### NPCBot Config Settings
 If some config settings look ambiguous this section may be of help to you
