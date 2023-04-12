@@ -40,7 +40,7 @@
  src/server/game/AI/CreatureAI.h                    |     5 +
  src/server/game/AI/NpcBots/bot_Events.h            |    74 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1409 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 18211 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 18219 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   746 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   414 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   957 +
@@ -62,7 +62,7 @@
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2267 +++
  src/server/game/AI/NpcBots/botcommands.cpp         |  3665 ++++
  src/server/game/AI/NpcBots/botcommon.h             |   563 +
- src/server/game/AI/NpcBots/botdatamgr.cpp          |  2453 +++
+ src/server/game/AI/NpcBots/botdatamgr.cpp          |  2473 +++
  src/server/game/AI/NpcBots/botdatamgr.h            |   205 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   133 +
  src/server/game/AI/NpcBots/botdpstracker.h         |    42 +
@@ -70,7 +70,7 @@
  src/server/game/AI/NpcBots/botdump.h               |    51 +
  src/server/game/AI/NpcBots/botgiver.cpp            |   286 +
  src/server/game/AI/NpcBots/botgossip.h             |   135 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  2110 +++
+ src/server/game/AI/NpcBots/botmgr.cpp              |  2111 +++
  src/server/game/AI/NpcBots/botmgr.h                |   290 +
  src/server/game/AI/NpcBots/botspell.cpp            |  1490 ++
  src/server/game/AI/NpcBots/botspell.h              |   284 +
@@ -143,7 +143,7 @@
  src/server/game/Scripting/ScriptMgr.cpp            |     8 +
  src/server/game/Scripting/ScriptMgr.h              |     2 +
  src/server/game/Server/WorldSession.cpp            |    21 +
- src/server/game/Spells/Auras/SpellAuraEffects.cpp  |   101 +
+ src/server/game/Spells/Auras/SpellAuraEffects.cpp  |   104 +
  src/server/game/Spells/Auras/SpellAuras.cpp        |    60 +
  src/server/game/Spells/Spell.cpp                   |   181 +
  src/server/game/Spells/Spell.h                     |     3 +
@@ -172,7 +172,7 @@
  src/server/shared/DataStores/DBCStructure.h        |     6 +-
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |    23 +
- 174 files changed, 83178 insertions(+), 103 deletions(-)
+ 174 files changed, 83210 insertions(+), 103 deletions(-)
  create mode 100644 appveyor.yml
  create mode 100644 data/sql/Bots/locales/esES/npc_text_locale.sql
  create mode 100644 data/sql/Bots/locales/esMX/npc_text_locale.sql
@@ -11371,10 +11371,10 @@ index 0000000000..5cf40166a5
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000000..93b46ebd09
+index 0000000000..733c7ae8f7
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,18211 @@
+@@ -0,0 +1,18219 @@
 +#include "Battleground.h"
 +#include "bot_ai.h"
 +#include "bot_Events.h"
@@ -16854,7 +16854,7 @@ index 0000000000..93b46ebd09
 +                }
 +            }
 +        }
-+        else if (me->IsSitState() && (me->GetInterruptMask() & AURA_INTERRUPT_FLAG_NOT_SEATED))
++        else if (me->IsSitState() && !(me->GetInterruptMask() & AURA_INTERRUPT_FLAG_NOT_SEATED))
 +            me->SetStandState(UNIT_STAND_STATE_STAND);
 +
 +        return;
@@ -18252,7 +18252,9 @@ index 0000000000..93b46ebd09
 +        case WANDERER_HEARTHSTONE:
 +            if (IsWanderer())
 +            {
-+                BotMgr::TeleportBot(me, sMapMgr->CreateBaseMap(_travel_node_cur->GetMapId()), _travel_node_cur, true);
++                Map* targetMap = (me->GetMap()->GetEntry()->IsContinent() && _travel_node_cur->GetMapId() != me->GetMap()->GetId()) ?
++                    sMapMgr->CreateBaseMap(_travel_node_cur->GetMapId()) : me->GetMap();
++                BotMgr::TeleportBot(me, targetMap, _travel_node_cur, true);
 +                _evadeCount = 0;
 +            }
 +            return;
@@ -25985,7 +25987,21 @@ index 0000000000..93b46ebd09
 +                gr->SendUpdate();
 +    }
 +
-+    if (u && (u->IsPvP() || u->IsControlledByPlayer() || u->IsNPCBotOrPet()))
++    if (IsWanderer() && me->GetMap()->IsBattlegroundOrArena())
++    {
++        if (me->GetMap()->GetPlayersCountExceptGMs() > 0)
++        {
++            if (Battleground const* bg = me->GetMap()->ToBattlegroundMap()->GetBG())
++            {
++                if (GraveyardStruct const* gy = bg->GetClosestGraveyardForBot(me))
++                {
++                    Position pos(gy->x, gy->y, gy->z, me->GetOrientation());
++                    Events.AddEventAtOffset([me = me, pos = pos]() { BotMgr::TeleportBot(me, me->GetMap(), &pos, true); }, 5s);
++                }
++            }
++        }
++    }
++    else if (u && (u->IsPvP() || u->IsControlledByPlayer() || u->IsNPCBotOrPet()))
 +    {
 +        LOG_DEBUG("npcbots", "{} {} id {} class {} level {} WAS KILLED BY {} {} id {} class {} level {} on their way to {}!",
 +            IsWanderer() ? "Wandering bot" : "Bot", me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
@@ -25994,19 +26010,8 @@ index 0000000000..93b46ebd09
 +            IsWanderer() ? _travel_node_cur->GetName().c_str() : "''");
 +    }
 +
-+    if (IsWanderer() && me->GetMap()->GetEntry()->IsBattleground())
-+    {
-+        Battleground* bg = me->GetMap()->ToBattlegroundMap()->GetBG();
-+        ASSERT_NOTNULL(bg);
-+        GraveyardStruct const* gy = bg->GetClosestGraveyardForBot(me);
-+        if (gy)
-+        {
-+            Position pos(gy->x, gy->y, gy->z, me->GetOrientation());
-+            Events.AddEventAtOffset([me = me, pos = pos]() { BotMgr::TeleportBot(me, me->GetMap(), &pos, true); }, 5s);
-+        }
-+    }
-+
-+    _reviveTimer = (IsWanderer() && !(u && u->IsControlledByPlayer())) ? REVIVE_TIMER_MEDIUM : IAmFree() ? REVIVE_TIMER_DEFAULT : REVIVE_TIMER_SHORT;
++    _reviveTimer = (IsWanderer() && !(u && u->IsControlledByPlayer())) ? REVIVE_TIMER_MEDIUM :
++        IAmFree() ? REVIVE_TIMER_DEFAULT : master->InBattleground() ? REVIVE_TIMER_SHORT / 2 : REVIVE_TIMER_SHORT;
 +    _atHome = false;
 +    _evadeMode = false;
 +    spawned = false;
@@ -26021,20 +26026,23 @@ index 0000000000..93b46ebd09
 +    if (u->IsControlledByPlayer() || u->IsPvP() || u->IsNPCBotOrPet())
 +    {
 +        ++_pvpKillsCount;
-+        if (IsWanderer())
++        if (!me->GetMap()->IsBattlegroundOrArena())
 +        {
-+            LOG_DEBUG("npcbots", "Wandering bot {} id {} class {} level {} KILLED {} {} id {} class {} level {} on their way to {}!",
-+                me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
-+                (u->IsPlayer() ? "player" : u->IsNPCBot() ? u->ToCreature()->GetBotAI()->IsWanderer() ? "wandering bot" : "bot" : u->IsNPCBotPet() ? "botpet" : "creature"),
-+                u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
-+                _travel_node_cur->GetName().c_str());
-+        }
-+        else if (u->IsNPCBot() && u->ToCreature()->GetBotAI()->IsWanderer())
-+        {
-+            LOG_DEBUG("npcbots", "Bot {} id {} class {} level {} KILLED wandering bot {} id {} class {} level {} on their way to {}!",
-+                me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
-+                u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
-+                IsWanderer() ? _travel_node_cur->GetName().c_str() : "''");
++            if (IsWanderer())
++            {
++                LOG_DEBUG("npcbots", "Wandering bot {} id {} class {} level {} KILLED {} {} id {} class {} level {} on their way to {}!",
++                    me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
++                    (u->IsPlayer() ? "player" : u->IsNPCBot() ? u->ToCreature()->GetBotAI()->IsWanderer() ? "wandering bot" : "bot" : u->IsNPCBotPet() ? "botpet" : "creature"),
++                    u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
++                    _travel_node_cur->GetName().c_str());
++            }
++            else if (u->IsNPCBot() && u->ToCreature()->GetBotAI()->IsWanderer())
++            {
++                LOG_DEBUG("npcbots", "Bot {} id {} class {} level {} KILLED wandering bot {} id {} class {} level {} on their way to {}!",
++                    me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
++                    u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
++                    IsWanderer() ? _travel_node_cur->GetName().c_str() : "''");
++            }
 +        }
 +    }
 +
@@ -28246,7 +28254,7 @@ index 0000000000..93b46ebd09
 +                me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()), me->GetMapId(), _travel_node_cur->GetWPId(),
 +                _travel_node_cur->GetName().c_str(), uint32(mapid), pos.ToString().c_str(), me->GetExactDist(pos));
 +
-+            evadeDelayTimer = 15000;
++            evadeDelayTimer = 12000;
 +            me->CastSpell(me, WANDERER_HEARTHSTONE);
 +            return;
 +        }
@@ -28307,7 +28315,7 @@ index 0000000000..93b46ebd09
 +
 +                homepos.Relocate(nextNode);
 +
-+                LOG_DEBUG("npcbots", "Bot {} id {} class {} level {} wandered from node {} to {}, next {} ('{}'), {}, dist {} yd!",
++                LOG_TRACE("npcbots", "Bot {} id {} class {} level {} wandered from node {} to {}, next {} ('{}'), {}, dist {} yd!",
 +                    me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()), _travel_node_last ? _travel_node_last->GetWPId() : 0, _travel_node_cur->GetWPId(),
 +                    nextNode->GetWPId(), nextNode->GetName().c_str(), homepos.ToString().c_str(), pos.GetExactDist(homepos));
 +
@@ -28382,7 +28390,7 @@ index 0000000000..93b46ebd09
 +        return;
 +
 +    if (me->IsInWater())
-+        LOG_DEBUG("npcbots", "Bot {} id {} class {} level {} is pathing from water!", me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()));
++        LOG_TRACE("npcbots", "Bot {} id {} class {} level {} is pathing from water!", me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()));
 +
 +    switch (path.GetPathType())
 +    {
@@ -28405,7 +28413,7 @@ index 0000000000..93b46ebd09
 +                return;
 +            }
 +            //log error and use direct point movement
-+            LOG_DEBUG("npcbots", "Bot {} id {} class {] level {} can't find full path to node {} (res {}) from pos {}, falling back to default PF!",
++            LOG_DEBUG("npcbots", "Bot {} id {} class {} level {} can't find full path to node {} (res {}) from pos {}, falling back to default PF!",
 +                me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()), IsWanderer() ? _travel_node_cur->GetWPId() : 0, uint32(path.GetPathType()),
 +                me->GetPosition().ToString().c_str());
 +            break;
@@ -63601,10 +63609,10 @@ index 0000000000..f1c68adcb5
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.cpp b/src/server/game/AI/NpcBots/botdatamgr.cpp
 new file mode 100644
-index 0000000000..1f7565f55f
+index 0000000000..d22a245fb6
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.cpp
-@@ -0,0 +1,2453 @@
+@@ -0,0 +1,2473 @@
 +#include "BattlegroundMgr.h"
 +#include "BattlegroundQueue.h"
 +#include "bot_ai.h"
@@ -63900,8 +63908,8 @@ index 0000000000..1f7565f55f
 +        if (bracketEntry)
 +        {
 +            //force level range for bgs
-+            bot_template.minlevel = bracketEntry->minLevel;
-+            bot_template.maxlevel = bracketEntry->maxLevel;
++            bot_template.minlevel = std::min<uint32>(bracketEntry->minLevel, 80u);
++            bot_template.maxlevel = std::min<uint32>(bracketEntry->maxLevel, 80u);
 +        }
 +        else
 +            bot_template.flags_extra &= ~(CREATURE_FLAG_EXTRA_NO_XP);
@@ -63997,7 +64005,7 @@ index 0000000000..1f7565f55f
 +
 +        bool found_maxlevel_node_a = false;
 +        bool found_maxlevel_node_h = false;
-+        bool found_maxlevel_node_rest = false;
++        bool found_maxlevel_node_n = false;
 +        const uint8 maxof_minclasslvl_nor = BotDataMgr::GetMinLevelForBotClass(BOT_CLASS_DEATH_KNIGHT); // 55
 +        const uint8 maxof_minclasslvl_ex = BotDataMgr::GetMinLevelForBotClass(BOT_CLASS_DREADLORD); // 60
 +        for (WanderNode const* wp : spawns_a)
@@ -64020,57 +64028,63 @@ index 0000000000..1f7565f55f
 +        {
 +            if (wp->GetLevels().second >= maxof_minclasslvl_ex)
 +            {
-+                found_maxlevel_node_rest = true;
++                found_maxlevel_node_n = true;
 +                break;
 +            }
 +        }
 +
++        decltype (_spareBotIdsPerClassMap) teamSpareBotIdsPerClass;
++
 +        if (team == -1)
 +        {
-+            static const std::array<int32, 6> team_choices{ ALLIANCE, HORDE, TEAM_OTHER, ALLIANCE, HORDE, TEAM_OTHER };
-+            team = Acore::Containers::SelectRandomContainerElement(team_choices);
-+        }
++            if (!found_maxlevel_node_a || !found_maxlevel_node_h || !found_maxlevel_node_n)
++                return false;
 +
-+        switch (team)
-+        {
-+            case ALLIANCE:
-+                if (!found_maxlevel_node_a)
-+                    return false;
-+                break;
-+            case HORDE:
-+                if (!found_maxlevel_node_h)
-+                    return false;
-+                break;
-+            case TEAM_OTHER:
-+            default:
-+                if (!found_maxlevel_node_rest)
-+                    return false;
-+                break;
++            //make a full copy
++            teamSpareBotIdsPerClass = _spareBotIdsPerClassMap;
 +        }
-+
-+        decltype (_spareBotIdsPerClassMap) teamSpareBotIdsPerClass;
-+        for (auto const& kv : _spareBotIdsPerClassMap)
++        else
 +        {
-+            for (uint32 spareBotId : kv.second)
++            switch (team)
 +            {
-+                NpcBotExtras const* orig_extras = BotDataMgr::SelectNpcBotExtras(spareBotId);
-+                ASSERT_NOTNULL(orig_extras);
++                case ALLIANCE:
++                    if (!found_maxlevel_node_a)
++                        return false;
++                    break;
++                case HORDE:
++                    if (!found_maxlevel_node_h)
++                        return false;
++                    break;
++                case TEAM_OTHER:
++                default:
++                    if (!found_maxlevel_node_n)
++                        return false;
++                    break;
++            }
 +
-+                uint32 bot_faction = GetDefaultFactionForRaceClass(kv.first, orig_extras->race);
-+
-+                uint32 botTeam = BotDataMgr::GetTeamForFaction(bot_faction);
-+
-+                if (int32(botTeam) != team)
-+                    continue;
-+
-+                if (bracketEntry)
++            for (auto const& kv : _spareBotIdsPerClassMap)
++            {
++                for (uint32 spareBotId : kv.second)
 +                {
-+                    uint8 botminlevel = BotDataMgr::GetMinLevelForBotClass(kv.first);
-+                    if (botminlevel > bracketEntry->maxLevel)
-+                        continue;
-+                }
++                    NpcBotExtras const* orig_extras = BotDataMgr::SelectNpcBotExtras(spareBotId);
++                    ASSERT_NOTNULL(orig_extras);
 +
-+                teamSpareBotIdsPerClass[kv.first].insert(spareBotId);
++                    uint32 bot_faction = GetDefaultFactionForRaceClass(kv.first, orig_extras->race);
++
++                    uint32 botTeam = BotDataMgr::GetTeamForFaction(bot_faction);
++
++                    if (int32(botTeam) != team)
++                        continue;
++
++                    if (bracketEntry)
++                    {
++                        uint8 botminlevel = BotDataMgr::GetMinLevelForBotClass(kv.first);
++                        if (botminlevel > bracketEntry->maxLevel)
++                            continue;
++                    }
++
++                    teamSpareBotIdsPerClass[kv.first].insert(spareBotId);
++                }
 +            }
 +        }
 +
@@ -64733,7 +64747,11 @@ index 0000000000..1f7565f55f
 +    uint32 spareBots = sBotGen->GetSpareBotsCount();
 +
 +    if (spareBots == 0)
++    {
++        LOG_WARN("npcbots", "[No spare bots] Failed to generate bots for BG {} inited by player {} ({})",
++            uint32(gqinfo->BgTypeId), groupLeader->GetName().c_str(), groupLeader->GetGUID().GetCounter());
 +        return false;
++    }
 +
 +    BattlegroundQueueTypeId bgqTypeId = sBattlegroundMgr->BGQueueTypeId(gqinfo->BgTypeId, gqinfo->ArenaType);
 +    ASSERT(bgqTypeId != BATTLEGROUND_QUEUE_NONE);
@@ -64750,7 +64768,11 @@ index 0000000000..1f7565f55f
 +            {
 +                Battleground const* real_bg = real_bg_pair.second;
 +                if (real_bg->GetInstanceID() != 0 && real_bg->GetBracketId() == bracketId)
++                {
++                    LOG_INFO("npcbots", "[Already running] Found running BG {} inited by player {} ({}). Not generating bots",
++                        uint32(gqinfo->BgTypeId), groupLeader->GetName().c_str(), groupLeader->GetGUID().GetCounter());
 +                    return true; // This BG is running already
++                }
 +            }
 +        }
 +    }
@@ -64787,10 +64809,18 @@ index 0000000000..1f7565f55f
 +    ASSERT(needed_bots_count_h <= maxteamplayers);
 +
 +    if (needed_bots_count_a + needed_bots_count_h == 0)
++    {
++        LOG_INFO("npcbots", "[No bots required] Failed to generate bots for BG {} inited by player {} ({})",
++            uint32(gqinfo->BgTypeId), groupLeader->GetName().c_str(), groupLeader->GetGUID().GetCounter());
 +        return true;
++    }
 +
 +    if (spareBots < needed_bots_count_a + needed_bots_count_h)
++    {
++        LOG_INFO("npcbots", "[Not enough spare bots] Failed to generate bots for BG {} inited by player {} ({})",
++            uint32(gqinfo->BgTypeId), groupLeader->GetName().c_str(), groupLeader->GetGUID().GetCounter());
 +        return false;
++    }
 +
 +    uint32 spawned_a = 0;
 +    uint32 spawned_h = 0;
@@ -64807,7 +64837,6 @@ index 0000000000..1f7565f55f
 +            for (NpcBotRegistry const* registry1 : { &spawned_bots_a, &spawned_bots_h })
 +                for (Creature const* bot : *registry1)
 +                    DespawnWandererBot(bot->GetEntry());
-+
 +            return false;
 +        }
 +        spareBots = sBotGen->GetSpareBotsCount();
@@ -64822,7 +64851,6 @@ index 0000000000..1f7565f55f
 +            for (NpcBotRegistry const* registry2 : { &spawned_bots_a, &spawned_bots_h })
 +                for (Creature const* bot : *registry2)
 +                    DespawnWandererBot(bot->GetEntry());
-+
 +            return false;
 +        }
 +    }
@@ -64842,7 +64870,7 @@ index 0000000000..1f7565f55f
 +            queue->AddBotAsGroup(bot->GetGUID(), GetTeamIdForFaction(bot->GetFaction()),
 +                gqinfo->BgTypeId, bracketEntry, gqinfo->ArenaType, false, gqinfo->ArenaTeamRating, gqinfo->ArenaMatchmakerRating);
 +
-+            seconds_delay += std::max<uint32>(1u, uint32((MINUTE / 2) / (spawned_bots_a.size() + spawned_bots_h.size())));
++            seconds_delay += std::max<uint32>(1u, uint32((MINUTE / 2) / (needed_bots_count_a + needed_bots_count_h)));
 +
 +            BotBattlegroundEnterEvent* bbe = new BotBattlegroundEnterEvent(groupLeader->GetGUID(), bot->GetGUID(), bgqTypeId,
 +                botDataEvents.CalculateTime(Milliseconds(uint32(INVITE_ACCEPT_WAIT_TIME) + uint32(BG_START_DELAY_2M)).count()));
@@ -67978,10 +68006,10 @@ index 0000000000..75f3c0b199
 +#endif //BOTGOSSIP_H
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 0000000000..f718952c55
+index 0000000000..09a122b711
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,2110 @@
+@@ -0,0 +1,2111 @@
 +#include "Battleground.h"
 +#include "BattlegroundMgr.h"
 +#include "bot_ai.h"
@@ -68647,7 +68675,7 @@ index 0000000000..f718952c55
 +            continue;
 +        }
 +
-+        if (partyCombat == false)
++        if (partyCombat == false || _owner->InBattleground())
 +        {
 +            ai->UpdateReviveTimer(diff);
 +
@@ -68854,9 +68882,10 @@ index 0000000000..f718952c55
 +    //bot->GetBotAI()->Reset();
 +    bot->GetBotAI()->SetShouldUpdateStats();
 +
-+    bot->SetHealth(bot->GetMaxHealth() / (bot->IsWandererBot() ? 1 : 4)); //25% of max health
++    uint8 restore_factor = (bot->IsWandererBot() || (!bot->GetBotAI()->IAmFree() && bot->GetBotOwner()->InBattleground())) ? 1 : 4;
++    bot->SetHealth(bot->GetMaxHealth() / restore_factor); //25% of max health
 +    if (bot->GetMaxPower(POWER_MANA) > 1)
-+        bot->SetPower(POWER_MANA, bot->GetMaxPower(POWER_MANA) / (bot->IsWandererBot() ? 1 : 4)); //25% of max mana
++        bot->SetPower(POWER_MANA, bot->GetMaxPower(POWER_MANA) / restore_factor); //25% of max mana
 +
 +    if (!bot->GetBotAI()->IAmFree() && !bot->GetBotAI()->HasBotCommandState(BOT_COMMAND_MASK_UNMOVING))
 +        bot->GetBotAI()->SetBotCommandState(BOT_COMMAND_FOLLOW, true);
@@ -72580,7 +72609,7 @@ index 0000000000..929d64cfc7
 +#endif //BOTTEXT_H
 diff --git a/src/server/game/AI/NpcBots/botwanderful.cpp b/src/server/game/AI/NpcBots/botwanderful.cpp
 new file mode 100644
-index 0000000000..2824210669
+index 0000000000..99ac37d467
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botwanderful.cpp
 @@ -0,0 +1,246 @@
@@ -72738,7 +72767,7 @@ index 0000000000..2824210669
 +    ASSERT(!!sMapStore.LookupEntry(_mapId), "WanderNode::Ctr(): Invalid value for _mapId");
 +    ASSERT(!!sAreaTableStore.LookupEntry(_zoneId), "WanderNode::Ctr(): Invalid value for _zoneId");
 +    ASSERT(!!sAreaTableStore.LookupEntry(_areaId), "WanderNode::Ctr(): Invalid value for _areaId");
-+    
++
 +    lock_type lock(*GetLock());
 +
 +    ALL_WPS.push_back(this);
@@ -72983,7 +73012,7 @@ index 0000000000..6d111071b8
 +#endif //BOTWANDERFUL_H_
 diff --git a/src/server/game/AI/NpcBots/bpet_ai.cpp b/src/server/game/AI/NpcBots/bpet_ai.cpp
 new file mode 100644
-index 0000000000..b9dea7d56a
+index 0000000000..fb1a6f69d2
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bpet_ai.cpp
 @@ -0,0 +1,2453 @@
@@ -74304,7 +74333,7 @@ index 0000000000..b9dea7d56a
 +    SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId);
 +    if (!spellInfo)
 +    {
-+        LOG_ERROR("entities.player", "bot_pet_ai::RefreshAura(): Invalid spellInfo for spell %u! Bot - {} (botclass: {}, entry: {})",
++        LOG_ERROR("entities.player", "bot_pet_ai::RefreshAura(): Invalid spellInfo for spell {}! Bot - {} (botclass: {}, entry: {})",
 +            spellId, me->GetName().c_str(), uint32(petOwner->GetBotClass()), me->GetEntry());
 +        return;
 +    }
@@ -79130,14 +79159,14 @@ index 3f2b39ef60..fb7e4403a0 100644
                      break;
                  }
 diff --git a/src/server/game/Battlegrounds/Battleground.cpp b/src/server/game/Battlegrounds/Battleground.cpp
-index 3723778ea6..0f7b31fbdb 100644
+index 3723778ea6..0ff0d20c26 100644
 --- a/src/server/game/Battlegrounds/Battleground.cpp
 +++ b/src/server/game/Battlegrounds/Battleground.cpp
 @@ -48,6 +48,12 @@
  #include "WorldPacket.h"
  #include "WorldStatePackets.h"
  
-+//npcbot 
++//npcbot
 +#include "bot_ai.h"
 +#include "botdatamgr.h"
 +#include "botmgr.h"
@@ -80116,14 +80145,14 @@ index 64b4619f48..f8d0a576dc 100644
  {
      data << uint32(BG_WS_FLAG_CAPTURES_ALLIANCE) << uint32(GetTeamScore(TEAM_ALLIANCE));
 diff --git a/src/server/game/Battlegrounds/Zones/BattlegroundWS.h b/src/server/game/Battlegrounds/Zones/BattlegroundWS.h
-index 1620ca1fd8..b948169c0d 100644
+index 1620ca1fd8..2ca05da5c2 100644
 --- a/src/server/game/Battlegrounds/Zones/BattlegroundWS.h
 +++ b/src/server/game/Battlegrounds/Zones/BattlegroundWS.h
 @@ -248,6 +248,19 @@ public:
      void EndBattleground(TeamId winnerTeamId) override;
      GraveyardStruct const* GetClosestGraveyard(Player* player) override;
  
-+    //npcbot 
++    //npcbot
 +    void AddBot(Creature* bot) override;
 +    GraveyardStruct const* GetClosestGraveyardForBot(Creature* bot) const override;
 +    //void RemoveBot(ObjectGuid guid) override;
@@ -85343,14 +85372,14 @@ index 0b7520676c..e92ab54432 100644
  }
  
 diff --git a/src/server/game/Maps/MapMgr.cpp b/src/server/game/Maps/MapMgr.cpp
-index a1f866eac2..ee0a71ec88 100644
+index a1f866eac2..0b2d487754 100644
 --- a/src/server/game/Maps/MapMgr.cpp
 +++ b/src/server/game/Maps/MapMgr.cpp
 @@ -35,6 +35,11 @@
  #include "World.h"
  #include "WorldPacket.h"
  
-+//npcbot 
++//npcbot
 +#include "botdatamgr.h"
 +#include "botmgr.h"
 +//end npcbot
@@ -85369,28 +85398,28 @@ index a1f866eac2..ee0a71ec88 100644
  }
  
  void MapMgr::InitializeVisibilityDistanceInfo()
-@@ -246,6 +255,10 @@ void MapMgr::Update(uint32 diff)
- {
+@@ -247,6 +256,10 @@ void MapMgr::Update(uint32 diff)
      for (uint8 i = 0; i < 4; ++i)
          i_timer[i].Update(diff);
-+ 
+ 
 +    //npcbot
 +    BotDataMgr::Update(diff);
 +    //end npcbot
- 
++
      // pussywizard: lfg compatibles update, schedule before maps so it is processed from the very beginning
      //if (mapUpdateStep == 0)
-@@ -272,6 +285,10 @@ void MapMgr::Update(uint32 diff)
- 
+     {
+@@ -273,6 +286,10 @@ void MapMgr::Update(uint32 diff)
      if (m_updater.activated())
          m_updater.wait();
-+ 
+ 
 +    //npcbot
 +    BotMgr::HandleDelayedTeleports();
 +    //end npcbot
- 
++
      if (mapUpdateStep < 3)
      {
+         for (iter = i_maps.begin(); iter != i_maps.end(); ++iter)
 diff --git a/src/server/game/Movement/MotionMaster.cpp b/src/server/game/Movement/MotionMaster.cpp
 index 27daa3196e..beca20a4eb 100644
 --- a/src/server/game/Movement/MotionMaster.cpp
@@ -85555,7 +85584,7 @@ index 3aa6186564..d8fecd4391 100644
              {
                  maxPacketCounterAllowed = 100;
 diff --git a/src/server/game/Spells/Auras/SpellAuraEffects.cpp b/src/server/game/Spells/Auras/SpellAuraEffects.cpp
-index a9d12efde6..71756fdce6 100644
+index a9d12efde6..3782b4692d 100644
 --- a/src/server/game/Spells/Auras/SpellAuraEffects.cpp
 +++ b/src/server/game/Spells/Auras/SpellAuraEffects.cpp
 @@ -945,6 +945,21 @@ void AuraEffect::UpdatePeriodic(Unit* caster)
@@ -85580,7 +85609,17 @@ index a9d12efde6..71756fdce6 100644
                              if (!caster || caster->GetTypeId() != TYPEID_PLAYER)
                                  return;
                              // Get SPELL_AURA_MOD_POWER_REGEN aura from spell
-@@ -2037,6 +2052,10 @@ void AuraEffect::HandleAuraModShapeshift(AuraApplication const* aurApp, uint8 mo
+@@ -1639,6 +1654,9 @@ void AuraEffect::HandleModStealth(AuraApplication const* aurApp, uint8 mode, boo
+         if (target->GetCurrentSpell(CURRENT_AUTOREPEAT_SPELL))
+         {
+             target->FinishSpell(CURRENT_AUTOREPEAT_SPELL);
++            //npcbot: do not try with npcbot target
++            if (target->IsPlayer())
++            //end npcbot
+             target->ToPlayer()->SendAutoRepeatCancel(target);
+         }
+     }
+@@ -2037,6 +2055,10 @@ void AuraEffect::HandleAuraModShapeshift(AuraApplication const* aurApp, uint8 mo
              case FORM_DEFENSIVESTANCE:
              case FORM_BERSERKERSTANCE:
                  {
@@ -85591,7 +85630,7 @@ index a9d12efde6..71756fdce6 100644
                      uint32 Rage_val = 0;
                      // Defensive Tactics
                      if (form == FORM_DEFENSIVESTANCE)
-@@ -2098,6 +2117,11 @@ void AuraEffect::HandleAuraModShapeshift(AuraApplication const* aurApp, uint8 mo
+@@ -2098,6 +2120,11 @@ void AuraEffect::HandleAuraModShapeshift(AuraApplication const* aurApp, uint8 mo
          // and also HandleAuraModDisarm is not triggered
          if (!target->CanUseAttackType(BASE_ATTACK))
          {
@@ -85603,7 +85642,7 @@ index a9d12efde6..71756fdce6 100644
              if (Item* pItem = target->ToPlayer()->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_MAINHAND))
              {
                  target->ToPlayer()->_ApplyWeaponDamage(EQUIPMENT_SLOT_MAINHAND, pItem->GetTemplate(), nullptr, apply);
-@@ -2105,6 +2129,11 @@ void AuraEffect::HandleAuraModShapeshift(AuraApplication const* aurApp, uint8 mo
+@@ -2105,6 +2132,11 @@ void AuraEffect::HandleAuraModShapeshift(AuraApplication const* aurApp, uint8 mo
          }
  
          // Update crit chance for feral forms
@@ -85615,7 +85654,7 @@ index a9d12efde6..71756fdce6 100644
          switch (form)
          {
              case FORM_CAT:
-@@ -3044,6 +3073,16 @@ void AuraEffect::HandleAuraModTotalThreat(AuraApplication const* aurApp, uint8 m
+@@ -3044,6 +3076,16 @@ void AuraEffect::HandleAuraModTotalThreat(AuraApplication const* aurApp, uint8 m
  
      Unit* target = aurApp->GetTarget();
  
@@ -85632,7 +85671,7 @@ index a9d12efde6..71756fdce6 100644
      if (!target->IsAlive() || target->GetTypeId() != TYPEID_PLAYER)
          return;
  
-@@ -6193,6 +6232,10 @@ void AuraEffect::HandlePeriodicTriggerSpellAuraTick(Unit* target, Unit* caster)
+@@ -6193,6 +6235,10 @@ void AuraEffect::HandlePeriodicTriggerSpellAuraTick(Unit* target, Unit* caster)
  
      if (triggeredSpellInfo)
      {
@@ -85643,7 +85682,7 @@ index a9d12efde6..71756fdce6 100644
          if (Unit* triggerCaster = triggeredSpellInfo->NeedsToBeTriggeredByCaster(m_spellInfo, GetEffIndex()) ? caster : target)
          {
              SpellCastTargets targets;
-@@ -6219,6 +6262,10 @@ void AuraEffect::HandlePeriodicTriggerSpellWithValueAuraTick(Unit* target, Unit*
+@@ -6219,6 +6265,10 @@ void AuraEffect::HandlePeriodicTriggerSpellWithValueAuraTick(Unit* target, Unit*
      uint32 triggerSpellId = GetSpellInfo()->Effects[m_effIndex].TriggerSpell;
      if (SpellInfo const* triggeredSpellInfo = sSpellMgr->GetSpellInfo(triggerSpellId))
      {
@@ -85654,7 +85693,7 @@ index a9d12efde6..71756fdce6 100644
          if (Unit* triggerCaster = triggeredSpellInfo->NeedsToBeTriggeredByCaster(m_spellInfo, GetEffIndex()) ? caster : target)
          {
              SpellCastTargets targets;
-@@ -6304,6 +6351,14 @@ void AuraEffect::HandlePeriodicDamageAurasTick(Unit* target, Unit* caster) const
+@@ -6304,6 +6354,14 @@ void AuraEffect::HandlePeriodicDamageAurasTick(Unit* target, Unit* caster) const
  
      if (GetAuraType() == SPELL_AURA_PERIODIC_DAMAGE)
      {
@@ -85669,7 +85708,7 @@ index a9d12efde6..71756fdce6 100644
          // xinef: leave only target depending bonuses, rest is handled in calculate amount
          if (GetBase()->GetType() == DYNOBJ_AURA_TYPE && caster)
              damage = caster->SpellDamageBonusDone(target, GetSpellInfo(), damage, DOT, GetEffIndex(), 0.0f, GetBase()->GetStackAmount());
-@@ -6862,6 +6917,48 @@ void AuraEffect::HandleProcTriggerSpellAuraProc(AuraApplication* aurApp, ProcEve
+@@ -6862,6 +6920,48 @@ void AuraEffect::HandleProcTriggerSpellAuraProc(AuraApplication* aurApp, ProcEve
      if (SpellInfo const* triggeredSpellInfo = sSpellMgr->GetSpellInfo(triggerSpellId))
      {
          LOG_DEBUG("spells.aura", "AuraEffect::HandleProcTriggerSpellAuraProc: Triggering spell {} from aura {} proc", triggeredSpellInfo->Id, GetId());
@@ -85718,7 +85757,7 @@ index a9d12efde6..71756fdce6 100644
          triggerCaster->CastSpell(triggerTarget, triggeredSpellInfo, true, nullptr, this);
      }
      else
-@@ -6881,6 +6978,10 @@ void AuraEffect::HandleProcTriggerSpellWithValueAuraProc(AuraApplication* aurApp
+@@ -6881,6 +6981,10 @@ void AuraEffect::HandleProcTriggerSpellWithValueAuraProc(AuraApplication* aurApp
          // used only with EXTRA_LOGS
          (void)triggeredSpellInfo;
  

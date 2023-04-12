@@ -89,7 +89,7 @@
  src/server/game/AI/CoreAI/UnitAI.cpp               |     3 +
  src/server/game/AI/NpcBots/bot_Events.h            |    74 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1409 ++
- src/server/game/AI/NpcBots/bot_ai.cpp              | 18181 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 18189 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   746 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   395 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   936 +
@@ -111,7 +111,7 @@
  src/server/game/AI/NpcBots/bot_warrior_ai.cpp      |  2266 +++
  src/server/game/AI/NpcBots/botcommands.cpp         |  3638 ++++
  src/server/game/AI/NpcBots/botcommon.h             |   562 +
- src/server/game/AI/NpcBots/botdatamgr.cpp          |  2451 +++
+ src/server/game/AI/NpcBots/botdatamgr.cpp          |  2471 +++
  src/server/game/AI/NpcBots/botdatamgr.h            |   205 +
  src/server/game/AI/NpcBots/botdpstracker.cpp       |   133 +
  src/server/game/AI/NpcBots/botdpstracker.h         |    42 +
@@ -119,7 +119,7 @@
  src/server/game/AI/NpcBots/botdump.h               |    51 +
  src/server/game/AI/NpcBots/botgiver.cpp            |   285 +
  src/server/game/AI/NpcBots/botgossip.h             |   135 +
- src/server/game/AI/NpcBots/botmgr.cpp              |  2108 +++
+ src/server/game/AI/NpcBots/botmgr.cpp              |  2109 +++
  src/server/game/AI/NpcBots/botmgr.h                |   290 +
  src/server/game/AI/NpcBots/botspell.cpp            |  1678 ++
  src/server/game/AI/NpcBots/botspell.h              |   284 +
@@ -220,7 +220,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     4 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   377 +
- 222 files changed, 82682 insertions(+), 79 deletions(-)
+ 222 files changed, 82711 insertions(+), 79 deletions(-)
  create mode 100644 sql/Bots/1_world_bot_appearance.sql
  create mode 100644 sql/Bots/2_world_bot_extras.sql
  create mode 100644 sql/Bots/3_world_bots.sql
@@ -11008,10 +11008,10 @@ index 000000000..86f9166cc
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 000000000..6f0c9ef3c
+index 000000000..0b70b8219
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,18181 @@
+@@ -0,0 +1,18189 @@
 +#include "Battleground.h"
 +#include "bot_ai.h"
 +#include "bot_Events.h"
@@ -17877,7 +17877,9 @@ index 000000000..6f0c9ef3c
 +        case WANDERER_HEARTHSTONE:
 +            if (IsWanderer())
 +            {
-+                BotMgr::TeleportBot(me, sMapMgr->CreateBaseMap(_travel_node_cur->GetMapId()), _travel_node_cur, true);
++                Map* targetMap = (me->GetMap()->GetEntry()->IsContinent() && _travel_node_cur->GetMapId() != me->GetMap()->GetId()) ?
++                    sMapMgr->CreateBaseMap(_travel_node_cur->GetMapId()) : me->GetMap();
++                BotMgr::TeleportBot(me, targetMap, _travel_node_cur, true);
 +                _evadeCount = 0;
 +            }
 +            return;
@@ -25601,7 +25603,22 @@ index 000000000..6f0c9ef3c
 +                gr->SendUpdate();
 +    }
 +
-+    if (u && (u->IsPvP() || u->IsControlledByPlayer() || u->IsNPCBotOrPet()))
++    if (IsWanderer() && me->GetMap()->IsBattlegroundOrArena())
++    {
++        if (me->GetMap()->GetPlayersCountExceptGMs() > 0)
++        {
++            if (Battleground const* bg = me->GetMap()->ToBattlegroundMap()->GetBG())
++            {
++                TeamId my_team = BotDataMgr::GetTeamIdForFaction(me->GetFaction());
++                if (WorldSafeLocsEntry const* gy = bg->GetClosestGraveyardForBot(*me, my_team == TEAM_HORDE ? HORDE : ALLIANCE))
++                {
++                    Position pos(gy->Loc.X, gy->Loc.Y, gy->Loc.Z, me->GetOrientation());
++                    Events.AddEventAtOffset([me = me, pos = pos]() { BotMgr::TeleportBot(me, me->GetMap(), &pos, true); }, 5s);
++                }
++            }
++        }
++    }
++    else if (u && (u->IsPvP() || u->IsControlledByPlayer() || u->IsNPCBotOrPet()))
 +    {
 +        TC_LOG_DEBUG("npcbots", "%s %s id %u class %u level %u WAS KILLED BY %s %s id %u class %u level %u on their way to %s!",
 +            IsWanderer() ? "Wandering bot" : "Bot", me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
@@ -25610,20 +25627,8 @@ index 000000000..6f0c9ef3c
 +            IsWanderer() ? _travel_node_cur->GetName().c_str() : "''");
 +    }
 +
-+    if (IsWanderer() && me->GetMap()->GetEntry()->IsBattleground())
-+    {
-+        Battleground* bg = me->GetMap()->ToBattlegroundMap()->GetBG();
-+        ASSERT_NOTNULL(bg);
-+        TeamId my_team = BotDataMgr::GetTeamIdForFaction(me->GetFaction());
-+        WorldSafeLocsEntry const* gy = bg->GetClosestGraveyardForBot(*me, my_team == TEAM_HORDE ? HORDE : ALLIANCE);
-+        if (gy)
-+        {
-+            Position pos(gy->Loc.X, gy->Loc.Y, gy->Loc.Z, me->GetOrientation());
-+            Events.AddEventAtOffset([me = me, pos = pos]() { BotMgr::TeleportBot(me, me->GetMap(), &pos, true); }, 5s);
-+        }
-+    }
-+
-+    _reviveTimer = (IsWanderer() && !(u && u->IsControlledByPlayer())) ? REVIVE_TIMER_MEDIUM : IAmFree() ? REVIVE_TIMER_DEFAULT : REVIVE_TIMER_SHORT;
++    _reviveTimer = (IsWanderer() && !(u && u->IsControlledByPlayer())) ? REVIVE_TIMER_MEDIUM :
++        IAmFree() ? REVIVE_TIMER_DEFAULT : master->InBattleground() ? REVIVE_TIMER_SHORT / 2 : REVIVE_TIMER_SHORT;
 +    _atHome = false;
 +    _evadeMode = false;
 +    spawned = false;
@@ -25638,20 +25643,23 @@ index 000000000..6f0c9ef3c
 +    if (u->IsControlledByPlayer() || u->IsPvP() || u->IsNPCBotOrPet())
 +    {
 +        ++_pvpKillsCount;
-+        if (IsWanderer())
++        if (!me->GetMap()->IsBattlegroundOrArena())
 +        {
-+            TC_LOG_DEBUG("npcbots", "Wandering bot %s id %u class %u level %u KILLED %s %s id %u class %u level %u on their way to %s!",
-+                me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
-+                (u->IsPlayer() ? "player" : u->IsNPCBot() ? u->ToCreature()->GetBotAI()->IsWanderer() ? "wandering bot" : "bot" : u->IsNPCBotPet() ? "botpet" : "creature"),
-+                u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
-+                _travel_node_cur->GetName().c_str());
-+        }
-+        else if (u->IsNPCBot() && u->ToCreature()->GetBotAI()->IsWanderer())
-+        {
-+            TC_LOG_DEBUG("npcbots", "Bot %s id %u class %u level %u KILLED wandering bot %s id %u class %u level %u on their way to %s!",
-+                me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
-+                u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
-+                IsWanderer() ? _travel_node_cur->GetName().c_str() : "''");
++            if (IsWanderer())
++            {
++                TC_LOG_DEBUG("npcbots", "Wandering bot %s id %u class %u level %u KILLED %s %s id %u class %u level %u on their way to %s!",
++                    me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
++                    (u->IsPlayer() ? "player" : u->IsNPCBot() ? u->ToCreature()->GetBotAI()->IsWanderer() ? "wandering bot" : "bot" : u->IsNPCBotPet() ? "botpet" : "creature"),
++                    u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
++                    _travel_node_cur->GetName().c_str());
++            }
++            else if (u->IsNPCBot() && u->ToCreature()->GetBotAI()->IsWanderer())
++            {
++                TC_LOG_DEBUG("npcbots", "Bot %s id %u class %u level %u KILLED wandering bot %s id %u class %u level %u on their way to %s!",
++                    me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
++                    u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
++                    IsWanderer() ? _travel_node_cur->GetName().c_str() : "''");
++            }
 +        }
 +    }
 +
@@ -27858,7 +27866,7 @@ index 000000000..6f0c9ef3c
 +                me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()), me->GetMapId(), _travel_node_cur->GetWPId(),
 +                _travel_node_cur->GetName().c_str(), uint32(mapid), pos.ToString().c_str(), me->GetExactDist(pos));
 +
-+            evadeDelayTimer = 15000;
++            evadeDelayTimer = 12000;
 +            me->CastSpell(me, WANDERER_HEARTHSTONE);
 +            return;
 +        }
@@ -27919,7 +27927,7 @@ index 000000000..6f0c9ef3c
 +
 +                homepos.Relocate(nextNode);
 +
-+                TC_LOG_DEBUG("npcbots", "Bot %s id %u class %u level %u wandered from node %u to %u, next %u ('%s'), %s, dist %.1f yd!",
++                TC_LOG_TRACE("npcbots", "Bot %s id %u class %u level %u wandered from node %u to %u, next %u ('%s'), %s, dist %.1f yd!",
 +                    me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()), _travel_node_last ? _travel_node_last->GetWPId() : 0, _travel_node_cur->GetWPId(),
 +                    nextNode->GetWPId(), nextNode->GetName().c_str(), homepos.ToString().c_str(), pos.GetExactDist(homepos));
 +
@@ -27994,7 +28002,7 @@ index 000000000..6f0c9ef3c
 +        return;
 +
 +    if (me->IsInWater())
-+        TC_LOG_DEBUG("npcbots", "Bot %s id %u class %u level %u is pathing from water!", me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()));
++        TC_LOG_TRACE("npcbots", "Bot %s id %u class %u level %u is pathing from water!", me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()));
 +
 +    switch (path.GetPathType())
 +    {
@@ -63042,10 +63050,10 @@ index 000000000..b64bd5cb3
 +#endif
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.cpp b/src/server/game/AI/NpcBots/botdatamgr.cpp
 new file mode 100644
-index 000000000..1e2326a1f
+index 000000000..9c153b98e
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botdatamgr.cpp
-@@ -0,0 +1,2451 @@
+@@ -0,0 +1,2471 @@
 +#include "BattlegroundMgr.h"
 +#include "BattlegroundQueue.h"
 +#include "bot_ai.h"
@@ -63338,8 +63346,8 @@ index 000000000..1e2326a1f
 +        if (bracketEntry)
 +        {
 +            //force level range for bgs
-+            bot_template.minlevel = bracketEntry->MinLevel;
-+            bot_template.maxlevel = bracketEntry->MaxLevel;
++            bot_template.minlevel = std::min<uint32>(bracketEntry->MinLevel, 80u);
++            bot_template.maxlevel = std::min<uint32>(bracketEntry->MaxLevel, 80u);
 +        }
 +        else
 +            bot_template.flags_extra &= ~(CREATURE_FLAG_EXTRA_NO_XP);
@@ -63435,7 +63443,7 @@ index 000000000..1e2326a1f
 +
 +        bool found_maxlevel_node_a = false;
 +        bool found_maxlevel_node_h = false;
-+        bool found_maxlevel_node_rest = false;
++        bool found_maxlevel_node_n = false;
 +        const uint8 maxof_minclasslvl_nor = BotDataMgr::GetMinLevelForBotClass(BOT_CLASS_DEATH_KNIGHT); // 55
 +        const uint8 maxof_minclasslvl_ex = BotDataMgr::GetMinLevelForBotClass(BOT_CLASS_DREADLORD); // 60
 +        for (WanderNode const* wp : spawns_a)
@@ -63458,57 +63466,63 @@ index 000000000..1e2326a1f
 +        {
 +            if (wp->GetLevels().second >= maxof_minclasslvl_ex)
 +            {
-+                found_maxlevel_node_rest = true;
++                found_maxlevel_node_n = true;
 +                break;
 +            }
 +        }
 +
++        decltype (_spareBotIdsPerClassMap) teamSpareBotIdsPerClass;
++
 +        if (team == -1)
 +        {
-+            static const std::array<int32, 6> team_choices{ ALLIANCE, HORDE, TEAM_OTHER, ALLIANCE, HORDE, TEAM_OTHER };
-+            team = Trinity::Containers::SelectRandomContainerElement(team_choices);
-+        }
++            if (!found_maxlevel_node_a || !found_maxlevel_node_h || !found_maxlevel_node_n)
++                return false;
 +
-+        switch (team)
-+        {
-+            case ALLIANCE:
-+                if (!found_maxlevel_node_a)
-+                    return false;
-+                break;
-+            case HORDE:
-+                if (!found_maxlevel_node_h)
-+                    return false;
-+                break;
-+            case TEAM_OTHER:
-+            default:
-+                if (!found_maxlevel_node_rest)
-+                    return false;
-+                break;
++            //make a full copy
++            teamSpareBotIdsPerClass = _spareBotIdsPerClassMap;
 +        }
-+
-+        decltype (_spareBotIdsPerClassMap) teamSpareBotIdsPerClass;
-+        for (auto const& kv : _spareBotIdsPerClassMap)
++        else
 +        {
-+            for (uint32 spareBotId : kv.second)
++            switch (team)
 +            {
-+                NpcBotExtras const* orig_extras = BotDataMgr::SelectNpcBotExtras(spareBotId);
-+                ASSERT_NOTNULL(orig_extras);
++                case ALLIANCE:
++                    if (!found_maxlevel_node_a)
++                        return false;
++                    break;
++                case HORDE:
++                    if (!found_maxlevel_node_h)
++                        return false;
++                    break;
++                case TEAM_OTHER:
++                default:
++                    if (!found_maxlevel_node_n)
++                        return false;
++                    break;
++            }
 +
-+                uint32 bot_faction = GetDefaultFactionForRaceClass(kv.first, orig_extras->race);
-+
-+                uint32 botTeam = BotDataMgr::GetTeamForFaction(bot_faction);
-+
-+                if (int32(botTeam) != team)
-+                    continue;
-+
-+                if (bracketEntry)
++            for (auto const& kv : _spareBotIdsPerClassMap)
++            {
++                for (uint32 spareBotId : kv.second)
 +                {
-+                    uint8 botminlevel = BotDataMgr::GetMinLevelForBotClass(kv.first);
-+                    if (botminlevel > bracketEntry->MaxLevel)
-+                        continue;
-+                }
++                    NpcBotExtras const* orig_extras = BotDataMgr::SelectNpcBotExtras(spareBotId);
++                    ASSERT_NOTNULL(orig_extras);
 +
-+                teamSpareBotIdsPerClass[kv.first].insert(spareBotId);
++                    uint32 bot_faction = GetDefaultFactionForRaceClass(kv.first, orig_extras->race);
++
++                    uint32 botTeam = BotDataMgr::GetTeamForFaction(bot_faction);
++
++                    if (int32(botTeam) != team)
++                        continue;
++
++                    if (bracketEntry)
++                    {
++                        uint8 botminlevel = BotDataMgr::GetMinLevelForBotClass(kv.first);
++                        if (botminlevel > bracketEntry->MaxLevel)
++                            continue;
++                    }
++
++                    teamSpareBotIdsPerClass[kv.first].insert(spareBotId);
++                }
 +            }
 +        }
 +
@@ -64170,7 +64184,11 @@ index 000000000..1e2326a1f
 +    uint32 spareBots = sBotGen->GetSpareBotsCount();
 +
 +    if (spareBots == 0)
++    {
++        TC_LOG_WARN("npcbots", "[No spare bots] Failed to generate bots for BG %u inited by player %s (%u)",
++            uint32(gqinfo->BgTypeId), groupLeader->GetName().c_str(), groupLeader->GetGUID().GetCounter());
 +        return false;
++    }
 +
 +    BattlegroundQueueTypeId bgqTypeId = sBattlegroundMgr->BGQueueTypeId(gqinfo->BgTypeId, gqinfo->ArenaType);
 +    ASSERT(bgqTypeId != BATTLEGROUND_QUEUE_NONE);
@@ -64187,7 +64205,11 @@ index 000000000..1e2326a1f
 +            {
 +                Battleground const* real_bg = real_bg_pair.second;
 +                if (real_bg->GetInstanceID() != 0 && real_bg->GetBracketId() == bracketId)
++                {
++                    TC_LOG_INFO("npcbots", "[Already running] Found running BG %u inited by player %s (%u). Not generating bots",
++                        uint32(gqinfo->BgTypeId), groupLeader->GetName().c_str(), groupLeader->GetGUID().GetCounter());
 +                    return true; // This BG is running already
++                }
 +            }
 +        }
 +    }
@@ -64226,10 +64248,18 @@ index 000000000..1e2326a1f
 +    ASSERT(needed_bots_count_h <= maxteamplayers);
 +
 +    if (needed_bots_count_a + needed_bots_count_h == 0)
++    {
++        TC_LOG_INFO("npcbots", "[No bots required] Failed to generate bots for BG %u inited by player %s (%u)",
++            uint32(gqinfo->BgTypeId), groupLeader->GetName().c_str(), groupLeader->GetGUID().GetCounter());
 +        return true;
++    }
 +
 +    if (spareBots < needed_bots_count_a + needed_bots_count_h)
++    {
++        TC_LOG_INFO("npcbots", "[Not enough spare bots] Failed to generate bots for BG %u inited by player %s (%u)",
++            uint32(gqinfo->BgTypeId), groupLeader->GetName().c_str(), groupLeader->GetGUID().GetCounter());
 +        return false;
++    }
 +
 +    uint32 spawned_a = 0;
 +    uint32 spawned_h = 0;
@@ -64246,7 +64276,6 @@ index 000000000..1e2326a1f
 +            for (NpcBotRegistry const* registry1 : { &spawned_bots_a, &spawned_bots_h })
 +                for (Creature const* bot : *registry1)
 +                    DespawnWandererBot(bot->GetEntry());
-+
 +            return false;
 +        }
 +        spareBots = sBotGen->GetSpareBotsCount();
@@ -64261,7 +64290,6 @@ index 000000000..1e2326a1f
 +            for (NpcBotRegistry const* registry2 : { &spawned_bots_a, &spawned_bots_h })
 +                for (Creature const* bot : *registry2)
 +                    DespawnWandererBot(bot->GetEntry());
-+
 +            return false;
 +        }
 +    }
@@ -64281,7 +64309,7 @@ index 000000000..1e2326a1f
 +            queue->AddBotAsGroup(bot->GetGUID(), GetTeamIdForFaction(bot->GetFaction()) == TEAM_HORDE ? HORDE : ALLIANCE,
 +                gqinfo->BgTypeId, bracketEntry, gqinfo->ArenaType, false, gqinfo->ArenaTeamRating, gqinfo->ArenaMatchmakerRating);
 +
-+            seconds_delay += std::max<uint32>(1u, uint32((MINUTE / 2) / (spawned_bots_a.size() + spawned_bots_h.size())));
++            seconds_delay += std::max<uint32>(1u, uint32((MINUTE / 2) / (needed_bots_count_a + needed_bots_count_h)));
 +
 +            BotBattlegroundEnterEvent* bbe = new BotBattlegroundEnterEvent(groupLeader->GetGUID(), bot->GetGUID(), bgqTypeId,
 +                botDataEvents.CalculateTime(Milliseconds(uint32(INVITE_ACCEPT_WAIT_TIME) + uint32(BG_START_DELAY_2M))).count());
@@ -67416,10 +67444,10 @@ index 000000000..75f3c0b19
 +#endif //BOTGOSSIP_H
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
 new file mode 100644
-index 000000000..30d2cdd1e
+index 000000000..c59fc3cc6
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -0,0 +1,2108 @@
+@@ -0,0 +1,2109 @@
 +#include "Battleground.h"
 +#include "BattlegroundMgr.h"
 +#include "bot_ai.h"
@@ -68085,7 +68113,7 @@ index 000000000..30d2cdd1e
 +            continue;
 +        }
 +
-+        if (partyCombat == false)
++        if (partyCombat == false || _owner->InBattleground())
 +            ai->UpdateReviveTimer(diff);
 +
 +        //bot->IsAIEnabled = true;
@@ -68290,9 +68318,10 @@ index 000000000..30d2cdd1e
 +    //bot->GetBotAI()->Reset();
 +    bot->GetBotAI()->SetShouldUpdateStats();
 +
-+    bot->SetHealth(bot->GetMaxHealth() / (bot->IsWandererBot() ? 1 : 4)); //25% of max health
++    uint8 restore_factor = (bot->IsWandererBot() || (!bot->GetBotAI()->IAmFree() && bot->GetBotOwner()->InBattleground())) ? 1 : 4;
++    bot->SetHealth(bot->GetMaxHealth() / restore_factor); //25% of max health
 +    if (bot->GetMaxPower(POWER_MANA) > 1)
-+        bot->SetPower(POWER_MANA, bot->GetMaxPower(POWER_MANA) / (bot->IsWandererBot() ? 1 : 4)); //25% of max mana
++        bot->SetPower(POWER_MANA, bot->GetMaxPower(POWER_MANA) / restore_factor); //25% of max mana
 +
 +    if (!bot->GetBotAI()->IAmFree() && !bot->GetBotAI()->HasBotCommandState(BOT_COMMAND_MASK_UNMOVING))
 +        bot->GetBotAI()->SetBotCommandState(BOT_COMMAND_FOLLOW, true);
