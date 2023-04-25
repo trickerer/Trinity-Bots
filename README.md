@@ -1,6 +1,6 @@
 ### This mod was last updated:
-### TC: 22 Apr 2023, [2b195ccf33](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/2b195ccf33)
-### AC: 22 Apr 2023, [96a5224d92](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/96a5224d92)
+### TC: 25 Apr 2023, [e61b00123b](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/e61b00123b)
+### AC: 25 Apr 2023, [dcf579aa8e](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/dcf579aa8e)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 
@@ -705,7 +705,7 @@ Lastly, all NPCBots will have the following extra options:
 ### NPCBot Wander System
 Besides main purpose which is to assist players, NPCBots can also be used as autonomous units. Wandering bots spawn with gear, but are free of player's control and cannot be hired. Here is a list of features supported:  
 1. Wandering bots in open world. Config setting **`NpcBot.WanderingBots.Continents.Count`** controls desired amount of bots roaming world maps. Spawn points are random and level is selected accordingly. These bots give small reward for kill and bonus experience. See the config file for more info.  
-2. Wandering bots generated for Battlegrounds. Enabled by **`NpcBot.WanderingBots.BG.Enable`** setting, this feature allows to generate NPCBots to fill BG queue and partake in BG matches themselves. Bots can't fulfill BG objectives currently. Only Warsong Gulch is implemented currently.  
+2. Wandering bots generated for Battlegrounds. Enabled by **`NpcBot.WanderingBots.BG.Enable`** setting, this feature allows to generate NPCBots to fill BG queue and partake in BG matches themselves. Bots can't fulfill BG objectives currently. Only Warsong Gulch and Arathi Basin are implemented currently.  
 
 ### NPCBot Config Settings
 If some config settings look ambiguous this section may be of help to you
