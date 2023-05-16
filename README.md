@@ -513,6 +513,8 @@ As you can see, you can gear up pretty much every slot on your NPCBot
 
 - `Unequip all` will have them do just that... dump __ALL__ gear you have given them back into YOUR bags. If you don't have enough space in your bags the excess items will be mailed to you.  NOTE: When firing an NPCBot, any gear you have given your NPCBot will automatically be returned to you
 
+- There is an additional optional item in this menu called `Bot gear bank...` which can be enabled by setting `NpcBot.GearBank.Enable = 1` in config. It gives access to unlimited storage for gear - useful when you have too many bots to keep all their extra gear in your own bags. This is an exploit of course so this feature is disabled by default. Note that this storage is saved per player so you will not lose this gear when your last bot is dismissed, but at the same time you won't be able to access it without bots to talk to
+
 - `BACK` just goes back to the previous menu
 
 #### NPCBot Roles
