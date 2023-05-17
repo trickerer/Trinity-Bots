@@ -1,6 +1,6 @@
 ### This mod was last updated:
-### TC: 16 May 2023, [dabe2159f3](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/dabe2159f3)
-### AC: 16 May 2023, [7e02f1f920](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/7e02f1f920)
+### TC: 17 May 2023, [2d543a9ed6](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/2d543a9ed6)
+### AC: 17 May 2023, [12a6cea9b8](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/12a6cea9b8)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 
@@ -375,6 +375,7 @@ BOT_CLASS_DREADLORD = 15
 BOT_CLASS_SPELLBREAKER = 16
 BOT_CLASS_DARK_RANGER = 17
 BOT_CLASS_NECROMANCER = 18
+BOT_CLASS_SEA_WITCH = 19
 ```
 
 After you have figured out which class you want to lookup type in:
