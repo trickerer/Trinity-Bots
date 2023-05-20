@@ -1,12 +1,12 @@
 ### This mod was last updated:
-### TC: 20 May 2023, [0b19afa465](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/0b19afa465)
-### AC: 20 May 2023, [02dc48bdc1](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/02dc48bdc1)
+### TC: 20 May 2023, [ae4d1e4c37](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/ae4d1e4c37)
+### AC: 20 May 2023, [767790774b](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/767790774b)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 
 # [ THE NPCBOTS MANUAL ]
 >Compiled by: Trickerer (onlysuffering @ Gmail dot Com)  
->Version 0.23 - 08 Feb 2023
+>Version 0.24 - 20 May 2023
 >Original version by: Thesawolf (@ Gmail dot Com) Version 0.3 - 20 July 2016 [here](https://github.com/thesawolf/TrinityCore/blob/TrinityCoreLegacy/README_Bots.md)
 
 ---------------------------------------
@@ -921,6 +921,24 @@ Abilities:
 
 **Additional info:** Sea Witch is a versatile ranged damage dealer. She is very durable and has some CC capabilities  
 
+#### Crypt Lord
+**Rank: Rareelite**  
+**Level Bonus: +3**  
+**Minimum player level: 1**  
+**Equipment affects visual: no**  
+**Number included: 5**  
+**Class specifics:** Melee damage taken reduced by 30%, spell damage taken reduced by 15%, stamina bonus +20%, armor bonus: up to +50%, attack power from stats: strength x9, spellpower bonus: 200% strength  
+Equippable weapon: axes, maces, swords, 2h axes, 2h maces, 2h swords, polearms, staves, fist weapons, daggers  
+Equippable armor: mail/plate (no shield)  
+Abilities:
+
+- Impale. Crypt Lord slams the ground with his massive claws, shooting spikes out in a frontal cone, dealing damage and hurling enemy units into the air in their wake, stunning them. Unlocked at level 20.  
+- Spiked Carapace. Crypt Lord's chitinous armor increases damage resistance and returns 15% to 50% damage to enemy melee attackers.  
+- Carrion Beetles. Crypt Lord progenerates a Carrion Beetle from a fresh corpse of an enemy to attack his enemies. Beetles are permanent but do not regenerate health and only 6 can be controlled at a time. Higher levels allow Crypt Lord to summon more powerful beetles. Unlocked at level 10.  
+- Locust Swarm. Crypt Lord releases a swarm of 20-40 (depends on Crypt Lord's level) angry locusts that bite and tear at nearby enemy units, reducing their ability to move or attack. As they chew the enemy flesh, they convert it into a substance that restores hit points to the Crypt Lord when they return. Unlocked at level 40.  
+
+**Additional info:** Crypt Lord is a great melee damage dealer and with little support he becomes a not bad melee tank. Higher levels also provide moderate CC capabilities. Crypt Lord is immune to poison-based effect (but not damage)  
+
 ### NPCBot Occupations
 #### Database
 NPCBot data is stored in the following locations:
@@ -928,13 +946,15 @@ NPCBot data is stored in the following locations:
 - `characters` DB
     - `characters_npcbot` (created by this mod) contains all information about spawned npcbots
     - `characters_npcbot_group_member` (created by this mod) contains NPCBot group member records
-    - `characters_npcbot_transmog` (created by this mod) contains transmogrification info for NPCBots  
+    - `characters_npcbot_transmog` (created by this mod) contains transmogrification info for NPCBots
+    - `characters_npcbot_gear_storage` (created by this mod) contains NPCBot gear storage info per player
     Also writes to:
         - `item_instance` (item owner assignment)
 - `world` DB
     - `creature_template_outfits` (created by this mod) contains static display information
     - `creature_template_npcbot_appearance` (created by this mod) contains dynamic display information
     - `creature_template_npcbot_extras` (created by this mod) contains race and class info
+    - `creature_template_npcbot_wander_nodes` (created by this mod) movement points for wandering bots
     - `creature_template` (ids 70000-71000\*) contains creature base data for bots
     - `creature_equip_template` (ids 70000-71000\*) contains bots' standard weapons info
     - `npc_text` (ids 70000-71000) custom text for bots' gossip and class descriptions
@@ -944,7 +964,7 @@ NPCBot data is stored in the following locations:
 If you want to make changes to the static template data used for NPCBots, you make adjustments in the `world` database to those specific ids in the above tables (i.e. npcbot model, outfits, etc.)  
 **Do not** tinker with `characters` DB NPCBot tables, any bug reports containing accidently corrupted NPCBots installation will be discarded without notice  
 If you need to delete custom created NPCBot you need to first delete the bot from the world (using `.npcbot delete` command; you need to remove their equipment first, otherwise the items become inaccessible). Then delete by entry (creature id) from `creature_template_npcbot_extras`, `creature_template_npcbot_appearance` and `creature_equip_template` tables, and finally, from `creature_template`  
-If you need to remove NPCBot mod completely you need to first delete every spawned bot in the world (using `.npcbot delete` command). Then delete `characters_npcbot`, `characters_npcbot_group_member`, `characters_npcbot_transmog`, `creature_template_npcbot_extras` and `creature_template_npcbot_appearance` tables and clean all other used tables of entries by id (70000-71000 + possibly more custom bot entries). `creature_template_outfits` can also be deleted if you are not using Npc Dress Mod
+If you need to remove NPCBot mod completely you need to first delete every spawned bot in the world (using `.npcbot delete` command). Then delete `characters_npcbot`, `characters_npcbot_group_member`, `characters_npcbot_transmog`, `characters_npcbot_gear_storage`, `creature_template_npcbot_extras`, `creature_template_npcbot_appearance` and `creature_template_npcbot_wander_nodes` tables and clean all other used tables of entries by id (70000-71000 + possibly more custom bot entries). `creature_template_outfits` can also be deleted if you are not using Npc Dress Mod
 
 #### Game World
 Bots are counted as active objects and keep map grids loaded like players
@@ -959,6 +979,8 @@ For current version (3.3.5) there is a [NetherBot](https://github.com/Netherstor
 ---------------------------------------
 ## Guide Changelog
 
+- **Version 0.24** (_20 May 2023_)
+    - Crypt lord implementation details
 - **Version 0.23** (_08 Feb 2023_)
     - Added addons info
 - **Version 0.22** (_24 Dec 2022_)
