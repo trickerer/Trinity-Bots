@@ -1,6 +1,6 @@
 ### This mod was last updated:
-### TC: 09 Jun 2023, [525f132cb4](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/525f132cb4)
-### AC: 09 Jun 2023, [d6ff6f3359](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/d6ff6f3359)
+### TC: 09 Jun 2023, [725766f149](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/725766f149)
+### AC: 09 Jun 2023, [6106b918e1](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/6106b918e1)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 
@@ -25,7 +25,6 @@
         - [NPCBot Abilities](#npcbot-abilities)
         - [NPCBot Talents](#npcbot-talents)
         - [NPCBot Grouping](#npcbot-grouping)
-            - [Raid Group Frames](#raid-group-frames)
         - [NPCBot Extras](#npcbot-extras)
         - [NPCBots and Vehicles](#npcbots-and-vehicles)
     - [NPCBot Wander System](#npcbot-wander-system)
@@ -638,13 +637,6 @@ Grouping is also required to properly utilize the DungeonFinder (as you cannot s
 
 >Also, it is advised to fire any additional NPCBots that you might own outside of the group as there have been reports of issues with some quest completions and Random dungeon daily rewards when NPCBots are active but not a part of a group
 
-#### Raid Group Frames
-Unfortunately standard UI and most of unit frames addons can only show player raid members.  
-To see your NPCBots in raid you can use one of these:  
-[nUI 5.06.30](https://www.curseforge.com/wow/addons/nui/files/445101) (complete interface redesigner)  
-[HealBot 3.3.5.4](https://www.curseforge.com/wow/addons/heal-bot-continued/files/456315) (only unit frames, mostly for healing but configurable)  
-[OrlanHeal 1.1](https://www.curseforge.com/wow/addons/orlanheal-discontinued/files/451226) (same as HealBot but minimalistic)  
-
 #### NPCBots and Vehicles
 NPCBots will always try to use vehicles when player does. With random vehicle types bots will simply copy player actions, but for the essential vehicles bots will use their own tactics. Here is the list:
 ```
@@ -973,7 +965,6 @@ Bots are being added to world at server loading (after Map System is started)
 #### Total number of bots included in fresh install: **312**
 
 ### NPCBot Addons
-Aside from [addons that fix raid frames](#raid-group-frames) there are addons dedicated to NPCBots specifically  
 For current version (3.3.5) there is a [NetherBot](https://github.com/NetherstormX/NetherBot) addon by NetherstormX
 
 ---------------------------------------
