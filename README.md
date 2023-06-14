@@ -1,12 +1,12 @@
 ### This mod was last updated:
-### TC: 12 Jun 2023, [892588f0e2](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/892588f0e2)
-### AC: 12 Jun 2023, [5542548e4d](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/5542548e4d)
+### TC: 14 Jun 2023, [7bee267535](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/7bee267535)
+### AC: 14 Jun 2023, [9b2e9decfa](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/9b2e9decfa)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 
 # [ THE NPCBOTS MANUAL ]
 >Compiled by: Trickerer (onlysuffering @ Gmail dot Com)  
->Version 0.24 - 20 May 2023
+>Version 0.25 - 14 Jun 2023
 >Original version by: Thesawolf (@ Gmail dot Com) Version 0.3 - 20 July 2016 [here](https://github.com/thesawolf/TrinityCore/blob/TrinityCoreLegacy/README_Bots.md)
 
 ---------------------------------------
@@ -274,6 +274,21 @@ _ARGUMENT_  indicates argument names
     **Example Usage:**  
         - `.npcbot order cast javad lesser_healing_wave me`  
         - `.npcbot order cast javad purge mytarget`  
+- **`useonbot`** -- (Player command) allows you to use your abilities targeting only player on NPCBots. Resurrection, party spells like Intervene, Misdirection, etc. This circumvents any *client-side* restrictions that prevent selecting bots as target for those spells  
+    - **`spell <_SPELL_ID_ OR _SPELL_LINK_ OR _SPELL_NAME_>`** -- use ability  
+        - _SPELL_ID_ = spell id  
+        - _SPELL_LINK_ = result of shift-click from spellbook to chat  
+        - _SPELL_NAME_ = result of shift-click from spellbook to macro window, either `Spell Name` or `[Spell Name]`. Case sensitive  
+    - **`item <_ITEM_ID_ OR _ITEM_LINK_ OR _ITEM_NAME_>`** -- use item  
+        - _ITEM_ID_ = spell id  
+        - _ITEM_LINK_ = result of shift-click from spellbook to chat  
+        - _ITEM_NAME_ = result of shift-click from spellbook to macro window, either `Item Name` or `[Item Name]`. Case sensitive  
+    **Example Usage:**  
+        - `.npcbot useonbot spell [Resurrection]`  
+        - `.npcbot useonbot spell Dampen Magic`  
+        - `.npcbot useonbot spell Intervene`  
+        - `.npcbot useonbot item [Gnomish Army Knife]`  
+        - `.npcb use s Intervene`  
 - **`distance <_VALUE_>`** -- (Player command) allows you to quickly set bot follow distance (by itself will display full help)  
     - **`attack <_VALUE_|_SHORT_|_LONG_>`** -- (Player command) sets attack distance
         - _VALUE_ = desired value for chosen distance type (within standard distance ranges)
@@ -970,6 +985,8 @@ For current version (3.3.5) there is a [NetherBot](https://github.com/Netherstor
 ---------------------------------------
 ## Guide Changelog
 
+- **Version 0.25** (_14 Jun 2023_)
+    - Added `.npcbot useonbot ...` commands
 - **Version 0.24** (_20 May 2023_)
     - Crypt lord implementation details
 - **Version 0.23** (_08 Feb 2023_)
