@@ -1,6 +1,6 @@
 ### This mod was last updated:
-### TC: 15 Jun 2023, [63dac03c16](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/63dac03c16)
-### AC: 15 Jun 2023, [3316dde637](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/3316dde637)
+### TC: 15 Jun 2023, [81cf55bd2e](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/81cf55bd2e)
+### AC: 15 Jun 2023, [10b88531f3](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/10b88531f3)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 
@@ -205,10 +205,13 @@ _ARGUMENT_  indicates argument names
         - `.npcbot reloadconfig  
 - **`command`** -- (Player command) allows to manage your NPCBots positioning, movement and couple other things (by itself will display list of subcommands)  
     - **`follow _TARGET_`** -- set NPCBot(s) to FOLLOW mode  
+        - **`only`** -- toggle INACTIVE mode for NPCBots. Inactive bots will not do anything but follow  
     - **`standstill _TARGET_`** -- set NPCBot(s) to STAY mode  
     - **`stopfully _TARGET_`** -- set NPCBot(s) to IDLE mode  
         - _TARGET_ = selected (your) NPCBot (command affects this NPCBot)  
         - _TARGET_ = any other unit or no selection (command affects all your NPCBots)  
+    - **`nocast`** -- toggle NPCBots' ability to cast any spells  
+    - **`nolongcast`** -- toggle NPCBots' ability to cast spells with non-zero cast time  
     - **`unbind <_TARGET_|_NAMES..._>`** -- free NPCBot(s) temporarily without dismissing them. Bot(s) will return to home position and wait there until invited back (or server restart)  
     - **`rebind <_TARGET_|_NAMES..._>`** -- call unbound NPCBot(s) back. Use `.npcbot info` to list your unbound NPCBots  
         - _TARGET_ = selected (your) NPCBot (command affects this NPCBot)  
@@ -220,6 +223,7 @@ _ARGUMENT_  indicates argument names
         - `.npcb co sta` (same as above)  
         - `.npcbot command stopfully` (NPCBot will interrupt all actions, stop and not react to anything)  
         - `.npcbot command follow` (NPCBot will follow you if not already)  
+        - `.npcbot command follow only` (all NPCBots will do nothing while following you)  
         - `.npcb co nog` (you will not be able to open NPCBot gossip menu even out of combat)  
         - `.npcb co unb sheal` (temporarily remove druid NPCBot Sheal)  
 - **`info _TARGET_`** -- (Player command) shows info on owned bots  
