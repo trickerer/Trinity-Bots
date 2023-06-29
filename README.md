@@ -1,6 +1,6 @@
 ### This mod was last updated:
-### TC: 27 Jun 2023, [5eea446842](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/5eea446842)
-### AC: 27 Jun 2023, [c73673c538](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/c73673c538)
+### TC: 29 Jun 2023, [0c5bc1699b](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/0c5bc1699b)
+### AC: 29 Jun 2023, [648d6dfa1a](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/648d6dfa1a)
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
 
@@ -650,11 +650,8 @@ Select `Manage talents...` from the Gossip menu to chose a spec. Bot will activa
 Although NPCBots will follow their owner around grouped or ungrouped and will usually buff people outside their groups, creating group will make NPCBots properly utilize buffs reserved for group members only  
 Grouping is also required to properly utilize the DungeonFinder (as you cannot summon NPCBots in or into instances that are ungrouped)
 
->**NOTES**: There is a known issue where if you are in a group and get disconnected or kicked that the NPCBot(s) will remain in a group with their owner (thus showing up in both groups). The main group needs to kick the NPCBots from the group to be able to invite the owner of the NPCBots. This is the only workaround for that issue, at the moment
-
+>**NOTE**:
 >If DungeonFinder group has only one real player loot rules will be set to _Free For All_
-
->Also, it is advised to fire any additional NPCBots that you might own outside of the group as there have been reports of issues with some quest completions and Random dungeon daily rewards when NPCBots are active but not a part of a group
 
 #### NPCBots and Vehicles
 NPCBots will always try to use vehicles when player does. With random vehicle types bots will simply copy player actions, but for the essential vehicles bots will use their own tactics. Here is the list:
