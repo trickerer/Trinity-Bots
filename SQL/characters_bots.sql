@@ -1,3 +1,6 @@
+--
+SET FOREIGN_KEY_CHECKS=0;
+
 DROP TABLE IF EXISTS `characters_npcbot`;
 CREATE TABLE `characters_npcbot` (
   `entry` int(10) unsigned NOT NULL COMMENT 'creature_template.entry',
