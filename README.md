@@ -360,8 +360,8 @@ _ARGUMENT_  indicates argument names
     - _SKIN_, _FACE_, _HEARSTYLE_, _HAIRCOLOR_, _FEATURES_ = appearance details, `0` and up. Different race/gender combinations have different constraints for visuals, use `.npcbot createnew ranges` to see them  
     - _SOUNDSET_ = NPC voice variant for bot to use. There are 3 variants for each race, by default the choice is random  
     **Example Usage:**  
-        - `.npcbot createnew Selendris 2 10 1 6 4 3 2 4` (creates a female redhead Blood Elf mage npcbot)  
-        - `.npcb cre Selendris 2 10 1 6 4 3 2 4` (creates a female redhead Blood Elf mage npcbot)  
+        - `.npcbot createnew Selendris 8 10 1 6 4 3 2 4` (creates a female redhead Blood Elf mage npcbot)  
+        - `.npcb cre Selendris 8 10 1 6 4 3 2 4` (creates a female redhead Blood Elf mage npcbot)  
         - `.npcb createnew ranges` (prints visuals constraints for all races)  
 
 ### NPCBot Control and Usage
