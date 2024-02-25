@@ -42,6 +42,8 @@ This manual is created to officially state the purpose and explain the usage of 
 
 ---------------------------------------
 ## NPCBOTS
+NPCBots player manual is [available on youtube](https://www.youtube.com/watch?v=fByzoyl3rCY), by **QT Blue-AI**
+
 NPCBots are hireable pet-like minions (with some exceptions). You don't have full control over them, but you can tune their behavior in many ways. Bots will follow you around, buff you, defend you and help you in general. Their main purpose is to support players during their leveling although they can do dungeons and raids, but expect them being stupid in there
 
 Features of the NPCBots:  
