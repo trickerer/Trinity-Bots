@@ -622,9 +622,11 @@ If you tell your NPCBots to avoid frontal AOE they will try to position themselv
 `Engage behavior...` submenu is used to manage bots' behaviour when combat is initiated:
 ```
 - Delay attack by: X.XXs
+- Heal target health threshold: XX%
 - BACK
 ```
-Attack delay is time (in seconds) your `DPS` NPCBots will wait before they start attacking. **This does not apply to Tanks and Healers**
+Attack delay is time (in seconds) your `DPS` NPCBots will wait before they start attacking. **This does not apply to Tanks and Healers**  
+Heal threshold is a unit health percentage, friendly units at which or below will be considered a viable heal target for your NPCBot. This is a way to tell your DPS+Heal bots to not heal anyone unless it's *really* needed. This parameter is individual to each bot. **Only available to Healers**
 
 `Priority target (<Role>)...` allows you to set main target for each bot individually and by role:
 ```
