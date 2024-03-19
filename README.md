@@ -691,9 +691,10 @@ Mage NPCBots will give you:
 - I need food
 - I need drink
 - I need a refreshment table
+- I need a portal
 ```
 These options will summon a stack of food or drink for you  
-If your level is high enough, the mage NPCBot can summon a refreshment table
+If your level is high enough, the mage NPCBot can summon a refreshment table and portals for you and your group
 
 Warlock NPCBots will present the options:
 ```
