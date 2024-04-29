@@ -1,3 +1,5 @@
+DELETE FROM `creature_template_locale` WHERE `entry`=70595 AND `locale`='zhCN';
+INSERT INTO `creature_template_locale` (`entry`, `locale`, `Name`, `Title`, `VerifiedBuild`) VALUES (70595, 'zhCN', '蝗虫', '', NULL);
 DELETE FROM `creature_template_locale` WHERE `entry`=70594 AND `locale`='zhCN';
 INSERT INTO `creature_template_locale` (`entry`, `locale`, `Name`, `Title`, `VerifiedBuild`) VALUES (70594, 'zhCN', '腐尸甲虫', '', NULL);
 DELETE FROM `creature_template_locale` WHERE `entry`=70593 AND `locale`='zhCN';
