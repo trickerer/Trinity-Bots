@@ -1,6 +1,6 @@
 ### This mod was last updated:
-### TC: 25 May 2024, [e73202c832](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/e73202c832)
-### AC: 25 May 2024, [4a29e67b87](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/4a29e67b87)
+### TC: 09 Jun 2024, [6dcd836e4c](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/6dcd836e4c)
+### AC: 09 Jun 2024, [0dfc6383e7](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/0dfc6383e7)
 ### Update schedule: every Saturday 05:00 AM UTC+0
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
@@ -343,6 +343,12 @@ _ARGUMENT_  indicates argument names
         **Example Usage:**  
             - `.npcbot dump load bots_backup` (load from `bots_backup.sql`)  
             - `.npcb du l 1.txt` (load from `1.txt`)  
+- **`log`** (Admin command)  
+    - **`clear`** -- clears `characters_npcbot_logs` table (and resets autoincrement)  
+        - (No arguments)  
+        **Example Usage:**  
+            - `.npcbot log clear  
+            - `.npcb log c  
 - **`createnew <_NAME_> <_CLASS_> _RACE_ _GENDER_ _SKIN_ _FACE_ _HEARSTYLE_ _HAIRCOLOR_ _FEATURES_ _SOUNDSET_`** -- (Admin command) allows you to create new NPCBots for players to use. Creature ids 70800+ are used for that.  
     - _NAME_ = name of created NPCBot. Note that first letter will always be in Upper Case, *name_containing_spaces_must_be_underscored*  
     - _CLASS_ = this refers to NPCBot class. Use `.npcbot lookup` comand to list all available classes  
