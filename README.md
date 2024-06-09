@@ -310,12 +310,12 @@ _ARGUMENT_  indicates argument names
     **Example Usage:**  
         - `.npcbot vehicle eject`  
         - `.npcb veh e`  
-- **`go _ENTRY_`** -- (Admin command) allows you to teleport to NPCBot's current location, similar to `.appear` command for players. Be careful as this command may occasionally teleport you below ground level due to creature pathing errors  
+- **`go _ENTRY_`** -- (GM command) allows you to teleport to NPCBot's current location, similar to `.appear` command for players. Be careful as this command may occasionally teleport you below ground level due to creature pathing errors  
     - _ENTRY_ = creature ID  
     **Example Usage:**  
         - `.npcbot go 70855` (teleport to NPCBot 70855)  
         - `.npcb go 70855`  
-- **`wp`** -- (Admin command) a set of development commands for manipulating free-roaming bots wander points. If you wish to use them see the code  
+- **`wp`** -- (GM command) a set of development commands for manipulating free-roaming bots wander points. If you wish to use them see the code  
     - **`spawnall`**  
     - **`move`**  
     - **`add`**  
