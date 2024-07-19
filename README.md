@@ -759,7 +759,7 @@ If some config settings look ambiguous this section may be of help to you
 - **`NpcBot.NoDPSTargetIconMask`**
     - NPCBots will try to not damage these targets
 - **`Heal / Tank / DPS _TargetIconsMask` priorities**
-    - For every pointed target type priority goes from *Skull* (highest) to *Star* (lowest)
+    - For every pointed target type priority goes in reverse order of target icons list in right-click dropdown menu: from *Skull* (highest) to *Star* (lowest)
 - **`Heal / Tank / DPS _TargetIconsMask` intersections**
     - If there are any bitmask intersections between target icons (simply put, same icon is used, on accident or otherwise), these rules are applied:
         - Heal + DPS target **will not be protected** by taunting or attacking the attackers
