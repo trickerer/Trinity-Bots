@@ -1,6 +1,6 @@
 ### This mod was last updated:
-### TC: 10 Aug 2024, [065237db06](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/065237db06)
-### AC: 10 Aug 2024, [3d00d05f49](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/3d00d05f49)
+### TC: 17 Aug 2024, [18ac20d1ff](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/18ac20d1ff)
+### AC: 17 Aug 2024, [8b0b463de8](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/8b0b463de8)
 ### Update schedule: every Saturday 05:00 AM UTC+0
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
@@ -140,11 +140,15 @@ _ARGUMENT_  indicates argument names
         - `.npcbot add`  
         - `.npcb add`  
 - **`remove _TARGET_`** -- (GM command) dismisses the NPCBot(s) from player's control. **Any bot removed via this command retains its gear**  
-    - _TARGET_ = selected NPCBot (dismisses selected NPCBot)  
+    - _TARGET_ = selected active NPCBot (dismisses selected NPCBot)  
     - _TARGET_ = selected player (dismisses ALL NPCBots)  
     **Example Usage**:  
         - `.npcbot remove`  
         - `.npcb rem`  
+- **`free _TARGET_`** -- (GM command) frees selected NPCBot from player's ownership. **All gear will be unequipped and sent back to player, can be used on inactive NPCBot**  
+    - _TARGET_ = selected NPCBot (frees selected NPCBot)  
+    **Example Usage**:  
+        - `.npcbot free`  
 - **`spawn <_ENTRY_|_LINK_>`** -- (GM command) spawns a NPCBot in world, NPCBot is saved in DB. Only works in world maps (not instances). Note that unlike other creatures only one instance of each NPCBot can be spawned, but don't worry: there are many NPCBots to choose from  
     - _ENTRY_ = ID of NPCBot (can be obtained from lookup list)  
     - _LINK_ = creature_template link added by Shift-click (obtained from lookup list)  
