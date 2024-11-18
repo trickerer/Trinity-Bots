@@ -1,6 +1,6 @@
 ### This mod was last updated:
-### TC: 16 Nov 2024, [53a2ee4587](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/53a2ee4587)
-### AC: 16 Nov 2024, [d719c662fc](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/d719c662fc)
+### TC: 18 Nov 2024, [40a60fbac6](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/40a60fbac6)
+### AC: 18 Nov 2024, [862376f534](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/862376f534)
 ### Update schedule: every Saturday 05:00 AM UTC+0
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
@@ -15,6 +15,8 @@
 1. [Introduction](#introduction)
 2. [NPCBots](#npcbots)
     - [NPCBot Mod Installation](#npcbot-mod-installation)
+        - [TrinityCore](#trinitycore)
+        - [AzerothCore](#azerothcore)
     - [NPCBot Commands](#npcbot-commands)
     - [NPCBot Control and Usage](#npcbot-control-and-usage)
         - [NPCBot Getting Started](#npcbot-getting-started)
@@ -38,6 +40,8 @@
 
 ---------------------------------------
 ## Introduction
+NPCBots is a [TrinityCore](https://github.com/TrinityCore/TrinityCore/) 3.3.5/[AzerothCore](https://github.com/azerothcore/azerothcore-wotlk/) wotlk mod  
+
 This manual is created to officially state the purpose and explain the usage of NPCBot system
 
 
@@ -81,31 +85,54 @@ Features of the NPCBots:
 
 
 ### NPCBot Mod Installation
-NPCBots is a TrinityCore/AzerothCore mod (https://github.com/TrinityCore/TrinityCore/, https://github.com/azerothcore/azerothcore-wotlk/), only 3.3.5 branch is supported  
+#### TrinityCore
+- **Pre-patched repository is [here](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/)**. At the very beginning of this document you can find a link to its revision at a point where it was patched with the latest version of NPCBots. Clone it using
+  - `git clone https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots.git --depth 1`
+- If you still prefer to patch the core yourself, clone both TrinityCore and Trinity-Bots using
+  - `git clone https://github.com/TrinityCore/TrinityCore.git -b 3.3.5 --depth 1`
+  - `git clone https://github.com/trickerer/Trinity-Bots.git`
+- Installing NPCBots is not much different from clean install so regardless of the chosen installation method follow [TrinityCore Installation Guide](https://TrinityCore.info/) to install the server to the point before it asks you to run it
+- Now if you used a pre-patched repo jump to step `5`, otherwise keep on reading
 
-**Pre-patched repository available for TC and AC [here](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/) and [here](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/)**  
-If you still prefer the patch then keep on reading, otherwise clone the patched repo and jump to step 4  
+1. Copy `Trinity-Bots/NPCBots.patch` file to your `TrinityCore` folder
+2. Apply the patch using `patch -p1 < NPCBots.patch` command (`git apply NPCBots.path` may not work)
+3. Re-run CMake and re-build
+4. Merge worldserver.conf.dist into your worldserver.conf file (copy NPCBot mod settings)
+5. Apply NPCBot SQL files from `/TrinityCore/sql/Bots/` to your DB (`auth_`, `characters_` and `world_` go to `auth`, `characters` and `world` DB respectively) using whichever way you prefer:
+  - using `merge_sqls_...` shell scripts and **_only_** applying created `ALL_auth.sql`, `ALL_characters.sql` and `ALL_world.sql` files OR
+  - manually applying each SQL file in their name order:
+    - 1_world_bot_appearance.sql
+    - 2_world_bot_extras.sql
+    - 3_world_bots.sql
+    - 4_world_generate_bot_equips.sql
+    - 5_world_botgiver.sql
+    - characters_bots.sql
+    - updates from `/TrinityCore/sql/Bots/updates/<DB>/` for each DB
+6. Run the server
 
-At the very start of this document you can find a link for TrinityCore revision for the last version of NPCBots. There is no guarantee you will be able to apply the mod if you are using other version of TrinityCore  
-1. Follow TrinityCore Installation Guide (https://TrinityCore.info/) to install the server first  
-2. Download NPCBots.patch and put it into your TrinityCore folder  
-3. Apply the patch using `patch -p1 < NPCBots.patch` command (creating new files)  
-4. (Re)run CMake and (re)build  
-5. Merge worldserver.conf.dist into your worldserver.conf file (NPCBot mod settings)  
-6. Apply SQL files from `/TrinityCore/sql/Bots/` to your DB (files starting with `characters_` and `world_` go into your `characters` and `world` DB respectively):
-```
-1_world_bot_appearance.sql
-2_world_bot_extras.sql
-3_world_bots.sql
-4_world_generate_bot_equips.sql
-5_world_botgiver.sql
-characters_bots.sql
-```
-7. Apply SQL update files from `/TrinityCore/sql/Bots/updates` to your DB  
-```
-Hint: for fresh installation there are also shell scripts available for you to quickly merge all required SQL files into `ALL_auth.sql`, `ALL_chracters.sql` and `ALL_world.sql` to go to `auth`, `characters` and `world` DB respectively
-```
-And after that you are ready to go
+#### AzerothCore
+- **Pre-patched repository is [here](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/)**. At the very beginning of this document you can find a link to its revision at a point where it was patched with the latest version of NPCBots. Clone it using
+  - `git clone https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots.git --depth 1`
+- If you still prefer to patch the core yourself, clone both AzerothCore and Trinity-Bots using
+  - `git clone https://github.com/azerothcore/azerothcore-wotlk.git --depth 1`
+  - `git clone https://github.com/trickerer/Trinity-Bots.git`
+- Installing NPCBots is not much different from clean install so regardless of the chosen installation method follow [AzerothCore Installation Guide](https://azerothcore.org/wiki/installation) to install the server to the point before it asks you to run it
+- Now if you used a pre-patched repo jump to step `5`, otherwise keep on reading
+
+1. Copy `Trinity-Bots/AC/NPCBots.patch` file to your `azerothcore-wotlk` folder
+2. Apply the patch using `patch -p1 < NPCBots.patch` command (`git apply NPCBots.path` may not work)
+3. Re-run CMake and re-build
+4. Merge worldserver.conf.dist into your worldserver.conf file (copy NPCBot mod settings)
+5. **Only if `Updates.AutoSetup` is set to 0 in config or if your base DBs are already created**. Apply NPCBot base DB SQL files from `azerothcore-wotlk/data/sql/base/` to appropriate DBs:
+  - db_characters/characters_npcbot.sql
+  - db_characters/characters_npcbot_group_member.sql
+  - db_characters/characters_npcbot_stats.sql
+  - db_characters/characters_npcbot_transmog.sql
+  - db_world/creature_template_npcbot_appearance.sql
+  - db_world/creature_template_npcbot_extras.sql
+  - db_world/creature_template_outfits.sql
+6. **Only if `Updates.EnableDatabases` is set to 0 in config**. Apply NPCBot SQL updates from `/azerothcore-wotlk/data/sql/custom/` to your DB (`db_auth/`, `db_characters/` and `db_world/` SQL files go to `auth`, `characters` and `world` DB respectively) one by one
+7. Run the server
 
 ### NPCBot Commands
 First of all, to list your NPCBot's stats, use `/bonk` on them (Warning: big list)  
@@ -173,7 +200,7 @@ _ARGUMENT_  indicates argument names
         **Example Usage**:  
             - `.npcbot delete id 70032`  
             - `.npcb del id 70032`  
-    - free -- deletes **ALL** unowned NPCBots, usable from the console  
+    - free -- deletes **ALL** unowned NPCBots, all gear (if any) will be sent to the invoker GM for disposal  
         **Example Usage**:  
             - `.npcbot delete free`  
             - `.npcb del f`  
