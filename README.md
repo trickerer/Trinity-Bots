@@ -1,6 +1,6 @@
 ### This mod was last updated:
-### TC: 11 Jan 2025, [c39b35eb32](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/c39b35eb32)
-### AC: 11 Jan 2025, [f9e5113e17](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/f9e5113e17)
+### TC: 06 Apr 2025, [58b7a2957b](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/58b7a2957b)
+### AC: 06 Apr 2025, [a188c6a79f](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/a188c6a79f)
 ### Update schedule: every Saturday 05:00 AM UTC+0
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
@@ -758,9 +758,9 @@ Lastly, all NPCBots will have the following extra options:
 `Nevermind` will simply close out the Gossip menu
 
 ### NPCBot Wander System
-Besides main purpose which is to assist players, NPCBots can also be used as autonomous units. Wandering bots spawn with gear, but are free of player's control and cannot be hired. Here is a list of features supported:  
+Besides their main purpose which is to assist players, NPCBots can also be used as autonomous units. Wandering bots spawn with gear, but are free of player's control and cannot be hired. Here is a list of features supported:  
 1. Wandering bots in open world. Config setting **`NpcBot.WanderingBots.Continents.Count`** controls desired amount of bots roaming world maps. Spawn points are random and level is selected accordingly. These bots give small reward for kill and bonus experience. See the config file for more info.  
-2. Wandering bots generated for Battlegrounds. Enabled by **`NpcBot.WanderingBots.BG.Enable`** setting, this feature allows to generate NPCBots to fill BG queue and partake in BG matches themselves. Bots can't fulfill BG objectives currently. Only Warsong Gulch and Arathi Basin are implemented currently.  
+2. Wandering bots generated for Battlegrounds. Enabled by **`NpcBot.WanderingBots.BG.Enable`** setting, this feature allows to generate NPCBots to fill BG queue and partake in BG matches.  
 
 ### NPCBot Config Settings
 If some config settings look ambiguous this section may be of help to you
