@@ -1,6 +1,6 @@
 ### This mod was last updated:
-### TC: 13 Sep 2025, [1215bb282e](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/1215bb282e)
-### AC: 13 Sep 2025, [edb7e214a5](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/edb7e214a5)
+### TC: 26 Sep 2025, [65b9cab9f4](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/65b9cab9f4)
+### AC: 26 Sep 2025, [8ae95ae367](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/8ae95ae367)
 ### Update schedule: every Saturday 05:00 AM UTC+0
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
