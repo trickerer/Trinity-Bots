@@ -1026,6 +1026,9 @@ Bots are being added to world at server loading (after Map System is started)
 ### NPCBot Addons
 For current version (3.3.5) there is a [NetherBot](https://github.com/NetherstormX/NetherBot) addon by NetherstormX
 
+### For supporters
+**If you really, really want to support me, visit [this boosty page](https://boosty.to/bad3dart). Even the samallest donation will let me know I'm doing the right thing here.**
+
 ---------------------------------------
 ## Guide Changelog
 
