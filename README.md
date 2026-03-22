@@ -91,24 +91,19 @@ Features of the NPCBots:
 - If you still prefer to patch the core yourself, clone both TrinityCore and Trinity-Bots using
   - `git clone https://github.com/TrinityCore/TrinityCore.git -b 3.3.5 --depth 1`
   - `git clone https://github.com/trickerer/Trinity-Bots.git`
-- Installing NPCBots is not much different from clean install so regardless of the chosen installation method follow [TrinityCore Installation Guide](https://TrinityCore.info/) to install the server to the point before it asks you to run it
+- Installing NPCBots is not much different from clean install so regardless of the chosen installation method follow [TrinityCore Installation Guide](https://TrinityCore.info/) to install the server to the point where it asks you to run it
 - Now if you used a pre-patched repo jump to step `5`, otherwise keep on reading
 
 1. Copy `Trinity-Bots/NPCBots.patch` file to your `TrinityCore` folder
 2. Apply the patch using `patch -p1 < NPCBots.patch` command (`git apply NPCBots.path` may not work)
 3. Re-run CMake and re-build
 4. Merge worldserver.conf.dist into your worldserver.conf file (copy NPCBot mod settings)
-5. Apply NPCBot SQL files from `/TrinityCore/sql/Bots/` to your DB (`auth_`, `characters_` and `world_` go to `auth`, `characters` and `world` DB respectively) using whichever way you prefer:
-  - using `merge_sqls_...` shell scripts and **_only_** applying created `ALL_auth.sql`, `ALL_characters.sql` and `ALL_world.sql` files OR
-  - manually applying each SQL file in their name order:
-    - 1_world_bot_appearance.sql
-    - 2_world_bot_extras.sql
-    - 3_world_bots.sql
-    - 4_world_generate_bot_equips.sql
-    - 5_world_botgiver.sql
-    - characters_bots.sql
-    - updates from `/TrinityCore/sql/Bots/updates/<DB>/` for each DB
-6. Run the server
+5. **Only if `Updates.AutoSetup` is set to 0 in config or if your base DBs are already created**. Apply NPCBot base DB SQL files from `TrinityCore/sql/base/` to appropriate DBs:
+  - auth_npcbot.sql
+  - characters_npcbot.sql
+  - world_npcbot.sql
+6. **Only if `Updates.EnableDatabases` is set to 0 in config**. Apply NPCBot SQL updates from `/TrinityCore/sql/custom/` to your DB (`auth/`, `characters/` and `world/` SQL files go to `auth`, `characters` and `world` DB respectively) one by one
+7. Run the server
 
 #### AzerothCore
 - **Pre-patched repository is [here](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/)**. At the very beginning of this document you can find a link to its revision at a point where it was patched with the latest version of NPCBots. Clone it using
@@ -116,7 +111,7 @@ Features of the NPCBots:
 - If you still prefer to patch the core yourself, clone both AzerothCore and Trinity-Bots using
   - `git clone https://github.com/azerothcore/azerothcore-wotlk.git --depth 1`
   - `git clone https://github.com/trickerer/Trinity-Bots.git`
-- Installing NPCBots is not much different from clean install so regardless of the chosen installation method follow [AzerothCore Installation Guide](https://azerothcore.org/wiki/installation) to install the server to the point before it asks you to run it
+- Installing NPCBots is not much different from clean install so regardless of the chosen installation method follow [AzerothCore Installation Guide](https://azerothcore.org/wiki/installation) to install the server to the point where it asks you to run it
 - Now if you used a pre-patched repo jump to step `5`, otherwise keep on reading
 
 1. Copy `Trinity-Bots/AC/NPCBots.patch` file to your `azerothcore-wotlk` folder
