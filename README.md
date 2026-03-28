@@ -1,6 +1,6 @@
 ### This mod was last updated:
-### TC: 21 Mar 2026, [6a557448e5](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/6a557448e5)
-### AC: 21 Mar 2026, [3c85c1b1a9](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/3c85c1b1a9)
+### TC: 28 Mar 2026, [03da852488](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/03da852488)
+### AC: 28 Mar 2026, [7e53755b9f](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/7e53755b9f)
 ### Update schedule: every Saturday 05:00 AM UTC+0
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
@@ -228,10 +228,6 @@ _ARGUMENT_  indicates argument names
     **Example Usage:**  
         - `.npcbot revive`  
         - `.npcb rev`  
-- **`reloadconfig`** -- (GM command) reloads NPCBot system settings  
-    - (No arguments)  
-    **Example Usage:**  
-        - `.npcbot reloadconfig  
 - **`command`** -- (Player command) allows to manage your NPCBots positioning, movement and couple other things (by itself will display list of subcommands)  
     - **`follow _TARGET_`** -- set NPCBot(s) to FOLLOW mode  
         - **`only`** -- toggle INACTIVE mode for NPCBots. Inactive bots will not do anything but follow  
