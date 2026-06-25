@@ -1,6 +1,6 @@
 ### This mod was last updated:
-### TC: 13 Jun 2026, [739b49d256](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/739b49d256)
-### AC: 13 Jun 2026, [4b3516de61](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/4b3516de61)
+### TC: 25 Jun 2026, [7f22ca10e6](https://github.com/trickerer/TrinityCore-3.3.5-with-NPCBots/commit/7f22ca10e6)
+### AC: 25 Jun 2026, [919229bfca](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots/commit/919229bfca)
 ### Update schedule: every Saturday 05:00 AM UTC+0
 
 ### Have questions? Found a bug? [Issues](https://github.com/trickerer/Trinity-Bots/issues)
@@ -1009,13 +1009,14 @@ If you need to delete custom created NPCBot you need to first delete the bot fro
 If you need to remove NPCBot mod completely you need to first delete every spawned bot in the world (using `.npcbot delete` command). Then delete `characters_npcbot`, `characters_npcbot_group_member`, `characters_npcbot_transmog`, `characters_npcbot_gear_storage`, `creature_template_npcbot_extras`, `creature_template_npcbot_appearance` and `creature_template_npcbot_wander_nodes` tables and clean all other used tables of entries by id (70000-71000 + possibly more custom bot entries). `creature_template_outfits` can also be deleted if you are not using Npc Dress Mod
 
 #### Game World
-Bots are counted as active objects and keep map grids loaded like players
-Bots are being added to world at server loading (after Map System is started)
-
-#### Total number of bots included in fresh install: **312**
+- Bots are counted as active objects and keep map grids loaded like players  
+- Bots are being added to world at server loading (after Map System is started)
+- **Total number of bots included in fresh install: 312**
 
 ### NPCBot Addons
-For current version (3.3.5) there is a [NetherBot](https://github.com/NetherstormX/NetherBot) addon by NetherstormX
+- General commands wrapper: [NetherBot](https://github.com/NetherstormX/NetherBot) addon by NetherstormX  
+- Equipment management: [NBEM](https://github.com/Torrozin/mod-nbem-scan-and-npcboteqmanager) addon by Torrozin  
+- Addons by [Lleguito](https://github.com/LleguitoWoW?tab=repositories) (Warning: vibe coded)
 
 ### For supporters
 **If you really, really want to support me, visit [this boosty page](https://boosty.to/bad3dart). Even the samallest donation will let me know I'm doing the right thing here.**
