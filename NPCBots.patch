@@ -49,7 +49,7 @@
  src/server/game/AI/NpcBots/bot_Events.h            |    80 +
  src/server/game/AI/NpcBots/bot_GridNotifiers.h     |  1385 ++
  src/server/game/AI/NpcBots/bot_InstanceEvents.h    |    51 +
- src/server/game/AI/NpcBots/bot_ai.cpp              | 21473 +++++++++++++++++++
+ src/server/game/AI/NpcBots/bot_ai.cpp              | 21484 +++++++++++++++++++
  src/server/game/AI/NpcBots/bot_ai.h                |   869 +
  src/server/game/AI/NpcBots/bot_archmage_ai.cpp     |   391 +
  src/server/game/AI/NpcBots/bot_bm_ai.cpp           |   945 +
@@ -211,7 +211,7 @@
  src/server/shared/DataStores/DBCfmt.h              |     2 +-
  src/server/shared/SharedDefines.h                  |     7 +
  src/server/worldserver/worldserver.conf.dist       |   792 +
- 213 files changed, 99681 insertions(+), 284 deletions(-)
+ 213 files changed, 99692 insertions(+), 284 deletions(-)
  delete mode 100644 .circleci/config.yml
  create mode 100644 .github/workflows/clang-build.yml
  delete mode 100644 .github/workflows/issue-closer.yml
@@ -14029,10 +14029,10 @@ index 0000000000..4a7e02868b
 +#endif
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
 new file mode 100644
-index 0000000000..d3b3976db3
+index 0000000000..27014c8b15
 --- /dev/null
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -0,0 +1,21473 @@
+@@ -0,0 +1,21484 @@
 +#include "Battleground.h"
 +#include "BattlegroundAB.h"
 +#include "BattlegroundAV.h"
@@ -29526,7 +29526,7 @@ index 0000000000..d3b3976db3
 +//Unused
 +void bot_ai::_AddQuestLink(Player const* forPlayer, Quest const* quest, std::ostringstream &str) const
 +{
-+    std::string questTitle = quest->GetTitle();
++    std::string questTitle = quest->GetLogTitle();
 +    _LocalizeQuest(forPlayer, questTitle, quest->GetQuestId());
 +    str << "|cFFEFFD00|Hquest:" << quest->GetQuestId() << ':' << quest->GetQuestLevel() << "|h[" << questTitle << "]|h|r";
 +}
@@ -29648,9 +29648,9 @@ index 0000000000..d3b3976db3
 +    if (!questInfo)
 +        return;
 +
-+    if (questInfo->Title.size() > loc && !questInfo->Title[loc].empty())
++    if (questInfo->LogTitle.size() > loc && !questInfo->LogTitle[loc].empty())
 +    {
-+        const std::string title = questInfo->Title[loc];
++        const std::string title = questInfo->LogTitle[loc];
 +        if (Utf8FitTo(title, wnamepart))
 +            questTitle = title;
 +    }
@@ -30684,7 +30684,12 @@ index 0000000000..d3b3976db3
 +                me->InterruptNonMeleeSpells(false);
 +
 +            if (doCast(target, spell_id))
++            {
++                // bot could die via spell cast: action is garbage then!
++                if (!HasQueuedActions())
++                    break;
 +                CompleteAction(action);
++            }
 +            else
 +            {
 +                const bool cancel_now = action.GetTimeout() > now + 1s;
@@ -31809,12 +31814,18 @@ index 0000000000..d3b3976db3
 +        _OnManaUpdate();
 +    }
 +
++    if (actionsTimer <= diff)
++    {
++        _processQueuedActions();
++
++        //performing queued action could kill the bot
++        if (!me->IsAlive())
++            return false;
++    }
++
 +    // group update
 +    if (_groupUpdateTimer <= diff)
 +        SendUpdateToOutOfRangeBotGroupMembers();
-+
-+    if (actionsTimer <= diff)
-+        _processQueuedActions();
 +
 +    //if (me->HasInvisibilityAura() || me->HasStealthAura())
 +    //    return false;
@@ -92193,7 +92204,7 @@ index 0000000000..9b7e2d1173
 +
 +#endif
 diff --git a/src/server/game/AI/SmartScripts/SmartScript.cpp b/src/server/game/AI/SmartScripts/SmartScript.cpp
-index 26be776bae..e6a15f62c0 100644
+index 1e534057da..0146c70a7c 100644
 --- a/src/server/game/AI/SmartScripts/SmartScript.cpp
 +++ b/src/server/game/AI/SmartScripts/SmartScript.cpp
 @@ -294,6 +294,9 @@ void SmartScript::ProcessAction(SmartScriptHolder& e, Unit* unit, uint32 var0, u
@@ -97831,7 +97842,7 @@ index 662f8c6b0e..fbc345c409 100644
      uint32 _xp;
      bool _isFullXP;
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index e6d03d71dd..519a308fc9 100644
+index 39fa0fd72a..e3be4d2b26 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -113,6 +113,12 @@
@@ -98099,7 +98110,7 @@ index e6d03d71dd..519a308fc9 100644
              if (loot_type == LOOT_FISHING)
                  go->getFishLoot(loot, this);
              else if (loot_type == LOOT_FISHING_JUNK)
-@@ -17585,6 +17752,10 @@ bool Player::LoadFromDB(ObjectGuid guid, CharacterDatabaseQueryHolder const& hol
+@@ -17602,6 +17769,10 @@ bool Player::LoadFromDB(ObjectGuid guid, CharacterDatabaseQueryHolder const& hol
  
      _LoadEquipmentSets(holder.GetPreparedResult(PLAYER_LOGIN_QUERY_LOAD_EQUIPMENT_SETS));
  
@@ -98110,7 +98121,7 @@ index e6d03d71dd..519a308fc9 100644
      return true;
  }
  
-@@ -19292,6 +19463,12 @@ void Player::SaveToDB(CharacterDatabaseTransaction trans, bool create /* = false
+@@ -19309,6 +19480,12 @@ void Player::SaveToDB(CharacterDatabaseTransaction trans, bool create /* = false
      // save pet (hunter pet level and experience and all type pets health/mana).
      if (Pet* pet = GetPet())
          pet->SavePetToDB(PET_SAVE_AS_CURRENT);
@@ -98123,7 +98134,7 @@ index e6d03d71dd..519a308fc9 100644
  }
  
  // fast save function for item/money cheating preventing - save only inventory and money state
-@@ -21408,6 +21585,18 @@ bool Player::BuyItemFromVendorSlot(ObjectGuid vendorguid, uint32 vendorslot, uin
+@@ -21425,6 +21602,18 @@ bool Player::BuyItemFromVendorSlot(ObjectGuid vendorguid, uint32 vendorslot, uin
          return false;
      }
  
@@ -98142,7 +98153,7 @@ index e6d03d71dd..519a308fc9 100644
      if (!(pProto->GetAllowableClass() & GetClassMask()) && pProto->GetBonding() == BIND_WHEN_PICKED_UP && !IsGameMaster())
      {
          SendBuyError(BUY_ERR_CANT_FIND_ITEM, nullptr, item, 0);
-@@ -21682,6 +21871,10 @@ void Player::UpdatePvP(bool state, bool _override)
+@@ -21699,6 +21888,10 @@ void Player::UpdatePvP(bool state, bool _override)
          pvpInfo.EndTimer = GameTime::GetGameTime();
          SetPvP(state);
      }
@@ -98153,7 +98164,7 @@ index e6d03d71dd..519a308fc9 100644
  }
  
  void Player::UpdatePotionCooldown(Spell* spell)
-@@ -23560,6 +23753,11 @@ bool Player::isHonorOrXPTarget(Unit const* victim) const
+@@ -23577,6 +23770,11 @@ bool Player::isHonorOrXPTarget(Unit const* victim) const
  
      if (Creature const* creature = victim->ToCreature())
      {
@@ -98166,7 +98177,7 @@ index e6d03d71dd..519a308fc9 100644
              return false;
      }
 diff --git a/src/server/game/Entities/Player/Player.h b/src/server/game/Entities/Player/Player.h
-index f2472293ca..6a78163e78 100644
+index 994530a596..8422665538 100644
 --- a/src/server/game/Entities/Player/Player.h
 +++ b/src/server/game/Entities/Player/Player.h
 @@ -81,6 +81,10 @@ enum LootError : uint8;
@@ -98180,7 +98191,7 @@ index f2472293ca..6a78163e78 100644
  namespace WorldPackets
  {
      namespace Character
-@@ -2239,6 +2243,18 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
+@@ -2240,6 +2244,18 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
  
          std::string GetDebugInfo() const override;
  
@@ -98199,7 +98210,7 @@ index f2472293ca..6a78163e78 100644
      protected:
          // Gamemaster whisper whitelist
          GuidList WhisperList;
-@@ -2484,6 +2500,14 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
+@@ -2485,6 +2501,14 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
          bool m_needsZoneUpdate;
  
      private:
@@ -100163,7 +100174,7 @@ index e746cc0faf..2fafc2dbcc 100755
  
      Passenger->SendClearTarget();                            // SMSG_BREAK_TARGET
 diff --git a/src/server/game/Globals/ObjectMgr.cpp b/src/server/game/Globals/ObjectMgr.cpp
-index 84f70b86a2..fb0c7063bd 100644
+index 2993aba6be..e78dd47fcc 100644
 --- a/src/server/game/Globals/ObjectMgr.cpp
 +++ b/src/server/game/Globals/ObjectMgr.cpp
 @@ -57,6 +57,10 @@
@@ -100189,7 +100200,7 @@ index 84f70b86a2..fb0c7063bd 100644
      if (uint32 badFlags = (cInfo->flags_extra & ~CREATURE_FLAG_EXTRA_DB_ALLOWED))
      {
          TC_LOG_ERROR("sql.sql", "Table `creature_template` lists creature (Entry: {}) with disallowed `flags_extra` {}, removing incorrect flag.", cInfo->Entry, badFlags);
-@@ -8944,6 +8953,82 @@ SkillRangeType GetSkillRangeType(SkillRaceClassInfoEntry const* rcEntry)
+@@ -8947,6 +8956,82 @@ SkillRangeType GetSkillRangeType(SkillRaceClassInfoEntry const* rcEntry)
      return SKILL_RANGE_LEVEL;
  }
  
@@ -100272,7 +100283,7 @@ index 84f70b86a2..fb0c7063bd 100644
  void ObjectMgr::LoadGameTele()
  {
      uint32 oldMSTime = getMSTime();
-@@ -10182,6 +10267,18 @@ GameObjectOverride const* ObjectMgr::GetGameObjectOverride(ObjectGuid::LowType s
+@@ -10185,6 +10270,18 @@ GameObjectOverride const* ObjectMgr::GetGameObjectOverride(ObjectGuid::LowType s
  
  CreatureTemplate const* ObjectMgr::GetCreatureTemplate(uint32 entry) const
  {
@@ -104691,7 +104702,7 @@ index e19ce793b2..3121748ccd 100644
  char constexpr ItemExtendedCostEntryfmt[] = "niiiiiiiiiiiiiix";
  char constexpr ItemLimitCategoryEntryfmt[] = "nxxxxxxxxxxxxxxxxxii";
 diff --git a/src/server/shared/SharedDefines.h b/src/server/shared/SharedDefines.h
-index b8e2c24dbb..2475510828 100644
+index adc12f14c6..156d488ab6 100644
 --- a/src/server/shared/SharedDefines.h
 +++ b/src/server/shared/SharedDefines.h
 @@ -209,7 +209,14 @@ enum UnitClass
